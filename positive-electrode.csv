@@ -5,7 +5,7 @@ Name [units],Value,Reference,Notes
 Positive electrode conductivity [S.m-1],0.18,Chen 2020,
 Maximum concentration in positive electrode [mol.m-3],63104,Chen 2020,tuned for 1C
 Positive electrode diffusivity [m2.s-1],4E-15,Chen 2020,tuned for 1C
-Positive electrode OCP [V],[data]nmc_LGM50_ocp_Chen2020,Chen 2020,
+Positive electrode OCP [V],[data]input/parameters/lithium-ion/positive_electrodes/nmc_Chen2020/nmc_LGM50_ocp_Chen2020,Chen 2020,
 ,,,
 # Microstructure,,,
 Positive electrode porosity,0.335,Chen 2020,
@@ -24,6 +24,7 @@ Positive electrode exchange-current density [A.m-2],[function]nmc_LGM50_electrol
 ,,,
 # Density,,,
 Positive electrode density [kg.m-3],3262,default,
+Positive electrode thickness [m],100E-6,,
 ,,,
 # Thermal parameters,,,
 Positive electrode specific heat capacity [J.kg-1.K-1],700,default,

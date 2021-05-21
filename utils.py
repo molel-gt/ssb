@@ -1,9 +1,9 @@
 import csv
 import os
-import posixpath
+import numpy as np
 
 
-def load_all_params(params_groups=['positive-electrode', 'negative-electrode', 'solid-electrolyte']):
+def load_all_params(params_groups=['separator', 'experiment', 'positive-electrode', 'negative-electrode', 'solid-electrolyte']):
     """"""
     params = {}
     for params_group in params_groups:
@@ -20,13 +20,15 @@ def get_params(params_group):
 def read_params_file(params_group):
     """"""
     params = {}
-    print(params_group)
     with open(params_group + ".csv", "r") as fp:
         reader = csv.DictReader(fp)
         for row in reader:
             if row['Name [units]'].startswith("#") or row['Name [units]'] == '':
                 continue
-            params[row['Name [units]']] = row['Value']
+            value = row['Value']
+            if value == '':
+                value = np.nan
+            params[row['Name [units]']] = value
     
     return params
 
