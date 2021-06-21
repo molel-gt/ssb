@@ -36,15 +36,15 @@ def cation_transference_number(c_e, T):
     return 0.0107907 + 1.48837e-4 * c_e
 
 
-def open_circuit_potential(c_s_p):
-    return 2.7 + (R * T / F) * (-0.000558 * c_s_p + 8.10)
+def open_circuit_potential(c_s_surf_w):
+    return 2.7 + (R * T / F) * (-0.000558 * c_s_surf_w + 8.10)
 
 
 def current_function(t):
     """
     Current pulse for 10 minutes followed by 10-minute relaxation with no current.
     """
-    return 0.25 * (t % 1200 <= 600)
+    return 0.025 * (t % 1200 <= 600)
 
 
 if __name__ == '__main__':
@@ -55,26 +55,24 @@ if __name__ == '__main__':
     params.update(
         {
             "Cation transference number": cation_transference_number,
-            "Discharge capacity [A.h]": 50,
-            "EC diffusivity [m2.s-1]": 7.5e-12,
-            "EC initial concentration in electrolyte [mol.m-3]": 1000,
-            "Electrode cross-sectional area [m2]": 1e-4,
-            "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
+            "Discharge capacity [A.h]": 5,
+            "Electrode cross-sectional area [m2]": 1.0,
+            # "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
             "Faraday constant [C.mol-1]": 96485,
             "Initial concentration in electrolyte [mol.m-3]": 1000,
             "Lithium counter electrode exchange-current density [A.m-2]": 12.6,
             "Lithium counter electrode conductivity [S.m-1]": 1.0776e7,
             "Lithium counter electrode thickness [m]": 50e-6,
             "Lower voltage cut-off [V]": 1.7,
-            "Maximum concentration in the solid [mol.m-3]": 29000,
+            "Maximum concentration in positive electrode [mol.m-3]": 29000,
             "Molar gas constant [J.mol-1.K-1]": 8.314,
             "Positive electrode active material volume fraction": 0.65,
             "Positive electrode diffusivity [m2.s-1]": 5e-13,
-            "Positive electrode OCP [V]": open_circuit_potential,
+            # "Positive electrode OCP [V]": open_circuit_potential,
             'Positive electrode thickness [m]': 100e-06,
-            "Positive electrode porosity": 30e-2,
+            "Positive electrode porosity": 0.30,
             "Positive particle radius [m]": 1e-6,
-            "Separator porosity": 0.3,
+            "Separator porosity": 0.30,
             "Separator thickness [m]": 50e-6,
             "Temperature [K]": 373.15,
         },
@@ -98,18 +96,17 @@ if __name__ == '__main__':
         ]
     )
     sim = pybamm.Simulation(model=model, parameter_values=params)
-    sim.solve([0, 900])
+    sim.solve([0, 3600])
     sim.plot(
         [
-            "Working particle concentration [mol.m-3]",
-            "Electrolyte concentration [mol.m-3]",
             "Current [A]",
+            "Terminal voltage [V]",
+            "Working electrode open circuit potential [V]",
             "Working electrode potential [V]",
             "Electrolyte potential [V]",
-            "Total electrolyte concentration",
-            "Total lithium in working electrode [mol]",
-            "Working electrode open circuit potential [V]",
+            "Working particle concentration [mol.m-3]",
+            "Electrolyte concentration [mol.m-3]",
+            "X-averaged working particle surface concentration [mol.m-3]",
             "Lithium counter electrode exchange-current density [A.m-2]",
-            ["Terminal voltage [V]", "Voltage drop in the cell [V]"],
         ]
     )
