@@ -55,6 +55,7 @@ if __name__ == '__main__':
 
     params.update(
         {
+            "1 + dlnf/dlnc": 1.0,
             "Cation transference number": 0.75,
             "Discharge capacity [A.h]": 5,
             "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
