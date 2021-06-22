@@ -44,31 +44,30 @@ def current_function(t):
     """
     Current pulse for 10 minutes followed by 10-minute relaxation with no current.
     """
-    return 0.025 * (t % 1200 <= 600)
+    return 0.5 * (t % 1200 <= 600)
 
 
 if __name__ == '__main__':
+    
     # default parameters
     chemistry = pybamm.parameter_sets.Chen2020
     params = pybamm.ParameterValues(chemistry=chemistry)
 
     params.update(
         {
-            "Cation transference number": cation_transference_number,
+            "Cation transference number": 0.75,
             "Discharge capacity [A.h]": 5,
-            "Electrode cross-sectional area [m2]": 1.0,
-            # "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
+            "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
             "Faraday constant [C.mol-1]": 96485,
             "Initial concentration in electrolyte [mol.m-3]": 1000,
             "Lithium counter electrode exchange-current density [A.m-2]": 12.6,
             "Lithium counter electrode conductivity [S.m-1]": 1.0776e7,
             "Lithium counter electrode thickness [m]": 50e-6,
-            "Lower voltage cut-off [V]": 1.7,
             "Maximum concentration in positive electrode [mol.m-3]": 29000,
             "Molar gas constant [J.mol-1.K-1]": 8.314,
             "Positive electrode active material volume fraction": 0.65,
+            "Positive electrode conductivity [S.m-1]": 1e4,
             "Positive electrode diffusivity [m2.s-1]": 5e-13,
-            # "Positive electrode OCP [V]": open_circuit_potential,
             'Positive electrode thickness [m]': 100e-06,
             "Positive electrode porosity": 0.30,
             "Positive particle radius [m]": 1e-6,
@@ -95,11 +94,13 @@ if __name__ == '__main__':
             ),
         ]
     )
-    sim = pybamm.Simulation(model=model, parameter_values=params)
+
+    safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
+    sim = pybamm.Simulation(model=model, parameter_values=params, solver=safe_solver)
     sim.solve([0, 3600])
     sim.plot(
         [
-            "Current [A]",
+            "Current density [A.m-2]",
             "Terminal voltage [V]",
             "Working electrode open circuit potential [V]",
             "Working electrode potential [V]",
@@ -108,5 +109,7 @@ if __name__ == '__main__':
             "Electrolyte concentration [mol.m-3]",
             "X-averaged working particle surface concentration [mol.m-3]",
             "Lithium counter electrode exchange-current density [A.m-2]",
-        ]
+        ],
+        time_unit="seconds",
+        spatial_unit="um",
     )
