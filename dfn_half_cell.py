@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
 import pybamm
-import matplotlib.pyplot as plt
-import numpy as np
 
 
 T = pybamm.Parameter("Temperature [K]")
@@ -42,13 +40,14 @@ def open_circuit_potential(c_s_surf_w):
 
 def current_function(t):
     """
-    Current pulse for 10 minutes followed by 10-minute relaxation with no current.
+    Current pulse for 10 minutes followed by 10-minute relaxation
+    with no current.
     """
     return 0.5 * (t % 1200 <= 600)
 
 
 if __name__ == '__main__':
-    
+
     # default parameters
     chemistry = pybamm.parameter_sets.Chen2020
     params = pybamm.ParameterValues(chemistry=chemistry)
@@ -59,6 +58,7 @@ if __name__ == '__main__':
             "Cation transference number": 0.75,
             "Discharge capacity [A.h]": 5,
             "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
+            "Electrolyte conductivity [S.m-1]": 0.18,
             "Faraday constant [C.mol-1]": 96485,
             "Initial concentration in electrolyte [mol.m-3]": 1000,
             "Lithium counter electrode exchange-current density [A.m-2]": 12.6,
@@ -97,7 +97,8 @@ if __name__ == '__main__':
     )
 
     safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
-    sim = pybamm.Simulation(model=model, parameter_values=params, solver=safe_solver)
+    sim = pybamm.Simulation(model=model, parameter_values=params,
+                            solver=safe_solver)
     sim.solve([0, 3600])
     sim.save("/home/lesh/ssb/dfn-half-cell.pickle")
     sim.plot(
@@ -108,7 +109,7 @@ if __name__ == '__main__':
             [
                 "Working electrode open circuit potential [V]",
                 "Working electrode potential [V]",
-                ],
+            ],
             "Electrolyte potential [V]",
             "Flux in electrolyte [mol.m-2.s-1]",
             "Working particle surface concentration [mol.m-3]",
