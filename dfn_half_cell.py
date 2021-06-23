@@ -100,7 +100,7 @@ if __name__ == '__main__':
     sim = pybamm.Simulation(model=model, parameter_values=params,
                             solver=safe_solver)
     sim.solve([0, 3600])
-    sim.save("/home/lesh/ssb/dfn-half-cell.pickle")
+
     sim.plot(
         [
             "Current density [A.m-2]",
