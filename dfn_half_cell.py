@@ -66,13 +66,13 @@ if __name__ == '__main__':
             "Lithium counter electrode thickness [m]": 50e-6,
             "Maximum concentration in positive electrode [mol.m-3]": 29000,
             "Molar gas constant [J.mol-1.K-1]": 8.314,
-            "Positive electrode active material volume fraction": 0.65,
+            "Positive electrode active material volume fraction": 0.675,
             "Positive electrode conductivity [S.m-1]": 1e4,
             "Positive electrode diffusivity [m2.s-1]": 5e-13,
             'Positive electrode thickness [m]': 100e-06,
             "Positive electrode porosity": 0.30,
             "Positive particle radius [m]": 1e-6,
-            "Separator porosity": 0.30,
+            "Separator porosity": 1,
             "Separator thickness [m]": 50e-6,
             "Temperature [K]": 373.15,
         },
@@ -99,17 +99,19 @@ if __name__ == '__main__':
     safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
     sim = pybamm.Simulation(model=model, parameter_values=params, solver=safe_solver)
     sim.solve([0, 3600])
+    sim.save("/home/lesh/ssb/dfn-half-cell.pickle")
     sim.plot(
         [
             "Current density [A.m-2]",
             "Terminal voltage [V]",
-            "Working electrode open circuit potential [V]",
-            "Working electrode potential [V]",
-            "Electrolyte potential [V]",
-            "Working particle concentration [mol.m-3]",
             "Electrolyte concentration [mol.m-3]",
-            "X-averaged working particle surface concentration [mol.m-3]",
-            "Lithium counter electrode exchange-current density [A.m-2]",
+            [
+                "Working electrode open circuit potential [V]",
+                "Working electrode potential [V]",
+                ],
+            "Electrolyte potential [V]",
+            "Flux in electrolyte [mol.m-2.s-1]",
+            "Working particle surface concentration [mol.m-3]",
         ],
         time_unit="seconds",
         spatial_unit="um",
