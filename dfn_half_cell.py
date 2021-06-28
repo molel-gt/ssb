@@ -43,7 +43,7 @@ def current_function(t):
     Current pulse for 10 minutes followed by 10-minute relaxation
     with no current.
     """
-    return 0.5 * (t % 1200 <= 600)
+    return 0.5 * (t % 14400 <= 3600) - 0.5 * (t % 14400 >= 7200) * (t % 14400 <= 10800)
 
 
 if __name__ == '__main__':
@@ -60,21 +60,22 @@ if __name__ == '__main__':
             "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
             "Electrolyte conductivity [S.m-1]": 0.18,
             "Faraday constant [C.mol-1]": 96485,
-            "Initial concentration in electrolyte [mol.m-3]": 1000,
+            "Initial concentration in electrolyte [mol.m-3]": 1500,
             "Lithium counter electrode exchange-current density [A.m-2]": 12.6,
             "Lithium counter electrode conductivity [S.m-1]": 1.0776e7,
             "Lithium counter electrode thickness [m]": 50e-6,
-            "Maximum concentration in positive electrode [mol.m-3]": 29000,
+            "Maximum concentration in positive electrode [mol.m-3]": 23720,
             "Molar gas constant [J.mol-1.K-1]": 8.314,
             "Positive electrode active material volume fraction": 0.675,
-            "Positive electrode conductivity [S.m-1]": 1e4,
-            "Positive electrode diffusivity [m2.s-1]": 5e-13,
+            "Positive electrode conductivity [S.m-1]": 1e3,
+            "Positive electrode diffusivity [m2.s-1]": 1e-13,
+            "Positive electrode exchange-current density [A.m-2]": 13.1,
             'Positive electrode thickness [m]': 100e-06,
-            "Positive electrode porosity": 0.30,
-            "Positive particle radius [m]": 1e-6,
-            "Separator porosity": 1,
+            "Positive electrode porosity": 0.4,
+            "Positive particle radius [m]": 2e-6,
+            "Separator porosity": 0.9,
             "Separator thickness [m]": 50e-6,
-            "Temperature [K]": 373.15,
+            "Temperature [K]": 353.15,
         },
         check_already_exists=False,
     )
@@ -99,7 +100,8 @@ if __name__ == '__main__':
     safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
     sim = pybamm.Simulation(model=model, parameter_values=params,
                             solver=safe_solver)
-    sim.solve([0, 3600])
+    sim.solve([0, 3600 * 12 - 1e-4])
+    sim.save("dfn-half-cell.pickle")
 
     sim.plot(
         [
@@ -111,9 +113,13 @@ if __name__ == '__main__':
                 "Working electrode potential [V]",
             ],
             "Electrolyte potential [V]",
-            "Flux in electrolyte [mol.m-2.s-1]",
-            "Working particle surface concentration [mol.m-3]",
+            # "Flux in electrolyte [mol.m-2.s-1]",
+            "Total electrolyte concentration [mol]",
+            "Total lithium in working electrode [mol]",
+            # "Working particle surface concentration [mol.m-3]",
+            # "Working particle concentration [mol.m-3]",
+            "Current density divergence [A.m-3]",
         ],
-        time_unit="seconds",
+        time_unit="hours",
         spatial_unit="um",
     )
