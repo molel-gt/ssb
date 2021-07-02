@@ -43,7 +43,7 @@ def current_function(t):
     Current pulse for 10 minutes followed by 10-minute relaxation
     with no current.
     """
-    return 0.5 * (t % 14400 <= 3600) - 0.5 * (t % 14400 >= 7200) * (t % 14400 <= 10800)
+    return 0.7e-3 * (t % 14400 <= 3600) - 0.7e-3 * (t % 14400 >= 7200) * (t % 14400 <= 10800)
 
 
 if __name__ == '__main__':
@@ -57,6 +57,8 @@ if __name__ == '__main__':
             "1 + dlnf/dlnc": 1.0,
             "Cation transference number": 0.75,
             "Discharge capacity [A.h]": 5,
+            "Electrode height [m]": 1e-2,
+            "Electrode width [m]": 1e-2,
             "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
             "Electrolyte conductivity [S.m-1]": 0.18,
             "Faraday constant [C.mol-1]": 96485,
@@ -73,9 +75,11 @@ if __name__ == '__main__':
             'Positive electrode thickness [m]': 100e-06,
             "Positive electrode porosity": 0.4,
             "Positive particle radius [m]": 2e-6,
-            "Separator porosity": 0.9,
+            "Separator porosity": 1.0,
             "Separator thickness [m]": 50e-6,
             "Temperature [K]": 353.15,
+            "Lower cut-off voltage [V]": 1.1,
+            "Upper cut-off voltage [V]": 4.3,
         },
         check_already_exists=False,
     )
@@ -100,7 +104,7 @@ if __name__ == '__main__':
     safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
     sim = pybamm.Simulation(model=model, parameter_values=params,
                             solver=safe_solver)
-    sim.solve([0, 3600 * 12 - 1e-4])
+    sim.solve([0, 3600 * 30])
     sim.save("dfn-half-cell.pickle")
 
     sim.plot(
@@ -118,7 +122,7 @@ if __name__ == '__main__':
             "Total lithium in working electrode [mol]",
             # "Working particle surface concentration [mol.m-3]",
             # "Working particle concentration [mol.m-3]",
-            "Current density divergence [A.m-3]",
+            # "Current density divergence [A.m-3]",
         ],
         time_unit="hours",
         spatial_unit="um",
