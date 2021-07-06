@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 import pybamm
-
+import numpy as np
+import matplotlib.pyplot as plt
 
 T = pybamm.Parameter("Temperature [K]")
 R = pybamm.Parameter("Molar gas constant [J.mol-1.K-1]")
@@ -43,7 +44,7 @@ def current_function(t):
     Current pulse for 10 minutes followed by 10-minute relaxation
     with no current.
     """
-    return 0.7e-3 * (t % 14400 <= 3600) - 0.7e-3 * (t % 14400 >= 7200) * (t % 14400 <= 10800)
+    return 0.7e-3 * (t % 7200 <= 3600) * (t < 3600 * 16) - 0.35e-3 * (t % 7200 <= 3600) * (t >= 3600 * 16)
 
 
 if __name__ == '__main__':
@@ -54,32 +55,29 @@ if __name__ == '__main__':
 
     params.update(
         {
-            "1 + dlnf/dlnc": 1.0,
-            "Cation transference number": 0.75,
-            "Discharge capacity [A.h]": 5,
+            # "1 + dlnf/dlnc": 1.0,
+            "Cation transference number": 0.99,
+            # "Discharge capacity [A.h]": 5,
             "Electrode height [m]": 1e-2,
             "Electrode width [m]": 1e-2,
-            "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
-            "Electrolyte conductivity [S.m-1]": 0.18,
+            # "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
+            # "Electrolyte conductivity [S.m-1]": 0.18,
             "Faraday constant [C.mol-1]": 96485,
-            "Initial concentration in electrolyte [mol.m-3]": 1500,
+            # "Initial concentration in electrolyte [mol.m-3]": 1500,
             "Lithium counter electrode exchange-current density [A.m-2]": 12.6,
             "Lithium counter electrode conductivity [S.m-1]": 1.0776e7,
             "Lithium counter electrode thickness [m]": 50e-6,
-            "Maximum concentration in positive electrode [mol.m-3]": 23720,
+            # "Maximum concentration in positive electrode [mol.m-3]": 23720,
             "Molar gas constant [J.mol-1.K-1]": 8.314,
-            "Positive electrode active material volume fraction": 0.675,
-            "Positive electrode conductivity [S.m-1]": 1e3,
-            "Positive electrode diffusivity [m2.s-1]": 1e-13,
-            "Positive electrode exchange-current density [A.m-2]": 13.1,
+            # "Positive electrode active material volume fraction": 0.675,
+            # "Positive electrode conductivity [S.m-1]": 1e3,
+            # "Positive electrode diffusivity [m2.s-1]": 1e-13,
+            # "Positive electrode exchange-current density [A.m-2]": 13.1,
             'Positive electrode thickness [m]': 100e-06,
-            "Positive electrode porosity": 0.4,
-            "Positive particle radius [m]": 2e-6,
+            "Positive electrode porosity": 0.3,
+            "Positive particle radius [m]": 1e-6,
             "Separator porosity": 1.0,
             "Separator thickness [m]": 50e-6,
-            "Temperature [K]": 353.15,
-            "Lower cut-off voltage [V]": 1.1,
-            "Upper cut-off voltage [V]": 4.3,
         },
         check_already_exists=False,
     )
@@ -104,7 +102,14 @@ if __name__ == '__main__':
     safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
     sim = pybamm.Simulation(model=model, parameter_values=params,
                             solver=safe_solver)
-    sim.solve([0, 3600 * 30])
+    t_eval = np.linspace(0, 3600 * 45, 1000)
+    sim.solve(t_eval)
+
+    # voltage = sim.solution["Terminal voltage [V]"].data
+    # utilization = sim.solution["X-averaged working particle surface concentration"].data
+    # plt.plot(utilization, voltage)
+    # plt.show()
+
     sim.save("dfn-half-cell.pickle")
 
     sim.plot(
@@ -117,9 +122,9 @@ if __name__ == '__main__':
                 "Working electrode potential [V]",
             ],
             "Electrolyte potential [V]",
+            "Terminal power [W]",
+            "Pore-wall flux [mol.m-2.s-1]",
             # "Flux in electrolyte [mol.m-2.s-1]",
-            "Total electrolyte concentration [mol]",
-            "Total lithium in working electrode [mol]",
             # "Working particle surface concentration [mol.m-3]",
             # "Working particle concentration [mol.m-3]",
             # "Current density divergence [A.m-3]",
