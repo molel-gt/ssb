@@ -4,39 +4,10 @@ import pybamm
 import numpy as np
 import matplotlib.pyplot as plt
 
-T = pybamm.Parameter("Temperature [K]")
-R = pybamm.Parameter("Molar gas constant [J.mol-1.K-1]")
-F = pybamm.Parameter("Faraday constant [C.mol-1]")
 
 options = {
-    'operating mode': 'current',
-    'dimensionality': 0,
-    'surface form': 'false',
-    'convection': 'none',
-    'current collector': 'uniform',
-    'particle': 'Fickian diffusion',
-    'particle shape': 'spherical',
-    'electrolyte conductivity': 'default',
-    'thermal': 'isothermal',
-    'cell geometry': 'arbitrary',
-    'external submodels': [], 'SEI': 'none',
-    'lithium plating': 'none',
-    'SEI porosity change': 'false',
-    'lithium plating porosity change': 'false',
-    'loss of active material': 'none',
     'working electrode': 'positive',
-    'particle mechanics': 'none',
-    'total interfacial current density as a state': 'false',
-    'SEI film resistance': 'none'
     }
-
-
-def cation_transference_number(c_e, T):
-    return 0.0107907 + 1.48837e-4 * c_e
-
-
-def open_circuit_potential(c_s_surf_w):
-    return 2.7 + (R * T / F) * (-0.000558 * c_s_surf_w + 8.10)
 
 
 def current_function(t):
@@ -55,26 +26,18 @@ if __name__ == '__main__':
 
     params.update(
         {
-            # "1 + dlnf/dlnc": 1.0,
+            "1 + dlnf/dlnc": 1.0,
             "Cation transference number": 0.99,
-            # "Discharge capacity [A.h]": 5,
             "Electrode height [m]": 1e-2,
             "Electrode width [m]": 1e-2,
-            # "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
-            # "Electrolyte conductivity [S.m-1]": 0.18,
-            "Faraday constant [C.mol-1]": 96485,
-            # "Initial concentration in electrolyte [mol.m-3]": 1500,
+            "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
             "Lithium counter electrode exchange-current density [A.m-2]": 12.6,
             "Lithium counter electrode conductivity [S.m-1]": 1.0776e7,
             "Lithium counter electrode thickness [m]": 50e-6,
-            # "Maximum concentration in positive electrode [mol.m-3]": 23720,
-            "Molar gas constant [J.mol-1.K-1]": 8.314,
-            # "Positive electrode active material volume fraction": 0.675,
-            # "Positive electrode conductivity [S.m-1]": 1e3,
-            # "Positive electrode diffusivity [m2.s-1]": 1e-13,
-            # "Positive electrode exchange-current density [A.m-2]": 13.1,
+            "Positive electrode active material volume fraction": 0.55,
+            "Positive electrode diffusivity [m2.s-1]": 1e-13,
             'Positive electrode thickness [m]': 100e-06,
-            "Positive electrode porosity": 0.3,
+            "Positive electrode porosity": 0.45,
             "Positive particle radius [m]": 1e-6,
             "Separator porosity": 1.0,
             "Separator thickness [m]": 50e-6,
@@ -102,13 +65,13 @@ if __name__ == '__main__':
     safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
     sim = pybamm.Simulation(model=model, parameter_values=params,
                             solver=safe_solver)
-    t_eval = np.linspace(0, 3600 * 45, 1000)
+    t_eval = np.linspace(0, 3600 * 5, 1000)
     sim.solve(t_eval)
 
-    # voltage = sim.solution["Terminal voltage [V]"].data
-    # utilization = sim.solution["X-averaged working particle surface concentration"].data
-    # plt.plot(utilization, voltage)
-    # plt.show()
+    voltage = sim.solution["Terminal voltage [V]"].data
+    utilization = sim.solution["X-averaged working particle surface concentration"].data
+    plt.plot(utilization, voltage)
+    plt.show()
 
     sim.save("dfn-half-cell.pickle")
 
@@ -124,11 +87,12 @@ if __name__ == '__main__':
             "Electrolyte potential [V]",
             "Terminal power [W]",
             "Pore-wall flux [mol.m-2.s-1]",
+            "Flux [mol.m-2.s-1]",
             # "Flux in electrolyte [mol.m-2.s-1]",
             # "Working particle surface concentration [mol.m-3]",
             # "Working particle concentration [mol.m-3]",
             # "Current density divergence [A.m-3]",
         ],
-        time_unit="hours",
+        time_unit="seconds",
         spatial_unit="um",
     )
