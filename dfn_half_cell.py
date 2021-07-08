@@ -15,7 +15,7 @@ def current_function(t):
     Current pulse for 10 minutes followed by 10-minute relaxation
     with no current.
     """
-    return 0.7e-3 * (t % 7200 <= 3600) * (t < 3600 * 16) - 0.35e-3 * (t % 7200 <= 3600) * (t >= 3600 * 16)
+    return 0.70e-3 * (t % 72000 <= 18000) - 0.35e-3 * (t % 72000 > 36000) * (t % 72000 <= 54000)
 
 
 if __name__ == '__main__':
@@ -65,13 +65,8 @@ if __name__ == '__main__':
     safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
     sim = pybamm.Simulation(model=model, parameter_values=params,
                             solver=safe_solver)
-    t_eval = np.linspace(0, 3600 * 5, 1000)
+    t_eval = np.linspace(0, 3600 * 15, 1000)
     sim.solve(t_eval)
-
-    voltage = sim.solution["Terminal voltage [V]"].data
-    utilization = sim.solution["X-averaged working particle surface concentration"].data
-    plt.plot(utilization, voltage)
-    plt.show()
 
     sim.save("dfn-half-cell.pickle")
 
@@ -85,14 +80,14 @@ if __name__ == '__main__':
                 "Working electrode potential [V]",
             ],
             "Electrolyte potential [V]",
-            "Terminal power [W]",
+            "Specific power [W.m-2]",
             "Pore-wall flux [mol.m-2.s-1]",
             "Flux [mol.m-2.s-1]",
             # "Flux in electrolyte [mol.m-2.s-1]",
             # "Working particle surface concentration [mol.m-3]",
-            # "Working particle concentration [mol.m-3]",
+            "Working particle concentration [mol.m-3]",
             # "Current density divergence [A.m-3]",
         ],
-        time_unit="seconds",
+        time_unit="hours",
         spatial_unit="um",
     )
