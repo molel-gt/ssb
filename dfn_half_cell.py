@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import os
+
 import pybamm
 import numpy as np
 import matplotlib.pyplot as plt
@@ -27,7 +29,7 @@ if __name__ == '__main__':
     params.update(
         {
             "1 + dlnf/dlnc": 1.0,
-            "Cation transference number": 0.99,
+            "Cation transference number": 1 - 1e-23,
             "Electrode height [m]": 1e-2,
             "Electrode width [m]": 1e-2,
             "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
@@ -48,8 +50,6 @@ if __name__ == '__main__':
     params["Initial concentration in negative electrode [mol.m-3]"] = 1000
     params["Current function [A]"] = current_function
 
-    model = pybamm.lithium_ion.BasicDFNHalfCell(options=options)
-
     experiment = pybamm.Experiment(
         [
             (
@@ -62,32 +62,53 @@ if __name__ == '__main__':
         ]
     )
 
-    safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
-    sim = pybamm.Simulation(model=model, parameter_values=params,
-                            solver=safe_solver)
     t_eval = np.linspace(0, 3600 * 15, 1000)
-    sim.solve(t_eval)
+    cam_lengths = [100e-6, 200e-6, 300e-6, 400e-6]
+    cam_vol_fracs = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+    # sims = []
+    # for length in cam_lengths:
+    #     for cam_vol_frac in cam_vol_fracs:
+    #         file_name = "L{}PHI{}.pkl".format(str(int(length * 1e6)), str(cam_vol_frac).replace(".", ""))
+    #         params["Positive electrode thickness [m]"] = length
+    #         params["Positive electrode active material volume fraction"] = cam_vol_frac
+    #         params["Positive electrode porosity"] = 1 - cam_vol_frac
+    #         model = pybamm.lithium_ion.BasicDFNHalfCell(options=options)
+    #         safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
+    #         sim = pybamm.Simulation(model=model, parameter_values=params,
+    #                                 solver=safe_solver)
+    #         sim.solve(t_eval)
+    #         sim.save(file_name)
+    #         sims.append(file_name)
+    fig, ax = plt.subplots()
+    sims = [f for f in os.listdir(".") if f.startswith("L1")]
+    for file_name in sims:
+        sim = pybamm.load(file_name)
+        time = sim.solution["Time [s]"].data
+        terminal_voltage = sim.solution["Terminal voltage [V]"].data
+        ax.plot(time, terminal_voltage, label=file_name)
+    ax.legend()
+    plt.grid()
+    plt.show()
 
-    sim.save("dfn-half-cell.pickle")
-
-    sim.plot(
-        [
-            "Current density [A.m-2]",
-            "Terminal voltage [V]",
-            "Electrolyte concentration [mol.m-3]",
-            [
-                "Working electrode open circuit potential [V]",
-                "Working electrode potential [V]",
-            ],
-            "Electrolyte potential [V]",
-            "Specific power [W.m-2]",
-            "Pore-wall flux [mol.m-2.s-1]",
-            "Flux [mol.m-2.s-1]",
-            # "Flux in electrolyte [mol.m-2.s-1]",
-            # "Working particle surface concentration [mol.m-3]",
-            "Working particle concentration [mol.m-3]",
-            # "Current density divergence [A.m-3]",
-        ],
-        time_unit="hours",
-        spatial_unit="um",
-    )
+# sim = pybamm.load("L100.pkl")
+    # sim.plot(
+    #     [
+    #         "Current density [A.m-2]",
+    #         "Terminal voltage [V]",
+    #         "Electrolyte concentration [mol.m-3]",
+    #         [
+    #             "Working electrode open circuit potential [V]",
+    #             "Working electrode potential [V]",
+    #         ],
+    #         "Electrolyte potential [V]",
+    #         "Specific power [W.m-2]",
+    #         "Pore-wall flux [mol.m-2.s-1]",
+    #         # "Flux [mol.m-2.s-1]",
+    #         # "Flux in electrolyte [mol.m-2.s-1]",
+    #         # "Working particle surface concentration [mol.m-3]",
+    #         "Working particle concentration [mol.m-3]",
+    #         # "Current density divergence [A.m-3]",
+    #     ],
+    #     time_unit="hours",
+    #     spatial_unit="um",
+    # )
