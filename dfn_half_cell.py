@@ -23,7 +23,7 @@ if __name__ == '__main__':
     params.update(
         {
             "1 + dlnf/dlnc": 1.0,
-            "Cation transference number": 1 - 1e-23,
+            "Cation transference number": 1,
             "Electrode height [m]": 1e-2,
             "Electrode width [m]": 1e-2,
             # "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
