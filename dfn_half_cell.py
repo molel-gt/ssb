@@ -94,7 +94,7 @@ if __name__ == '__main__':
                 params["Positive electrode thickness [m]"] = length
                 params["Positive electrode active material volume fraction"] = cam_vol_frac
                 params["Positive electrode porosity"] = 1 - cam_vol_frac
-            model = pybamm.lithium_ion.BasicDFNHalfCell(name=file_name, options=options)
+            model = pybamm.lithium_ion.BasicDFNHalfCell(name=file_name.replace(".pkl", ""), options=options)
             safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
             sim = pybamm.Simulation(model=model, parameter_values=params,
                                     solver=safe_solver)
