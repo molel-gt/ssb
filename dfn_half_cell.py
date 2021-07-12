@@ -6,18 +6,11 @@ import pybamm
 import numpy as np
 import matplotlib.pyplot as plt
 
+pybamm.set_logging_level("INFO")
 
 options = {
     'working electrode': 'positive',
     }
-
-
-def current_function(t):
-    """
-    Current pulse for 10 minutes followed by 10-minute relaxation
-    with no current.
-    """
-    return 0.70e-3 * (t % 72000 <= 18000) - 0.35e-3 * (t % 72000 > 36000) * (t % 72000 <= 54000)
 
 
 if __name__ == '__main__':
@@ -32,15 +25,15 @@ if __name__ == '__main__':
             "Cation transference number": 1 - 1e-23,
             "Electrode height [m]": 1e-2,
             "Electrode width [m]": 1e-2,
-            "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
+            # "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
             "Lithium counter electrode exchange-current density [A.m-2]": 12.6,
             "Lithium counter electrode conductivity [S.m-1]": 1.0776e7,
             "Lithium counter electrode thickness [m]": 50e-6,
-            "Positive electrode active material volume fraction": 0.55,
-            "Positive electrode diffusivity [m2.s-1]": 1e-13,
-            'Positive electrode thickness [m]': 100e-06,
-            "Positive electrode porosity": 0.45,
-            "Positive particle radius [m]": 1e-6,
+            # "Positive electrode active material volume fraction": 0.55,
+            # "Positive electrode diffusivity [m2.s-1]": 1e-13,
+            'Positive electrode thickness [m]': 100e-6,
+            # "Positive electrode porosity": 0.45,
+            # "Positive particle radius [m]": 1e-6,
             "Separator porosity": 1.0,
             "Separator thickness [m]": 50e-6,
         },
@@ -48,7 +41,7 @@ if __name__ == '__main__':
     )
 
     params["Initial concentration in negative electrode [mol.m-3]"] = 1000
-    params["Current function [A]"] = current_function
+    params["Current function [A]"] = 7e-3
 
     experiment = pybamm.Experiment(
         [
@@ -62,9 +55,14 @@ if __name__ == '__main__':
         ]
     )
 
-    t_eval = np.linspace(0, 3600 * 15, 1000)
+    t_eval = np.linspace(0, 7200, 1000)
     cam_lengths = [100e-6, 200e-6, 300e-6, 400e-6]
     cam_vol_fracs = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+    # model = pybamm.lithium_ion.BasicDFNHalfCell(options=options)
+    # safe_solver = pybamm.CasadiSolver(atol=1e-6, rtol=1e-3, mode="safe")
+    # sim = pybamm.Simulation(model=model, parameter_values=params,
+    #                         solver=safe_solver)
+    # sim.solve(t_eval)
     sims = []
     for length in cam_lengths:
         for cam_vol_frac in cam_vol_fracs:
@@ -80,7 +78,7 @@ if __name__ == '__main__':
             sim.save(file_name)
             sims.append(file_name)
     fig, ax = plt.subplots()
-    sims = [f for f in os.listdir(".") if f.startswith("L1")]
+    sims = [f for f in os.listdir(".") if f.startswith("L3")]
     for file_name in sims:
         sim = pybamm.load(file_name)
         time = sim.solution["Time [s]"].data
@@ -90,25 +88,27 @@ if __name__ == '__main__':
     plt.grid()
     plt.show()
 
-# sim = pybamm.load("L100.pkl")
-    # sim.plot(
-    #     [
-    #         "Current density [A.m-2]",
-    #         "Terminal voltage [V]",
-    #         "Electrolyte concentration [mol.m-3]",
-    #         [
-    #             "Working electrode open circuit potential [V]",
-    #             "Working electrode potential [V]",
-    #         ],
-    #         "Electrolyte potential [V]",
-    #         "Specific power [W.m-2]",
-    #         "Pore-wall flux [mol.m-2.s-1]",
-    #         # "Flux [mol.m-2.s-1]",
-    #         # "Flux in electrolyte [mol.m-2.s-1]",
-    #         # "Working particle surface concentration [mol.m-3]",
-    #         "Working particle concentration [mol.m-3]",
-    #         # "Current density divergence [A.m-3]",
-    #     ],
-    #     time_unit="hours",
-    #     spatial_unit="um",
-    # )
+    sim = pybamm.load("L300PHI05.pkl")
+    sim.plot(
+        [
+            "Current density [A.m-2]",
+            "Terminal voltage [V]",
+            "Electrolyte concentration [mol.m-3]",
+            [
+                "Working electrode open circuit potential [V]",
+                "Working electrode potential [V]",
+            ],
+            "Electrolyte potential [V]",
+            "Specific power [W.m-2]",
+            "Pore-wall flux [mol.m-2.s-1]",
+            # "Flux [mol.m-2.s-1]",
+            # "Flux in electrolyte [mol.m-2.s-1]",
+            # "Working particle surface concentration [mol.m-3]",
+            "Working particle concentration [mol.m-3]",
+            # "Current density divergence [A.m-3]",
+            "Ratio of electrolyte transport and discharge timescales",
+            "Ratio of solid diffusion and discharge timescales",
+        ],
+        time_unit="seconds",
+        spatial_unit="um",
+    )
