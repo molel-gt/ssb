@@ -13,6 +13,40 @@ options = {
     'working electrode': 'positive',
     }
 
+current_function = 2e-3
+
+experiment = pybamm.Experiment(
+    [
+        (
+            "Discharge at C/10 for 10 hours or until 3.5 V",
+            "Rest for 1 hour",
+            "Charge at 1 A until 4.1 V",
+            "Hold at 4.1 V until 50 mA",
+            "Rest for 1 hour"
+        ),
+    ]
+)
+
+output_variables = [
+    "Current density [A.m-2]",
+    "Terminal voltage [V]",
+    "Electrolyte concentration [mol.m-3]",
+    [
+        "Working electrode open circuit potential [V]",
+        "Working electrode potential [V]",
+    ],
+    "Electrolyte potential [V]",
+    "Specific power [W.m-2]",
+    "Pore-wall flux [mol.m-2.s-1]",
+    # "Flux [mol.m-2.s-1]",
+    # "Flux in electrolyte [mol.m-2.s-1]",
+    # "Working particle surface concentration [mol.m-3]",
+    # "Working particle concentration [mol.m-3]",
+    # "Current density divergence [A.m-3]",
+    "Ratio of electrolyte transport and discharge timescales",
+    "Ratio of solid diffusion and discharge timescales",
+]
+
 
 if __name__ == '__main__':
 
@@ -42,19 +76,7 @@ if __name__ == '__main__':
     )
 
     params["Initial concentration in negative electrode [mol.m-3]"] = 1000
-    params["Current function [A]"] = 2e-3
-
-    experiment = pybamm.Experiment(
-        [
-            (
-                "Discharge at C/10 for 10 hours or until 3.5 V",
-                "Rest for 1 hour",
-                "Charge at 1 A until 4.1 V",
-                "Hold at 4.1 V until 50 mA",
-                "Rest for 1 hour"
-            ),
-        ]
-    )
+    params["Current function [A]"] = current_function
 
     # Study variables
     t_eval = np.linspace(0, 20000, 1000)
@@ -64,7 +86,7 @@ if __name__ == '__main__':
     #
     # Conduct study
     #
-    sims = []
+    all_sim_files = []
     for length in cam_lengths:
         for cam_vol_frac in cam_vol_fracs:
             file_name = "L{}PHI{}.pkl".format(str(int(length * 1e6)), str(cam_vol_frac).replace(".", ""))
@@ -72,48 +94,18 @@ if __name__ == '__main__':
                 params["Positive electrode thickness [m]"] = length
                 params["Positive electrode active material volume fraction"] = cam_vol_frac
                 params["Positive electrode porosity"] = 1 - cam_vol_frac
-            model = pybamm.lithium_ion.BasicDFNHalfCell(options=options)
+            model = pybamm.lithium_ion.BasicDFNHalfCell(name=file_name, options=options)
             safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
             sim = pybamm.Simulation(model=model, parameter_values=params,
                                     solver=safe_solver)
             sim.solve(t_eval)
             sim.save(file_name)
-            sims.append(file_name)
+            all_sim_files.append(file_name)
 
-    # Plot terminal voltage profiles
-    fig, ax = plt.subplots()
-    sims = [f for f in os.listdir(".") if f.startswith("L4") and f.endswith(".pkl")]
+    sim_files = [f for f in os.listdir(".") if f.startswith("L3") and f.endswith(".pkl")]
 
-    for file_name in sims:
-        sim = pybamm.load(file_name)
-        time = sim.solution["Time [s]"].data
-        terminal_voltage = sim.solution["Terminal voltage [V]"].data
-        ax.plot(time, terminal_voltage, label=file_name)
-    ax.legend()
-    plt.grid()
-    plt.show()
-
-    sim = pybamm.load("L100PHI07.pkl")
-    sim.plot(
-        [
-            "Current density [A.m-2]",
-            "Terminal voltage [V]",
-            "Electrolyte concentration [mol.m-3]",
-            [
-                "Working electrode open circuit potential [V]",
-                "Working electrode potential [V]",
-            ],
-            "Electrolyte potential [V]",
-            "Specific power [W.m-2]",
-            "Pore-wall flux [mol.m-2.s-1]",
-            # "Flux [mol.m-2.s-1]",
-            # "Flux in electrolyte [mol.m-2.s-1]",
-            # "Working particle surface concentration [mol.m-3]",
-            "Working particle concentration [mol.m-3]",
-            # "Current density divergence [A.m-3]",
-            "Ratio of electrolyte transport and discharge timescales",
-            "Ratio of solid diffusion and discharge timescales",
-        ],
-        time_unit="seconds",
-        spatial_unit="um",
-    )
+    sims = []
+    for sim_file in sim_files:
+        sim = pybamm.load(sim_file)
+        sims.append(sim)
+    pybamm.dynamic_plot(sims, output_variables=output_variables, time_unit="seconds", spatial_unit="um")
