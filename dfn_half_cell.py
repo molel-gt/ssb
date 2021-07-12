@@ -65,20 +65,20 @@ if __name__ == '__main__':
     t_eval = np.linspace(0, 3600 * 15, 1000)
     cam_lengths = [100e-6, 200e-6, 300e-6, 400e-6]
     cam_vol_fracs = [0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
-    # sims = []
-    # for length in cam_lengths:
-    #     for cam_vol_frac in cam_vol_fracs:
-    #         file_name = "L{}PHI{}.pkl".format(str(int(length * 1e6)), str(cam_vol_frac).replace(".", ""))
-    #         params["Positive electrode thickness [m]"] = length
-    #         params["Positive electrode active material volume fraction"] = cam_vol_frac
-    #         params["Positive electrode porosity"] = 1 - cam_vol_frac
-    #         model = pybamm.lithium_ion.BasicDFNHalfCell(options=options)
-    #         safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
-    #         sim = pybamm.Simulation(model=model, parameter_values=params,
-    #                                 solver=safe_solver)
-    #         sim.solve(t_eval)
-    #         sim.save(file_name)
-    #         sims.append(file_name)
+    sims = []
+    for length in cam_lengths:
+        for cam_vol_frac in cam_vol_fracs:
+            file_name = "L{}PHI{}.pkl".format(str(int(length * 1e6)), str(cam_vol_frac).replace(".", ""))
+            params["Positive electrode thickness [m]"] = length
+            params["Positive electrode active material volume fraction"] = cam_vol_frac
+            params["Positive electrode porosity"] = 1 - cam_vol_frac
+            model = pybamm.lithium_ion.BasicDFNHalfCell(options=options)
+            safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
+            sim = pybamm.Simulation(model=model, parameter_values=params,
+                                    solver=safe_solver)
+            sim.solve(t_eval)
+            sim.save(file_name)
+            sims.append(file_name)
     fig, ax = plt.subplots()
     sims = [f for f in os.listdir(".") if f.startswith("L1")]
     for file_name in sims:
