@@ -13,8 +13,6 @@ options = {
     'working electrode': 'positive',
 }
 
-current_function = 2e-3
-
 experiment = pybamm.Experiment(
     [
         (
@@ -36,7 +34,7 @@ output_variables = [
         "Working electrode potential [V]",
     ],
     "Electrolyte potential [V]",
-    "Specific power [W.m-2]",
+    "Instantaneous power [W.m-2]",
     "Pore-wall flux [mol.m-2.s-1]",
 ]
 
@@ -69,10 +67,10 @@ if __name__ == '__main__':
     )
 
     params["Initial concentration in negative electrode [mol.m-3]"] = 1000
-    params["Current function [A]"] = current_function
+    params["Current function [A]"] = 5e-3
 
     # Study variables
-    t_eval = np.linspace(0, 20000, 1000)
+    t_eval = np.linspace(0, 10800, 1000)
     cam_lengths = [100e-6, 200e-6, 300e-6, 400e-6]
     cam_vol_fracs = [0.2, 0.3, 0.5, 0.7, 0.8]
 
@@ -95,7 +93,7 @@ if __name__ == '__main__':
             sim.solve(t_eval)
             sim.save(file_name + ".pkl")
 
-    sim_files = [f for f in os.listdir(".") if f.startswith("L3") and f.endswith(".pkl")]
+    sim_files = [f for f in os.listdir(".") if f.startswith("L4") and f.endswith(".pkl")]
 
     sims = []
     for sim_file in sim_files:
