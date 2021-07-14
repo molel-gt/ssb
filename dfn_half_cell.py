@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
+
 import os
 
 import pybamm
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider
+
 
 pybamm.set_logging_level("INFO")
 
 options = {
     'working electrode': 'positive',
-    }
+}
 
 current_function = 2e-3
 
@@ -38,13 +38,6 @@ output_variables = [
     "Electrolyte potential [V]",
     "Specific power [W.m-2]",
     "Pore-wall flux [mol.m-2.s-1]",
-    # "Flux [mol.m-2.s-1]",
-    # "Flux in electrolyte [mol.m-2.s-1]",
-    # "Working particle surface concentration [mol.m-3]",
-    # "Working particle concentration [mol.m-3]",
-    # "Current density divergence [A.m-3]",
-    "Ratio of electrolyte transport and discharge timescales",
-    "Ratio of solid diffusion and discharge timescales",
 ]
 
 
@@ -81,7 +74,7 @@ if __name__ == '__main__':
     # Study variables
     t_eval = np.linspace(0, 20000, 1000)
     cam_lengths = [100e-6, 200e-6, 300e-6, 400e-6]
-    cam_vol_fracs = [params["Positive electrode active material volume fraction"], 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
+    cam_vol_fracs = [0.2, 0.3, 0.5, 0.7, 0.8]
 
     #
     # Conduct study
@@ -89,18 +82,18 @@ if __name__ == '__main__':
     all_sim_files = []
     for length in cam_lengths:
         for cam_vol_frac in cam_vol_fracs:
-            file_name = "L{}PHI{}.pkl".format(str(int(length * 1e6)), str(cam_vol_frac).replace(".", ""))
+            file_name = "L{}PHI{}".format(str(int(length * 1e6)),
+                                              str(cam_vol_frac).replace(".", ""))
             if cam_vol_frac != "":
                 params["Positive electrode thickness [m]"] = length
                 params["Positive electrode active material volume fraction"] = cam_vol_frac
                 params["Positive electrode porosity"] = 1 - cam_vol_frac
-            model = pybamm.lithium_ion.BasicDFNHalfCell(name=file_name.replace(".pkl", ""), options=options)
+            model = pybamm.lithium_ion.BasicDFNHalfCell(name=file_name, options=options)
             safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
             sim = pybamm.Simulation(model=model, parameter_values=params,
                                     solver=safe_solver)
             sim.solve(t_eval)
-            sim.save(file_name)
-            all_sim_files.append(file_name)
+            sim.save(file_name + ".pkl")
 
     sim_files = [f for f in os.listdir(".") if f.startswith("L3") and f.endswith(".pkl")]
 
@@ -108,4 +101,5 @@ if __name__ == '__main__':
     for sim_file in sim_files:
         sim = pybamm.load(sim_file)
         sims.append(sim)
-    pybamm.dynamic_plot(sims, output_variables=output_variables, time_unit="seconds", spatial_unit="um")
+    pybamm.dynamic_plot(sims, output_variables=output_variables,
+                        time_unit="seconds", spatial_unit="um")
