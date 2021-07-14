@@ -70,7 +70,7 @@ if __name__ == '__main__':
     params["Current function [A]"] = 5e-3
 
     # Study variables
-    t_eval = np.linspace(0, 10800, 1000)
+    t_eval = np.linspace(0, 36000, 1000)
     cam_lengths = [100e-6, 200e-6, 300e-6, 400e-6]
     cam_vol_fracs = [0.2, 0.3, 0.5, 0.7, 0.8]
 
