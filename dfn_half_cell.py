@@ -36,6 +36,7 @@ output_variables = [
     "Electrolyte potential [V]",
     "Instantaneous power [W.m-2]",
     "Pore-wall flux [mol.m-2.s-1]",
+    "Working particle surface concentration [mol.m-3]",
 ]
 
 
@@ -51,27 +52,29 @@ if __name__ == '__main__':
             "Cation transference number": 1,
             "Electrode height [m]": 1e-2,
             "Electrode width [m]": 1e-2,
+            "Electrolyte conductivity [S.m-1]": 0.32,
             # "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
             "Lithium counter electrode exchange-current density [A.m-2]": 12.6,
             "Lithium counter electrode conductivity [S.m-1]": 1.0776e7,
             "Lithium counter electrode thickness [m]": 50e-6,
             # "Positive electrode active material volume fraction": 0.55,
+            # "Positive electrode conductivity [S.m-1]": 14,
             # "Positive electrode diffusivity [m2.s-1]": 1e-13,
-            'Positive electrode thickness [m]': 100e-6,
+            # 'Positive electrode thickness [m]': 100e-6,
             # "Positive electrode porosity": 0.45,
-            # "Positive particle radius [m]": 1e-6,
+            "Positive particle radius [m]": 1e-6,
             "Separator porosity": 1.0,
             "Separator thickness [m]": 50e-6,
         },
         check_already_exists=False,
     )
 
-    params["Initial concentration in negative electrode [mol.m-3]"] = 1000
-    params["Current function [A]"] = 5e-3
+    # params["Initial concentration in negative electrode [mol.m-3]"] = 1000
+    params["Current function [A]"] = 10e-3
 
     # Study variables
     t_eval = np.linspace(0, 36000, 1000)
-    cam_lengths = [100e-6, 200e-6, 300e-6, 400e-6]
+    cam_lengths = [100e-6, 200e-6, 300e-6, 400e-6, 600e-6, 1000e-6]
     cam_vol_fracs = [0.2, 0.3, 0.5, 0.7, 0.8]
 
     #
@@ -93,7 +96,7 @@ if __name__ == '__main__':
             sim.solve(t_eval)
             sim.save(file_name + ".pkl")
 
-    sim_files = [f for f in os.listdir(".") if f.endswith("7.pkl")]
+    sim_files = [f for f in os.listdir(".") if f.startswith("L1000") and f.endswith(".pkl")]
 
     sims = []
     for sim_file in sim_files:
