@@ -5,6 +5,7 @@ import os
 
 import pybamm
 import numpy as np
+import scipy.integrate as integrate
 
 
 pybamm.set_logging_level("INFO")
@@ -52,14 +53,14 @@ if __name__ == '__main__':
             "Cation transference number": 1,
             "Electrode height [m]": 1e-2,
             "Electrode width [m]": 1e-2,
-            "Electrolyte conductivity [S.m-1]": 0.32,
-            # "Electrolyte diffusivity [m2.s-1]": 7.5e-12,
+            "Electrolyte conductivity [S.m-1]": 1.0,
+            "Electrolyte diffusivity [m2.s-1]": 5e-12,
             "Lithium counter electrode exchange-current density [A.m-2]": 12.6,
             "Lithium counter electrode conductivity [S.m-1]": 1.0776e7,
             "Lithium counter electrode thickness [m]": 50e-6,
             # "Positive electrode active material volume fraction": 0.55,
             # "Positive electrode conductivity [S.m-1]": 14,
-            # "Positive electrode diffusivity [m2.s-1]": 1e-13,
+            "Positive electrode diffusivity [m2.s-1]": 5e-13,
             # 'Positive electrode thickness [m]': 100e-6,
             # "Positive electrode porosity": 0.45,
             "Positive particle radius [m]": 1e-6,
@@ -96,11 +97,15 @@ if __name__ == '__main__':
             sim.solve(t_eval)
             sim.save(file_name + ".pkl")
 
-    sim_files = [f for f in os.listdir(".") if f.startswith("L1000") and f.endswith(".pkl")]
+    sim_files = [f for f in os.listdir(".") if f.startswith("L100P") and f.endswith(".pkl")]
 
     sims = []
+    print(params["Electrolyte diffusivity [m2.s-1]"],
+          params["Positive electrode diffusivity [m2.s-1]"],
+          params["Positive electrode conductivity [S.m-1]"])
     for sim_file in sim_files:
         sim = pybamm.load(sim_file)
+        print(sim_file, "{:,}".format(integrate.simps(sim.solution["Instantaneous power [W.m-2]"].data, sim.solution["Time [s]"].data)))
         sims.append(sim)
     pybamm.dynamic_plot(sims, output_variables=output_variables,
                         time_unit="seconds", spatial_unit="um")
