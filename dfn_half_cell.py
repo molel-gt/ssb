@@ -75,7 +75,7 @@ if __name__ == '__main__':
 
     # Study variables
     t_eval = np.linspace(0, 36000, 1000)
-    cam_lengths = [100e-6, 200e-6, 300e-6, 400e-6, 600e-6, 1000e-6]
+    cam_lengths = [100e-6, 200e-6, 300e-6, 400e-6, 600e-6, 1000e-6, 5000e-6]
     cam_vol_fracs = [0.2, 0.3, 0.5, 0.7, 0.8]
 
     #
