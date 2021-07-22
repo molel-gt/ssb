@@ -119,11 +119,11 @@ if __name__ == '__main__':
                 writer.writerow(row)
                 sims.append(sim)
 
-    select_sims = []
+    select_sims = [sim for sim in sims in sim.name.endswith("8")]
 
-    sim_files = [f for f in os.listdir(".") if f.startswith("L2") or f.startswith("L3") or f.startswith("L4") or f.startswith("L6") and f.endswith("8.pkl")]
-    for sim_file in sim_files:
-        sim = pybamm.load(sim_file)
-        select_sims.append(sim)
+    # sim_files = [f for f in os.listdir(".") if f.startswith("L2") or f.startswith("L3") or f.startswith("L4") or f.startswith("L6") and f.endswith("8.pkl")]
+    # for sim_file in sim_files:
+    #     sim = pybamm.load(sim_file)
+    #     select_sims.append(sim)
     pybamm.dynamic_plot(select_sims, output_variables=output_variables,
                         time_unit="hours", spatial_unit="um")
