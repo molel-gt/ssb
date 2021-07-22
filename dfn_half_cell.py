@@ -97,7 +97,7 @@ if __name__ == '__main__':
             sim.solve(t_eval)
             sim.save(file_name + ".pkl")
 
-    sim_files = [f for f in os.listdir(".") if f.startswith("L100P") and f.endswith(".pkl")]
+    sim_files = [f for f in os.listdir(".") if f.startswith("L") and f.endswith("7.pkl")]
 
     sims = []
     print(params["Electrolyte diffusivity [m2.s-1]"],
