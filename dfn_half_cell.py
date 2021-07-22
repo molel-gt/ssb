@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 
+import csv
 import os
 
 import pybamm
@@ -41,6 +42,15 @@ output_variables = [
 ]
 
 
+# some densities
+rho_cam = 2300  # NCM811 [kg.m-3]
+rho_sse = 2254  # LSPS [kg.m-3]
+mass_res = rho_sse * 50E-6  # residual mass of cell that is not cathode or separator [kg.m-2] 
+col_names = ["porosity", "sep length [m]", "cat length [m]", "mass res [kg.m-2]",
+            "mass of cell [kg.m-2]", "energy of cell [Wh.m-2]", "cell energy density [Wh.kg-1]"]
+L_sep = 50E-6
+
+
 if __name__ == '__main__':
 
     # default parameters
@@ -65,7 +75,7 @@ if __name__ == '__main__':
             # "Positive electrode porosity": 0.45,
             "Positive particle radius [m]": 1e-6,
             "Separator porosity": 1.0,
-            "Separator thickness [m]": 50e-6,
+            "Separator thickness [m]": L_sep,
         },
         check_already_exists=False,
     )
@@ -81,31 +91,39 @@ if __name__ == '__main__':
     #
     # Conduct study
     #
-    all_sim_files = []
-    for length in cam_lengths:
-        for cam_vol_frac in cam_vol_fracs:
-            file_name = "L{}PHI{}".format(str(int(length * 1e6)),
+    sims = []
+
+    with open("study.csv", "w") as fp:
+        writer = csv.DictWriter(fp, fieldnames=col_names)
+        writer.writeheader()
+        for length in cam_lengths:
+            for cam_vol_frac in cam_vol_fracs:
+                file_name = "L{}PHI{}".format(str(int(length * 1e6)),
                                               str(cam_vol_frac).replace(".", ""))
-            if cam_vol_frac != "":
                 params["Positive electrode thickness [m]"] = length
                 params["Positive electrode active material volume fraction"] = cam_vol_frac
                 params["Positive electrode porosity"] = 1 - cam_vol_frac
-            model = pybamm.lithium_ion.BasicDFNHalfCell(name=file_name, options=options)
-            safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
-            sim = pybamm.Simulation(model=model, parameter_values=params,
-                                    solver=safe_solver)
-            sim.solve(t_eval)
-            sim.save(file_name + ".pkl")
+                model = pybamm.lithium_ion.BasicDFNHalfCell(name=file_name, options=options)
+                safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
+                sim = pybamm.Simulation(model=model, parameter_values=params,
+                                        solver=safe_solver)
+                sim.solve(t_eval)
+                sim.save(file_name + ".pkl")
+                mass_cell = mass_res + rho_sse * (L_sep + (1 - cam_vol_frac) * length) + rho_cam * cam_vol_frac * length
+                energy = integrate.simps(sim.solution["Instantaneous power [W.m-2]"].data, sim.solution["Time [s]"].data) / 3600
+                row = {
+                    "porosity": 1 - cam_vol_frac, "sep length [m]": L_sep, "cat length [m]": length,
+                    "mass res [kg.m-2]": mass_res, "mass of cell [kg.m-2]": mass_cell, 
+                    "energy of cell [Wh.m-2]": energy, "cell energy density [Wh.kg-1]": energy / mass_cell
+                }
+                writer.writerow(row)
+                sims.append(sim)
 
-    sim_files = [f for f in os.listdir(".") if f.startswith("L") and f.endswith("7.pkl")]
+    select_sims = []
 
-    sims = []
-    print(params["Electrolyte diffusivity [m2.s-1]"],
-          params["Positive electrode diffusivity [m2.s-1]"],
-          params["Positive electrode conductivity [S.m-1]"])
+    sim_files = [f for f in os.listdir(".") if f.startswith("L2") or f.startswith("L3") or f.startswith("L4") or f.startswith("L6") and f.endswith("8.pkl")]
     for sim_file in sim_files:
         sim = pybamm.load(sim_file)
-        print(sim_file, "{:,}".format(integrate.simps(sim.solution["Instantaneous power [W.m-2]"].data, sim.solution["Time [s]"].data)))
-        sims.append(sim)
-    pybamm.dynamic_plot(sims, output_variables=output_variables,
-                        time_unit="seconds", spatial_unit="um")
+        select_sims.append(sim)
+    pybamm.dynamic_plot(select_sims, output_variables=output_variables,
+                        time_unit="hours", spatial_unit="um")
