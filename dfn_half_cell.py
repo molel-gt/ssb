@@ -94,7 +94,7 @@ if __name__ == '__main__':
             params["Current function [A]"] = current_function
             for length in cam_lengths:
                 for cam_vol_frac in cam_vol_fracs:
-                    file_name = "L{}CD{}PHI{}".format(str(int(length * 1e6)), int(current_function * 1e4),
+                    file_name = "L{}CD{}PHI{}".format(str(int(length * 1e6)), str(current_function * 1e4).strip("0."),
                                                   str(cam_vol_frac).replace(".", ""))
                     params["Positive electrode thickness [m]"] = length
                     params["Positive electrode active material volume fraction"] = cam_vol_frac
