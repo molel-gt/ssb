@@ -31,9 +31,9 @@ output_variables = [
     "Current density [A.m-2]",
     "Terminal voltage [V]",
     "Instantaneous power [W.m-2]",
+    "Electrolyte potential [V]",
     "Working particle surface concentration [mol.m-3]",
     "Electrolyte concentration [mol.m-3]",
-    "Electrolyte potential [V]",
     "Pore-wall flux [mol.m-2.s-1]",
 ]
 
@@ -43,7 +43,8 @@ rho_cam = 2300  # NCM811 [kg.m-3]
 rho_sse = 2254  # LSPS [kg.m-3]
 mass_res = rho_sse * 50E-6  # residual mass of cell that is not cathode or separator [kg.m-2] 
 col_names = ["porosity", "sep length [m]", "cat length [m]", "mass res [kg.m-2]",
-            "mass of cell [kg.m-2]", "energy of cell [Wh.m-2]", "cell energy density [Wh.kg-1]"]
+            "mass of cell [kg.m-2]", "energy of cell [Wh.m-2]", "cell energy density [Wh.kg-1]",
+             "avg power density [W.kg-1]", "current density [A.m-2]"]
 L_sep = 50E-6
 
 
@@ -76,41 +77,45 @@ if __name__ == '__main__':
         check_already_exists=False,
     )
 
-    params["Current function [A]"] = 10e-3
-
     # Study variables
-    t_eval = np.linspace(0, 36000, 1000)
+    t_eval = np.linspace(0, 50000, 1000)
     cam_lengths = [50e-6, 100e-6, 200e-6, 300e-6, 400e-6, 600e-6, 1000e-6, 5000e-6]
     cam_vol_fracs = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    current_functions = [0.001e-3, 0.01e-3, 0.01e-3, 0.1e-3, 1e-3, 10e-3]
 
     #
     # Conduct study
     #
-
+    #
     with open("study.csv", "w") as fp:
         writer = csv.DictWriter(fp, fieldnames=col_names)
         writer.writeheader()
-        for length in cam_lengths:
-            for cam_vol_frac in cam_vol_fracs:
-                file_name = "L{}PHI{}".format(str(int(length * 1e6)),
-                                              str(cam_vol_frac).replace(".", ""))
-                params["Positive electrode thickness [m]"] = length
-                params["Positive electrode active material volume fraction"] = cam_vol_frac
-                params["Positive electrode porosity"] = 1 - cam_vol_frac
-                model = pybamm.lithium_ion.BasicDFNHalfCell(name=file_name, options=options)
-                safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
-                sim = pybamm.Simulation(model=model, parameter_values=params,
-                                        solver=safe_solver)
-                sim.solve(t_eval)
-                sim.save(file_name + ".pkl")
-                mass_cell = mass_res + rho_sse * (L_sep + (1 - cam_vol_frac) * length) + rho_cam * cam_vol_frac * length
-                energy = integrate.simps(sim.solution["Instantaneous power [W.m-2]"].data, sim.solution["Time [s]"].data) / 3600
-                row = {
-                    "porosity": 1 - cam_vol_frac, "sep length [m]": L_sep, "cat length [m]": length,
-                    "mass res [kg.m-2]": mass_res, "mass of cell [kg.m-2]": mass_cell,
-                    "energy of cell [Wh.m-2]": energy, "cell energy density [Wh.kg-1]": energy / mass_cell
-                }
-                writer.writerow(row)
+        for current_function in current_functions:
+            params["Current function [A]"] = current_function
+            for length in cam_lengths:
+                for cam_vol_frac in cam_vol_fracs:
+                    file_name = "L{}CD{}PHI{}".format(str(int(length * 1e6)), int(current_function * 1e4),
+                                                  str(cam_vol_frac).replace(".", ""))
+                    params["Positive electrode thickness [m]"] = length
+                    params["Positive electrode active material volume fraction"] = cam_vol_frac
+                    params["Positive electrode porosity"] = 1 - cam_vol_frac
+                    model = pybamm.lithium_ion.BasicDFNHalfCell(name=file_name, options=options)
+                    safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
+                    sim = pybamm.Simulation(model=model, parameter_values=params,
+                                            solver=safe_solver)
+                    sim.solve(t_eval)
+                    sim.save(file_name + ".pkl")
+                    mass_cell = mass_res + rho_sse * (L_sep + (1 - cam_vol_frac) * length) + rho_cam * cam_vol_frac * length
+                    energy = integrate.simps(sim.solution["Instantaneous power [W.m-2]"].data, sim.solution["Time [s]"].data) / 3600
+                    avg_power = np.average(sim.solution["Instantaneous power [W.m-2]"].data)
+                    row = {
+                        "porosity": 1 - cam_vol_frac, "sep length [m]": L_sep, "cat length [m]": length,
+                        "mass res [kg.m-2]": mass_res, "mass of cell [kg.m-2]": mass_cell,
+                        "energy of cell [Wh.m-2]": energy, "cell energy density [Wh.kg-1]": energy / mass_cell,
+                        "avg power density [W.kg-1]": avg_power / mass_cell,
+                        "current density [A.m-2]": current_function * 1e4,
+                    }
+                    writer.writerow(row)
 
     select_sims = []
     sim_files = [f for f in os.listdir(".") if any([f.startswith("L2"), f.startswith("L3"), f.startswith("L4"), f.startswith("L6")]) and f.endswith("8.pkl")]
