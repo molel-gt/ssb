@@ -111,7 +111,7 @@ if __name__ == '__main__':
                     sim.save(file_name + ".pkl")
                     mass_cell = mass_res + rho_sse * (L_sep + (1 - cam_vol_frac) * length) + rho_cam * cam_vol_frac * length
                     energy = integrate.simps(sim.solution["Instantaneous power [W.m-2]"].data, sim.solution["Time [s]"].data) / 3600
-                    avg_power = np.average(sim.solution["Instantaneous power [W.m-2]"].data) / np.x_average(sim.solution["Time [s]"].data / 3600)
+                    avg_power = np.average(sim.solution["Instantaneous power [W.m-2]"].data) / np.average(sim.solution["Time [s]"].data / 3600)
                     row = {
                         "porosity": 1 - cam_vol_frac, "sep length [m]": L_sep, "cat length [m]": length,
                         "mass res [kg.m-2]": mass_res, "mass of cell [kg.m-2]": mass_cell,
