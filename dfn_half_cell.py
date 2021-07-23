@@ -76,7 +76,6 @@ if __name__ == '__main__':
         check_already_exists=False,
     )
 
-    # params["Initial concentration in negative electrode [mol.m-3]"] = 1000
     params["Current function [A]"] = 10e-3
 
     # Study variables
