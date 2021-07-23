@@ -81,8 +81,8 @@ if __name__ == '__main__':
 
     # Study variables
     t_eval = np.linspace(0, 36000, 1000)
-    cam_lengths = [100e-6, 200e-6, 300e-6, 400e-6, 600e-6, 1000e-6, 5000e-6]
-    cam_vol_fracs = [0.1, 0.2, 0.3, 0.5, 0.7, 0.8, 0.9]
+    cam_lengths = [50e-6, 100e-6, 200e-6, 300e-6, 400e-6, 600e-6, 1000e-6, 5000e-6]
+    cam_vol_fracs = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
     #
     # Conduct study
@@ -108,13 +108,13 @@ if __name__ == '__main__':
                 energy = integrate.simps(sim.solution["Instantaneous power [W.m-2]"].data, sim.solution["Time [s]"].data) / 3600
                 row = {
                     "porosity": 1 - cam_vol_frac, "sep length [m]": L_sep, "cat length [m]": length,
-                    "mass res [kg.m-2]": mass_res, "mass of cell [kg.m-2]": mass_cell, 
+                    "mass res [kg.m-2]": mass_res, "mass of cell [kg.m-2]": mass_cell,
                     "energy of cell [Wh.m-2]": energy, "cell energy density [Wh.kg-1]": energy / mass_cell
                 }
                 writer.writerow(row)
 
     select_sims = []
-    sim_files = [f for f in os.listdir(".") if any([f.startswith("L2"), f.startswith("L3"), f.startswith("L4"), f.startswith("L6")]) and f.endswith("8.pkl")]
+    sim_files = [f for f in os.listdir(".") if any([f.startswith("L2"), f.startswith("L3"), f.startswith("L4"), f.startswith("L5"), f.startswith("L6")]) and f.endswith("8.pkl")]
     for sim_file in sim_files:
         sim = pybamm.load(sim_file)
         select_sims.append(sim)
