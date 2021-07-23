@@ -103,7 +103,11 @@ if __name__ == '__main__':
                     safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
                     sim = pybamm.Simulation(model=model, parameter_values=params,
                                             solver=safe_solver)
-                    sim.solve(t_eval)
+                    try:
+                        sim.solve(t_eval)
+                    except Exception as e:
+                        print(e)
+                        continue
                     sim.save(file_name + ".pkl")
                     mass_cell = mass_res + rho_sse * (L_sep + (1 - cam_vol_frac) * length) + rho_cam * cam_vol_frac * length
                     energy = integrate.simps(sim.solution["Instantaneous power [W.m-2]"].data, sim.solution["Time [s]"].data) / 3600
