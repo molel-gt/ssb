@@ -80,7 +80,7 @@ if __name__ == '__main__':
     # Study variables
     t_eval = np.linspace(0, 50000, 1000)
     cam_lengths = [50e-6, 100e-6, 200e-6, 300e-6, 400e-6, 600e-6, 1000e-6, 5000e-6]
-    cam_vol_fracs = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    cam_vol_fracs = [0.6, 0.7, 0.8, 0.9, 0.99]
     current_functions = [0.001e-3, 0.01e-3, 0.1e-3, 1e-3, 10e-3]
 
     #
@@ -94,7 +94,7 @@ if __name__ == '__main__':
             params["Current function [A]"] = current_function
             for length in cam_lengths:
                 for cam_vol_frac in cam_vol_fracs:
-                    file_name = "L{}CD{}PHI{}".format(str(int(length * 1e6)), str(current_function * 1e4).strip("0."),
+                    file_name = "L{}_CD{}_PHI{}".format(str(int(length * 1e6)), str(current_function * 1e4).strip("0."),
                                                   str(cam_vol_frac).replace(".", ""))
                     params["Positive electrode thickness [m]"] = length
                     params["Positive electrode active material volume fraction"] = cam_vol_frac
@@ -111,7 +111,7 @@ if __name__ == '__main__':
                     sim.save(file_name + ".pkl")
                     mass_cell = mass_res + rho_sse * (L_sep + (1 - cam_vol_frac) * length) + rho_cam * cam_vol_frac * length
                     energy = integrate.simps(sim.solution["Instantaneous power [W.m-2]"].data, sim.solution["Time [s]"].data) / 3600
-                    avg_power = np.average(sim.solution["Instantaneous power [W.m-2]"].data)
+                    avg_power = np.average(sim.solution["Instantaneous power [W.m-2]"].data) / np.x_average(sim.solution["Time [s]"].data / 3600)
                     row = {
                         "porosity": 1 - cam_vol_frac, "sep length [m]": L_sep, "cat length [m]": length,
                         "mass res [kg.m-2]": mass_res, "mass of cell [kg.m-2]": mass_cell,
