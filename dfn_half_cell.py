@@ -114,7 +114,7 @@ if __name__ == '__main__':
                 writer.writerow(row)
 
     select_sims = []
-    sim_files = [f for f in os.listdir(".") if any([f.startswith("L2"), f.startswith("L3"), f.startswith("L4"), f.startswith("L5"), f.startswith("L6")]) and f.endswith("8.pkl")]
+    sim_files = [f for f in os.listdir(".") if any([f.startswith("L2"), f.startswith("L3"), f.startswith("L4"), f.startswith("L6")]) and f.endswith("8.pkl")]
     for sim_file in sim_files:
         sim = pybamm.load(sim_file)
         select_sims.append(sim)
