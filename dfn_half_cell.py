@@ -30,15 +30,11 @@ experiment = pybamm.Experiment(
 output_variables = [
     "Current density [A.m-2]",
     "Terminal voltage [V]",
-    "Electrolyte concentration [mol.m-3]",
-    [
-        "Working electrode open circuit potential [V]",
-        "Working electrode potential [V]",
-    ],
-    "Electrolyte potential [V]",
     "Instantaneous power [W.m-2]",
-    "Pore-wall flux [mol.m-2.s-1]",
     "Working particle surface concentration [mol.m-3]",
+    "Electrolyte concentration [mol.m-3]",
+    "Electrolyte potential [V]",
+    "Pore-wall flux [mol.m-2.s-1]",
 ]
 
 
