@@ -86,7 +86,7 @@ if __name__ == '__main__':
     # Study variables
     t_eval = np.linspace(0, 36000, 1000)
     cam_lengths = [100e-6, 200e-6, 300e-6, 400e-6, 600e-6, 1000e-6, 5000e-6]
-    cam_vol_fracs = [0.2, 0.3, 0.5, 0.7, 0.8]
+    cam_vol_fracs = [0.1, 0.2, 0.3, 0.5, 0.7, 0.8, 0.9]
 
     #
     # Conduct study
@@ -118,7 +118,7 @@ if __name__ == '__main__':
                 writer.writerow(row)
 
     select_sims = []
-    sim_files = [f for f in os.listdir(".") if f.startswith("L2") or f.startswith("L3") or f.startswith("L4") or f.startswith("L6") and f.endswith("8.pkl")]
+    sim_files = [f for f in os.listdir(".") if any([f.startswith("L2"), f.startswith("L3"), f.startswith("L4"), f.startswith("L6")]) and f.endswith("8.pkl")]
     for sim_file in sim_files:
         sim = pybamm.load(sim_file)
         select_sims.append(sim)
