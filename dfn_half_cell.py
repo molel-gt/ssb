@@ -83,7 +83,7 @@ if __name__ == '__main__':
     t_eval = np.linspace(0, 50000, 1000)
     cam_lengths = [50e-6, 100e-6, 200e-6, 300e-6, 400e-6, 600e-6, 1000e-6, 5000e-6]
     cam_vol_fracs = [0.6, 0.7, 0.8, 0.9, 0.99]
-    current_functions = [0.001e-3, 0.01e-3, 0.1e-3, 1e-3, 10e-3]
+    current_functions = [0.001e-3, 0.01e-3, 0.1e-3, 1e-3, 10e-3, 100e-3]
 
     #
     # Conduct study
@@ -141,7 +141,7 @@ if __name__ == '__main__':
     fig, ax = plt.subplots()
     for porosity in porosities:
         data = df[df["porosity"] == porosity]
-        ax.plot(data["avg power density [W.kg-1]"], data["cell energy density [Wh.kg-1]"], label="porosity: {}".format(porosity))
+        ax.plot(data["avg power density [W.kg-1]"], data["cell energy density [Wh.kg-1]"], dashes=[6, 2], label="porosity: {}".format(porosity))
 
     ax.set_xlabel("avg power density [W/kg")
     ax.set_ylabel("energy density [Wh/kg]")
