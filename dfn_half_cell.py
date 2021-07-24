@@ -4,7 +4,9 @@
 import csv
 import os
 
+import pandas as pd
 import pybamm
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.integrate as integrate
 
@@ -33,7 +35,7 @@ output_variables = [
     "Instantaneous power [W.m-2]",
     "Electrolyte potential [V]",
     "Working particle surface concentration [mol.m-3]",
-    # "Electrolyte concentration [mol.m-3]",
+    "Electrolyte concentration [mol.m-3]",
     "Pore-wall flux [mol.m-2.s-1]",
 ]
 
@@ -129,3 +131,20 @@ if __name__ == '__main__':
         select_sims.append(sim)
     pybamm.dynamic_plot(select_sims, output_variables=output_variables,
                         time_unit="hours", spatial_unit="um")
+
+    # Ragone plots
+    df = pd.read_csv("study.csv")
+    df = df[df["current density [A.m-2]"] != 10]
+    porosities = [0.1, 0.2, 0.3, 0.4]
+    cathode_lengths = [0.00005, 0.0001, 0.0002, 0.0003, 0.0004, 0.0006, 0.001, 0.005]
+
+    fig, ax = plt.subplots()
+    for porosity in porosities:
+        data = df[df["porosity"] == porosity]
+        ax.plot(data["avg power density [W.kg-1]"], data["cell energy density [Wh.kg-1]"], label="porosity: {}".format(porosity))
+
+    ax.set_xlabel("avg power density [W/kg")
+    ax.set_ylabel("energy density [Wh/kg]")
+    ax.grid()
+    ax.legend()
+    plt.show()
