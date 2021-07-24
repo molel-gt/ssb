@@ -33,7 +33,7 @@ output_variables = [
     "Instantaneous power [W.m-2]",
     "Electrolyte potential [V]",
     "Working particle surface concentration [mol.m-3]",
-    "Electrolyte concentration [mol.m-3]",
+    # "Electrolyte concentration [mol.m-3]",
     "Pore-wall flux [mol.m-2.s-1]",
 ]
 
@@ -94,8 +94,9 @@ if __name__ == '__main__':
             params["Current function [A]"] = current_function
             for length in cam_lengths:
                 for cam_vol_frac in cam_vol_fracs:
-                    file_name = "L{}_CD{}_PHI{}".format(str(int(length * 1e6)), str(current_function * 1e4).strip("0."),
-                                                  str(cam_vol_frac).replace(".", ""))
+                    file_name = "L{}_CD{}_PHI{}".format(str(int(length * 1e6)),
+                                                        float(current_function * 1e4),
+                                                        cam_vol_frac)
                     params["Positive electrode thickness [m]"] = length
                     params["Positive electrode active material volume fraction"] = cam_vol_frac
                     params["Positive electrode porosity"] = 1 - cam_vol_frac
