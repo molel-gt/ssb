@@ -88,7 +88,7 @@ if __name__ == '__main__':
     #
     # Conduct study
     #
-    #
+
     with open("study.csv", "w") as fp:
         writer = csv.DictWriter(fp, fieldnames=col_names)
         writer.writeheader()
@@ -141,9 +141,9 @@ if __name__ == '__main__':
     fig, ax = plt.subplots()
     for porosity in porosities:
         data = df[df["porosity"] == porosity]
-        ax.plot(data["avg power density [W.kg-1]"], data["cell energy density [Wh.kg-1]"], dashes=[6, 2], label="porosity: {}".format(porosity))
+        ax.scatter(data["avg power density [W.kg-1]"], data["cell energy density [Wh.kg-1]"],  label="porosity: {}".format(porosity))
 
-    ax.set_xlabel("avg power density [W/kg")
+    ax.set_xlabel("avg power density [W/kg]")
     ax.set_ylabel("energy density [Wh/kg]")
     ax.grid()
     ax.legend()
