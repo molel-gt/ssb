@@ -134,14 +134,14 @@ if __name__ == '__main__':
 
     # Ragone plots
     df = pd.read_csv("study.csv")
-    df = df[df["current density [A.m-2]"] != 10]
+    df = df[df["current density [A.m-2]"] == 100]
     porosities = [0.1, 0.2, 0.3, 0.4]
     cathode_lengths = [0.00005, 0.0001, 0.0002, 0.0003, 0.0004, 0.0006, 0.001, 0.005]
 
     fig, ax = plt.subplots()
     for porosity in porosities:
         data = df[df["porosity"] == porosity]
-        ax.scatter(data["avg power density [W.kg-1]"], data["cell energy density [Wh.kg-1]"],  label="porosity: {}".format(porosity))
+        ax.plot(data["avg power density [W.kg-1]"], data["cell energy density [Wh.kg-1]"],  label="porosity: {}".format(porosity))
 
     ax.set_xlabel("avg power density [W/kg]")
     ax.set_ylabel("energy density [Wh/kg]")
