@@ -136,13 +136,13 @@ if __name__ == '__main__':
         for sim_file in sim_files:
             sim = pybamm.load(sim_file)
             select_sims.append(sim)
-            cathode_length, current_density, cam_loading = sim_file.strip(".pkl").split("_")
+            cathode_length, porosity, current_density = sim_file.strip(".pkl").split("_")
             t_d = max(sim.solution["Time [s]"].data) / 3600
             writer.writerow({
-                            "porosity": 1 - float(cam_loading.strip("PHI")),
-                            "cathode length [m]": int(cathode_length.strip("L"))*1E-6,
+                            "porosity": float(porosity),
+                            "cathode length [m]": int(cathode_length)*1E-6,
                             "separator length [m]": 50E-6,
-                            "current density [A.m-2]": float(current_density.strip("CD")),
+                            "current density [A.m-2]": float(current_density),
                             "discharge time [h]": t_d,
                             })
     # Plot select simulations if necessary
