@@ -47,7 +47,7 @@ mass_res = rho_sse * 50E-6  # residual mass of cell [kg.m-2]
 col_names = ["porosity", "sep length [m]", "cat length [m]",
              "mass res [kg.m-2]", "mass of cell [kg.m-2]", "energy of cell [Wh.m-2]",
              "cell energy density [Wh.kg-1]", "avg power density [W.kg-1]",
-             "current density [A.m-2]"]
+             "current density [A.m-2]", "discharge time [h]"]
 L_sep = 50E-6
 
 
@@ -118,36 +118,24 @@ if __name__ == '__main__':
                     mass_cell = mass_res + rho_sse * (L_sep + porosity * length) + rho_cam * (1 - porosity) * length
                     energy = integrate.simps(sim.solution["Instantaneous power [W.m-2]"].data, sim.solution["Time [s]"].data) / 3600
                     avg_power = np.average(sim.solution["Instantaneous power [W.m-2]"].data) / np.average(sim.solution["Time [s]"].data / 3600)
+                    t_d = max(sim.solution["Time [s]"].data) / 3600
                     row = {
                         "porosity": porosity, "sep length [m]": L_sep, "cat length [m]": length,
                         "mass res [kg.m-2]": mass_res, "mass of cell [kg.m-2]": mass_cell,
                         "energy of cell [Wh.m-2]": energy, "cell energy density [Wh.kg-1]": energy / mass_cell,
                         "avg power density [W.kg-1]": avg_power / mass_cell,
                         "current density [A.m-2]": current_function * 1e4,
+                        "discharge time [h]": t_d,
                     }
                     writer.writerow(row)
 
     select_sims = []
 
     # Get discharge times
-    sim_files = [f for f in os.listdir(".") if f.endswith(".pkl")]
-    with open("discharge-times.csv", "w") as fp:
-        writer = csv.DictWriter(fp, fieldnames=["porosity", "cathode length [m]",
-                                                "separator length [m]", "current density [A.m-2]",
-                                                "discharge time [h]"])
-        writer.writeheader()
-        for sim_file in sim_files:
-            sim = pybamm.load(sim_file)
-            select_sims.append(sim)
-            cathode_length, porosity, current_density = sim_file.strip(".pkl").split("_")
-            t_d = max(sim.solution["Time [s]"].data) / 3600
-            writer.writerow({
-                            "porosity": float(porosity),
-                            "cathode length [m]": int(cathode_length) * 1E-6,
-                            "separator length [m]": 50E-6,
-                            "current density [A.m-2]": float(current_density),
-                            "discharge time [h]": t_d,
-                            })
+    sim_files = [f for f in os.listdir(".") if f.endswith("100.pkl")]
+    for sim_file in sim_files:
+        sim = pybamm.load(sim_file)
+        select_sims.append(sim)
     # Plot select simulations if necessary
     pybamm.dynamic_plot(select_sims, output_variables=output_variables,
                         time_unit="hours", spatial_unit="um")
