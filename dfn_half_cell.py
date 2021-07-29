@@ -127,7 +127,7 @@ if __name__ == '__main__':
     select_sims = []
 
     # Get discharge times
-    sim_files = [f for f in os.listdir(".") if f.startswith("L") and f.endswith(".pkl")]
+    sim_files = [f for f in os.listdir(".") if f.endswith(".pkl")]
     with open("discharge-times.csv", "w") as fp:
         writer = csv.DictWriter(fp, fieldnames=["porosity", "cathode length [m]",
                                "separator length [m]", "current density [A.m-2]",
