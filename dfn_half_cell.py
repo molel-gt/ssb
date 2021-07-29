@@ -43,10 +43,11 @@ output_variables = [
 # some densities
 rho_cam = 2300  # NCM811 [kg.m-3]
 rho_sse = 2254  # LSPS [kg.m-3]
-mass_res = rho_sse * 50E-6  # residual mass of cell that is not cathode or separator [kg.m-2] 
-col_names = ["porosity", "sep length [m]", "cat length [m]", "mass res [kg.m-2]",
-            "mass of cell [kg.m-2]", "energy of cell [Wh.m-2]", "cell energy density [Wh.kg-1]",
-             "avg power density [W.kg-1]", "current density [A.m-2]"]
+mass_res = rho_sse * 50E-6  # residual mass of cell [kg.m-2]
+col_names = ["porosity", "sep length [m]", "cat length [m]",
+             "mass res [kg.m-2]", "mass of cell [kg.m-2]", "energy of cell [Wh.m-2]",
+             "cell energy density [Wh.kg-1]", "avg power density [W.kg-1]",
+             "current density [A.m-2]"]
 L_sep = 50E-6
 
 
@@ -81,7 +82,8 @@ if __name__ == '__main__':
 
     # Study variables
     t_eval = np.linspace(0, 15 * 3600, 1000)
-    cam_lengths = [50e-6, 100e-6, 200e-6, 300e-6, 400e-6, 600e-6, 1000e-6, 5000e-6]
+    cam_lengths = [50e-6, 100e-6, 200e-6, 300e-6, 400e-6, 600e-6, 1000e-6,
+                   5000e-6]
     porosities = [0.4, 0.3, 0.2, 0.1, 0.01]
     current_functions = [0.001e-3, 0.01e-3, 0.1e-3, 1e-3, 10e-3, 100e-3]
 
@@ -96,9 +98,10 @@ if __name__ == '__main__':
             params["Current function [A]"] = current_function
             for length in cam_lengths:
                 for porosity in porosities:
-                    file_name = "{length}_{porosity}_{current_density}".format(length=str(int(length * 1e6)),
-                                                        current_density=float(current_function * 1e4),
-                                                        porosity=porosity)
+                    file_name = "{length}_{porosity}_{current_density}".format(
+                        length=str(int(length * 1e6)),
+                        current_density=float(current_function * 1e4),
+                        porosity=porosity)
                     params["Positive electrode thickness [m]"] = length
                     params["Positive electrode active material volume fraction"] = 1 - porosity
                     params["Positive electrode porosity"] = porosity
@@ -130,8 +133,8 @@ if __name__ == '__main__':
     sim_files = [f for f in os.listdir(".") if f.endswith(".pkl")]
     with open("discharge-times.csv", "w") as fp:
         writer = csv.DictWriter(fp, fieldnames=["porosity", "cathode length [m]",
-                               "separator length [m]", "current density [A.m-2]",
-                               "discharge time [h]"])
+                                                "separator length [m]", "current density [A.m-2]",
+                                                "discharge time [h]"])
         writer.writeheader()
         for sim_file in sim_files:
             sim = pybamm.load(sim_file)
@@ -140,7 +143,7 @@ if __name__ == '__main__':
             t_d = max(sim.solution["Time [s]"].data) / 3600
             writer.writerow({
                             "porosity": float(porosity),
-                            "cathode length [m]": int(cathode_length)*1E-6,
+                            "cathode length [m]": int(cathode_length) * 1E-6,
                             "separator length [m]": 50E-6,
                             "current density [A.m-2]": float(current_density),
                             "discharge time [h]": t_d,
@@ -153,12 +156,16 @@ if __name__ == '__main__':
     df = pd.read_csv("study.csv")
     df = df[df["current density [A.m-2]"] == 100]
     porosities = [0.1, 0.2, 0.3, 0.4]
-    cathode_lengths = [0.00005, 0.0001, 0.0002, 0.0003, 0.0004, 0.0006, 0.001, 0.005]
+    cathode_lengths = [0.00005, 0.0001, 0.0002, 0.0003, 0.0004, 0.0006,
+                       0.001, 0.005]
 
     fig, ax = plt.subplots()
     for porosity in porosities:
         data = df[df["porosity"] == porosity]
-        ax.plot(data["avg power density [W.kg-1]"], data["cell energy density [Wh.kg-1]"],  label="porosity: {}".format(porosity))
+        ax.plot(data["avg power density [W.kg-1]"],
+                data["cell energy density [Wh.kg-1]"],
+                label="porosity: {}".format(porosity)
+                )
 
     ax.set_xlabel("avg power density [W/kg]")
     ax.set_ylabel("energy density [Wh/kg]")
