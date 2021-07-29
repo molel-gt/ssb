@@ -82,7 +82,7 @@ if __name__ == '__main__':
     # Study variables
     t_eval = np.linspace(0, 50000, 1000)
     cam_lengths = [50e-6, 100e-6, 200e-6, 300e-6, 400e-6, 600e-6, 1000e-6, 5000e-6]
-    cam_vol_fracs = [0.6, 0.7, 0.8, 0.9, 0.99]
+    porosities = [0.4, 0.3, 0.2, 0.1, 0.01]
     current_functions = [0.001e-3, 0.01e-3, 0.1e-3, 1e-3, 10e-3, 100e-3]
 
     #
@@ -95,12 +95,12 @@ if __name__ == '__main__':
         for current_function in current_functions:
             params["Current function [A]"] = current_function
             for length in cam_lengths:
-                for cam_vol_frac in cam_vol_fracs:
-                    file_name = "L{}_CD{}_PHI{}".format(str(int(length * 1e6)),
-                                                        float(current_function * 1e4),
-                                                        cam_vol_frac)
+                for porosity in porosities:
+                    file_name = "{length}_{porosity}_{current_density}".format(length=str(int(length * 1e6)),
+                                                        current_density=float(current_function * 1e4),
+                                                        porosity=porosity)
                     params["Positive electrode thickness [m]"] = length
-                    params["Positive electrode active material volume fraction"] = cam_vol_frac
+                    params["Positive electrode active material volume fraction"] = 1 - porosity
                     params["Positive electrode porosity"] = 1 - cam_vol_frac
                     model = pybamm.lithium_ion.BasicDFNHalfCell(name=file_name, options=options)
                     safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
@@ -125,10 +125,27 @@ if __name__ == '__main__':
                     writer.writerow(row)
 
     select_sims = []
-    sim_files = [f for f in os.listdir(".") if any([f.startswith("L2"), f.startswith("L3"), f.startswith("L4"), f.startswith("L6")]) and f.endswith("8.pkl")]
-    for sim_file in sim_files:
-        sim = pybamm.load(sim_file)
-        select_sims.append(sim)
+
+    # Get discharge times
+    sim_files = [f for f in os.listdir(".") if f.startswith("L") and f.endswith(".pkl")]
+    with open("discharge-times.csv", "w") as fp:
+        writer = csv.DictWriter(fp, fieldnames=["porosity", "cathode length [m]",
+                               "separator length [m]", "current density [A.m-2]",
+                               "discharge time [h]"])
+        writer.writeheader()
+        for sim_file in sim_files:
+            sim = pybamm.load(sim_file)
+            select_sims.append(sim)
+            cathode_length, current_density, cam_loading = sim_file.strip(".pkl").split("_")
+            t_d = max(sim.solution["Time [s]"].data) / 3600
+            writer.writerow({
+                            "porosity": 1 - float(cam_loading.strip("PHI")),
+                            "cathode length [m]": int(cathode_length.strip("L"))*1E-6,
+                            "separator length [m]": 50E-6,
+                            "current density [A.m-2]": float(current_density.strip("CD")),
+                            "discharge time [h]": t_d,
+                            })
+    # Plot select simulations if necessary
     pybamm.dynamic_plot(select_sims, output_variables=output_variables,
                         time_unit="hours", spatial_unit="um")
 
