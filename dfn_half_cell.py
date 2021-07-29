@@ -44,7 +44,7 @@ output_variables = [
 rho_cam = 2300  # NCM811 [kg.m-3]
 rho_sse = 2254  # LSPS [kg.m-3]
 mass_res = rho_sse * 50E-6  # residual mass of cell [kg.m-2]
-col_names = ["porosity", "sep length [m]", "cat length [m]",
+col_names = ["porosity", "separator length [m]", "cathode length [m]",
              "mass res [kg.m-2]", "mass of cell [kg.m-2]", "energy of cell [Wh.m-2]",
              "cell energy density [Wh.kg-1]", "avg power density [W.kg-1]",
              "current density [A.m-2]", "discharge time [h]"]
@@ -120,7 +120,7 @@ if __name__ == '__main__':
                     avg_power = np.average(sim.solution["Instantaneous power [W.m-2]"].data) / np.average(sim.solution["Time [s]"].data / 3600)
                     t_d = max(sim.solution["Time [s]"].data) / 3600
                     row = {
-                        "porosity": porosity, "sep length [m]": L_sep, "cat length [m]": length,
+                        "porosity": porosity, "separator length [m]": L_sep, "cathode length [m]": length,
                         "mass res [kg.m-2]": mass_res, "mass of cell [kg.m-2]": mass_cell,
                         "energy of cell [Wh.m-2]": energy, "cell energy density [Wh.kg-1]": energy / mass_cell,
                         "avg power density [W.kg-1]": avg_power / mass_cell,
@@ -129,34 +129,33 @@ if __name__ == '__main__':
                     }
                     writer.writerow(row)
 
-    select_sims = []
-
-    # Get discharge times
-    sim_files = [f for f in os.listdir(".") if f.endswith("100.pkl")]
-    for sim_file in sim_files:
-        sim = pybamm.load(sim_file)
-        select_sims.append(sim)
-    # Plot select simulations if necessary
-    pybamm.dynamic_plot(select_sims, output_variables=output_variables,
-                        time_unit="hours", spatial_unit="um")
-
     # Ragone plots
-    df = pd.read_csv("study.csv")
-    df = df[df["current density [A.m-2]"] == 100]
+    df = pd.read_csv("discharge-times.csv")
+
     porosities = [0.1, 0.2, 0.3, 0.4]
     cathode_lengths = [0.00005, 0.0001, 0.0002, 0.0003, 0.0004, 0.0006,
-                       0.001, 0.005]
+                       0.001]
 
-    fig, ax = plt.subplots()
-    for porosity in porosities:
-        data = df[df["porosity"] == porosity]
-        ax.plot(data["avg power density [W.kg-1]"],
-                data["cell energy density [Wh.kg-1]"],
-                label="porosity: {}".format(porosity)
-                )
+    fig, axs = plt.subplots(2, 2)
+    fig.suptitle('discharge time [h] vs cathode length [um]')
 
-    ax.set_xlabel("avg power density [W/kg]")
-    ax.set_ylabel("energy density [Wh/kg]")
-    ax.grid()
-    ax.legend()
+    for pos, current_density in enumerate(current_functions[-4:]):
+        df2 = df[df["current density [A.m-2]"] == current_density * 1e4]
+        x_pos = int(pos / 2)
+        y_pos = pos % 2
+        for porosity in porosities:
+            data = df2[df2["porosity"] == porosity]
+            x_data = data["cathode length [m]"]
+            y_data = data["discharge time [h]"]
+            axs[x_pos, y_pos].plot(x_data, y_data, linewidth=1,
+                                      label="porosity: {}".format(porosity))
+
+        axs[x_pos, y_pos].set_title("i = {} [A.m-2]".format(int(current_density * 1e4)))
+        # axs[x_pos, y_pos].set_ylim(0, 15)
+        # axs[x_pos, y_pos].set_xlabel("cathode length [m]")
+        # axs[x_pos, y_pos].set_ylabel("discharge time [h]")
+        # axs[x_pos, y_pos].grid()
+        axs[x_pos, y_pos].legend()
+        axs[x_pos, y_pos].tick_params(axis='y', which='both', direction='in', right=True)
+        axs[x_pos, y_pos].set_box_aspect(1)
     plt.show()
