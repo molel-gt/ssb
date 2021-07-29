@@ -101,7 +101,7 @@ if __name__ == '__main__':
                                                         porosity=porosity)
                     params["Positive electrode thickness [m]"] = length
                     params["Positive electrode active material volume fraction"] = 1 - porosity
-                    params["Positive electrode porosity"] = 1 - cam_vol_frac
+                    params["Positive electrode porosity"] = porosity
                     model = pybamm.lithium_ion.BasicDFNHalfCell(name=file_name, options=options)
                     safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
                     sim = pybamm.Simulation(model=model, parameter_values=params,
@@ -112,11 +112,11 @@ if __name__ == '__main__':
                         print(e)
                         continue
                     sim.save(file_name + ".pkl")
-                    mass_cell = mass_res + rho_sse * (L_sep + (1 - cam_vol_frac) * length) + rho_cam * cam_vol_frac * length
+                    mass_cell = mass_res + rho_sse * (L_sep + porosity * length) + rho_cam * (1 - porosity) * length
                     energy = integrate.simps(sim.solution["Instantaneous power [W.m-2]"].data, sim.solution["Time [s]"].data) / 3600
                     avg_power = np.average(sim.solution["Instantaneous power [W.m-2]"].data) / np.average(sim.solution["Time [s]"].data / 3600)
                     row = {
-                        "porosity": 1 - cam_vol_frac, "sep length [m]": L_sep, "cat length [m]": length,
+                        "porosity": porosity, "sep length [m]": L_sep, "cat length [m]": length,
                         "mass res [kg.m-2]": mass_res, "mass of cell [kg.m-2]": mass_cell,
                         "energy of cell [Wh.m-2]": energy, "cell energy density [Wh.kg-1]": energy / mass_cell,
                         "avg power density [W.kg-1]": avg_power / mass_cell,
