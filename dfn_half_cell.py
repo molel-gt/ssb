@@ -130,7 +130,7 @@ if __name__ == '__main__':
                     writer.writerow(row)
 
     # Ragone plots
-    df = pd.read_csv("discharge-times.csv")
+    df = pd.read_csv("study.csv")
 
     porosities = [0.1, 0.2, 0.3, 0.4]
     cathode_lengths = [0.00005, 0.0001, 0.0002, 0.0003, 0.0004, 0.0006,
@@ -151,10 +151,6 @@ if __name__ == '__main__':
                                       label="porosity: {}".format(porosity))
 
         axs[x_pos, y_pos].set_title("i = {} [A.m-2]".format(int(current_density * 1e4)))
-        # axs[x_pos, y_pos].set_ylim(0, 15)
-        # axs[x_pos, y_pos].set_xlabel("cathode length [m]")
-        # axs[x_pos, y_pos].set_ylabel("discharge time [h]")
-        # axs[x_pos, y_pos].grid()
         axs[x_pos, y_pos].legend()
         axs[x_pos, y_pos].tick_params(axis='y', which='both', direction='in', right=True)
         axs[x_pos, y_pos].set_box_aspect(1)
