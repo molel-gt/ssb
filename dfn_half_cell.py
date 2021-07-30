@@ -90,7 +90,7 @@ if __name__ == '__main__':
     t_eval = np.linspace(0, t_max, 1000)
     cathode_lengths = [50e-6, 100e-6, 200e-6, 300e-6, 400e-6, 600e-6, 1000e-6,
                        5000e-6]
-    current_functions = [0.1e-3, 1e-3, 10e-3, 100e-3]
+    current_functions = [0.1e-3, 0.25e-3, 0.5e-3, 0.75e-3, 1e-3, 2.5e-3, 5e-3, 7.5e-3, 10e-3, 25e-3, 50e-3, 75e-3, 100e-3]
 
     #
     # Conduct study
@@ -133,25 +133,17 @@ if __name__ == '__main__':
     # Ragone plots
     df = pd.read_csv("studies/" + timestamp_now + ".csv")
 
-    fig, axs = plt.subplots(2, 2)
-    fig.suptitle('Ragone Plots')
-    df = df[df["porosity"] == 0.4]
+    fig, ax = plt.subplots()
+    ax.set_title('Ragone Plots')
+    df = df[df["porosity"] == POROSITY]
 
     for pos, cat_len in enumerate(cathode_lengths[1:5]):
         df2 = df[df["cathode length [m]"] == cat_len]
         df2 = df2[df2["discharge time [h]"] < t_max / 3600]
-        x_pos = int(pos / 2)
-        y_pos = pos % 2
-        for current_density in current_functions:
-            data = df2[df2["current density [A.m-2]"] == current_density * 1e4]
-            print(data)
-            x_data = data["specific power [W.kg-1]"]
-            y_data = data["specific energy [Wh.kg-1]"]
-            axs[x_pos, y_pos].plot(x_data, y_data, linewidth=1,
-                                   label=int(current_density * 1e4))
-
-        axs[x_pos, y_pos].set_title("L = {} [um]".format(int(cat_len * 1e6)))
-        axs[x_pos, y_pos].legend()
-        axs[x_pos, y_pos].tick_params(axis='y', which='both', direction='in', right=True)
-        axs[x_pos, y_pos].set_box_aspect(1)
+        x_data = df2["specific power [W.kg-1]"]
+        y_data = df2["specific energy [Wh.kg-1]"]
+        ax.plot(x_data, y_data, linewidth=1, label=int(cat_len * 1e6))
+    ax.legend()
+    ax.tick_params(axis='y', which='both', direction='in', right=True)
+    ax.set_box_aspect(1)
     plt.show()
