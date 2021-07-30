@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.integrate as integrate
 
+from datetime import datetime
+
 
 pybamm.set_logging_level("INFO")
 
@@ -49,6 +51,8 @@ col_names = ["porosity", "separator length [m]", "cathode length [m]",
              "cell energy density [Wh.kg-1]", "avg power density [W.kg-1]",
              "current density [A.m-2]", "discharge time [h]"]
 L_sep = 50E-6
+
+timestamp_now = datetime.utcnow().strftime("%Y-%m-%d-%H")
 
 
 if __name__ == '__main__':
@@ -91,7 +95,7 @@ if __name__ == '__main__':
     # Conduct study
     #
 
-    with open("study.csv", "w") as fp:
+    with open("studies/{}.csv".format(timestamp_now), "w") as fp:
         writer = csv.DictWriter(fp, fieldnames=col_names)
         writer.writeheader()
         for current_function in current_functions:
@@ -114,7 +118,7 @@ if __name__ == '__main__':
                     except Exception as e:
                         print(e)
                         continue
-                    sim.save(file_name + ".pkl")
+                    sim.save(os.path.join("sims", file_name + ".pkl"))
                     mass_cell = mass_res + rho_sse * (L_sep + porosity * length) + rho_cam * (1 - porosity) * length
                     energy = integrate.simps(sim.solution["Instantaneous power [W.m-2]"].data, sim.solution["Time [s]"].data) / 3600
                     avg_power = np.average(sim.solution["Instantaneous power [W.m-2]"].data) / np.average(sim.solution["Time [s]"].data / 3600)
@@ -130,7 +134,7 @@ if __name__ == '__main__':
                     writer.writerow(row)
 
     # Ragone plots
-    df = pd.read_csv("study.csv")
+    df = pd.read_csv("studies/{}.csv".format(timestamp_now))
 
     porosities = [0.1, 0.2, 0.3, 0.4]
     cathode_lengths = [0.00005, 0.0001, 0.0002, 0.0003, 0.0004, 0.0006,
