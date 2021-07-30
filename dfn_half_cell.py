@@ -88,13 +88,13 @@ if __name__ == '__main__':
     t_eval = np.linspace(0, 15 * 3600, 1000)
     cam_lengths = [50e-6, 100e-6, 200e-6, 300e-6, 400e-6, 600e-6, 1000e-6,
                    5000e-6]
-    porosities = [0.4, 0.3, 0.2, 0.1, 0.01]
-    current_functions = [0.001e-3, 0.01e-3, 0.1e-3, 1e-3, 10e-3, 100e-3]
+    porosities = [0.4, 0.3, 0.2, 0.1]
+    current_functions = [0.1e-3, 1e-3, 10e-3, 100e-3]
 
     #
     # Conduct study
     #
-
+    #
     with open("studies/{}.csv".format(timestamp_now), "w") as fp:
         writer = csv.DictWriter(fp, fieldnames=col_names)
         writer.writeheader()
@@ -134,7 +134,7 @@ if __name__ == '__main__':
                     writer.writerow(row)
 
     # Ragone plots
-    df = pd.read_csv("studies/{}.csv".format(timestamp_now))
+    df = pd.read_csv("studies/" + timestamp_now + ".csv")
 
     porosities = [0.1, 0.2, 0.3, 0.4]
     cathode_lengths = [0.00005, 0.0001, 0.0002, 0.0003, 0.0004, 0.0006,
