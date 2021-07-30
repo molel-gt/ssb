@@ -148,7 +148,7 @@ if __name__ == '__main__':
             x_data = data["cathode length [m]"]
             y_data = data["discharge time [h]"]
             axs[x_pos, y_pos].plot(x_data, y_data, linewidth=1,
-                                      label="porosity: {}".format(porosity))
+                                   label="porosity: {}".format(porosity))
 
         axs[x_pos, y_pos].set_title("i = {} [A.m-2]".format(int(current_density * 1e4)))
         axs[x_pos, y_pos].legend()
