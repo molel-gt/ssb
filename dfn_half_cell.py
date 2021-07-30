@@ -85,7 +85,8 @@ if __name__ == '__main__':
     )
 
     # Study variables
-    t_eval = np.linspace(0, 15 * 3600, 1000)
+    t_max = 15 * 3600
+    t_eval = np.linspace(0, t_max, 1000)
     cam_lengths = [50e-6, 100e-6, 200e-6, 300e-6, 400e-6, 600e-6, 1000e-6,
                    5000e-6]
     porosities = [0.4, 0.3, 0.2, 0.1]
@@ -94,7 +95,7 @@ if __name__ == '__main__':
     #
     # Conduct study
     #
-    #
+
     with open("studies/{}.csv".format(timestamp_now), "w") as fp:
         writer = csv.DictWriter(fp, fieldnames=col_names)
         writer.writeheader()
@@ -145,13 +146,14 @@ if __name__ == '__main__':
 
     for pos, current_density in enumerate(current_functions[-4:]):
         df2 = df[df["current density [A.m-2]"] == current_density * 1e4]
+        df2 = df2[df2["discharge time [h]"] < t_max / 3600]
         x_pos = int(pos / 2)
         y_pos = pos % 2
         for porosity in porosities:
             data = df2[df2["porosity"] == porosity]
             x_data = data["cathode length [m]"]
             y_data = data["discharge time [h]"]
-            axs[x_pos, y_pos].plot(x_data, y_data, linewidth=1,
+            axs[x_pos, y_pos].plot(x_data * 1e6, y_data, linewidth=1,
                                    label="porosity: {}".format(porosity))
 
         axs[x_pos, y_pos].set_title("i = {} [A.m-2]".format(int(current_density * 1e4)))
