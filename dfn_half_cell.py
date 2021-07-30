@@ -52,7 +52,7 @@ col_names = ["porosity", "separator length [m]", "cathode length [m]",
              "current density [A.m-2]", "discharge time [h]"]
 L_sep = 50E-6
 
-timestamp_now = datetime.utcnow().strftime("%Y-%m-%d-%H")  # '2021-07-30-16'  #
+timestamp_now = '2021-07-30-20'  # datetime.utcnow().strftime("%Y-%m-%d-%H")  # '2021-07-30-16'  #
 
 POROSITY = 0.3
 
@@ -140,12 +140,14 @@ if __name__ == '__main__':
     ax.set_title('Ragone Plot')
     df = df[df["porosity"] == POROSITY]
 
-    for cat_len in cathode_lengths:
+    for cat_len in cathode_lengths[:5]:
         df2 = df[df["cathode length [m]"] == cat_len]
         df2 = df2[df2["discharge time [h]"] < t_max / 3600]
         x_data = df2["specific power [W.kg-1]"]
         y_data = df2["specific energy [Wh.kg-1]"]
-        ax.plot(x_data, y_data, linewidth=1, label=int(cat_len * 1e6))
+        ax.plot(x_data, y_data, linewidth=1, label="{} um".format(int(cat_len * 1e6)))
+    plt.axhline(y=500, color='grey', linestyle='--', linewidth=1, label='500 Wh/kg')
+    plt.axvline(x=1000, color='grey', linestyle='-.', linewidth=1, label='1000 W/kg')
     ax.legend()
     ax.set_xlabel("Specific Power [W.kg-1]")
     ax.set_ylabel("Specific Energy [Wh.kg-1]")
