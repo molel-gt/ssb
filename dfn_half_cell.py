@@ -50,7 +50,7 @@ col_names = ["porosity", "separator length [m]", "cathode length [m]",
              "mass res [kg.m-2]", "mass of cell [kg.m-2]", "energy of cell [Wh.m-2]",
              "specific energy [Wh.kg-1]", "specific power [W.kg-1]",
              "current density [A.m-2]", "discharge time [h]"]
-L_sep = 50E-6
+L_SEP = 50E-6
 
 timestamp_now = datetime.utcnow().strftime("%Y-%m-%d-%H")
 
@@ -80,7 +80,7 @@ if __name__ == '__main__':
             "Positive electrode porosity": POROSITY,
             "Positive particle radius [m]": 1e-6,
             "Separator porosity": 1.0,
-            "Separator thickness [m]": L_sep,
+            "Separator thickness [m]": L_SEP,
         },
         check_already_exists=False,
     )
@@ -88,8 +88,8 @@ if __name__ == '__main__':
     # Study variables
     t_max = 25 * 3600
     t_eval = np.linspace(0, t_max, 1000)
-    cathode_lengths = [100e-6, 200e-6, 300e-6, 400e-6, 500e-6,
-                       600e-6, 700e-6, 800e-6, 900e-6, 1000e-6]
+    cathode_lengths = [100e-6, 200e-6, 300e-6, 400e-6]
+    cathode_lengths_2 = [500e-6, 600e-6, 700e-6, 800e-6, 900e-6]
     current_functions = [0.1e-3, 0.25e-3, 0.5e-3, 0.75e-3, 1e-3,
                          1.25e-3, 1.5e-3, 1.75e-3, 2e-3, 2.25e-3, 2.5e-3,
                          5e-3, 7.5e-3, 10e-3, 12.5e-3, 15e-3, 17.5e-3,
@@ -119,12 +119,12 @@ if __name__ == '__main__':
                     print(e)
                     continue
                 sim.save(os.path.join("sims", file_name + ".pkl"))
-                mass_cell = mass_res + rho_sse * (L_sep + POROSITY * length) + rho_cam * (1 - POROSITY) * length
+                mass_cell = mass_res + rho_sse * (L_SEP + POROSITY * length) + rho_cam * (1 - POROSITY) * length
                 energy = integrate.simps(sim.solution["Instantaneous power [W.m-2]"].data, sim.solution["Time [s]"].data) / 3600
                 avg_power = np.average(sim.solution["Instantaneous power [W.m-2]"].data) / np.average(sim.solution["Time [s]"].data / 3600)
                 t_d = max(sim.solution["Time [s]"].data) / 3600
                 row = {
-                    "porosity": POROSITY, "separator length [m]": L_sep, "cathode length [m]": length,
+                    "porosity": POROSITY, "separator length [m]": L_SEP, "cathode length [m]": length,
                     "mass res [kg.m-2]": mass_res, "mass of cell [kg.m-2]": mass_cell,
                     "energy of cell [Wh.m-2]": energy, "specific energy [Wh.kg-1]": energy / mass_cell,
                     "specific power [W.kg-1]": avg_power / mass_cell,
@@ -141,7 +141,7 @@ if __name__ == '__main__':
     plt.xscale('log')
     plt.yscale('log')
     ax1.set_title('discharge time')
-    for cat_len in cathode_lengths[:4]:
+    for cat_len in cathode_lengths:
         df1 = df[df["cathode length [m]"] == cat_len]
         df1 = df1[df1["discharge time [h]"] < t_max / 3600]
         x_data = df1["current density [A.m-2]"]
@@ -159,7 +159,7 @@ if __name__ == '__main__':
     plt.xscale('log')
     plt.yscale('log')
     ax2.set_title('ragone plot')
-    for cat_len in cathode_lengths[:4]:
+    for cat_len in cathode_lengths:
         df2 = df[df["cathode length [m]"] == cat_len]
         df2 = df2[df2["discharge time [h]"] < t_max / 3600]
         x_data = df2["specific power [W.kg-1]"]
