@@ -86,7 +86,7 @@ if __name__ == '__main__':
     )
 
     # Study variables
-    t_max = 15 * 3600
+    t_max = 25 * 3600
     t_eval = np.linspace(0, t_max, 1000)
     cathode_lengths = [100e-6, 200e-6, 300e-6, 400e-6, 500e-6,
                        600e-6, 700e-6, 800e-6, 900e-6, 1000e-6]
