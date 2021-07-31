@@ -131,26 +131,44 @@ if __name__ == '__main__':
                 }
                 writer.writerow(row)
 
-    # Ragone plots
+    # Visualize Results
     df = pd.read_csv("studies/" + timestamp_now + ".csv")
-
-    fig, ax = plt.subplots()
-    plt.xscale('log')
-    plt.yscale('log')
-    ax.set_title('Ragone Plot')
     df = df[df["porosity"] == POROSITY]
 
-    for cat_len in cathode_lengths[:5]:
+    fig1, ax1 = plt.subplots()
+    plt.xscale('log')
+    plt.yscale('log')
+    ax1.set_title('discharge time')
+    for cat_len in cathode_lengths[:4]:
+        df1 = df[df["cathode length [m]"] == cat_len]
+        df1 = df1[df1["discharge time [h]"] < t_max / 3600]
+        x_data = df1["current density [A.m-2]"]
+        y_data = df1["discharge time [h]"]
+        ax1.plot(x_data, y_data, linewidth=1, label="{} um".format(int(cat_len * 1e6)))
+    ax1.legend()
+    ax1.set_xlabel("current density [A.m-2]")
+    ax1.set_ylabel("discharge time [h]")
+    ax1.tick_params(axis='y', which='both', direction='in', right=True)
+    ax1.set_box_aspect(1)
+    plt.savefig("discharge-times.jpeg")
+    plt.show()
+
+    fig2, ax2 = plt.subplots()
+    plt.xscale('log')
+    plt.yscale('log')
+    ax2.set_title('ragone plot')
+    for cat_len in cathode_lengths[:4]:
         df2 = df[df["cathode length [m]"] == cat_len]
         df2 = df2[df2["discharge time [h]"] < t_max / 3600]
         x_data = df2["specific power [W.kg-1]"]
         y_data = df2["specific energy [Wh.kg-1]"]
-        ax.plot(x_data, y_data, linewidth=1, label="{} um".format(int(cat_len * 1e6)))
+        ax2.plot(x_data, y_data, linewidth=1, label="{} um".format(int(cat_len * 1e6)))
     plt.axhline(y=500, color='grey', linestyle='--', linewidth=1, label='500 Wh/kg')
     plt.axvline(x=1000, color='grey', linestyle='-.', linewidth=1, label='1000 W/kg')
-    ax.legend()
-    ax.set_xlabel("Specific Power [W.kg-1]")
-    ax.set_ylabel("Specific Energy [Wh.kg-1]")
-    ax.tick_params(axis='y', which='both', direction='in', right=True)
-    ax.set_box_aspect(1)
+    ax2.legend()
+    ax2.set_xlabel("Specific Power [W.kg-1]")
+    ax2.set_ylabel("Specific Energy [Wh.kg-1]")
+    ax2.tick_params(axis='y', which='both', direction='in', right=True)
+    ax2.set_box_aspect(1)
+    plt.savefig("ragone-plot.jpeg")
     plt.show()
