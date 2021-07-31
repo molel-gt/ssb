@@ -52,7 +52,7 @@ col_names = ["porosity", "separator length [m]", "cathode length [m]",
              "current density [A.m-2]", "discharge time [h]"]
 L_sep = 50E-6
 
-timestamp_now = '2021-07-30-20'  # datetime.utcnow().strftime("%Y-%m-%d-%H")  # '2021-07-30-16'  #
+timestamp_now = datetime.utcnow().strftime("%Y-%m-%d-%H")
 
 POROSITY = 0.3
 
@@ -91,7 +91,7 @@ if __name__ == '__main__':
     cathode_lengths = [100e-6, 200e-6, 300e-6, 400e-6, 500e-6,
                        600e-6, 700e-6, 600e-6, 800e-6, 900e-6, 1000e-6]
     current_functions = [0.1e-3, 0.25e-3, 0.5e-3, 0.75e-3, 1e-3, 2.5e-3,
-                         5e-3, 7.5e-3, 10e-3, 25e-3, 50e-3, 75e-3, 100e-3]
+                         5e-3, 7.5e-3, 10e-3, 15e-3, 20e-3, 25e-3, 50e-3, 75e-3, 100e-3]
 
     #
     # Conduct study
