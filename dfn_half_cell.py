@@ -52,7 +52,7 @@ col_names = ["porosity", "separator length [m]", "cathode length [m]",
              "current density [A.m-2]", "discharge time [h]"]
 L_SEP = 50E-6
 
-timestamp_now = datetime.utcnow().strftime("%Y-%m-%d")
+date_today = datetime.utcnow().strftime("%Y-%m-%d")
 
 POROSITY = 0.3
 
@@ -93,10 +93,10 @@ if __name__ == '__main__':
     # Conduct study
     #
 
-    with open("studies/{}.csv".format(timestamp_now), "w") as fp:
+    with open("studies/{}.csv".format(date_today), "w") as fp:
         writer = csv.DictWriter(fp, fieldnames=col_names)
         writer.writeheader()
-        for current_function in current_functions_2:
+        for current_function in current_functions:
             params["Current function [A]"] = current_function
             for length in cathode_lengths:
                 file_name = "{length}_{current_density}".format(
