@@ -79,7 +79,7 @@ if __name__ == '__main__':
         """
         for a in var_a:
             for b in var_b:
-                return a, b
+                yield a, b
 
     with open("studies/{}.csv".format(date_today), "w") as fp:
         writer = csv.DictWriter(fp, fieldnames=col_names)
