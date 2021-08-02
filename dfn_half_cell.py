@@ -88,6 +88,10 @@ if __name__ == '__main__':
     t_eval = np.linspace(0, t_max, 1000)
     cathode_lengths = [100e-6, 200e-6, 300e-6, 400e-6]
     current_functions = np.linspace(0.1e-3, 100e-3, 25)
+    current_functions = [0.1e-3, 0.25e-3, 0.5e-3, 0.75e-3, 1e-3,
+                         1.25e-3, 1.5e-3, 1.75e-3, 2e-3, 2.25e-3, 2.5e-3,
+                         5e-3, 7.5e-3, 10e-3, 12.5e-3, 15e-3, 17.5e-3,
+                         20e-3, 22.5e-3, 25e-3, 50e-3, 75e-3, 100e-3]
 
     #
     # Conduct study
