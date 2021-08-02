@@ -19,29 +19,6 @@ options = {
     'working electrode': 'positive',
 }
 
-experiment = pybamm.Experiment(
-    [
-        (
-            "Discharge at C/10 for 10 hours or until 3.5 V",
-            "Rest for 1 hour",
-            "Charge at 1 A until 4.1 V",
-            "Hold at 4.1 V until 50 mA",
-            "Rest for 1 hour"
-        ),
-    ]
-)
-
-output_variables = [
-    "Current density [A.m-2]",
-    "Terminal voltage [V]",
-    "Instantaneous power [W.m-2]",
-    "Electrolyte potential [V]",
-    "Working particle surface concentration [mol.m-3]",
-    "Electrolyte concentration [mol.m-3]",
-    "Pore-wall flux [mol.m-2.s-1]",
-]
-
-
 # some densities
 rho_cam = 2300  # NCM811 [kg.m-3]
 rho_sse = 2254  # LSPS [kg.m-3]
@@ -96,40 +73,47 @@ if __name__ == '__main__':
     #
     # Conduct study
     #
+    def get_var_permutations(var_a, var_b):
+        """
+        Return items based on loops from each var
+        """
+        for a in var_a:
+            for b in var_b:
+                return a, b
 
     with open("studies/{}.csv".format(date_today), "w") as fp:
         writer = csv.DictWriter(fp, fieldnames=col_names)
         writer.writeheader()
-        for current_function in current_functions:
+        for current_function, length in get_var_permutations(current_functions, cathode_lengths):
             params["Current function [A]"] = current_function
-            for length in cathode_lengths:
-                file_name = "{length}_{current_density}".format(
-                    length=str(int(length * 1e6)),
-                    current_density=float(current_function * 1e4))
-                params["Positive electrode thickness [m]"] = length
-                model = pybamm.lithium_ion.BasicDFNHalfCell(name=file_name, options=options)
-                safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
-                sim = pybamm.Simulation(model=model, parameter_values=params,
-                                        solver=safe_solver)
-                try:
-                    sim.solve(t_eval)
-                except Exception as e:
-                    print(e)
-                    continue
-                sim.save(os.path.join("sims", file_name + ".pkl"))
-                mass_cell = mass_res + rho_sse * (L_SEP + POROSITY * length) + rho_cam * (1 - POROSITY) * length
-                energy = integrate.simps(sim.solution["Instantaneous power [W.m-2]"].data, sim.solution["Time [s]"].data) / 3600
-                avg_power = np.average(sim.solution["Instantaneous power [W.m-2]"].data) / np.average(sim.solution["Time [s]"].data / 3600)
-                t_d = max(sim.solution["Time [s]"].data) / 3600
-                row = {
-                    "porosity": POROSITY, "separator length [m]": L_SEP, "cathode length [m]": length,
-                    "mass res [kg.m-2]": mass_res, "mass of cell [kg.m-2]": mass_cell,
-                    "energy of cell [Wh.m-2]": energy, "specific energy [Wh.kg-1]": energy / mass_cell,
-                    "specific power [W.kg-1]": avg_power / mass_cell,
-                    "current density [A.m-2]": current_function * 1e4,
-                    "discharge time [h]": t_d,
-                }
-                writer.writerow(row)
+            # for length in cathode_lengths:
+            file_name = "{length}_{current_density}".format(
+                length=str(int(length * 1e6)),
+                current_density=float(current_function * 1e4))
+            params["Positive electrode thickness [m]"] = length
+            model = pybamm.lithium_ion.BasicDFNHalfCell(name=file_name, options=options)
+            safe_solver = pybamm.CasadiSolver(atol=1e-3, rtol=1e-3, mode="safe")
+            sim = pybamm.Simulation(model=model, parameter_values=params,
+                                    solver=safe_solver)
+            try:
+                sim.solve(t_eval)
+            except Exception as e:
+                print(e)
+                continue
+            sim.save(os.path.join("sims", file_name + ".pkl"))
+            mass_cell = mass_res + rho_sse * (L_SEP + POROSITY * length) + rho_cam * (1 - POROSITY) * length
+            energy = integrate.simps(sim.solution["Instantaneous power [W.m-2]"].data, sim.solution["Time [s]"].data) / 3600
+            avg_power = np.average(sim.solution["Instantaneous power [W.m-2]"].data) / np.average(sim.solution["Time [s]"].data / 3600)
+            t_d = max(sim.solution["Time [s]"].data) / 3600
+            row = {
+                "porosity": POROSITY, "separator length [m]": L_SEP, "cathode length [m]": length,
+                "mass res [kg.m-2]": mass_res, "mass of cell [kg.m-2]": mass_cell,
+                "energy of cell [Wh.m-2]": energy, "specific energy [Wh.kg-1]": energy / mass_cell,
+                "specific power [W.kg-1]": avg_power / mass_cell,
+                "current density [A.m-2]": current_function * 1e4,
+                "discharge time [h]": t_d,
+            }
+            writer.writerow(row)
 
     # Visualize Results
     df = pd.read_csv("studies/" + date_today + ".csv")
