@@ -52,7 +52,7 @@ col_names = ["porosity", "separator length [m]", "cathode length [m]",
              "current density [A.m-2]", "discharge time [h]"]
 L_SEP = 50E-6
 
-timestamp_now = datetime.utcnow().strftime("%Y-%m-%d-%H")
+timestamp_now = datetime.utcnow().strftime("%Y-%m-%d")
 
 POROSITY = 0.3
 
@@ -74,9 +74,7 @@ if __name__ == '__main__':
             "Lithium counter electrode conductivity [S.m-1]": 1.0776e7,
             "Lithium counter electrode thickness [m]": 50e-6,
             "Positive electrode active material volume fraction": 1 - POROSITY,
-            # "Positive electrode conductivity [S.m-1]": 14,
             "Positive electrode diffusivity [m2.s-1]": 5e-13,
-            # 'Positive electrode thickness [m]': 100e-6,
             "Positive electrode porosity": POROSITY,
             "Positive particle radius [m]": 1e-6,
             "Separator porosity": 1.0,
@@ -89,11 +87,7 @@ if __name__ == '__main__':
     t_max = 25 * 3600
     t_eval = np.linspace(0, t_max, 1000)
     cathode_lengths = [100e-6, 200e-6, 300e-6, 400e-6]
-    cathode_lengths_2 = [500e-6, 600e-6, 700e-6, 800e-6, 900e-6]
-    current_functions = [0.1e-3, 0.25e-3, 0.5e-3, 0.75e-3, 1e-3,
-                         1.25e-3, 1.5e-3, 1.75e-3, 2e-3, 2.25e-3, 2.5e-3,
-                         5e-3, 7.5e-3, 10e-3, 12.5e-3, 15e-3, 17.5e-3,
-                         20e-3, 22.5e-3, 25e-3, 50e-3, 75e-3, 100e-3]
+    current_functions = np.linspace(0.1e-3, 100e-3, 25)
 
     #
     # Conduct study
@@ -102,7 +96,7 @@ if __name__ == '__main__':
     with open("studies/{}.csv".format(timestamp_now), "w") as fp:
         writer = csv.DictWriter(fp, fieldnames=col_names)
         writer.writeheader()
-        for current_function in current_functions:
+        for current_function in current_functions_2:
             params["Current function [A]"] = current_function
             for length in cathode_lengths:
                 file_name = "{length}_{current_density}".format(
@@ -152,7 +146,7 @@ if __name__ == '__main__':
     ax1.set_ylabel("discharge time [h]")
     ax1.tick_params(axis='y', which='both', direction='in', right=True)
     ax1.set_box_aspect(1)
-    plt.savefig("discharge-times.jpeg")
+    plt.savefig("discharge-time.jpeg")
     plt.show()
 
     fig2, ax2 = plt.subplots()
