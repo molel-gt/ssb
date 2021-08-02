@@ -128,7 +128,7 @@ if __name__ == '__main__':
                 writer.writerow(row)
 
     # Visualize Results
-    df = pd.read_csv("studies/" + timestamp_now + ".csv")
+    df = pd.read_csv("studies/" + date_today + ".csv")
     df = df[df["porosity"] == POROSITY]
 
     fig1, ax1 = plt.subplots()
