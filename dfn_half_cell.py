@@ -29,6 +29,11 @@ col_names = ["porosity", "separator length [m]", "cathode length [m]",
              "current density [A.m-2]", "discharge time [h]"]
 L_SEP = 50E-6
 
+output_vars = ["Terminal voltage [V]", "Working particle concentration",
+                "Current density [A.m-2]", "Pore-wall flux [mol.m-2.s-1]",
+                "Electrolyte concentration [mol.m-3]", "Electrolyte potential [V]",
+                "Working electrode potential [V]",]
+
 date_today = datetime.utcnow().strftime("%Y-%m-%d")
 
 POROSITY = 0.3
@@ -81,12 +86,13 @@ if __name__ == '__main__':
             for b in var_b:
                 yield a, b
 
+    sims = []
+
     with open("studies/{}.csv".format(date_today), "w") as fp:
         writer = csv.DictWriter(fp, fieldnames=col_names)
         writer.writeheader()
-        for current_function, length in get_var_permutations(current_functions, cathode_lengths[:1]):
+        for current_function, length in get_var_permutations(current_functions, cathode_lengths):
             params["Current function [A]"] = current_function
-            # for length in cathode_lengths:
             file_name = "{length}_{current_density}".format(
                 length=str(int(length * 1e6)),
                 current_density=float(current_function * 1e4))
@@ -100,6 +106,7 @@ if __name__ == '__main__':
             except Exception as e:
                 print(e)
                 continue
+            sims.append(sim)
             sim.save(os.path.join("sims", file_name + ".pkl"))
             mass_cell = mass_res + rho_sse * (L_SEP + POROSITY * length) + rho_cam * (1 - POROSITY) * length
             energy = integrate.simps(sim.solution["Instantaneous power [W.m-2]"].data, sim.solution["Time [s]"].data) / 3600
@@ -114,6 +121,9 @@ if __name__ == '__main__':
                 "discharge time [h]": t_d,
             }
             writer.writerow(row)
+
+    pybamm.dynamic_plot(sims[0],
+        output_vars)
 
     # Visualize Results
     df = pd.read_csv("studies/" + date_today + ".csv")
