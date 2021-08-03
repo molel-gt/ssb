@@ -134,6 +134,7 @@ if __name__ == '__main__':
     ax1.set_ylabel("discharge time [h]")
     ax1.tick_params(axis='y', which='both', direction='in', right=True)
     ax1.set_box_aspect(1)
+    ax1.grid()
     plt.savefig("discharge-time.jpeg")
     plt.show()
 
@@ -147,12 +148,11 @@ if __name__ == '__main__':
         x_data = df2["specific power [W.kg-1]"]
         y_data = df2["specific energy [Wh.kg-1]"]
         ax2.plot(x_data, y_data, linewidth=1, label="{} um".format(int(cat_len * 1e6)))
-    plt.axhline(y=500, color='grey', linestyle='--', linewidth=1, label='500 Wh/kg')
-    plt.axvline(x=1000, color='grey', linestyle='-.', linewidth=1, label='1000 W/kg')
     ax2.legend()
     ax2.set_xlabel("Specific Power [W.kg-1]")
     ax2.set_ylabel("Specific Energy [Wh.kg-1]")
     ax2.tick_params(axis='y', which='both', direction='in', right=True)
     ax2.set_box_aspect(1)
+    ax2.grid()
     plt.savefig("ragone-plot.jpeg")
     plt.show()
