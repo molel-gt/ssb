@@ -36,7 +36,7 @@ POROSITY = 0.3
 if __name__ == '__main__':
 
     # default parameters
-    chemistry = pybamm.parameter_sets.Chen2020
+    chemistry = pybamm.parameter_sets.Molel2021
     params = pybamm.ParameterValues(chemistry=chemistry)
 
     params.update(
@@ -84,7 +84,7 @@ if __name__ == '__main__':
     with open("studies/{}.csv".format(date_today), "w") as fp:
         writer = csv.DictWriter(fp, fieldnames=col_names)
         writer.writeheader()
-        for current_function, length in get_var_permutations(current_functions, cathode_lengths):
+        for current_function, length in get_var_permutations(current_functions, cathode_lengths[:1]):
             params["Current function [A]"] = current_function
             # for length in cathode_lengths:
             file_name = "{length}_{current_density}".format(
