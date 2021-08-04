@@ -125,7 +125,7 @@ if __name__ == '__main__':
         df1 = df[df["cathode length [m]"] == cat_len]
         df1 = df1[df1["discharge time [h]"] < t_max / 3600]
         x_data = df1["current density [A.m-2]"]
-        y_data = df1["discharge time [h]"] * cat_len ** (-2)
+        y_data = df1["discharge time [h]"]
         ax1.plot(x_data, y_data, linewidth=1, label="{} um".format(int(cat_len * 1e6)))
     ax1.legend()
     ax1.set_xlabel("current density [A.m-2]")
