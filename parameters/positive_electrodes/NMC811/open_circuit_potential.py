@@ -79,13 +79,14 @@ if __name__ == '__main__':
     stos = np.linspace(0.01, 0.99, 1000)
     ocp_chen2020_voltages = [open_circuit_potential_chen2020(sto).value for sto in stos]
     ocp_unif_voltages = [open_circuit_potential_unif(sto).value for sto in stos]
-    ocp_min_voltages = [open_circuit_potential(sto).value for sto in stos]
+    ocp_min_voltages = [open_circuit_potential_min(sto).value for sto in stos]
     fig, ax = plt.subplots()
-    ax.plot(stos, ocp_chen2020_voltages, label='NMC811 - Chen 2020')
-    ax.plot(stos, ocp_unif_voltages, label='U = 4.7 - 1.2 * sto')
-    ax.plot(stos, ocp_min_voltages, label='U = 4.0 + 1.2 * (sto - 0.5) ** 2')
-    ax.set_xlabel("sto")
-    ax.set_ylabel("OCP [V]")
+    x_data = np.log(1 - stos)
+    ax.plot(ocp_chen2020_voltages, x_data, label='NMC811 - Chen 2020')
+    ax.plot(ocp_unif_voltages, x_data,  label='U = 4.7 - 1.2 * sto')
+    ax.plot(ocp_min_voltages, x_data, label='U = 4.0 + 1.2 * (sto - 0.5) ** 2')
+    ax.set_ylabel("sto")
+    ax.set_xlabel("OCP [V]")
     ax.set_title("Open Circuit Potential")
     ax.legend()
     ax.grid()

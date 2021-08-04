@@ -1,6 +1,8 @@
 Name [units],Value,Reference,Notes
 # Empty rows and rows starting with ‘#’ will be ignored,,,
 ,,,
+Electrolyte conductivity [S.m-1],1,,
+Electrolyte diffusivity [m2.s-1],5E-12,,
 Separator porosity,1,,
 Separator Bruggeman coefficient (electrolyte),1.5,,
 Separator density [kg.m-3],,,

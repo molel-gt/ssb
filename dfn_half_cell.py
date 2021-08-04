@@ -46,21 +46,9 @@ if __name__ == '__main__':
 
     params.update(
         {
-            "1 + dlnf/dlnc": 1.0,
-            "Cation transference number": 1,
-            "Electrode height [m]": 1e-2,
-            "Electrode width [m]": 1e-2,
-            "Electrolyte conductivity [S.m-1]": 1.0,
-            "Electrolyte diffusivity [m2.s-1]": 5e-12,
             "Lithium counter electrode exchange-current density [A.m-2]": 12.6,
             "Lithium counter electrode conductivity [S.m-1]": 1.0776e7,
             "Lithium counter electrode thickness [m]": 50e-6,
-            "Positive electrode active material volume fraction": 1 - POROSITY,
-            "Positive electrode diffusivity [m2.s-1]": 5e-13,
-            "Positive electrode porosity": POROSITY,
-            "Positive particle radius [m]": 1e-6,
-            "Separator porosity": 1.0,
-            "Separator thickness [m]": L_SEP,
         },
         check_already_exists=False,
     )
