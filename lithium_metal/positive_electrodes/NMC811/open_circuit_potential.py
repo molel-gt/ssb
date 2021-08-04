@@ -79,7 +79,7 @@ if __name__ == '__main__':
     fig, ax = plt.subplots()
     ax.plot(stos, ocp_chen2020_voltages, label='NMC811 - Chen 2020')
     ax.plot(stos, ocp_unif_voltages, label='U = 4.7 - 1.2 * sto')
-    ax.plot(stos, ocp_min_voltages, label='U = 4.05 + 1.2 * (sto - 0.5) ** 2')
+    ax.plot(stos, ocp_min_voltages, label='U = 4.0 + 1.2 * (sto - 0.5) ** 2')
     ax.set_xlabel("sto")
     ax.set_ylabel("OCP [V]")
     ax.set_title("Open Circuit Potential")
