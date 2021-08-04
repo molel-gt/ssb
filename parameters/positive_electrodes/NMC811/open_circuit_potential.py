@@ -55,7 +55,7 @@ def open_circuit_potential_unif(sto):
     return u_eq
 
 
-def open_circuit_potential(sto):
+def open_circuit_potential_min(sto):
     """
     OCP which varies uniformly with reaction stoichiometry
 
@@ -69,6 +69,10 @@ def open_circuit_potential(sto):
     u_eq = pybamm.Scalar(4.0) + pybamm.Scalar(1.2) * (sto - 0.5) ** 2
 
     return u_eq
+
+
+def open_circuit_potential(sto):
+    return open_circuit_potential_unif(sto)
 
 
 if __name__ == '__main__':
