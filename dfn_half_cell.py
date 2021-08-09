@@ -56,8 +56,8 @@ if __name__ == '__main__':
     # Study variables
     t_max = 25 * 3600
     t_eval = np.linspace(0, t_max, 1000)
-    cathode_lengths = [100e-6, 200e-6, 300e-6, 400e-6]
-    current_functions = np.linspace(0.1e-3, 100e-3, 25)
+    cathode_lengths = [100e-6, 400e-6][:1]
+    current_functions = np.linspace(2.5e-3, 8.5e-3, 10)
     current_functions = [0.1e-3, 0.25e-3, 0.5e-3, 0.75e-3, 1e-3,
                          1.25e-3, 1.5e-3, 1.75e-3, 2e-3, 2.25e-3, 2.5e-3,
                          5e-3, 7.5e-3, 10e-3, 12.5e-3, 15e-3, 17.5e-3,
@@ -120,20 +120,20 @@ if __name__ == '__main__':
     fig1, ax1 = plt.subplots()
     plt.xscale('log')
     plt.yscale('log')
-    ax1.set_title('discharge time')
+    ax1.set_title('discharge capacity')
     for cat_len in cathode_lengths:
         df1 = df[df["cathode length [m]"] == cat_len]
         df1 = df1[df1["discharge time [h]"] < t_max / 3600]
         x_data = df1["current density [A.m-2]"]
         y_data = df1["discharge time [h]"]
-        ax1.plot(x_data, y_data, linewidth=1, label="{} um".format(int(cat_len * 1e6)))
+        ax1.scatter(x_data, x_data * y_data, linewidth=1, label="{} um".format(int(cat_len * 1e6)))
     ax1.legend()
     ax1.set_xlabel("current density [A.m-2]")
-    ax1.set_ylabel("discharge time [h]")
+    ax1.set_ylabel("discharge capacity [Ah.m-2]")
     ax1.tick_params(axis='y', which='both', direction='in', right=True)
     ax1.set_box_aspect(1)
     ax1.grid()
-    plt.savefig("ocp-min-discharge-time.jpeg")
+    plt.savefig("ocp-min-discharge-capacity.jpeg")
     plt.show()
 
     fig2, ax2 = plt.subplots()
@@ -145,7 +145,7 @@ if __name__ == '__main__':
         df2 = df2[df2["discharge time [h]"] < t_max / 3600]
         x_data = df2["specific power [W.kg-1]"]
         y_data = df2["specific energy [Wh.kg-1]"]
-        ax2.plot(x_data, y_data, linewidth=1, label="{} um".format(int(cat_len * 1e6)))
+        ax2.scatter(x_data, y_data, linewidth=1, label="{} um".format(int(cat_len * 1e6)))
     ax2.legend()
     ax2.set_xlabel("Specific Power [W.kg-1]")
     ax2.set_ylabel("Specific Energy [Wh.kg-1]")
