@@ -37,7 +37,7 @@ POROSITY = 0.3
 
 
 def current_function(t):
-    return 0.70e-3 * (t % 72000 <= 18000) - 0.35e-3 * (t % 72000 > 36000) * (t % 72000 <= 54000)
+    return 5e-3
 
 
 if __name__ == '__main__':
