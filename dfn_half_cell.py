@@ -52,7 +52,7 @@ if __name__ == '__main__':
     )
 
     porosity = params["Positive electrode porosity"]
-    l_sep = params["Separator length [m]"]
+    l_sep = params["Separator thickness [m]"]
 
     # Study variables
     t_max = 25 * 3600
