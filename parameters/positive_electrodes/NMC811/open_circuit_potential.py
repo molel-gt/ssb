@@ -78,7 +78,7 @@ def open_circuit_potential_sigmoid(sto):
 
 
 def open_circuit_potential(sto):
-    return open_circuit_potential_unif(sto)
+    return open_circuit_potential_chen2020(sto)
 
 
 if __name__ == '__main__':
