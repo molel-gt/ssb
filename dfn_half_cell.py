@@ -27,16 +27,14 @@ col_names = ["porosity", "separator length [m]", "cathode length [m]",
              "mass res [kg.m-2]", "mass of cell [kg.m-2]", "energy of cell [Wh.m-2]",
              "specific energy [Wh.kg-1]", "specific power [W.kg-1]",
              "current density [A.m-2]", "discharge time [h]"]
-L_SEP = 50E-6
 
-output_vars = ["Terminal voltage [V]", "Working particle concentration",
+output_vars = ["Terminal voltage [V]", "Working particle surface concentration",
                 "Current density [A.m-2]", "Pore-wall flux [mol.m-2.s-1]",
                 "Electrolyte concentration [mol.m-3]", "Electrolyte potential [V]",
                 "Working electrode potential [V]",]
 
 date_today = datetime.utcnow().strftime("%Y-%m-%d")
 
-POROSITY = 0.3
 
 if __name__ == '__main__':
 
@@ -53,15 +51,18 @@ if __name__ == '__main__':
         check_already_exists=False,
     )
 
+    porosity = params["Positive electrode porosity"]
+    l_sep = params["Separator length [m]"]
+
     # Study variables
     t_max = 25 * 3600
     t_eval = np.linspace(0, t_max, 1000)
-    cathode_lengths = [100e-6, 400e-6][:1]
+    cathode_lengths = [100e-6, 400e-6]
     current_functions = np.linspace(2.5e-3, 8.5e-3, 10)
     current_functions = [0.1e-3, 0.25e-3, 0.5e-3, 0.75e-3, 1e-3,
                          1.25e-3, 1.5e-3, 1.75e-3, 2e-3, 2.25e-3, 2.5e-3,
                          5e-3, 7.5e-3, 10e-3, 12.5e-3, 15e-3, 17.5e-3,
-                         20e-3, 22.5e-3, 25e-3, 50e-3, 75e-3, 100e-3]
+                         20e-3, 22.5e-3, 25e-3, 50e-3, 75e-3, 100e-3, 1000e-3, 10000e-3]
 
     #
     # Conduct study
@@ -96,12 +97,12 @@ if __name__ == '__main__':
                 continue
             sims.append(sim)
             sim.save(os.path.join("sims", file_name + ".pkl"))
-            mass_cell = mass_res + rho_sse * (L_SEP + POROSITY * length) + rho_cam * (1 - POROSITY) * length
+            mass_cell = mass_res + rho_sse * (l_sep + porosity * length) + rho_cam * (1 - porosity) * length
             energy = integrate.simps(sim.solution["Instantaneous power [W.m-2]"].data, sim.solution["Time [s]"].data) / 3600
             avg_power = np.average(sim.solution["Instantaneous power [W.m-2]"].data) / np.average(sim.solution["Time [s]"].data / 3600)
             t_d = max(sim.solution["Time [s]"].data) / 3600
             row = {
-                "porosity": POROSITY, "separator length [m]": L_SEP, "cathode length [m]": length,
+                "porosity": porosity, "separator length [m]": l_sep, "cathode length [m]": length,
                 "mass res [kg.m-2]": mass_res, "mass of cell [kg.m-2]": mass_cell,
                 "energy of cell [Wh.m-2]": energy, "specific energy [Wh.kg-1]": energy / mass_cell,
                 "specific power [W.kg-1]": avg_power / mass_cell,
@@ -110,12 +111,10 @@ if __name__ == '__main__':
             }
             writer.writerow(row)
 
-    pybamm.dynamic_plot(sims[0],
-        output_vars)
+    pybamm.dynamic_plot(sims[-1], output_vars)
 
     # Visualize Results
     df = pd.read_csv("studies/" + date_today + ".csv")
-    df = df[df["porosity"] == POROSITY]
 
     fig1, ax1 = plt.subplots()
     plt.xscale('log')
