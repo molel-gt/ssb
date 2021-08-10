@@ -72,7 +72,7 @@ def open_circuit_potential_min(sto):
 
 
 def open_circuit_potential_sigmoid(sto):
-    u_eq = 1 / (pybamm.exp(-2 * (sto - 0.5)) + 1)
+    u_eq = 4.65 - 1 / (pybamm.exp(-3.5 * (sto - 0.5)) + 1)
 
     return u_eq
 
@@ -82,20 +82,20 @@ def open_circuit_potential(sto):
 
 
 if __name__ == '__main__':
-    stos = np.linspace(-0.99, 0.99, 1000)
+    stos = np.linspace(0.001, 0.99, 1000)
     ocp_chen2020_voltages = [open_circuit_potential_chen2020(sto).value for sto in stos]
     ocp_unif_voltages = [open_circuit_potential_unif(sto).value for sto in stos]
     ocp_min_voltages = [open_circuit_potential_min(sto).value for sto in stos]
     ocp_sigmoid_voltages = [open_circuit_potential_sigmoid(sto).value for sto in stos]
     fig, ax = plt.subplots()
-    x_data = np.log(1 - stos)
-    ax.plot(ocp_chen2020_voltages, x_data, label='NMC811 - Chen 2020')
-    ax.plot(ocp_unif_voltages, x_data,  label='U = 4.7 - 1.2 * sto')
-    ax.plot(ocp_min_voltages, x_data, label='U = 4.0 + 1.2 * (sto - 0.5) ** 2')
-    ax.plot(ocp_sigmoid_voltages, x_data, label='sigmoid')
-    ax.set_ylabel("sto")
-    ax.set_xlabel("OCP [V]")
-    ax.set_title("Open Circuit Potential")
+    x_data = stos
+    ax.plot(x_data, ocp_chen2020_voltages, label='NMC811 - Chen 2020')
+    ax.plot(x_data, ocp_unif_voltages, label='U = 4.7 - 1.2 * sto')
+    ax.plot(x_data, ocp_min_voltages, label='U = 4.0 + 1.2 * (sto - 0.5) ** 2')
+    ax.plot(x_data, ocp_sigmoid_voltages, label='U = 4.3 - 1 / (exp(-3.5*(sto - 0.5)))')
+    ax.set_xlabel("y")
+    ax.set_ylabel("U [V]")
+    ax.set_title("Open Circuit Potential (U) vs Insertion Fraction (y)")
     ax.legend()
     ax.grid()
     plt.savefig("open-circuit-potential.jpeg")
