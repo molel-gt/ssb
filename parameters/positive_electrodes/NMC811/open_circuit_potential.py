@@ -95,7 +95,7 @@ if __name__ == '__main__':
     ax.plot(x_data, ocp_sigmoid_voltages, label='U = 4.3 - 1 / (exp(-3.5*(sto - 0.5)))')
     ax.set_xlabel("y")
     ax.set_ylabel("U [V]")
-    ax.set_title("Open Circuit Potential (U) vs Insertion Fraction (y)")
+    ax.set_title("OCP (U) vs Li+ insertion fraction (y)")
     ax.legend()
     ax.grid()
     plt.savefig("open-circuit-potential.jpeg")
