@@ -57,7 +57,7 @@ if __name__ == '__main__':
     # Study variables
     t_max = 25 * 3600
     t_eval = np.linspace(0, t_max, 1000)
-    cathode_lengths = [100e-6, 400e-6]
+    cathode_lengths = [100e-6, 400e-6, 600e-6]
     current_functions = np.linspace(2.5e-3, 8.5e-3, 10)
     current_functions = [0.1e-3, 0.25e-3, 0.5e-3, 0.75e-3, 1e-3,
                          1.25e-3, 1.5e-3, 1.75e-3, 2e-3, 2.25e-3, 2.5e-3,
