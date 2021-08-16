@@ -47,6 +47,7 @@ if __name__ == '__main__':
             "Lithium counter electrode exchange-current density [A.m-2]": 12.6,
             "Lithium counter electrode conductivity [S.m-1]": 1.0776e7,
             "Lithium counter electrode thickness [m]": 50e-6,
+            "Separator thickness [m]": 25e-6,
         },
         check_already_exists=False,
     )
@@ -111,7 +112,7 @@ if __name__ == '__main__':
             }
             writer.writerow(row)
 
-    pybamm.dynamic_plot(sims[-1], output_vars)
+    pybamm.dynamic_plot(sims[-5], output_vars)
 
     # Visualize Results
     df = pd.read_csv("studies/" + date_today + ".csv")
