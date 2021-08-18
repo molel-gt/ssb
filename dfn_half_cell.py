@@ -133,7 +133,7 @@ if __name__ == '__main__':
     ax1.tick_params(axis='y', which='both', direction='in', right=True)
     ax1.set_box_aspect(1)
     ax1.grid()
-    plt.savefig("ocp-min-discharge-capacity.jpeg")
+    plt.savefig("ocp-chen2020-discharge-capacity.jpeg")
     plt.show()
 
     fig2, ax2 = plt.subplots()
@@ -152,5 +152,5 @@ if __name__ == '__main__':
     ax2.tick_params(axis='y', which='both', direction='in', right=True)
     ax2.set_box_aspect(1)
     ax2.grid()
-    plt.savefig("ocp-min-ragone-plot.jpeg")
+    plt.savefig("ocp-chen2020-ragone-plot.jpeg")
     plt.show()
