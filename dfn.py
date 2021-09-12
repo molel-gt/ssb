@@ -21,7 +21,7 @@ if __name__ == '__main__':
         ] * 2
     )
 
-    model = pybamm.lithium_ion.BasicDFNHalfCell(options={"working electrode": "positive"})
+    model = pybamm.lithium_metal.DFN()
     solver = pybamm.CasadiSolver(mode="safe", atol=1e-6, rtol=1e-3)
     sim = pybamm.Simulation(model, parameter_values=params,
                             experiment=experiment, solver=solver)
