@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import pybamm
-import numpy as np
+
 
 pybamm.set_logging_level("INFO")
 
@@ -28,7 +28,6 @@ if __name__ == '__main__':
     solver = pybamm.CasadiSolver(mode="safe", atol=1e-6, rtol=1e-3)
     sim = pybamm.Simulation(model, parameter_values=params,
                             experiment=experiment, solver=solver)
-    t_eval = np.linspace(0, 7200, 1000)
 
     sim.solve()
 
