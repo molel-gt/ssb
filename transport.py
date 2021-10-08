@@ -10,8 +10,8 @@ def solver(f, u_D, Nx, Ny, Nz, degree=1):
     the boundary.
     """
     # Create mesh and define function space
-    # mesh = UnitCubeMesh(Nx, Ny, Nz)
-    mesh = BoxMesh(Point(0, 0, 0), Point(1, 1, 1), Nx, Ny, Nz)
+    mesh = UnitCubeMesh(Nx, Ny, Nz)
+    # mesh = BoxMesh(Point(0, 0, 0), Point(1, 1, 1), Nx, Ny, Nz)
     V = FunctionSpace(mesh, 'P', degree)
     tol = 1E-14
     def boundary_D(x, on_boundary):
@@ -43,7 +43,7 @@ def run_solver():
     u = solver(f, u_D, 10, 10, 10, 1)
     # Plot solution and mesh
     plot(u)
-    plot(u.function_space().mesh())
+    # plot(u.function_space().mesh())
     # Save solution to file in VTK format
     vtkfile = File('poisson_solver/solution.pvd')
     vtkfile << u
