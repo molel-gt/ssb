@@ -1,4 +1,5 @@
 from fenics import *
+from dolfin import *
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -10,8 +11,7 @@ def solver(f, u_D, Nx, Ny, Nz, degree=1):
     the boundary.
     """
     # Create mesh and define function space
-    mesh = UnitCubeMesh(Nx, Ny, Nz)
-    # mesh = BoxMesh(Point(0, 0, 0), Point(1, 1, 1), Nx, Ny, Nz)
+    mesh = BoxMesh(Point(0, 0, 0), Point(1, 1, 1), Nx, Ny, Nz)
     V = FunctionSpace(mesh, 'P', degree)
     tol = 1E-14
     def boundary_D(x, on_boundary):
