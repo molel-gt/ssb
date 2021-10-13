@@ -11,14 +11,17 @@ def solver(f, u_D, Nx, Ny, Nz, degree=1):
     the boundary.
     """
     # Create mesh and define function space
-    mesh = BoxMesh(Point(0, 0, 0), Point(1, 1, 1), Nx, Ny, Nz)
+    mesh = Mesh()
+    fp = XDMFFile("mesh.xdmf")
+    fp.read(mesh)
     V = FunctionSpace(mesh, 'P', degree)
     tol = 1E-14
+
     def boundary_D(x, on_boundary):
         return on_boundary and (near(x[0], 0, tol) or near(x[0], 1, tol))
 
     bc = DirichletBC(V, u_D, boundary_D)
-    
+
     # Define variational problem
     u = TrialFunction(V)
     g = Expression('x[1]*(1 - x[1])*x[2]*(1 - x[2])', degree=2)
