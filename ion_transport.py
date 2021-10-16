@@ -16,17 +16,18 @@ from ufl import ds, dx, grad, inner
 
 
 # # Create mesh and define function space
-mesh = UnitCubeMesh(
-    MPI.COMM_WORLD, 90, 90, 90,
-    CellType.tetrahedron, dolfinx.cpp.mesh.GhostMode.none)
+# mesh = UnitCubeMesh(
+#     MPI.COMM_WORLD, 90, 90, 90,
+    # CellType.tetrahedron, dolfinx.cpp.mesh.GhostMode.none)
+mesh = dolfinx.UnitIntervalMesh(MPI.COMM_WORLD, 3)
 with XDMFFile(MPI.COMM_WORLD, "mesh_tetra.xdmf", "r") as infile:
-    mesh = infile.read_mesh(MPI.COMM_WORLD, dolfinx.cpp.mesh.GhostMode.none)
+    mesh = infile.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
 print("done loading tetrahedral mesh")
 
-boundaries = dol.MeshValueCollection("size_t", mesh, 2)
-with XDMFFile(MPI.COMM_WORLD, "mesh_tria.xdmf") as infile:
-    boundaries = infile.read_mvc_size_t(mesh, "all_tags")
-print("done reading triangle mesh")
+# boundaries = dol.MeshValueCollection(mesh, 2)
+# with XDMFFile(MPI.COMM_WORLD, "mesh_tria.xdmf") as infile:
+#     boundaries = infile.read_mvc_size_t(mesh, "all_tags")
+# print("done reading triangle mesh")
 V = FunctionSpace(mesh, ("Lagrange", 1))
 
 # Define boundary condition on x = 0 or x = 1
@@ -36,9 +37,9 @@ with u0.vector.localForm() as u0_loc:
 u1 = Function(V)
 with u1.vector.localForm() as u1_loc:
     u1_loc.set(1)
-x0facet = locate_entities_boundary(boundaries, 2,
+x0facet = locate_entities_boundary(mesh, 2,
                                    lambda x: np.isclose(x[0], 0.0))
-x1facet = locate_entities_boundary(boundaries, 2,
+x1facet = locate_entities_boundary(mesh, 2,
                                    lambda x: np.isclose(x[0], 1.0))
 x0bc = DirichletBC(u0, locate_dofs_topological(V, 2, x0facet))
 x1bc = DirichletBC(u1, locate_dofs_topological(V, 2, x1facet))
