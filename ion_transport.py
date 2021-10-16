@@ -25,13 +25,13 @@ mesh_2d = RectangleMesh(
     [np.array([0, 0, 0]), np.array([1, 1, 0])], [10, 10],
     CellType.triangle, dolfinx.cpp.mesh.GhostMode.none)
 
-# with XDMFFile(MPI.COMM_WORLD, "mesh_tetr.xdmf", "r") as infile:
-#     mesh = infile.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
-# print("done loading tetrahedral mesh")
+with XDMFFile(MPI.COMM_WORLD, "mesh_tetr.xdmf", "r") as infile:
+    mesh = infile.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
+print("done loading tetrahedral mesh")
 
-# with XDMFFile(MPI.COMM_WORLD, "mesh_tria.xdmf", "r") as infile:
-#     mesh_2d = infile.read_mesh(dolfinx.cpp.mesh.GhostMode.none, "Grid")
-# print("done reading triangle mesh")
+with XDMFFile(MPI.COMM_WORLD, "mesh_tria.xdmf", "r") as infile:
+    mesh_2d = infile.read_mesh(dolfinx.cpp.mesh.GhostMode.none, "Grid")
+print("done reading triangle mesh")
 
 V = FunctionSpace(mesh, ("Lagrange", 2))
 
@@ -58,7 +58,7 @@ x1bc = DirichletBC(u1, locate_dofs_topological(V, 2, x1facet))
 
 g = x[1] * (1- x[1]) * x[2] * (1 - x[2])
 a = inner(grad(u), grad(v)) * dx
-L = inner(f, v) * dx(x[0]) + inner(g, v) * ds(mesh)
+L = inner(f, v) * dx(x) + inner(g, v) * ds(mesh)
 print("setting problem..")
 
 problem = fem.LinearProblem(a, L, bcs=[x0bc, x1bc],
