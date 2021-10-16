@@ -1,11 +1,9 @@
 
 import dolfinx
-# from fenics import *
-import dolfin
 import numpy as np
 import ufl
 from dolfinx import (DirichletBC, Function, FunctionSpace, fem,
-                     UnitCubeMesh, UnitIntervalMesh, BoxMesh, RectangleMesh, plot
+                     BoxMesh, RectangleMesh, plot
                      )
 from dolfinx.cpp.mesh import CellType
 from dolfinx.fem import locate_dofs_topological
