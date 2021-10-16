@@ -19,7 +19,7 @@ mesh = UnitCubeMesh(
     MPI.COMM_WORLD, 90, 90, 90,
     CellType.tetrahedron, dolfinx.cpp.mesh.GhostMode.none)
 # mesh = UnitIntervalMesh(MPI.COMM_WORLD, 3, dolfinx.cpp.mesh.GhostMode.none)
-with XDMFFile(MPI.COMM_WORLD, "mesh_tetra.xdmf", "r") as infile:
+with XDMFFile(MPI.COMM_WORLD, "mesh_tetr.xdmf", "r") as infile:
     mesh = infile.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
 print("done loading tetrahedral mesh")
 
