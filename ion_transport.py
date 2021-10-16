@@ -2,8 +2,8 @@
 import dolfinx
 import numpy as np
 import ufl
-from dolfinx import (DirichletBC, Function, FunctionSpace, RectangleMesh, fem,
-                     UnitCubeMesh, UnitIntervalMesh, plot
+from dolfinx import (DirichletBC, Function, FunctionSpace, fem,
+                     UnitCubeMesh
                      )
 from dolfinx.cpp.mesh import CellType
 from dolfinx.fem import locate_dofs_topological
