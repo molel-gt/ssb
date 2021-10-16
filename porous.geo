@@ -3,14 +3,14 @@ SetFactory("OpenCASCADE");
 size = 90;
 gridsize = size / size;
 //+ numbering counterclockwise from bottom/left
-Point(1) = {0, 0, 0, gridsize};
-Point(2) = {size, 0, 0, gridsize};
-Point(3) = {size, size, 0, gridsize};
-Point(4) = {0, size, 0, gridsize};
-Point(5) = {0, 0, size, gridsize};
-Point(6) = {size, 0, size, gridsize};
+Point(1) = {1, 1, 1, gridsize};
+Point(2) = {size, 1, 1, gridsize};
+Point(3) = {size, size, 1, gridsize};
+Point(4) = {1, size, 1, gridsize};
+Point(5) = {1, 1, size, gridsize};
+Point(6) = {size, 1, size, gridsize};
 Point(7) = {size, size, size, gridsize};
-Point(8) = {0, size, size, gridsize};
+Point(8) = {1, size, size, gridsize};
 //+
 Line(1) = {1, 2};
 Line(2) = {2, 3};
@@ -59,6 +59,6 @@ Physical Surface(4) = {11};  // Y1
 Physical Surface(5) = {12};  // X0
 Physical Surface(6) = {13};  // X1
 //+
-Merge "NavneetGeometry2/NavneetIonomerGeometry2.stl";
-// Merge "porous.stl";
+Physical Volume(1) = {1};
+Merge "porous.1.vtk";
 Coherence;

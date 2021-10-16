@@ -25,10 +25,10 @@ def create_mesh(mesh, cell_type, prune_z=False):
 
 
 line_mesh = create_mesh(msh, "line")
-meshio.write("mesh1.xdmf", line_mesh)
+meshio.write("mesh_line.xdmf", line_mesh)
 
 triangle_mesh = create_mesh(msh, "triangle")
-meshio.write("mesh2.xdmf", triangle_mesh)
+meshio.write("mesh_tria.xdmf", triangle_mesh)
 
-# tetra_mesh = create_mesh(msh, "tetra")
-# meshio.write("mesh3.xdmf", tetra_mesh)
+tetra_mesh = create_mesh(msh, "tetra")
+meshio.write("mesh_tetra.xdmf", tetra_mesh)
