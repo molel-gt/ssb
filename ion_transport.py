@@ -51,13 +51,15 @@ g = x[1] * (1 - x[1]) * x[2] * (1 - x[2])
 a = inner(grad(u), grad(v)) * dx
 L = inner(f, v) * dx + inner(g, v) * ds
 
-problem = fem.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+problem = fem.LinearProblem(a, L, bcs=[x0bc, x1bc],
+                            petsc_options={"ksp_type": "preonly",
+                            "pc_type": "lu"})
 
 # When we want to compute the solution to the problem, we can specify
 # what kind of solver we want to use.
 uh = problem.solve()
 
 # Save solution in XDMF format
-with XDMFFile(MPI.COMM_WORLD, "ionic.xdmf", "w") as file:
-    file.write_mesh(mesh)
-    file.write_function(uh)
+with XDMFFile(MPI.COMM_WORLD, "ion_transport.xdmf", "w") as outfile:
+    outfile.write_mesh(mesh)
+    outfile.write_function(uh)
