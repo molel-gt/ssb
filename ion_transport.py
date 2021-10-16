@@ -37,7 +37,7 @@ mesh = BoxMesh(
 #     boundaries = infile.read_mvc_size_t(mesh, "all_tags")
 # print("done reading triangle mesh")
 
-V = FunctionSpace(mesh, ("Lagrange", 1))
+V = FunctionSpace(mesh, ("Lagrange", 2))
 
 # Define boundary condition on x = 0 or x = 1
 u0 = Function(V)
