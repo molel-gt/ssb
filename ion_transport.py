@@ -1,10 +1,9 @@
 
 import dolfinx
-import dolfin as dol
 import numpy as np
 import ufl
 from dolfinx import (DirichletBC, Function, FunctionSpace, RectangleMesh, fem,
-                     UnitCubeMesh, plot
+                     UnitCubeMesh, UnitIntervalMesh, plot
                      )
 from dolfinx.cpp.mesh import CellType
 from dolfinx.fem import locate_dofs_topological
@@ -16,10 +15,10 @@ from ufl import ds, dx, grad, inner
 
 
 # # Create mesh and define function space
-# mesh = UnitCubeMesh(
-#     MPI.COMM_WORLD, 90, 90, 90,
-    # CellType.tetrahedron, dolfinx.cpp.mesh.GhostMode.none)
-mesh = dolfinx.UnitIntervalMesh(MPI.COMM_WORLD, 3)
+mesh = UnitCubeMesh(
+    MPI.COMM_WORLD, 90, 90, 90,
+    CellType.tetrahedron, dolfinx.cpp.mesh.GhostMode.none)
+# mesh = UnitIntervalMesh(MPI.COMM_WORLD, 3, dolfinx.cpp.mesh.GhostMode.none)
 with XDMFFile(MPI.COMM_WORLD, "mesh_tetra.xdmf", "r") as infile:
     mesh = infile.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
 print("done loading tetrahedral mesh")
@@ -45,10 +44,11 @@ x0bc = DirichletBC(u0, locate_dofs_topological(V, 2, x0facet))
 x1bc = DirichletBC(u1, locate_dofs_topological(V, 2, x1facet))
 
 # Define variational problem
-u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
+u = ufl.TrialFunction(V)
+v = ufl.TestFunction(V)
 x = ufl.SpatialCoordinate(mesh)
 f = 0
-g = x[1] * (1 - x[1]) * x[2] * (1 - x[2])
+g = (1 - x[1]) * (90 - x[1]) * (1 - x[2]) * (90 - x[2])
 a = inner(grad(u), grad(v)) * dx
 L = inner(f, v) * dx + inner(g, v) * ds
 
