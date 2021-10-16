@@ -5,7 +5,7 @@ import dolfin
 import numpy as np
 import ufl
 from dolfinx import (DirichletBC, Function, FunctionSpace, fem,
-                     UnitCubeMesh, UnitIntervalMesh, BoxMesh, RectangleMesh
+                     UnitCubeMesh, UnitIntervalMesh, BoxMesh, RectangleMesh, plot
                      )
 from dolfinx.cpp.mesh import CellType
 from dolfinx.fem import locate_dofs_topological
@@ -17,24 +17,20 @@ from ufl import ds, dx, grad, inner
 
 
 # # Create mesh and define function space
-# mesh = UnitCubeMesh(
-#     MPI.COMM_WORLD, 90, 90, 90,
-#     CellType.tetrahedron, dolfinx.cpp.mesh.GhostMode.none)
-# mesh = UnitIntervalMesh(MPI.COMM_WORLD, 3, dolfinx.cpp.mesh.GhostMode.none)
-# mesh = RectangleMesh(
-#     MPI.COMM_WORLD,
-#     [np.array([0, 0, 0]), np.array([1, 1, 0])], [32, 32],
-#     CellType.triangle, dolfinx.cpp.mesh.GhostMode.none)
 mesh = BoxMesh(
     MPI.COMM_WORLD, [np.array([0, 0, 0]), np.array([1, 1, 1])],
     [10, 10, 10], CellType.tetrahedron, dolfinx.cpp.mesh.GhostMode.none)
+mesh_2d = RectangleMesh(
+    MPI.COMM_WORLD,
+    [np.array([0, 0, 0]), np.array([1, 1, 0])], [10, 10],
+    CellType.triangle, dolfinx.cpp.mesh.GhostMode.none)
+
 # with XDMFFile(MPI.COMM_WORLD, "mesh_tetr.xdmf", "r") as infile:
 #     mesh = infile.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
 # print("done loading tetrahedral mesh")
 
-# boundaries = dolfinx.cpp.mesh.MeshValueCollection("size_t", mesh, 2)
-# with XDMFFile(MPI.COMM_WORLD, "mesh_tria.xdmf") as infile:
-#     boundaries = infile.read_mvc_size_t(mesh, "all_tags")
+# with XDMFFile(MPI.COMM_WORLD, "mesh_tria.xdmf", "r") as infile:
+#     mesh_2d = infile.read_mesh(dolfinx.cpp.mesh.GhostMode.none, "Grid")
 # print("done reading triangle mesh")
 
 V = FunctionSpace(mesh, ("Lagrange", 2))
@@ -55,13 +51,15 @@ x1facet = locate_entities_boundary(mesh, 2,
 u = ufl.TrialFunction(V)
 v = ufl.TestFunction(V)
 x = ufl.SpatialCoordinate(mesh)
-f = 0
+f = x[0] - x[0]
+# u_D = x[0]
 x0bc = DirichletBC(u0, locate_dofs_topological(V, 2, x0facet))
 x1bc = DirichletBC(u1, locate_dofs_topological(V, 2, x1facet))
 
 g = x[1] * (1- x[1]) * x[2] * (1 - x[2])
 a = inner(grad(u), grad(v)) * dx
-L = inner(f, v) * dx + inner(g, v) * ds
+L = inner(f, v) * dx(x[0]) + inner(g, v) * ds(mesh)
+print("setting problem..")
 
 problem = fem.LinearProblem(a, L, bcs=[x0bc, x1bc],
                             petsc_options={"ksp_type": "preonly",
@@ -69,6 +67,7 @@ problem = fem.LinearProblem(a, L, bcs=[x0bc, x1bc],
 
 # When we want to compute the solution to the problem, we can specify
 # what kind of solver we want to use.
+print('solving problem..')
 uh = problem.solve()
 
 # Save solution in XDMF format
