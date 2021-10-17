@@ -15,13 +15,13 @@ from ufl import ds, dx, grad, inner
 
 
 # # Create mesh and define function space
-mesh = BoxMesh(
-    MPI.COMM_WORLD, [np.array([0, 0, 0]), np.array([1, 1, 1])],
-    [10, 10, 10], CellType.tetrahedron, dolfinx.cpp.mesh.GhostMode.none)
-mesh_2d = RectangleMesh(
-    MPI.COMM_WORLD,
-    [np.array([0, 0, 0]), np.array([1, 1, 0])], [10, 10],
-    CellType.triangle, dolfinx.cpp.mesh.GhostMode.none)
+# mesh = BoxMesh(
+#     MPI.COMM_WORLD, [np.array([0, 0, 0]), np.array([1, 1, 1])],
+#     [10, 10, 10], CellType.tetrahedron, dolfinx.cpp.mesh.GhostMode.none)
+# mesh_2d = RectangleMesh(
+#     MPI.COMM_WORLD,
+#     [np.array([0, 0, 0]), np.array([1, 1, 0])], [10, 10],
+#     CellType.triangle, dolfinx.cpp.mesh.GhostMode.none)
 
 with XDMFFile(MPI.COMM_WORLD, "mesh_tetr.xdmf", "r") as infile:
     mesh = infile.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
@@ -44,7 +44,7 @@ with u1.vector.localForm() as u1_loc:
 x0facet = locate_entities_boundary(mesh, 2,
                                    lambda x: np.isclose(x[0], 0))
 x1facet = locate_entities_boundary(mesh, 2,
-                                   lambda x: np.isclose(x[0], 1))
+                                   lambda x: np.isclose(x[0], 10))
 # Define variational problem
 u = ufl.TrialFunction(V)
 v = ufl.TestFunction(V)
@@ -54,7 +54,7 @@ f = x[0] - x[0]
 x0bc = DirichletBC(u0, locate_dofs_topological(V, 2, x0facet))
 x1bc = DirichletBC(u1, locate_dofs_topological(V, 2, x1facet))
 
-g = x[1] * (1- x[1]) * x[2] * (1 - x[2])
+g = x[1] * (10 - x[1]) * x[2] * (10 - x[2])
 a = inner(grad(u), grad(v)) * dx
 L = inner(f, v) * dx(x) + inner(g, v) * ds(mesh)
 print("setting problem..")
