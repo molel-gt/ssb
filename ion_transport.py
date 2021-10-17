@@ -73,8 +73,6 @@ with XDMFFile(MPI.COMM_WORLD, "ion_transport.xdmf", "w") as outfile:
     outfile.write_mesh(mesh)
     outfile.write_function(uh)
 
-
-
 # Update ghost entries and plot
 uh.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 try:
@@ -86,7 +84,7 @@ try:
     grid.set_active_scalars("u")
 
     plotter = pyvista.Plotter()
-    plotter.add_mesh(grid, show_edges=True)
+    plotter.add_mesh(grid, show_edges=False)
     warped = grid.warp_by_scalar()
     plotter.add_mesh(warped)
 

@@ -4,8 +4,6 @@ import meshio
 import numpy as np
 
 
-
-
 def create_mesh(mesh, cell_type, prune_z=False):
     """
     """
