@@ -23,12 +23,12 @@ from ufl import ds, dx, grad, inner
 #     [np.array([0, 0, 0]), np.array([1, 1, 0])], [10, 10],
 #     CellType.triangle, dolfinx.cpp.mesh.GhostMode.none)
 
-with XDMFFile(MPI.COMM_WORLD, "mesh_tetr.xdmf", "r") as infile:
-    mesh = infile.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
+with XDMFFile(MPI.COMM_WORLD, "mesh_tetr.xdmf", "r") as infile3:
+    mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
 print("done loading tetrahedral mesh")
 
-with XDMFFile(MPI.COMM_WORLD, "mesh_tria.xdmf", "r") as infile:
-    mesh_2d = infile.read_mesh(dolfinx.cpp.mesh.GhostMode.none, "Grid")
+with XDMFFile(MPI.COMM_WORLD, "mesh_tria.xdmf", "r") as infile2:
+    mesh_2d = infile2.read_mesh(dolfinx.cpp.mesh.GhostMode.none, "Grid")
 print("done reading triangle mesh")
 
 V = FunctionSpace(mesh, ("Lagrange", 2))
@@ -49,8 +49,8 @@ x1facet = locate_entities_boundary(mesh, 2,
 u = ufl.TrialFunction(V)
 v = ufl.TestFunction(V)
 x = ufl.SpatialCoordinate(mesh)
-f = x[0] - x[0]
-# u_D = x[0]
+f = 0
+
 x0bc = DirichletBC(u0, locate_dofs_topological(V, 2, x0facet))
 x1bc = DirichletBC(u1, locate_dofs_topological(V, 2, x1facet))
 
@@ -84,7 +84,8 @@ try:
     grid.set_active_scalars("u")
 
     plotter = pyvista.Plotter()
-    plotter.add_mesh(grid, show_edges=False)
+    plotter.add_mesh(grid, color=True)
+    # plotter.add_mesh(grid.copy(), style="points", render_points_as_spheres=True)
     warped = grid.warp_by_scalar()
     plotter.add_mesh(warped)
 

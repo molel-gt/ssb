@@ -28,11 +28,10 @@ if __name__ == '__main__':
                                   "mesh_tria.xdmf")
     tetr_mesh_path = os.path.join(os.path.dirname(input_meshfile),
                                   "mesh_tetr.xdmf")
-    line_mesh = create_mesh(msh, "line")
-    meshio.write(line_mesh_path, line_mesh)
-
-    triangle_mesh = create_mesh(msh, "triangle")
-    meshio.write(tria_mesh_path, triangle_mesh)
 
     tetra_mesh = create_mesh(msh, "tetra")
     meshio.write(tetr_mesh_path, tetra_mesh)
+    triangle_mesh = create_mesh(msh, "triangle")
+    meshio.write(tria_mesh_path, triangle_mesh)
+    line_mesh = create_mesh(msh, "line")
+    meshio.write(line_mesh_path, line_mesh)
