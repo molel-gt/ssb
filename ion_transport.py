@@ -84,6 +84,7 @@ try:
     grid.set_active_scalars("u")
 
     plotter = pyvista.Plotter()
+    plotter.enable_depth_peeling(10)
     plotter.add_mesh(grid, color=True)
     # plotter.add_mesh(grid.copy(), style="points", render_points_as_spheres=True)
     warped = grid.warp_by_scalar()
