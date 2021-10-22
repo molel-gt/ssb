@@ -3,25 +3,15 @@ import dolfinx
 import numpy as np
 import ufl
 from dolfinx import (DirichletBC, Function, FunctionSpace, fem,
-                     BoxMesh, RectangleMesh, plot
+                     plot
                      )
-from dolfinx.cpp.mesh import CellType
 from dolfinx.fem import locate_dofs_topological
 from dolfinx.io import XDMFFile
 from dolfinx.mesh import locate_entities_boundary
 from mpi4py import MPI
 from petsc4py import PETSc
-from ufl import ds, dx, grad, inner
+from ufl import cos, ds, dx, grad, inner, pi
 
-
-# # Create mesh and define function space
-# mesh = BoxMesh(
-#     MPI.COMM_WORLD, [np.array([0, 0, 0]), np.array([1, 1, 1])],
-#     [10, 10, 10], CellType.tetrahedron, dolfinx.cpp.mesh.GhostMode.none)
-# mesh_2d = RectangleMesh(
-#     MPI.COMM_WORLD,
-#     [np.array([0, 0, 0]), np.array([1, 1, 0])], [10, 10],
-#     CellType.triangle, dolfinx.cpp.mesh.GhostMode.none)
 
 with XDMFFile(MPI.COMM_WORLD, "mesh_tetr.xdmf", "r") as infile3:
     mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
@@ -34,13 +24,13 @@ print("done reading triangle mesh")
 V = FunctionSpace(mesh, ("Lagrange", 2))
 
 # Define boundary condition on x = 0 or x = 1
-u0 = Function(V)
-with u0.vector.localForm() as u0_loc:
-    u0_loc.set(0)
+# u0 = Function(V)
+# with u0.vector.localForm() as u0_loc:
+#     u0_loc.set(0)
 u1 = Function(V)
 
 with u1.vector.localForm() as u1_loc:
-    u1_loc.set(1)
+    u1_loc.set(0)
 x0facet = locate_entities_boundary(mesh, 2,
                                    lambda x: np.isclose(x[0], 0))
 x1facet = locate_entities_boundary(mesh, 2,
@@ -51,15 +41,15 @@ v = ufl.TestFunction(V)
 x = ufl.SpatialCoordinate(mesh)
 f = 0
 
-x0bc = DirichletBC(u0, locate_dofs_topological(V, 2, x0facet))
+# x0bc = DirichletBC(u0, locate_dofs_topological(V, 2, x0facet))
 x1bc = DirichletBC(u1, locate_dofs_topological(V, 2, x1facet))
 
-g = x[1] * (10 - x[1]) * x[2] * (10 - x[2])
+g = 1e-3*cos(2*pi*x[0]/10) * x[1] * (10 - x[1]) * x[2] * (10 - x[2])
 a = inner(grad(u), grad(v)) * dx
 L = inner(f, v) * dx(x) + inner(g, v) * ds(mesh)
 print("setting problem..")
 
-problem = fem.LinearProblem(a, L, bcs=[x0bc, x1bc],
+problem = fem.LinearProblem(a, L, bcs=[x1bc],
                             petsc_options={"ksp_type": "preonly",
                             "pc_type": "lu"})
 
