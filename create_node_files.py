@@ -14,19 +14,29 @@ def load_images_to_logical_array(files_list, file_shape):
     data = np.zeros(data_shape, dtype=bool)
     for i_x, img_file in enumerate(files_list):
         img_data = plt.imread(img_file)
-        data[i_x, :, :] = img_data[:]
+        img_data = img_data / 255
+        data[i_x, :, :] = img_data
 
     return data
 
 
 def compute_boundary_markers(local_pos, grid_shape):
     """"""
-    return
+    # TODO: determine whether the position is at the faces of the box
+    return 0
 
 
 def create_nodes(data, **kwargs):
     """"""
-    return
+    n_nodes = np.sum(data)
+    nodes = np.zeros([n_nodes, 4])
+    count = 0
+    for idx, point in np.ndenumerate(data):
+        if point:
+            boundary_marker = compute_boundary_markers(idx, data.shape)
+            nodes[count, :] = list(idx) + [boundary_marker]
+            count += 1
+    return nodes
 
 
 def write_node_to_file(nodes):
@@ -47,3 +57,4 @@ if __name__ == '__main__':
                   if f.endswith(".bmp")]
     print("loading image files to logical array..")
     image_data = load_images_to_logical_array(files_list, file_shape)
+    create_nodes(image_data)
