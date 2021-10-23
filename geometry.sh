@@ -6,4 +6,4 @@ tetgen porous-cathode.node -ak
 
 gmsh -3 porous-cathode.geo -o porous-cathode.msh
 
-./create_xdmf_meshfiles.py --input_meshfile=/home/lesh/dev/ssb/porous-cathode.gmsh
+./create_xdmf_meshfiles.py --input_meshfile=/home/lesh/dev/ssb/porous-cathode.msh
