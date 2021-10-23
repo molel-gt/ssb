@@ -16,8 +16,8 @@ fi
 
 ./create_node_files.py --files_dir=$1 --file_shape=$2
 
-tetgen porous-cathode.node -ak
+tetgen $1porous-cathode.node -ak
 
-gmsh -3 porous-cathode.geo -o porous-cathode.msh
+gmsh -3 $1porous-cathode.geo -o $1porous-cathode.msh
 
 ./create_xdmf_meshfiles.py --input_meshfile=$1porous-cathode.msh
