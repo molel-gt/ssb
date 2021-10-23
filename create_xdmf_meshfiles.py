@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 import os
-import sys
+
+import argparse
 import meshio
 import numpy as np
 
@@ -21,7 +22,10 @@ def create_mesh(mesh, cell_type, prune_z=False):
 
 
 if __name__ == '__main__':
-    input_meshfile = sys.argv[1]
+    parser = argparse.ArgumentParser(description='creates xdmf mesh files from gmsh input mesh..')
+    parser.add_argument('--input_meshfile', help='input meshfile path', required=True)
+    args = parser.parse_args()
+    input_meshfile = args.input_meshfile
     msh = meshio.read(input_meshfile)
 
     line_mesh_path = os.path.join(os.path.dirname(input_meshfile),
