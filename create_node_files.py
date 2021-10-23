@@ -64,8 +64,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     files_dir = os.path.join(args.working_dir, 'bmp_files')
     file_shape = args.file_shape
-    files_list = [os.path.join(files_dir, f) for f in os.listdir(files_dir)
-                  if f.endswith(".bmp")]
+    files_list = sorted([os.path.join(files_dir, f) for f in os.listdir(files_dir)
+                  if f.endswith(".bmp")])
     print("loading image files to logical array..")
     image_data = load_images_to_logical_array(files_list, file_shape)
     node_file_path = os.path.join(args.working_dir, 'porous-solid.node')
