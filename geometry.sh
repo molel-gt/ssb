@@ -10,7 +10,7 @@ fi
 
 if [ $# -ne 2 ]
   then
-    echo Error: "No arguments supplied"
+    echo Error: "supply two arguments"
     exit 1
 fi
 
