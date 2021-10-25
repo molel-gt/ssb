@@ -22,8 +22,28 @@ def load_images_to_logical_array(files_list, file_shape):
 
 def compute_boundary_markers(local_pos, grid_shape):
     """"""
-    # TODO: determine whether the position is at the faces of the box
-    return 0
+    face_id = 0
+    x, y, z = local_pos
+    nx = grid_shape[0] - 1
+    ny = grid_shape[1] - 1
+    nz = grid_shape[2] - 1
+    n_start = 0
+    if x == n_start:
+        face_id = 1
+    elif x == nx:
+        face_id = 2
+ 
+    if y == n_start:
+        face_id = 3
+    elif y == ny:
+        face_id = 4
+ 
+   if z == n_start:
+        face_id = 5
+    elif z == nz:
+        face_id = 6
+
+    return face_id
 
 
 def create_nodes(data, **kwargs):
