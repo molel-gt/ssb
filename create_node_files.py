@@ -88,7 +88,7 @@ if __name__ == '__main__':
                   if f.endswith(".bmp")])
     files_list = [f for i, f in enumerate(files_list) if i >= 2 and i < 92]
     print("loading image files to logical array..")
-    image_data = load_images_to_logical_array(files_list, file_shape, limits=[10, 81])
+    image_data = load_images_to_logical_array(files_list, file_shape, limits=[15, 76])
     node_file_path = os.path.join(args.working_dir, 'porous-solid.node')
     nodes = create_nodes(image_data)
     write_node_to_file(nodes, node_file_path)

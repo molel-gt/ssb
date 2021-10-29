@@ -1,7 +1,7 @@
 //+
 SetFactory("OpenCASCADE");
-size = 90;  // this should be edited to match input grid size
-gridsize = 1;
+size = 60;  // this should be edited to match input grid size
+gridsize = size + 1;
 
 //+ numbering counterclockwise from bottom/left
 Point(1) = {0, 0, 0, gridsize};
