@@ -7,15 +7,22 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def load_images_to_logical_array(files_list, file_shape):
+def load_images_to_logical_array(files_list, file_shape, limits=None):
     """"""
+    n_start = 0
+    n_end = file_shape[0]
+    if limits is not None:
+        n_start, n_end = limits
     n_files = len(files_list)
-    data_shape = [n_files] + list(file_shape)
-    data = np.zeros(data_shape, dtype=bool)
+    new_shape = [n_end - n_start, n_end - n_start, n_end - n_start]
+    data = np.zeros(new_shape, dtype=bool)
     for i_x, img_file in enumerate(files_list):
+        if i_x < n_start or i_x > n_end:
+            continue
         img_data = plt.imread(img_file)
         img_data = img_data / 255
-        data[i_x, :, :] = img_data
+        img_data = img_data[n_start:n_end, n_start:n_end]
+        data[i_x-n_start-1, :, :] = img_data
 
     return data
 
@@ -23,6 +30,19 @@ def load_images_to_logical_array(files_list, file_shape):
 def compute_boundary_markers(local_pos, grid_shape):
     """"""
     # TODO: determine whether the position is at the faces of the box
+    x, y, z = local_pos
+    if x == 0:
+        return 1
+    elif y == 0:
+        return 4
+    elif z == 0:
+        return 5
+    elif x == grid_shape[0] - 1:
+        return 3
+    elif y == grid_shape[1] - 1:
+        return 2
+    elif z == grid_shape[2] - 1:
+        return 6
     return 0
 
 
@@ -66,8 +86,9 @@ if __name__ == '__main__':
     file_shape = args.file_shape
     files_list = sorted([os.path.join(files_dir, f) for f in os.listdir(files_dir)
                   if f.endswith(".bmp")])
+    files_list = [f for i, f in enumerate(files_list) if i >= 2 and i < 92]
     print("loading image files to logical array..")
-    image_data = load_images_to_logical_array(files_list, file_shape)
+    image_data = load_images_to_logical_array(files_list, file_shape, limits=[10, 81])
     node_file_path = os.path.join(args.working_dir, 'porous-solid.node')
     nodes = create_nodes(image_data)
     write_node_to_file(nodes, node_file_path)
