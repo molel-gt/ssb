@@ -1,17 +1,16 @@
 //+
 SetFactory("OpenCASCADE");
-size = 60;  // this should be edited to match input grid size
-gridsize = size + 1;
+size = 30;
 
 //+ numbering counterclockwise from bottom/left
-Point(1) = {0, 0, 0, gridsize};
-Point(2) = {size, 0, 0, gridsize};
-Point(3) = {size, size, 0, gridsize};
-Point(4) = {0, size, 0, gridsize};
-Point(5) = {0, 0, size, gridsize};
-Point(6) = {size, 0, size, gridsize};
-Point(7) = {size, size, size, gridsize};
-Point(8) = {0, size, size, gridsize};
+Point(1) = {0, 0, 0};
+Point(2) = {size, 0, 0};
+Point(3) = {size, size, 0};
+Point(4) = {0, size, 0};
+Point(5) = {0, 0, size};
+Point(6) = {size, 0, size};
+Point(7) = {size, size, size};
+Point(8) = {0, size, size};
 
 Line(1) = {1, 2};
 Line(2) = {2, 3};
