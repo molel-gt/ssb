@@ -1,0 +1,9 @@
+argparse
+git+https://github.com/mpi4py/mpi4py.git
+gmsh
+matplotlib
+meshio
+numpy
+petsc4py
+tetgen
+ufl
