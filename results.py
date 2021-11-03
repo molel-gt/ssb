@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import csv
 import os
 
 import argparse
@@ -44,7 +43,7 @@ if __name__ == '__main__':
     new_current = np.sum(current, axis=(1, 2)) / (grid_size * grid_size)
     i_cell = np.average(new_current)
     delta_phi = 1 / grid_size
-    print("eff. conductivity: ", i_cell / delta_phi)
+    print("conductivity: ", i_cell / delta_phi)
     plt.plot(np.linspace(0, grid_size, grid_size + 1), current[:, int(0.50 * grid_size), int(0.50 * grid_size)], 'bo')
     plt.plot(np.linspace(0, grid_size, grid_size + 1), new_current, 'r--')
     plt.grid()

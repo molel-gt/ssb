@@ -88,9 +88,9 @@ if __name__ == '__main__':
     files_list = sorted([os.path.join(files_dir, f) for f in os.listdir(files_dir)
                   if f.endswith(".bmp")])
     files_list = [f for i, f in enumerate(files_list) if i >= 2 and i < 92]
-    print("loading image files to logical array..")
     grid_extent = [45 - int(grid_size / 2), 45 + int(grid_size / 2) + 1]
     image_data = load_images_to_logical_array(files_list, file_shape, limits=grid_extent)
+    print("porosity: ", np.average(image_data))
     meshes_dir = os.path.join(args.working_dir, 'mesh', str(grid_size))
     node_file_path = os.path.join(meshes_dir, 'porous-solid.node')
     nodes = create_nodes(image_data)

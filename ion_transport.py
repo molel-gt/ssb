@@ -20,7 +20,7 @@ from ufl import cos, ds, dx, exp, grad, inner, pi, sin
 
 def make_dir_if_missing(f_path):
     """"""
-    if not os.path.isdir(f_path):
+    if os.path.isdir(f_path) and not os.path.exists(f_path):
         os.makedirs(f_path)
         return True
     return

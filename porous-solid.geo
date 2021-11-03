@@ -60,5 +60,5 @@ Physical Surface(5) = {12};  // X0
 Physical Surface(6) = {13};  // X1
 
 Physical Volume(1) = {1};
-Merge "porous-solid.1.vtk";
+Merge "porous-solid.vtk";
 Coherence;
