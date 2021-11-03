@@ -40,14 +40,12 @@ if __name__ == '__main__':
             coords = row_values[1:4]
             value = results[row_values[0]]
             grid_data[coords] = value
-    print(grid_data.shape)
     [current, grady, gradz] = np.gradient(grid_data)
-    print(current.shape)
     new_current = np.sum(current, axis=(1, 2)) / (grid_size * grid_size)
-    print(new_current.shape)
-    plt.plot(np.linspace(0, grid_size, grid_size + 1), current[:, int(0.25 * grid_size), int(0.25 * grid_size)], 'r--')
-    plt.plot(np.linspace(0, grid_size, grid_size + 1), current[:, int(0.50 * grid_size), int(0.50 * grid_size)], 'g--')
-    plt.plot(np.linspace(0, grid_size, grid_size + 1), current[:, int(0.75 * grid_size), int(0.75 * grid_size)], 'b--')
+    i_cell = np.average(new_current)
+    delta_phi = 1 / grid_size
+    print("eff. conductivity: ", i_cell / delta_phi)
+    plt.plot(np.linspace(0, grid_size, grid_size + 1), current[:, int(0.50 * grid_size), int(0.50 * grid_size)], 'bo')
     plt.plot(np.linspace(0, grid_size, grid_size + 1), new_current, 'r--')
     plt.grid()
     plt.show()
