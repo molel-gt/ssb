@@ -1,4 +1,8 @@
+#!/usr/bin/env python3
 
+import os
+
+import argparse
 import dolfinx
 import numpy as np
 import ufl
@@ -14,54 +18,82 @@ from petsc4py import PETSc
 from ufl import cos, ds, dx, exp, grad, inner, pi, sin
 
 
-with XDMFFile(MPI.COMM_WORLD, "mesh_tetr.xdmf", "r") as infile3:
-    mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.shared_facet, 'Grid')
-print("done loading tetrahedral mesh")
+def make_dir_if_missing(f_path):
+    """"""
+    if not os.path.isdir(f_path):
+        os.makedirs(f_path)
+        return True
+    return
 
-# with XDMFFile(MPI.COMM_WORLD, "mesh_tria.xdmf", "r") as infile2:
-#     mesh_2d = infile2.read_mesh(dolfinx.cpp.mesh.GhostMode.shared_facet, "Grid")
-# print("done reading triangle mesh")
-Lx = 30  # side length for cube
-V = FunctionSpace(mesh, ("Lagrange", 2))
 
-# Define boundary condition on x = 0 or x = 1
-u0 = Function(V)
-with u0.vector.localForm() as u0_loc:
-    u0_loc.set(1)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='run simulation..')
+    parser.add_argument('--working_dir', help='bmp files parent directory', required=True)
+    parser.add_argument('--img_sub_dir', help='bmp files parent directory', required=True)
+    parser.add_argument('--grid_size', help='size  of grid extracted from center of image stack', required=True)
+    parser.add_argument('--file_shape', help='shape of image data array', required=True,
+                        type=lambda s: [int(item) for item in s.split(',')])
 
-u1 = Function(V)
-with u1.vector.localForm() as u1_loc:
-    u1_loc.set(0)
-x0facet = locate_entities_boundary(mesh, 2,
-                                   lambda x: np.isclose(x[0], 0.0))
-x1facet = locate_entities_boundary(mesh, 2,
-                                   lambda x: np.isclose(x[0], Lx))
-# Define variational problem
-u = ufl.TrialFunction(V)
-v = ufl.TestFunction(V)
-x = ufl.SpatialCoordinate(mesh)
-f = 0
+    args = parser.parse_args()
+    files_dir = os.path.join(args.working_dir, args.img_sub_dir)
+    file_shape = args.file_shape
+    grid_size = int(args.grid_size)
+    meshes_dir = os.path.join(args.working_dir, 'mesh', str(grid_size))
+    output_dir = os.path.join(args.working_dir, 'output', str(grid_size))
+    make_dir_if_missing(meshes_dir)
+    make_dir_if_missing(output_dir)
+    tetr_mesh_path = os.path.join(meshes_dir, 'mesh_tetr.xdmf')
+    tria_mesh_path = os.path.join(meshes_dir, 'mesh_tria.xdmf')
+    output_path = os.path.join(output_dir, 'output.xdmf')
 
-x0bc = DirichletBC(u0, locate_dofs_topological(V, 2, x0facet))
-x1bc = DirichletBC(u1, locate_dofs_topological(V, 2, x1facet))
+    with XDMFFile(MPI.COMM_WORLD, tetr_mesh_path, "r") as infile3:
+        mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.shared_facet, 'Grid')
+    print("done loading tetrahedral mesh")
 
-g = sin(2*pi*x[1]/Lx) * sin(2*pi*x[2]/Lx)
-a = inner(grad(u), grad(v)) * dx
-L = inner(f, v) * dx(x) + inner(g, v) * ds(mesh)
+    # with XDMFFile(MPI.COMM_WORLD, tria_mesh_path, "r") as infile2:
+    #     mesh_2d = infile2.read_mesh(dolfinx.cpp.mesh.GhostMode.shared_facet, "Grid")
+    # print("done reading triangle mesh")
 
-print("setting problem..")
+    V = FunctionSpace(mesh, ("Lagrange", 2))
 
-problem = fem.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+    # Dirichlet BCs
+    u0 = Function(V)
+    with u0.vector.localForm() as u0_loc:
+        u0_loc.set(1)
 
-# When we want to compute the solution to the problem, we can specify
-# what kind of solver we want to use.
-print('solving problem..')
-uh = problem.solve()
+    u1 = Function(V)
+    with u1.vector.localForm() as u1_loc:
+        u1_loc.set(0)
+    x0facet = locate_entities_boundary(mesh, 2,
+                                    lambda x: np.isclose(x[0], 0.0))
+    x1facet = locate_entities_boundary(mesh, 2,
+                                    lambda x: np.isclose(x[0], grid_size))
+    x0bc = DirichletBC(u0, locate_dofs_topological(V, 2, x0facet))
+    x1bc = DirichletBC(u1, locate_dofs_topological(V, 2, x1facet))
 
-# Save solution in XDMF format
-with XDMFFile(MPI.COMM_WORLD, "ion_transport.xdmf", "w") as outfile:
-    outfile.write_mesh(mesh)
-    outfile.write_function(uh)
+    # Define variational problem
+    u = ufl.TrialFunction(V)
+    v = ufl.TestFunction(V)
+    x = ufl.SpatialCoordinate(mesh)
+    f = 0
+    g = sin(2*pi*x[1]/grid_size) * sin(2*pi*x[2]/grid_size)
 
-# Update ghost entries and plot
-uh.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    a = inner(grad(u), grad(v)) * dx
+    L = inner(f, v) * dx(x) + inner(g, v) * ds(mesh)
+
+    print("setting problem..")
+
+    problem = fem.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+
+    # When we want to compute the solution to the problem, we can specify
+    # what kind of solver we want to use.
+    print('solving problem..')
+    uh = problem.solve()
+
+    # Save solution in XDMF format
+    with XDMFFile(MPI.COMM_WORLD, output_path, "w") as outfile:
+        outfile.write_mesh(mesh)
+        outfile.write_function(uh)
+
+    # Update ghost entries and plot
+    uh.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
