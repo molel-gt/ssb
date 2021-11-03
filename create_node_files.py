@@ -13,7 +13,6 @@ def load_images_to_logical_array(files_list, file_shape, limits=None):
     n_end = file_shape[0]
     if limits is not None:
         n_start, n_end = limits
-    n_files = len(files_list)
     new_shape = [n_end - n_start, n_end - n_start, n_end - n_start]
     data = np.zeros(new_shape, dtype=bool)
     for i_x, img_file in enumerate(files_list):
@@ -23,7 +22,6 @@ def load_images_to_logical_array(files_list, file_shape, limits=None):
         img_data = img_data / 255
         img_data = img_data[n_start:n_end, n_start:n_end]
         data[i_x-n_start-1, :, :] = img_data
-
     return data
 
 
@@ -48,7 +46,7 @@ def compute_boundary_markers(local_pos, grid_shape):
 
 def create_nodes(data, **kwargs):
     """"""
-    n_nodes = np.sum(data)
+    n_nodes = int(np.sum(data))
     nodes = np.zeros([n_nodes, 4])
     count = 0
     for idx, point in np.ndenumerate(data):
@@ -77,18 +75,22 @@ def write_node_to_file(nodes, node_file_path):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='creates node file for meshing..')
-    parser.add_argument('--working_dir', help='bmp_files parent directory', required=True)
+    parser.add_argument('--working_dir', help='bmp files parent directory', required=True)
+    parser.add_argument('--img_sub_dir', help='bmp files parent directory', required=True)
+    parser.add_argument('--grid_size', help='size  of grid extracted from center of image stack', required=True)
     parser.add_argument('--file_shape', help='shape of image data array', required=True,
                         type=lambda s: [int(item) for item in s.split(',')])
 
     args = parser.parse_args()
-    files_dir = os.path.join(args.working_dir, 'bmp_files')
+    files_dir = os.path.join(args.working_dir, args.img_sub_dir)
     file_shape = args.file_shape
+    grid_size = int(args.grid_size)
     files_list = sorted([os.path.join(files_dir, f) for f in os.listdir(files_dir)
                   if f.endswith(".bmp")])
     files_list = [f for i, f in enumerate(files_list) if i >= 2 and i < 92]
     print("loading image files to logical array..")
-    image_data = load_images_to_logical_array(files_list, file_shape, limits=[15, 76])
+    grid_extent = [45 - int(grid_size / 2), 45 + int(grid_size / 2) + 1]
+    image_data = load_images_to_logical_array(files_list, file_shape, limits=grid_extent)
     node_file_path = os.path.join(args.working_dir, 'porous-solid.node')
     nodes = create_nodes(image_data)
     write_node_to_file(nodes, node_file_path)

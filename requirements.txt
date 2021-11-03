@@ -1,9 +1,12 @@
 argparse
 git+https://github.com/mpi4py/mpi4py.git
+git+https://github.com/FEniCS/ffcx.git
+git+https://github.com/FEniCS/ufl.git
 gmsh
 matplotlib
 meshio
 numpy
 petsc4py
+pybind11
+pybamm
 tetgen
-ufl

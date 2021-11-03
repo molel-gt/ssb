@@ -1,6 +1,6 @@
-//+
+
+//+ size inserted above
 SetFactory("OpenCASCADE");
-size = 30;
 
 //+ numbering counterclockwise from bottom/left
 Point(1) = {0, 0, 0};
