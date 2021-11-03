@@ -10,7 +10,7 @@ fi
 
 if [ $# -ne 4 ]
   then
-    echo Error: "requires three arguments"
+    echo Error: "requires 4 arguments"
     exit 1
 fi
 echo "Making required sub directories: mesh/$4"
