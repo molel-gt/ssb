@@ -65,26 +65,3 @@ with XDMFFile(MPI.COMM_WORLD, "ion_transport.xdmf", "w") as outfile:
 
 # Update ghost entries and plot
 uh.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-try:
-    import pyvista
-
-    topology, cell_types = plot.create_vtk_topology(mesh, mesh.topology.dim)
-    grid = pyvista.UnstructuredGrid(topology, cell_types, mesh.geometry.x)
-    grid.point_data["u"] = uh.compute_point_values().real
-    grid.set_active_scalars("u")
-
-    plotter = pyvista.Plotter()
-    plotter.enable_depth_peeling(10)
-    plotter.add_mesh(grid, color=True, show_edges=True)
-    # plotter.add_mesh(grid.copy(), style="points", render_points_as_spheres=True)
-    warped = grid.warp_by_scalar()
-    plotter.add_mesh(warped)
-
-    # If pyvista environment variable is set to off-screen (static) plotting save png
-    if pyvista.OFF_SCREEN:
-        pyvista.start_xvfb(wait=0.1)
-        plotter.screenshot("uh.png")
-    else:
-        plotter.show()
-except ModuleNotFoundError:
-    print("pyvista is required to visualise the solution")
