@@ -91,6 +91,7 @@ if __name__ == '__main__':
     print("loading image files to logical array..")
     grid_extent = [45 - int(grid_size / 2), 45 + int(grid_size / 2) + 1]
     image_data = load_images_to_logical_array(files_list, file_shape, limits=grid_extent)
-    node_file_path = os.path.join(args.working_dir, 'porous-solid.node')
+    meshes_dir = os.path.join(args.working_dir, 'mesh', str(grid_size))
+    node_file_path = os.path.join(meshes_dir, 'porous-solid.node')
     nodes = create_nodes(image_data)
     write_node_to_file(nodes, node_file_path)
