@@ -13,13 +13,16 @@ if [ $# -ne 4 ]
     echo Error: "requires three arguments"
     exit 1
 fi
+echo "Making required sub directories: mesh/$4"
+
+mkdir -p $1mesh/$4
 
 ./create_node_files.py --working_dir=$1 --img_sub_dir=$2 --file_shape=$3 --grid_size=$4
 
-tetgen $1porous-solid.node -ak
+tetgen $1mesh/$4/porous-solid.node -ak
 
-sed '1 i size = '$4';' $1porous-solid.geo >> $1porous-solid-$4.geo
+sed '1 i size = '$4';' $1porous-solid.geo >> $1mesh/$4/porous-solid.geo
 
-gmsh -3 $1porous-solid-$4.geo -o $1porous-solid.msh
+gmsh -3 $1mesh/$4/porous-solid.geo -o $1mesh/$4/porous-solid.msh
 
-./create_xdmf_meshfiles.py --input_meshfile=$1porous-solid.msh
+./create_xdmf_meshfiles.py --input_meshfile=$1mesh/$4/porous-solid.msh
