@@ -6,8 +6,6 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 
-import utils
-
 
 def load_images_to_logical_array(files_list, grid_info):
     """
