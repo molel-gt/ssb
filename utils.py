@@ -18,7 +18,6 @@ def get_samples_of_test_grids(grid_sizes, n_files, size_delta):
         for i_x in range(num_grids):
             start_pos = int(size_delta * i_x)
             end_pos = int(size_delta * i_x + grid_size)
-            print(end_pos)
             if n_files - start_pos < grid_size + 1:
                 continue
             grid_extents[i_x, :] = [grid_size, start_pos, end_pos]
