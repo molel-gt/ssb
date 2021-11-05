@@ -25,7 +25,7 @@ tetgen $1mesh/$4/porous-solid.node -akEFNQI
 
 grid_size=`echo $4 | cut -d \_ -f 1`
 
-sed --quiet '1 i size = '$grid_size';' $1porous-solid.geo | tee $1mesh/$4/porous-solid.geo
+sed '1 i size = '$grid_size';' $1porous-solid.geo | tee $1mesh/$4/porous-solid.geo
 
 gmsh -3 $1mesh/$4/porous-solid.geo -o $1mesh/$4/porous-solid.msh
 

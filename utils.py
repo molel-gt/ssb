@@ -13,13 +13,15 @@ def get_samples_of_test_grids(grid_sizes, n_files, size_delta):
     for grid_size in grid_sizes:
         if n_files < grid_size:
             raise Exception("cannot extract the grid because n_files < grid_size")
-        num_grids = int(n_files/size_delta) + 1
+        num_grids = int((n_files - grid_size)/size_delta)
         grid_extents = np.empty([num_grids, 3])
         for i_x in range(num_grids):
             start_pos = int(size_delta * i_x)
             end_pos = int(size_delta * i_x + grid_size)
-            if n_files - start_pos < grid_size - 1:
+            print(end_pos)
+            if n_files - start_pos < grid_size + 1:
                 continue
             grid_extents[i_x, :] = [grid_size, start_pos, end_pos]
         test_grids = np.vstack((test_grids, grid_extents))
+
     return test_grids
