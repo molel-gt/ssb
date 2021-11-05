@@ -6,21 +6,21 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 
+import utils
 
-def load_images_to_logical_array(files_list, file_shape, limits=None):
-    """"""
-    n_start = 0
-    n_end = file_shape[0]
-    if limits is not None:
-        n_start, n_end = limits
-    new_shape = [n_end - n_start, n_end - n_start, n_end - n_start]
-    data = np.zeros(new_shape, dtype=bool)
+
+def load_images_to_logical_array(files_list, grid_info):
+    """
+    grid_info ==> grid_size, start_pos, end_pos
+    """
+    grid_size, n_start, n_end = grid_info
+    data = np.zeros([grid_size + 1, grid_size + 1, grid_size + 1], dtype=bool)
     for i_x, img_file in enumerate(files_list):
-        if i_x < n_start or i_x > n_end:
+        if i_x < n_start or i_x > n_end + 1:
             continue
         img_data = plt.imread(img_file)
         img_data = img_data / 255
-        img_data = img_data[n_start:n_end, n_start:n_end]
+        img_data = img_data[n_start:n_end+1, n_start:n_end+1]
         data[i_x-n_start-1, :, :] = img_data
     return data
 
@@ -77,21 +77,22 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='creates node file for meshing..')
     parser.add_argument('--working_dir', help='bmp files parent directory', required=True)
     parser.add_argument('--img_sub_dir', help='bmp files parent directory', required=True)
-    parser.add_argument('--grid_size', help='size  of grid extracted from center of image stack', required=True)
+    parser.add_argument('--grid_info', help='grid_size, start_pos, end_pos', required=True,
+                        type=lambda s: [int(item) for item in s.split('_')])
     parser.add_argument('--file_shape', help='shape of image data array', required=True,
-                        type=lambda s: [int(item) for item in s.split(',')])
+                        type=lambda s: [int(item) for item in s.split('_')])
 
     args = parser.parse_args()
     files_dir = os.path.join(args.working_dir, args.img_sub_dir)
     file_shape = args.file_shape
-    grid_size = int(args.grid_size)
+    grid_info = args.grid_info
+    grid_size, start_pos, end_pos = grid_info
     files_list = sorted([os.path.join(files_dir, f) for f in os.listdir(files_dir)
                   if f.endswith(".bmp")])
     files_list = [f for i, f in enumerate(files_list) if i >= 2 and i < 92]
-    grid_extent = [45 - int(grid_size / 2), 45 + int(grid_size / 2) + 1]
-    image_data = load_images_to_logical_array(files_list, file_shape, limits=grid_extent)
+    image_data = load_images_to_logical_array(files_list, grid_info)
     print("porosity: ", np.average(image_data))
-    meshes_dir = os.path.join(args.working_dir, 'mesh', str(grid_size))
-    node_file_path = os.path.join(meshes_dir, 'porous-solid.node')
+    meshes_dir = os.path.join(args.working_dir, 'mesh')
+    node_file_path = os.path.join(meshes_dir, '{}_{}_{}'.format(grid_size, start_pos, end_pos), 'porous-solid.node')
     nodes = create_nodes(image_data)
     write_node_to_file(nodes, node_file_path)
