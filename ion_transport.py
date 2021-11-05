@@ -30,16 +30,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
     parser.add_argument('--working_dir', help='bmp files parent directory', required=True)
     parser.add_argument('--img_sub_dir', help='bmp files parent directory', required=True)
-    parser.add_argument('--grid_size', help='size  of grid extracted from center of image stack', required=True)
+    parser.add_argument('--grid_info', help='gridSize_startPos_endPos', required=True)
     parser.add_argument('--file_shape', help='shape of image data array', required=True,
                         type=lambda s: [int(item) for item in s.split(',')])
 
     args = parser.parse_args()
     files_dir = os.path.join(args.working_dir, args.img_sub_dir)
     file_shape = args.file_shape
-    grid_size = int(args.grid_size)
-    meshes_dir = os.path.join(args.working_dir, 'mesh', str(grid_size))
-    output_dir = os.path.join(args.working_dir, 'output', str(grid_size))
+    grid_info = args.grid_info
+    grid_size = int(grid_info.split("_")[0])
+    meshes_dir = os.path.join(args.working_dir, 'mesh', grid_info)
+    output_dir = os.path.join(args.working_dir, 'output', grid_info)
     make_dir_if_missing(meshes_dir)
     make_dir_if_missing(output_dir)
     tetr_mesh_path = os.path.join(meshes_dir, 'mesh_tetr.xdmf')
