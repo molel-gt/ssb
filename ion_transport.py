@@ -20,10 +20,7 @@ from ufl import cos, ds, dx, exp, grad, inner, pi, sin
 
 def make_dir_if_missing(f_path):
     """"""
-    if os.path.isdir(f_path) and not os.path.exists(f_path):
-        os.makedirs(f_path)
-        return True
-    return
+    os.makedirs(f_path, exist_ok=True)
 
 
 if __name__ == '__main__':
@@ -32,7 +29,7 @@ if __name__ == '__main__':
     parser.add_argument('--img_sub_dir', help='bmp files parent directory', required=True)
     parser.add_argument('--grid_info', help='gridSize_startPos_endPos', required=True)
     parser.add_argument('--file_shape', help='shape of image data array', required=True,
-                        type=lambda s: [int(item) for item in s.split(',')])
+                        type=lambda s: [int(item) for item in s.split('_')])
 
     args = parser.parse_args()
     files_dir = os.path.join(args.working_dir, args.img_sub_dir)
