@@ -6,16 +6,13 @@ import argparse
 import dolfinx
 import numpy as np
 import ufl
-from dolfinx import (DirichletBC, Function, FunctionSpace, fem,
-                     plot, BoxMesh
-                     )
+from dolfinx import (DirichletBC, Function, FunctionSpace, fem,)
 from dolfinx.fem import locate_dofs_topological
 from dolfinx.io import XDMFFile
 from dolfinx.mesh import locate_entities_boundary
-from dolfinx.cpp.mesh import CellType
 from mpi4py import MPI
 from petsc4py import PETSc
-from ufl import cos, ds, dx, exp, grad, inner, pi, sin
+from ufl import ds, dx, grad, inner, pi, sin
 
 
 def make_dir_if_missing(f_path):
@@ -26,13 +23,11 @@ def make_dir_if_missing(f_path):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
     parser.add_argument('--working_dir', help='bmp files parent directory', required=True)
-    parser.add_argument('--img_sub_dir', help='bmp files parent directory', required=True)
     parser.add_argument('--grid_info', help='gridSize_startPos_endPos', required=True)
     parser.add_argument('--file_shape', help='shape of image data array', required=True,
                         type=lambda s: [int(item) for item in s.split('_')])
 
     args = parser.parse_args()
-    files_dir = os.path.join(args.working_dir, args.img_sub_dir)
     file_shape = args.file_shape
     grid_info = args.grid_info
     grid_size = int(grid_info.split("_")[0])
@@ -45,12 +40,8 @@ if __name__ == '__main__':
     output_path = os.path.join(output_dir, 'output.xdmf')
 
     with XDMFFile(MPI.COMM_WORLD, tetr_mesh_path, "r") as infile3:
-        mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.shared_facet, 'Grid')
+        mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
     print("done loading tetrahedral mesh")
-
-    # with XDMFFile(MPI.COMM_WORLD, tria_mesh_path, "r") as infile2:
-    #     mesh_2d = infile2.read_mesh(dolfinx.cpp.mesh.GhostMode.shared_facet, "Grid")
-    # print("done reading triangle mesh")
 
     V = FunctionSpace(mesh, ("Lagrange", 2))
 

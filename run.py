@@ -20,7 +20,7 @@ if __name__ == '__main__':
         proc1.wait()
         proc2 = subprocess.Popen(
                        shlex.split('mpirun -np 2 '
-                       'python3 ion_transport.py --working_dir={} --img_sub_dir=Spheres_3'
+                       'python3 ion_transport.py --working_dir={}'
                        ' --grid_info={} --file_shape=90_90'.format(
                            working_dir, grid_info))
                            )
