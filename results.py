@@ -16,7 +16,6 @@ def conductivity_eff(grid_id, input_file_path, node_file_path):
     print("Processing `{}`".format(input_file_path))
     grid_size = int(grid_id.split('_')[0])
     grid_data = np.empty([grid_size+1, grid_size+1, grid_size+1])
-    grid_data[:] = np.nan
 
     # load simulation results
     with h5py.File(input_file_path, 'r') as hf:
@@ -29,21 +28,21 @@ def conductivity_eff(grid_id, input_file_path, node_file_path):
         value = row[3]
         grid_data[i_x, i_y, i_z] = value
 
-    plt.subplot(2, 1, 1)
-    plt.title("Grid size: {}".format(grid_size))
-    plt.scatter(np.linspace(0, grid_size, grid_size+1), grid_data[:, 34, 34])
-    plt.xlabel("x")
-    plt.ylabel("u(x)")
-    plt.grid()
+    # plt.subplot(2, 1, 1)
+    # plt.title("Grid size: {}".format(grid_size))
+    # plt.scatter(np.linspace(0, grid_size, grid_size+1), grid_data[:, 35, 35])
+    # plt.xlabel("x")
+    # plt.ylabel("u(x)")
+    # plt.grid()
 
     [u_x, _, _] = np.gradient(grid_data)
-    u_x = np.clip(u_x, -100, 0)
-    plt.subplot(2, 1, 2)
-    plt.plot(np.linspace(0, grid_size, grid_size+1), u_x[:, 34, 34])
-    plt.grid()
-    plt.xlabel("x")
-    plt.ylabel("u_x(x)")
-    plt.show()
+    # u_x = np.clip(u_x, -100, 0)
+    # plt.subplot(2, 1, 2)
+    # plt.plot(np.linspace(0, grid_size, grid_size+1), u_x[:, 35, 35])
+    # plt.grid()
+    # plt.xlabel("x")
+    # plt.ylabel("u_x(x)")
+    # plt.show()
 
     delta_phi_dx = -1 / grid_size
     kappa_eff = np.average(u_x) / delta_phi_dx
