@@ -65,7 +65,7 @@ if __name__ == '__main__':
     v = ufl.TestFunction(V)
     x = ufl.SpatialCoordinate(mesh)
     f = 0
-    g = sin(2*pi*x[1]/grid_size) * sin(2*pi*x[2]/grid_size)
+    g = x[1] + x[2] - x[1] - x[2]  # sin(2*pi*x[1]/grid_size) * sin(2*pi*x[2]/grid_size)
 
     a = inner(grad(u), grad(v)) * dx
     L = inner(f, v) * dx(x) + inner(g, v) * ds(mesh)
