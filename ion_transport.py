@@ -6,12 +6,13 @@ import argparse
 import dolfinx
 import numpy as np
 import ufl
-from dolfinx import (DirichletBC, Function, FunctionSpace, fem,)
+from dolfinx import (Constant, DirichletBC, Function, FunctionSpace, fem,)
 from dolfinx.fem import locate_dofs_topological
 from dolfinx.io import XDMFFile
 from dolfinx.mesh import locate_entities_boundary
 from mpi4py import MPI
 from petsc4py import PETSc
+from petsc4py.PETSc import ScalarType
 from ufl import ds, dx, grad, inner, pi, sin
 
 
@@ -42,7 +43,7 @@ if __name__ == '__main__':
     with XDMFFile(MPI.COMM_WORLD, tetr_mesh_path, "r") as infile3:
         mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
     print("done loading tetrahedral mesh")
-
+    mesh_dim = mesh.topology.dim
     V = FunctionSpace(mesh, ("Lagrange", 2))
 
     # Dirichlet BCs
@@ -53,19 +54,19 @@ if __name__ == '__main__':
     u1 = Function(V)
     with u1.vector.localForm() as u1_loc:
         u1_loc.set(0)
-    x0facet = locate_entities_boundary(mesh, 2,
+    x0facet = locate_entities_boundary(mesh, mesh_dim-1,
                                     lambda x: np.isclose(x[0], 0.0))
-    x1facet = locate_entities_boundary(mesh, 2,
+    x1facet = locate_entities_boundary(mesh, mesh_dim-1,
                                     lambda x: np.isclose(x[0], grid_size))
-    x0bc = DirichletBC(u0, locate_dofs_topological(V, 2, x0facet))
-    x1bc = DirichletBC(u1, locate_dofs_topological(V, 2, x1facet))
+    x0bc = DirichletBC(u0, locate_dofs_topological(V, mesh_dim-1, x0facet))
+    x1bc = DirichletBC(u1, locate_dofs_topological(V, mesh_dim-1, x1facet))
 
     # Define variational problem
     u = ufl.TrialFunction(V)
     v = ufl.TestFunction(V)
     x = ufl.SpatialCoordinate(mesh)
-    f = 0
-    g = x[1] + x[2] - x[1] - x[2]  # sin(2*pi*x[1]/grid_size) * sin(2*pi*x[2]/grid_size)
+    f = Constant(mesh, ScalarType(0))  # 0
+    g = Constant(mesh, ScalarType(0))  # x[1] + x[2] - x[1] - x[2]
 
     a = inner(grad(u), grad(v)) * dx
     L = inner(f, v) * dx(x) + inner(g, v) * ds(mesh)
