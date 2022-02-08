@@ -8,6 +8,8 @@
 #PBS -o ion_transport.out
 #PBS -M emolel3@gatech.edu
 
+module load anaconda3/2019.10
+
 cd $PBS_O_WORKDIR
 
 echo "Started on `/bin/hostname`"
