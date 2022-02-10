@@ -76,16 +76,14 @@
 import dolfinx
 import numpy as np
 import ufl
-from dolfinx import (Constant, DirichletBC, Function, FunctionSpace, fem,
-                     plot)
-from dolfinx.cpp.mesh import CellType
-from dolfinx.fem import locate_dofs_topological
+from dolfinx.fem import (dirichletbc as DirichletBC, Function, FunctionSpace)
+from dolfinx.fem import Constant, locate_dofs_topological, LinearProblem
 from dolfinx.io import XDMFFile
 from dolfinx.mesh import locate_entities_boundary
 from mpi4py import MPI
 from petsc4py import PETSc
 from petsc4py.PETSc import ScalarType
-from ufl import cos, ds, dx, grad, inner, pi, sin
+from ufl import ds, dx, grad, inner
 
 
 with XDMFFile(MPI.COMM_WORLD, "mesh.xdmf", "r") as infile3:
@@ -128,8 +126,8 @@ x1bc = DirichletBC(u1, locate_dofs_topological(V, fdim, x1facets))
 # Define variational problem
 u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
 x = ufl.SpatialCoordinate(mesh)
-f = Constant(mesh, ScalarType(0))  # 0
-g = Constant(mesh, ScalarType(0))  # x[1] - x[1]
+f = Constant(mesh, ScalarType(0))
+g = Constant(mesh, ScalarType(0))
 a = inner(grad(u), grad(v)) * dx
 L = inner(f, v) * dx(x) + inner(g, v) * ds(mesh)
 
@@ -144,7 +142,7 @@ L = inner(f, v) * dx(x) + inner(g, v) * ds(mesh)
 # This class is initialized with the arguments ``a``, ``L``, and ``bc``
 # as follows: :: In this problem, we use a direct LU solver, which is
 # defined through the dictionary ``petsc_options``.
-problem = fem.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+problem = LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 
 # When we want to compute the solution to the problem, we can specify
 # what kind of solver we want to use.
