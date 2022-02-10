@@ -6,8 +6,8 @@ import argparse
 import dolfinx
 import numpy as np
 import ufl
-from dolfinx import (Constant, DirichletBC, Function, FunctionSpace, fem,)
-from dolfinx.fem import locate_dofs_topological
+from dolfinx.fem import (dirichletbc as DirichletBC, Function, FunctionSpace)
+from dolfinx.fem import Constant, locate_dofs_topological, LinearProblem
 from dolfinx.io import XDMFFile
 from dolfinx.mesh import locate_entities_boundary
 from mpi4py import MPI
@@ -65,15 +65,15 @@ if __name__ == '__main__':
     u = ufl.TrialFunction(V)
     v = ufl.TestFunction(V)
     x = ufl.SpatialCoordinate(mesh)
-    f = Constant(mesh, ScalarType(0))  # 0
-    g = Constant(mesh, ScalarType(0))  # x[1] + x[2] - x[1] - x[2]
+    f = Constant(mesh, ScalarType(0))
+    g = Constant(mesh, ScalarType(0))
 
     a = inner(grad(u), grad(v)) * dx
     L = inner(f, v) * dx(x) + inner(g, v) * ds(mesh)
 
     print("setting problem..")
 
-    problem = fem.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+    problem = LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 
     # When we want to compute the solution to the problem, we can specify
     # what kind of solver we want to use.
