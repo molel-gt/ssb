@@ -9,17 +9,14 @@ import numpy as np
 
 def load_images_to_logical_array(files_list, grid_info):
     """
-    grid_info ==> grid_size, start_pos, end_pos
+    grid_sizes: Lx.Ly.Lz
     """
-    grid_size, n_start, n_end = grid_info
-    data = np.zeros([grid_size + 1, grid_size + 1, grid_size + 1], dtype=bool)
+    Lx, Ly, Lz = grid_sizes.split('.')
+    data = np.zeros([int(Lx), int(Ly), int(Lz)], dtype=bool)
     for i_x, img_file in enumerate(files_list):
-        if i_x < n_start or i_x > n_end + 1:
-            continue
         img_data = plt.imread(img_file)
         img_data = img_data / 255
-        img_data = img_data[n_start:n_end+1, n_start:n_end+1]
-        data[i_x-n_start-1, :, :] = img_data
+        data[i_x, :, :] = img_data
     return data
 
 
@@ -75,22 +72,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='creates node file for meshing..')
     parser.add_argument('--working_dir', help='bmp files parent directory', required=True)
     parser.add_argument('--img_sub_dir', help='bmp files parent directory', required=True)
-    parser.add_argument('--grid_info', help='grid_size, start_pos, end_pos', required=True,
-                        type=lambda s: [int(item) for item in s.split('_')])
-    parser.add_argument('--file_shape', help='shape of image data array', required=True,
-                        type=lambda s: [int(item) for item in s.split('_')])
+    parser.add_argument('--grid_info', help='grid_size, start_pos, end_pos', required=True)
 
     args = parser.parse_args()
     files_dir = os.path.join(args.working_dir, args.img_sub_dir)
-    file_shape = args.file_shape
     grid_info = args.grid_info
-    grid_size, start_pos, end_pos = grid_info
+    grid_sizes = grid_info
     files_list = sorted([os.path.join(files_dir, f) for f in os.listdir(files_dir)
                   if f.endswith(".bmp")])
-    files_list = [f for i, f in enumerate(files_list) if i >= 2 and i < 92]
     image_data = load_images_to_logical_array(files_list, grid_info)
     print("porosity: ", np.average(image_data))
     meshes_dir = os.path.join(args.working_dir, 'mesh')
-    node_file_path = os.path.join(meshes_dir, '{}_{}_{}'.format(grid_size, start_pos, end_pos), 'porous-solid.node')
+    node_file_path = os.path.join(meshes_dir, '{}.node'.format(grid_sizes))
     nodes = create_nodes(image_data)
     write_node_to_file(nodes, node_file_path)
