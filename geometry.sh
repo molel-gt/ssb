@@ -22,9 +22,11 @@ mkdir -p $1mesh/
 ./create_node_files.py --working_dir=$1 --img_sub_dir=$2 --grid_info=$3
 
 tetgen $1mesh/$3.node -akEFNQIRB
-grid_sizes=($(echo $3 | tr '.' "\n"))
+grid_size=($(echo $3 | tr '.' "\n"))
+file_ext=".vtk"
+file_name="$3$file_ext"
 
-sed '1 i size = '$grid_size';' $1porous-solid.geo | tee $1mesh/$3.geo
+sed '1 i file_name = \"'$file_name'\";' $1porous-solid.geo | tee $1mesh/$3.geo
 
 gmsh -3 $1mesh/$3.geo -o $1mesh/$3.msh
 
