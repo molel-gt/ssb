@@ -5,28 +5,27 @@ if [ "$1" == "-h" ]; then
         given the bmp files parent directory, sub directory, shape of image file data array,
         and grid information (grid_size,)
         ]
-        Example: ./geometry.sh /home/ubuntu/dev/ bmp_files 5_5 30_0_30
+        Example: ./geometry.sh /home/ubuntu/dev/ bmp_files 30.30.30
         "
   exit 0
 fi
 
-if [ $# -ne 4 ]
+if [ $# -ne 3 ]
   then
-    echo Error: "requires 4 arguments"
+    echo Error: "requires 3 arguments"
     exit 1
 fi
-echo "Making required sub directories: mesh/$4/"
+echo "Making required sub directories: mesh/"
 
-mkdir -p $1mesh/$4/
+mkdir -p $1mesh/
 
-./create_node_files.py --working_dir=$1 --img_sub_dir=$2 --file_shape=$3 --grid_info=$4
+./create_node_files.py --working_dir=$1 --img_sub_dir=$2 --grid_info=$3
 
-tetgen $1mesh/$4/porous-solid.node -akEFNQI
+tetgen $1mesh/$3.node -akEFNQIRB
+grid_sizes=($(echo $3 | tr '.' "\n"))
 
-grid_size=`echo $4 | cut -d \_ -f 1`
+sed '1 i size = '$grid_size';' $1porous-solid.geo | tee $1mesh/$3.geo
 
-sed '1 i size = '$grid_size';' $1porous-solid.geo | tee $1mesh/$4/porous-solid.geo
+gmsh -3 $1mesh/$3.geo -o $1mesh/$3.msh
 
-gmsh -3 $1mesh/$4/porous-solid.geo -o $1mesh/$4/porous-solid.msh
-
-./create_xdmf_meshfiles.py --input_meshfile=$1mesh/$4/porous-solid.msh
+./create_xdmf_meshfiles.py --input_meshfile=$1mesh/$3.msh
