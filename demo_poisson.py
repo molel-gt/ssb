@@ -2,7 +2,7 @@
 import dolfinx
 import numpy as np
 import ufl
-from dolfinx.fem import (apply_lifting, assemble_matrix, assemble_vector, Constant, dirichletbc, Expression,
+from dolfinx.fem import (apply_lifting, assemble_matrix, assemble_vector, dirichletbc, Expression,
                          form, Function, FunctionSpace, locate_dofs_topological, LinearProblem, set_bc,
                          VectorFunctionSpace
                          )
@@ -10,8 +10,7 @@ from dolfinx.io import XDMFFile
 from dolfinx.mesh import locate_entities_boundary
 from mpi4py import MPI
 from petsc4py import PETSc
-from petsc4py.PETSc import ScalarType
-from ufl import ds, dx, grad, inner, dot
+from ufl import ds, dx, grad, inner
 
 
 with XDMFFile(MPI.COMM_WORLD, "mesh.xdmf", "r") as infile3:
@@ -41,11 +40,11 @@ x1bc = dirichletbc(u1, locate_dofs_topological(V, fdim, x1facets))
 u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
 x = ufl.SpatialCoordinate(mesh)
 
-f = ufl.as_vector((0.0, 0.0))
-g = x - x  # ufl.as_vector((0.0, 0.0))
+f = dolfinx.fem.Constant(mesh, PETSc.ScalarType((0.0, 0.0)))
+g = dolfinx.fem.Constant(mesh, PETSc.ScalarType((0.0, 0.0)))
 
 a = form(inner(grad(u), grad(v)) * dx(x))
-L = form(inner(f, v) * dx(x) + inner(g, v) * ds(mesh))
+L = form(inner(f, v) * dx + inner(g, v) * ds)
 
 A = assemble_matrix(a, bcs=[x0bc, x1bc])
 A.assemble()
@@ -91,10 +90,10 @@ with XDMFFile(MPI.COMM_WORLD, "potential.xdmf", "w") as file:
     file.write_function(uh)
 
 # Post-processing: Compute derivatives
-grad_u = ufl.sym(grad(uh)) * ufl.Identity(len(uh))
+grad_u = ufl.sym(grad(uh)) #* ufl.Identity(len(uh))
 
 W = FunctionSpace(mesh, ("Discontinuous Lagrange", 0))
-current_expr = Expression(inner(grad_u, grad_u), W.element.interpolation_points)
+current_expr = Expression(ufl.sqrt(inner(grad_u, grad_u)), W.element.interpolation_points)
 current_h = Function(W)
 current_h.interpolate(current_expr)
 
