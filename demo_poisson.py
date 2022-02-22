@@ -41,8 +41,8 @@ x1bc = dirichletbc(u1, locate_dofs_topological(V, fdim, x1facets))
 u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
 x = ufl.SpatialCoordinate(mesh)
 
-f = x - x  # Constant(mesh, ScalarType(0)) #* ufl.Identity(tdim) # ufl.as_vector((0.0, 0.0, 0.0))
-g = x - x  # Constant(mesh, ScalarType(0)) #* ufl.Identity(tdim) # ufl.as_vector((0.0, 0.0, 0.0))
+f = ufl.as_vector((0.0, 0.0))
+g = ufl.as_vector((0.0, 0.0))
 
 a = form(inner(grad(u), grad(v)) * dx(x))
 L = form(inner(f, v) * dx(x) + inner(g, v) * ds(mesh))
@@ -61,15 +61,15 @@ opts["ksp_type"] = "cg"
 opts["ksp_rtol"] = 1.0e-10
 opts["pc_type"] = "gamg"
 
-# # Use Chebyshev smoothing for multigrid
+# Use Chebyshev smoothing for multigrid
 opts["mg_levels_ksp_type"] = "chebyshev"
 opts["mg_levels_pc_type"] = "jacobi"
 
-# # Improve estimate of eigenvalues for Chebyshev smoothing
+# Improve estimate of eigenvalues for Chebyshev smoothing
 opts["mg_levels_esteig_ksp_type"] = "cg"
 opts["mg_levels_ksp_chebyshev_esteig_steps"] = 20
 
-# # Create PETSc Krylov solver and turn convergence monitoring on
+# Create PETSc Krylov solver and turn convergence monitoring on
 solver = PETSc.KSP().create(mesh.comm)
 solver.setFromOptions()
 
@@ -85,17 +85,19 @@ solver.solve(b, uh.vector)
 solver.view()
 
 uh.x.scatter_forward()
+
+# Save solution in XDMF format
+with XDMFFile(MPI.COMM_WORLD, "potential.xdmf", "w") as file:
+    file.write_mesh(mesh)
+    file.write_function(uh)
+
+# Post-processing: Compute derivatives
 grad_u = grad(uh) * ufl.Identity(len(uh))
 
 W = FunctionSpace(mesh, ("Discontinuous Lagrange", 0))
 current_expr = Expression(grad_u, W.element.interpolation_points)
 current_h = Function(W)
 current_h.interpolate(current_expr)
-
-# Save solution in XDMF format
-with XDMFFile(MPI.COMM_WORLD, "potential.xdmf", "w") as file:
-    file.write_mesh(mesh)
-    file.write_function(uh)
 
 with XDMFFile(MPI.COMM_WORLD, "current.xdmf", "w") as file:
     file.write_mesh(mesh)
