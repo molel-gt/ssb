@@ -42,7 +42,7 @@ u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
 x = ufl.SpatialCoordinate(mesh)
 
 f = ufl.as_vector((0.0, 0.0))
-g = ufl.as_vector((0.0, 0.0))
+g = x - x  # ufl.as_vector((0.0, 0.0))
 
 a = form(inner(grad(u), grad(v)) * dx(x))
 L = form(inner(f, v) * dx(x) + inner(g, v) * ds(mesh))
@@ -80,9 +80,9 @@ uh = Function(V)
 
 # Set a monitor, solve linear system, and dispay the solver
 # configuration
-solver.setMonitor(lambda _, its, rnorm: print(f"Iteration: {its}, rel. residual: {rnorm}"))
+# solver.setMonitor(lambda _, its, rnorm: print(f"Iteration: {its}, rel. residual: {rnorm}"))
 solver.solve(b, uh.vector)
-solver.view()
+# solver.view()
 
 uh.x.scatter_forward()
 
@@ -92,7 +92,7 @@ with XDMFFile(MPI.COMM_WORLD, "potential.xdmf", "w") as file:
     file.write_function(uh)
 
 # Post-processing: Compute derivatives
-grad_u = grad(uh) * ufl.Identity(len(uh))
+grad_u = grad(uh) #* ufl.Identity(len(uh))
 
 W = FunctionSpace(mesh, ("Discontinuous Lagrange", 0))
 current_expr = Expression(grad_u, W.element.interpolation_points)
