@@ -3,7 +3,7 @@ import dolfinx
 import numpy as np
 import ufl
 from dolfinx.fem import (apply_lifting, assemble_matrix, assemble_vector, dirichletbc, Expression,
-                         form, Function, FunctionSpace, locate_dofs_topological, LinearProblem, set_bc,
+                         form, Function, FunctionSpace, locate_dofs_topological, set_bc,
                          VectorFunctionSpace
                          )
 from dolfinx.io import XDMFFile
