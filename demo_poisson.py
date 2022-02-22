@@ -1,98 +1,26 @@
-#
-# .. _demo_poisson_equation:
-#
-# Poisson equation
-# ================
-#
-# This demo is implemented in a single Python file,
-# :download:`demo_poisson.py`, which contains both the variational forms
-# and the solver.
-#
-# This demo illustrates how to:
-#
-# * Solve a linear partial differential equation
-# * Create and apply Dirichlet boundary conditions
-# * Define a FunctionSpace
-#
-# The solution for :math:`u` in this demo will look as follows:
-#
-# .. image:: poisson_u.png
-#    :scale: 75 %
-#
-#
-# Equation and problem definition
-# -------------------------------
-#
-# The Poisson equation is the canonical elliptic partial differential
-# equation.  For a domain :math:`\Omega \subset \mathbb{R}^n` with
-# boundary :math:`\partial \Omega = \Gamma_{D} \cup \Gamma_{N}`, the
-# Poisson equation with particular boundary conditions reads:
-#
-# .. math::
-#    - \nabla^{2} u &= f \quad {\rm in} \ \Omega, \\
-#                 u &= 0 \quad {\rm on} \ \Gamma_{D}, \\
-#                 \nabla u \cdot n &= g \quad {\rm on} \ \Gamma_{N}. \\
-#
-# Here, :math:`f` and :math:`g` are input data and :math:`n` denotes the
-# outward directed boundary normal. The most standard variational form
-# of Poisson equation reads: find :math:`u \in V` such that
-#
-# .. math:: a(u, v) = L(v) \quad \forall \ v \in V,
-#
-# where :math:`V` is a suitable function space and
-#
-# .. math:: a(u, v) &= \int_{\Omega} \nabla u \cdot \nabla v \, {\rm d}
-#    x, \\
-#    L(v)    &= \int_{\Omega} f v \, {\rm d} x
-#    + \int_{\Gamma_{N}} g v \, {\rm d} s.
-#
-# The expression :math:`a(u, v)` is the bilinear form and :math:`L(v)`
-# is the linear form. It is assumed that all functions in :math:`V`
-# satisfy the Dirichlet boundary conditions (:math:`u = 0 \ {\rm on} \
-# \Gamma_{D}`).
-#
-# In this demo, we shall consider the following definitions of the input
-# functions, the domain, and the boundaries:
-#
-# * :math:`\Omega = [0,1] \times [0,1]` (a unit square)
-# * :math:`\Gamma_{D} = \{(0, y) \cup (1, y) \subset \partial \Omega\}`
-#   (Dirichlet boundary)
-# * :math:`\Gamma_{N} = \{(x, 0) \cup (x, 1) \subset \partial \Omega\}`
-#   (Neumann boundary)
-# * :math:`g = \sin(5x)` (normal derivative)
-# * :math:`f = 10\exp(-((x - 0.5)^2 + (y - 0.5)^2) / 0.02)` (source
-#   term)
-#
-#
-# Implementation
-# --------------
-#
-# This description goes through the implementation (in
-# :download:`demo_poisson.py`) of a solver for the above described
-# Poisson equation step-by-step.
-#
-# First, the :py:mod:`dolfinx` module is imported: ::
 
 import dolfinx
 import numpy as np
 import ufl
-from dolfinx.fem import (dirichletbc as DirichletBC, Function, FunctionSpace)
-from dolfinx.fem import Constant, locate_dofs_topological, LinearProblem
+from dolfinx.fem import (apply_lifting, assemble_matrix, assemble_vector, dirichletbc, Expression,
+                         form, Function, FunctionSpace, locate_dofs_topological, set_bc,
+                         VectorFunctionSpace
+                         )
 from dolfinx.io import XDMFFile
 from dolfinx.mesh import locate_entities_boundary
 from mpi4py import MPI
 from petsc4py import PETSc
-from petsc4py.PETSc import ScalarType
 from ufl import ds, dx, grad, inner
 
 
 with XDMFFile(MPI.COMM_WORLD, "mesh.xdmf", "r") as infile3:
-    mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
+    mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.shared_facet, 'Grid')
 print("done loading triangular mesh")
+
 tdim = mesh.topology.dim
 fdim = tdim - 1
 
-V = FunctionSpace(mesh, ("Lagrange", 1))
+V = VectorFunctionSpace(mesh, ("Lagrange", 1))
 
 # Define boundary condition on x = 0 or x = 1
 u0 = Function(V)
@@ -105,86 +33,70 @@ x0facets = locate_entities_boundary(mesh, fdim,
                                     lambda x: np.isclose(x[0], 0.0))
 x1facets = locate_entities_boundary(mesh, fdim,
                                     lambda x: np.isclose(x[0], 10.0))
-x0bc = DirichletBC(u0, locate_dofs_topological(V, fdim, x0facets))
-x1bc = DirichletBC(u1, locate_dofs_topological(V, fdim, x1facets))
-
-# Next, we want to express the variational problem.  First, we need to
-# specify the trial function :math:`u` and the test function :math:`v`,
-# both living in the function space :math:`V`. We do this by defining a
-# :py:class:`TrialFunction <dolfinx.functions.fem.TrialFunction>` and a
-# :py:class:`TestFunction <dolfinx.functions.fem.TrialFunction>` on the
-# previously defined :py:class:`FunctionSpace
-# <dolfinx.fem.FunctionSpace>` ``V``.
-#
-# Further, the source :math:`f` and the boundary normal derivative
-# :math:`g` are involved in the variational forms, and hence we must
-# specify these.
-#
-# With these ingredients, we can write down the bilinear form ``a`` and
-# the linear form ``L`` (using UFL operators). In summary, this reads ::
+x0bc = dirichletbc(u0, locate_dofs_topological(V, fdim, x0facets))
+x1bc = dirichletbc(u1, locate_dofs_topological(V, fdim, x1facets))
 
 # Define variational problem
 u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
 x = ufl.SpatialCoordinate(mesh)
-f = Constant(mesh, ScalarType(0))
-g = Constant(mesh, ScalarType(0))
-a = inner(grad(u), grad(v)) * dx
-L = inner(f, v) * dx(x) + inner(g, v) * ds(mesh)
 
-# Now, we have specified the variational forms and can consider the
-# solution of the variational problem. First, we need to define a
-# :py:class:`Function <dolfinx.functions.fem.Function>` ``u`` to
-# represent the solution. (Upon initialization, it is simply set to the
-# zero function.) A :py:class:`Function
-# <dolfinx.functions.fem.Function>` represents a function living in a
-# finite element function space. Next, we initialize a solver using the
-# :py:class:`LinearProblem <dolfinx.fem.linearproblem.LinearProblem>`.
-# This class is initialized with the arguments ``a``, ``L``, and ``bc``
-# as follows: :: In this problem, we use a direct LU solver, which is
-# defined through the dictionary ``petsc_options``.
-problem = LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+f = dolfinx.fem.Constant(mesh, PETSc.ScalarType((0.0, 0.0)))
+g = dolfinx.fem.Constant(mesh, PETSc.ScalarType((0.0, 0.0)))
 
-# When we want to compute the solution to the problem, we can specify
-# what kind of solver we want to use.
-uh = problem.solve()
+a = form(inner(grad(u), grad(v)) * dx(x))
+L = form(inner(f, v) * dx + inner(g, v) * ds)
 
-# The function ``u`` will be modified during the call to solve. The
-# default settings for solving a variational problem have been used.
-# However, the solution process can be controlled in much more detail if
-# desired.
-#
-# A :py:class:`Function <dolfinx.functions.fem.Function>` can be
-# manipulated in various ways, in particular, it can be plotted and
-# saved to file. Here, we output the solution to an ``XDMF`` file for
-# later visualization and also plot it using the :py:func:`plot
-# <dolfinx.common.plot.plot>` command: ::
+A = assemble_matrix(a, bcs=[x0bc, x1bc])
+A.assemble()
+
+b = assemble_vector(L)
+apply_lifting(b, [a], bcs=[[x0bc, x1bc]])
+b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
+set_bc(b, [x0bc, x1bc])
+
+# Set solver options
+opts = PETSc.Options()
+opts["ksp_type"] = "cg"
+opts["ksp_rtol"] = 1.0e-10
+opts["pc_type"] = "gamg"
+
+# Use Chebyshev smoothing for multigrid
+opts["mg_levels_ksp_type"] = "chebyshev"
+opts["mg_levels_pc_type"] = "jacobi"
+
+# Improve estimate of eigenvalues for Chebyshev smoothing
+opts["mg_levels_esteig_ksp_type"] = "cg"
+opts["mg_levels_ksp_chebyshev_esteig_steps"] = 20
+
+# Create PETSc Krylov solver and turn convergence monitoring on
+solver = PETSc.KSP().create(mesh.comm)
+solver.setFromOptions()
+
+# Set matrix operator
+solver.setOperators(A)
+
+uh = Function(V)
+
+# Set a monitor, solve linear system, and dispay the solver configuration
+# solver.setMonitor(lambda _, its, rnorm: print(f"Iteration: {its}, rel. residual: {rnorm}"))
+solver.solve(b, uh.vector)
+# solver.view()
+
+uh.x.scatter_forward()
 
 # Save solution in XDMF format
-with XDMFFile(MPI.COMM_WORLD, "poisson.xdmf", "w") as file:
+with XDMFFile(MPI.COMM_WORLD, "potential.xdmf", "w") as file:
     file.write_mesh(mesh)
     file.write_function(uh)
 
+# Post-processing: Compute derivatives
+grad_u = ufl.sym(grad(uh)) #* ufl.Identity(len(uh))
 
-# Update ghost entries and plot
-uh.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-# try:
-#     import pyvista
+W = FunctionSpace(mesh, ("Discontinuous Lagrange", 0))
+current_expr = Expression(ufl.sqrt(inner(grad_u, grad_u)), W.element.interpolation_points)
+current_h = Function(W)
+current_h.interpolate(current_expr)
 
-#     topology, cell_types = plot.create_vtk_topology(mesh, mesh.topology.dim)
-#     grid = pyvista.UnstructuredGrid(topology, cell_types, mesh.geometry.x)
-#     grid.point_data["u"] = uh.compute_point_values().real
-#     grid.set_active_scalars("u")
-
-#     plotter = pyvista.Plotter()
-#     plotter.add_mesh(grid, show_edges=True)
-#     warped = grid.warp_by_scalar()
-#     plotter.add_mesh(warped)
-
-#     # If pyvista environment variable is set to off-screen (static) plotting save png
-#     if pyvista.OFF_SCREEN:
-#         pyvista.start_xvfb(wait=0.1)
-#         plotter.screenshot("uh.png")
-#     else:
-#         plotter.show()
-# except ModuleNotFoundError:
-#     print("pyvista is required to visualise the solution")
+with XDMFFile(MPI.COMM_WORLD, "current.xdmf", "w") as file:
+    file.write_mesh(mesh)
+    file.write_function(current_h)
