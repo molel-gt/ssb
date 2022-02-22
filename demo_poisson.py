@@ -15,7 +15,7 @@ from ufl import ds, dx, grad, inner, dot
 
 
 with XDMFFile(MPI.COMM_WORLD, "mesh.xdmf", "r") as infile3:
-    mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
+    mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.shared_facet, 'Grid')
 print("done loading triangular mesh")
 
 tdim = mesh.topology.dim
@@ -78,8 +78,7 @@ solver.setOperators(A)
 
 uh = Function(V)
 
-# Set a monitor, solve linear system, and dispay the solver
-# configuration
+# Set a monitor, solve linear system, and dispay the solver configuration
 # solver.setMonitor(lambda _, its, rnorm: print(f"Iteration: {its}, rel. residual: {rnorm}"))
 solver.solve(b, uh.vector)
 # solver.view()
@@ -92,10 +91,10 @@ with XDMFFile(MPI.COMM_WORLD, "potential.xdmf", "w") as file:
     file.write_function(uh)
 
 # Post-processing: Compute derivatives
-grad_u = grad(uh) #* ufl.Identity(len(uh))
+grad_u = ufl.sym(grad(uh)) * ufl.Identity(len(uh))
 
 W = FunctionSpace(mesh, ("Discontinuous Lagrange", 0))
-current_expr = Expression(grad_u, W.element.interpolation_points)
+current_expr = Expression(inner(grad_u, grad_u), W.element.interpolation_points)
 current_h = Function(W)
 current_h.interpolate(current_expr)
 
