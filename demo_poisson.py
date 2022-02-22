@@ -79,9 +79,9 @@ solver.setOperators(A)
 uh = Function(V)
 
 # Set a monitor, solve linear system, and dispay the solver configuration
-solver.setMonitor(lambda _, its, rnorm: print(f"Iteration: {its}, rel. residual: {rnorm}"))
+# solver.setMonitor(lambda _, its, rnorm: print(f"Iteration: {its}, rel. residual: {rnorm}"))
 solver.solve(b, uh.vector)
-solver.view()
+# solver.view()
 
 uh.x.scatter_forward()
 
