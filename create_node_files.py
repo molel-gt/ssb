@@ -7,16 +7,23 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def load_images_to_logical_array(files_list, grid_info):
+def load_images_to_logical_array(files_list, x_lims=(7, 108), y_lims=(126, 327), z_lims=(301, 502)):
     """
     grid_sizes: Lx.Ly.Lz
     """
-    Lx, Ly, Lz = grid_sizes.split('.')
+    x0, x1 = x_lims
+    y0, y1 = y_lims
+    z0, z1 = z_lims
+    Lx = x1 - x0
+    Ly = y1 - y0
+    Lz = z1 - z0
     data = np.zeros([int(Lx), int(Ly), int(Lz)], dtype=bool)
     for i_x, img_file in enumerate(files_list):
+        if not (x0 <= i_x <= x1):
+            continue
         img_data = plt.imread(img_file)
         img_data = img_data / 255
-        data[i_x, :, :] = img_data
+        data[i_x - x0 - 1, :, :] = img_data[y0:y1, z0:z1]
     return data
 
 
@@ -80,7 +87,7 @@ if __name__ == '__main__':
     grid_sizes = grid_info
     files_list = sorted([os.path.join(files_dir, f) for f in os.listdir(files_dir)
                   if f.endswith(".bmp")])
-    image_data = load_images_to_logical_array(files_list, grid_info)
+    image_data = load_images_to_logical_array(files_list)
     print("porosity: ", np.average(image_data))
     meshes_dir = os.path.join(args.working_dir, 'mesh')
     node_file_path = os.path.join(meshes_dir, '{}.node'.format(grid_sizes))

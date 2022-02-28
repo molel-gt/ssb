@@ -24,13 +24,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
     parser.add_argument('--working_dir', help='bmp files parent directory', required=True)
     parser.add_argument('--grid_info', help='gridSize_startPos_endPos', required=True)
-    parser.add_argument('--file_shape', help='shape of image data array', required=True,
-                        type=lambda s: [int(item) for item in s.split('_')])
 
     args = parser.parse_args()
-    file_shape = args.file_shape
     grid_info = args.grid_info
-    grid_size = int(grid_info.split(".")[0])
+    Lx = int(grid_info.split("-")[0] - 1)
     meshes_dir = os.path.join(args.working_dir, 'mesh', grid_info)
     output_dir = os.path.join(args.working_dir, 'output', grid_info)
     make_dir_if_missing(meshes_dir)
@@ -56,7 +53,7 @@ if __name__ == '__main__':
     x0facet = locate_entities_boundary(mesh, mesh_dim-1,
                                     lambda x: np.isclose(x[0], 0.0))
     x1facet = locate_entities_boundary(mesh, mesh_dim-1,
-                                    lambda x: np.isclose(x[0], grid_size))
+                                    lambda x: np.isclose(x[0], Lx))
     x0bc = dirichletbc(u0, locate_dofs_topological(V, mesh_dim-1, x0facet))
     x1bc = dirichletbc(u1, locate_dofs_topological(V, mesh_dim-1, x1facet))
 

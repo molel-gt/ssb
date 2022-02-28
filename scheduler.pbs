@@ -1,21 +1,19 @@
 #PBS -A emolel3
 #PBS -l walltime=1:00:00
 #PBS -l nodes=1:ppn=4
-#PBS -l mem=6gb
+#PBS -l mem=32gb
 #PBS -m abe
 #PBS -q inferno
 #PBS -j oe
 #PBS -o ion_transport.out
 #PBS -M emolel3@gatech.edu
 
-module load anaconda3/2019.10
+module load python/3.7.4
 
 cd $PBS_O_WORKDIR
 
 echo "Started on `/bin/hostname`"
-echo "running ion transport for grid sizes 10:10:80"
-for grid_size in {10..80..10}
 do
-    ./geometry.sh $PBS_O_WORKDIR Spheres_3 90,90 $grid_size
-    ./ion_transport.py --working_dir=$PBS_O_WORKDIR --img_sub_dir=Spheres_3 --grid_size=$grid_size --file_shape=90,90
+    ./geometry.sh $PBS_O_WORKDIR seg-im 101-201-301
+    ./ion_transport.py --working_dir=$PBS_O_WORKDIR --img_sub_dir=segim --grid_size=101-201-301
 done
