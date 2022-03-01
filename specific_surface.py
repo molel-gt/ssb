@@ -54,7 +54,7 @@ if __name__ == '__main__':
             s1_loc = two_point_correlation(img, r, phase_1)
             s1_values[idx] = s1_values[idx] + s1_loc / n_files
 
-    plt.plot(r_values, s1_values)
+    plt.scatter(r_values, s1_values)
     plt.xlabel('r')
     plt.ylabel(r'$s_1(r)$')
     plt.grid()
