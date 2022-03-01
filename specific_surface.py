@@ -45,24 +45,19 @@ if __name__ == '__main__':
     working_dir = args.working_dir
     im_files = [os.path.join(working_dir, f) for f in os.listdir(working_dir) if f.endswith(".bmp")]
     n_files = len(im_files)
-    r_values = np.arange(0, 25 + 1)
-    s1_values = np.zeros(25 + 1)
-    s2_values = np.zeros(25 + 1)
+    R = np.arange(0, 25 + 1)
+    S2 = np.zeros(25 + 1)
     files_count = 0
     for im_file in im_files:
         img = plt.imread(im_file)
-        for idx, r in enumerate(r_values):
-            s1_loc = two_point_correlation(img, r, phase_1)
-            s2_loc = two_point_correlation(img, r, phase_2)
-            s1_values[idx] = s1_values[idx] + s1_loc / n_files
-            s2_values[idx] = s2_values[idx] + s2_loc / n_files
-    surface_1 = specific_surface(s1_values, r_values)
-    surface_2 = specific_surface(s2_values, r_values)
-    print("Specific surfaces for phase 1 and 2: ", surface_1, surface_2)
+        for idx, r in enumerate(R):
+            s2_loc = two_point_correlation(img, r, phase_1)
+            S2[idx] = S[idx] + s2_loc / n_files
+    surface_area = specific_surface(S2, R)
+    print("Specific surface for phase 1: ", surface_area)
 
-    plt.plot(r_values, s1_values, 'r--')
-    plt.plot(r_values, s2_values, 'b--')
+    plt.plot(R, S2, 'r--')
     plt.xlabel('r')
-    plt.legend([r'$s_1(r)$', r'$s_2(r)$'])
+    plt.ylabel(r'$S_2(r)$')
     plt.grid()
     plt.show()
