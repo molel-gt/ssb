@@ -27,9 +27,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     grid_info = args.grid_info
-    Lx = int(grid_info.split("-")[0] - 1)
-    meshes_dir = os.path.join(args.working_dir, 'mesh', grid_info)
-    output_dir = os.path.join(args.working_dir, 'output', grid_info)
+    Lx = int(grid_info.split("-")[0]) - 1
+    meshes_dir = os.path.join(args.working_dir, 'mesh')
+    output_dir = os.path.join(args.working_dir, 'output')
     make_dir_if_missing(meshes_dir)
     make_dir_if_missing(output_dir)
     tetr_mesh_path = os.path.join(meshes_dir, 'mesh_tetr.xdmf')
