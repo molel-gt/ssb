@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def load_images_to_logical_array(files_list, x_lims=(7, 108), y_lims=(126, 327), z_lims=(251, 552)):
+def load_images_to_logical_array(files_list, x_lims=(1, 202), y_lims=(126, 327), z_lims=(301, 502)):
     """
     grid_sizes: Lx.Ly.Lz
     """
