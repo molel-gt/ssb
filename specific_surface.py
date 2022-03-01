@@ -18,7 +18,7 @@ def get_sampling_template(r_max):
 
 
 def two_point_correlation(im, r=0, r_max=100, phase=1):
-    n_tries = 1e3
+    n_tries = 1e4
     n_hits = 0
     for _ in range(int(n_tries)):
         origin, direction = get_sampling_template(r_max)
@@ -45,9 +45,9 @@ if __name__ == '__main__':
     working_dir = args.working_dir
     im_files = [os.path.join(working_dir, f) for f in os.listdir(working_dir) if f.endswith(".bmp")]
     n_files = len(im_files)
-    r_values = np.arange(0, 50 + 1)
-    s1_values = np.zeros(51)
-    s2_values = np.zeros(51)
+    r_values = np.arange(0, 25 + 1)
+    s1_values = np.zeros(25 + 1)
+    s2_values = np.zeros(25 + 1)
     files_count = 0
     for im_file in im_files:
         img = plt.imread(im_file)
