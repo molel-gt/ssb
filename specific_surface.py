@@ -32,8 +32,8 @@ def two_point_correlation(im, r=0, r_max=100, phase=1):
     return n_hits / n_tries
 
 
-def specific_surface(im):
-    dS2dr = two_point_correlation(im)
+def specific_surface(s1_values, r_values):
+    dS2dr = (s1_values(1) - s1_values(0)) / (r_values(1) - r_values(0))
     return - dS2dr * 2 * d
 
 
@@ -53,7 +53,9 @@ if __name__ == '__main__':
         for idx, r in enumerate(r_values):
             s1_loc = two_point_correlation(img, r, phase_1)
             s1_values[idx] = s1_values[idx] + s1_loc / n_files
-
+    s = specific_surface(s1_values, r_values)
+    print("Specific surface: ", s)
+    
     plt.scatter(r_values, s1_values)
     plt.xlabel('r')
     plt.ylabel(r'$s_1(r)$')
