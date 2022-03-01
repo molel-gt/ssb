@@ -52,7 +52,7 @@ if __name__ == '__main__':
         img = plt.imread(im_file)
         for idx, r in enumerate(R):
             s2_loc = two_point_correlation(img, r, phase_1)
-            S2[idx] = S[idx] + s2_loc / n_files
+            S2[idx] = S2[idx] + s2_loc / n_files
     surface_area = specific_surface(S2, R)
     print("Specific surface for phase 1: ", surface_area)
 
