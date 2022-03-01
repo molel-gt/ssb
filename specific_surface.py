@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-d = 3
+d = 2
 phase_1 = 1
 phase_2 = 0
 
@@ -47,17 +47,22 @@ if __name__ == '__main__':
     n_files = len(im_files)
     r_values = np.arange(0, 50 + 1)
     s1_values = np.zeros(51)
+    s2_values = np.zeros(51)
     files_count = 0
     for im_file in im_files:
         img = plt.imread(im_file)
         for idx, r in enumerate(r_values):
             s1_loc = two_point_correlation(img, r, phase_1)
+            s2_loc = two_point_correlation(img, r, phase_2)
             s1_values[idx] = s1_values[idx] + s1_loc / n_files
-    s = specific_surface(s1_values, r_values)
-    print("Specific surface: ", s)
+            s2_values[idx] = s2_values[idx] + s2_loc / n_files
+    surface_1 = specific_surface(s1_values, r_values)
+    surface_2 = specific_surface(s2_values, r_values)
+    print("Specific surfaces for phase 1 and 2: ", surface_1, surface_2)
 
-    plt.scatter(r_values, s1_values)
+    plt.plot(r_values, s1_values, 'r--')
+    plt.plot(r_values, s2_values, 'b--')
     plt.xlabel('r')
-    plt.ylabel(r'$s_1(r)$')
+    plt.legend([r'$s_1(r)$', r'$s_2(r)$'])
     plt.grid()
     plt.show()
