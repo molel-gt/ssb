@@ -93,7 +93,7 @@ def create_mesh(mesh, cell_type, prune_z=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='build geometry')
-    parser.add_argument('--img_sub_dir', help='bmp files parent directory', required=True)
+    parser.add_argument('--img_sub_dir', help='bmp files sub directory', required=True)
     parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
 
     args = parser.parse_args()
