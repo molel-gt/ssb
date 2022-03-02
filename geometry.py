@@ -115,7 +115,7 @@ if __name__ == '__main__':
     nodes = create_nodes(image_data)
     write_node_to_file(nodes, node_file_path)
     # build .msh file from .node file
-    subprocess.Popen(["./build_nodes_to_msh", node_file_path, geo_file_path, vtk_file_path, msh_file_path])
+    subprocess.Popen(["./nodes_to_msh", node_file_path, geo_file_path, vtk_file_path, msh_file_path])
     
     # build .xdmf/.h5 file from .msh file
     msh = meshio.read(msh_file_path)

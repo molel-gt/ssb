@@ -13,5 +13,5 @@ module load python/3.7.4
 cd $PBS_O_WORKDIR
 
 echo "Started on `/bin/hostname`"
-./geometry.sh $PBS_O_WORKDIR segim 201-201-201
+./geometry.py segim 201-201-201
 ./transport.py --working_dir=$PBS_O_WORKDIR --grid_info=201-201-201
