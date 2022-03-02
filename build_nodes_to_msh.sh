@@ -1,22 +1,17 @@
 #!/usr/bin/env bash
 
 if [ "$1" == "-h" ]; then
-  echo "Usage: `basename $0` [generates tetrahedral, triangle and line xdmf mesh files from images
-        given the bmp files parent directory, sub directory, shape of image file data array,
-        and grid information (grid_size,)
-        ]
-        Example: ./geometry.sh /home/ubuntu/dev/ssb/mesh/101-101-101.node 101 30.30.30
+  echo "Usage: `basename $0` [generates msh file from node file using tetgen and gmsh]
+        Example: ./build_nodes_to_msh.sh 101-101-101.node 101-101-101.vtk 101-101-101.geo 101-101-101.msh
         "
   exit 0
 fi
 
-if [ $# -ne 3 ]
+if [ $# -ne 4 ]
   then
-    echo Error: "requires 3 arguments"
+    echo Error: "requires 4 arguments"
     exit 1
 fi
-echo "Making required sub directories: mesh/"
-
 
 tetgen $1 -akEFNQIRB
 
