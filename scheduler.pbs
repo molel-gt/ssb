@@ -14,4 +14,4 @@ cd $PBS_O_WORKDIR
 
 echo "Started on `/bin/hostname`"
 ./geometry.sh $PBS_O_WORKDIR seg-im 201-201-201
-./ion_transport.py --working_dir=$PBS_O_WORKDIR --img_sub_dir=segim --grid_size=201-201-201
+./transport.py --working_dir=$PBS_O_WORKDIR --img_sub_dir=segim --grid_size=201-201-201
