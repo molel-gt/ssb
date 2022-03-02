@@ -13,7 +13,7 @@ from dolfinx.mesh import locate_entities_boundary
 from mpi4py import MPI
 from petsc4py import PETSc
 from petsc4py.PETSc import ScalarType
-from ufl import ds, dx, grad, inner, pi, sin
+from ufl import ds, dx, grad, inner
 
 
 def make_dir_if_missing(f_path):
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     uh.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     # Post-processing: Compute derivatives
-    grad_u = grad(uh) #* ufl.Identity(len(uh))
+    grad_u = grad(uh)
 
     W = FunctionSpace(mesh, ("Discontinuous Lagrange", 0))
     current_expr = dolfinx.fem.Expression(ufl.sqrt(inner(grad_u, grad_u)), W.element.interpolation_points)
