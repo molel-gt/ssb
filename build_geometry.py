@@ -4,7 +4,9 @@ import os
 
 import argparse
 import matplotlib.pyplot as plt
+import meshio
 import numpy as np
+import subprocess
 
 
 def load_images_to_logical_array(files_list, x_lims=(1, 202), y_lims=(126, 327), z_lims=(301, 502)):
@@ -75,21 +77,51 @@ def write_node_to_file(nodes, node_file_path):
     return
 
 
+def create_mesh(mesh, cell_type, prune_z=False):
+    """
+    """
+    cells = mesh.get_cells_type(cell_type)
+    cell_data = mesh.get_cell_data("gmsh:physical", cell_type)
+    out_mesh = meshio.Mesh(points=mesh.points,
+                           cells={cell_type: cells},
+                           cell_data={"name_to_read": [cell_data]}
+                           )
+    if prune_z:
+        out_mesh.prune_z_0()
+    return out_mesh
+
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='creates node file for meshing..')
+    parser = argparse.ArgumentParser(description='build geometry')
     parser.add_argument('--working_dir', help='bmp files parent directory', required=True)
     parser.add_argument('--img_sub_dir', help='bmp files parent directory', required=True)
-    parser.add_argument('--grid_info', help='grid_size, start_pos, end_pos', required=True)
+    parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
 
     args = parser.parse_args()
     files_dir = os.path.join(args.working_dir, args.img_sub_dir)
     grid_info = args.grid_info
-    grid_sizes = grid_info
+    Nx = int(grid_info.split("-")[0])
     files_list = sorted([os.path.join(files_dir, f) for f in os.listdir(files_dir)
                   if f.endswith(".bmp")])
     image_data = load_images_to_logical_array(files_list)
-    print("porosity: ", np.average(image_data))
     meshes_dir = os.path.join(args.working_dir, 'mesh')
-    node_file_path = os.path.join(meshes_dir, '{}.node'.format(grid_sizes))
+    node_file_path = os.path.join(meshes_dir, '{}.node'.format(grid_info))
     nodes = create_nodes(image_data)
     write_node_to_file(nodes, node_file_path)
+    input_meshfile = args.input_meshfile
+    msh = meshio.read(input_meshfile)
+
+    line_mesh_path = os.path.join(meshes_dir, "mesh_line.xdmf")
+    tria_mesh_path = os.path.join(meshes_dir, "mesh_tria.xdmf")
+    tetr_mesh_path = os.path.join(meshes_dir, "mesh_tetr.xdmf")
+
+    print("creating tetrahedral mesh")  
+    tetra_mesh = create_mesh(msh, "tetra")
+    meshio.write(tetr_mesh_path, tetra_mesh)
+    print("creating triangle mesh")
+    triangle_mesh = create_mesh(msh, "triangle")
+    meshio.write(tria_mesh_path, triangle_mesh)
+    print("create line meshes")
+    line_mesh = create_mesh(msh, "line")
+    meshio.write(line_mesh_path, line_mesh)
+    print("wrote files {}, {}, {}".format(tetr_mesh_path, tria_mesh_path, line_mesh_path))
