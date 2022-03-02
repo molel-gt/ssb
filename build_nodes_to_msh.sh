@@ -13,6 +13,8 @@ if [ $# -ne 4 ]
     exit 1
 fi
 
+cd "$(dirname "$0")"
+
 tetgen $1 -akEFNQIRB
 
 sed '1 i file_name = \"'$2'\";' porous-solid.geo | tee $3
