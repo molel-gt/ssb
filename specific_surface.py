@@ -56,7 +56,7 @@ if __name__ == '__main__':
     surface_area = specific_surface(S2, R)
     print("Specific surface for phase 1: ", surface_area)
 
-    plt.plot(R, S2, 'r--')
+    plt.plot(R, S2, '--bo')
     plt.xlabel('r')
     plt.ylabel(r'$S_2(r)$')
     plt.grid()
