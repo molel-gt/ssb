@@ -24,21 +24,19 @@ def make_dir_if_missing(f_path):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
     parser.add_argument('--working_dir', help='bmp files parent directory', required=True)
-    parser.add_argument('--grid_info', help='gridSize_startPos_endPos', required=True)
-    parser.add_argument('--file_shape', help='shape of image data array', required=True,
-                        type=lambda s: [int(item) for item in s.split('_')])
+    parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
 
     args = parser.parse_args()
-    file_shape = args.file_shape
     grid_info = args.grid_info
-    grid_size = int(grid_info.split("_")[0])
-    meshes_dir = os.path.join(args.working_dir, 'mesh', grid_info)
-    output_dir = os.path.join(args.working_dir, 'output', grid_info)
+    Lx = int(grid_info.split("-")[0]) - 1
+    meshes_dir = os.path.join(args.working_dir, 'mesh')
+    output_dir = os.path.join(args.working_dir, 'output')
     make_dir_if_missing(meshes_dir)
     make_dir_if_missing(output_dir)
     tetr_mesh_path = os.path.join(meshes_dir, 'mesh_tetr.xdmf')
     tria_mesh_path = os.path.join(meshes_dir, 'mesh_tria.xdmf')
-    output_path = os.path.join(output_dir, 'output.xdmf')
+    output_current_path = os.path.join(output_dir, 'current.xdmf')
+    output_potential_path = os.path.join(output_dir, 'potential.xdmf')
 
     with XDMFFile(MPI.COMM_WORLD, tetr_mesh_path, "r") as infile3:
         mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
@@ -57,7 +55,7 @@ if __name__ == '__main__':
     x0facet = locate_entities_boundary(mesh, mesh_dim-1,
                                     lambda x: np.isclose(x[0], 0.0))
     x1facet = locate_entities_boundary(mesh, mesh_dim-1,
-                                    lambda x: np.isclose(x[0], grid_size))
+                                    lambda x: np.isclose(x[0], Lx))
     x0bc = DirichletBC(u0, locate_dofs_topological(V, mesh_dim-1, x0facet))
     x1bc = DirichletBC(u1, locate_dofs_topological(V, mesh_dim-1, x1facet))
 
@@ -81,9 +79,21 @@ if __name__ == '__main__':
     uh = problem.solve()
 
     # Save solution in XDMF format
-    with XDMFFile(MPI.COMM_WORLD, output_path, "w") as outfile:
+    with XDMFFile(MPI.COMM_WORLD, output_potential_path, "w") as outfile:
         outfile.write_mesh(mesh)
         outfile.write_function(uh)
 
     # Update ghost entries and plot
     uh.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+
+    # Post-processing: Compute derivatives
+    grad_u = grad(uh) #* ufl.Identity(len(uh))
+
+    W = FunctionSpace(mesh, ("Discontinuous Lagrange", 0))
+    current_expr = dolfinx.fem.Expression(ufl.sqrt(inner(grad_u, grad_u)), W.element.interpolation_points)
+    current_h = Function(W)
+    current_h.interpolate(current_expr)
+
+    with XDMFFile(MPI.COMM_WORLD, output_current_path, "w") as file:
+        file.write_mesh(mesh)
+        file.write_function(current_h)
