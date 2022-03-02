@@ -102,7 +102,7 @@ if __name__ == '__main__':
     files_list = sorted([os.path.join(args.img_sub_dir, f) for f in os.listdir(args.img_sub_dir)
                   if f.endswith(".bmp")])
     
-    meshes_dir = os.path.join(args.working_dir, 'mesh')
+    meshes_dir = 'mesh'
     node_file_path = os.path.join(meshes_dir, '{}.node'.format(grid_info))
     geo_file_path = os.path.join(meshes_dir, '{}.geo'.format(grid_info))
     vtk_file_path = os.path.join(meshes_dir, '{}.vtk'.format(grid_info))

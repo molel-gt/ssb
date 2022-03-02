@@ -14,7 +14,7 @@ cd $PBS_O_WORKDIR
 
 echo "Started on `/bin/hostname`"
 chmod +x geometry.py
-./geometry.py segim 201-201-201
+./geometry.py --img_sub_dir segim --grid_info 201-201-201
 
 chmod +x transport.py
 ./transport.py --working_dir=$PBS_O_WORKDIR --grid_info=201-201-201
