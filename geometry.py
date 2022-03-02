@@ -93,35 +93,39 @@ def create_mesh(mesh, cell_type, prune_z=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='build geometry')
-    parser.add_argument('--working_dir', help='bmp files parent directory', required=True)
     parser.add_argument('--img_sub_dir', help='bmp files parent directory', required=True)
     parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
 
     args = parser.parse_args()
-    files_dir = os.path.join(args.working_dir, args.img_sub_dir)
     grid_info = args.grid_info
-    Nx = int(grid_info.split("-")[0])
-    files_list = sorted([os.path.join(files_dir, f) for f in os.listdir(files_dir)
+    
+    files_list = sorted([os.path.join(args.img_sub_dir, f) for f in os.listdir(args.img_sub_dir)
                   if f.endswith(".bmp")])
-    image_data = load_images_to_logical_array(files_list)
+    
     meshes_dir = os.path.join(args.working_dir, 'mesh')
     node_file_path = os.path.join(meshes_dir, '{}.node'.format(grid_info))
-    nodes = create_nodes(image_data)
-    write_node_to_file(nodes, node_file_path)
-    input_meshfile = args.input_meshfile
-    msh = meshio.read(input_meshfile)
-
+    geo_file_path = os.path.join(meshes_dir, '{}.geo'.format(grid_info))
+    vtk_file_path = os.path.join(meshes_dir, '{}.vtk'.format(grid_info))
+    msh_file_path = os.path.join(meshes_dir, '{}.msh'.format(grid_info))
     line_mesh_path = os.path.join(meshes_dir, "mesh_line.xdmf")
     tria_mesh_path = os.path.join(meshes_dir, "mesh_tria.xdmf")
     tetr_mesh_path = os.path.join(meshes_dir, "mesh_tetr.xdmf")
 
+    image_data = load_images_to_logical_array(files_list)
+    nodes = create_nodes(image_data)
+    write_node_to_file(nodes, node_file_path)
+    # build .msh file from .node file
+    subprocess.Popen(["./build_nodes_to_msh", node_file_path, geo_file_path, vtk_file_path, msh_file_path])
+    
+    # build .xdmf/.h5 file from .msh file
+    msh = meshio.read(msh_file_path)
     print("creating tetrahedral mesh")  
     tetra_mesh = create_mesh(msh, "tetra")
     meshio.write(tetr_mesh_path, tetra_mesh)
     print("creating triangle mesh")
     triangle_mesh = create_mesh(msh, "triangle")
     meshio.write(tria_mesh_path, triangle_mesh)
-    print("create line meshes")
+    print("create line mesh")
     line_mesh = create_mesh(msh, "line")
     meshio.write(line_mesh_path, line_mesh)
     print("wrote files {}, {}, {}".format(tetr_mesh_path, tria_mesh_path, line_mesh_path))
