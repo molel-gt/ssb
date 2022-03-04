@@ -135,4 +135,4 @@ if __name__ == "__main__":
     surface_data = filter_interior_points(data)
     points, B = build_graph(surface_data)
     nullspace = linalg.null_space(B * B.transpose())
-    print("Number of pieces: ", nullspace.shape)
+    print("Number of pieces:", nullspace.shape[1])
