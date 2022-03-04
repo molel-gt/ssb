@@ -110,52 +110,17 @@ def chunk_array(data, chuck_max_size):
 
 def filter_interior_points(data):
     """
-    Masks locations where the voxel has 8 neighbors and each the 8 neighbors
-    has 8 neighbors
+    Masks locations where the voxel has 8 neighbors
 
     :returns: surface_data
     """
     neighbors = get_neighbors(data)
     surface_data = np.zeros(data.shape)
-    for idx, val in np.ndenumerate(neighbors):
-        n_neighbors = 0
-        if not data[idx]:
-            continue
-        if val < 8:
-            surface_data[idx] = 1
-        if val == 8:
-            for counter in range(6):
-                new_idx = (idx[0], idx[1], idx[2])
-                if counter == 0:
-                    # x+1
-                    new_idx = (idx[0] + 1, idx[1], idx[2])
-                elif counter == 1:
-                    # x-1
-                    new_idx = (idx[0] - 1, idx[1], idx[2])
-                elif counter == 2:
-                    # y+1
-                    new_idx = (idx[0], idx[1] + 1, idx[2])
-                elif counter == 3:
-                    # y-1
-                    new_idx = (idx[0], idx[1] - 1, idx[2])
-                elif counter == 4:
-                    # z+1
-                    new_idx = (idx[0], idx[1], idx[2] + 1)
-                elif counter == 5:
-                    # z-1
-                    new_idx = (idx[0], idx[1], idx[2] - 1)
-                else:
-                    raise Exception("Invalid counter")
+    with_lt_8_neighbors = np.argwhere(neighbors < 8)
+    for idx in with_lt_8_neighbors:
+        if data[(idx[0], idx[1], idx[2])] == 1:
+            surface_data[(idx[0], idx[1], idx[2])] = 1
 
-                try:
-                    neigbor_val = neighbors[tuple(new_idx)]
-                except:
-                    neigbor_val = 0
-
-                if neigbor_val == 8:
-                    n_neighbors += 1
-            if n_neighbors != 8:
-                surface_data[idx] = 1
     return surface_data
 
 
