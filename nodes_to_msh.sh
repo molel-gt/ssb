@@ -16,7 +16,8 @@ fi
 cd "$(dirname "$0")"
 
 tetgen $1 -akEFNQIRB
+vtk_file=$(echo "$3" | sed "s/.*\///")
 
-sed '1 i file_name = \"'$2'\";' porous.geo | tee $3
+sed '1 i file_name = \"'$vtk_file'\";' porous.geo | tee $2
 
-gmsh -3 $3 -o $4
+gmsh -3 $2 -o $4 -optimize_netgen
