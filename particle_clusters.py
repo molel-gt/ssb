@@ -129,10 +129,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     working_dir = args.working_dir
-    im_files = [os.path.join(working_dir, f) for f in os.listdir(working_dir) if f.endswith(".bmp")]
+    im_files = sorted([os.path.join(working_dir, f) for f in os.listdir(working_dir) if f.endswith(".bmp")])
     n_files = len(im_files)
-    data = geometry.load_images_to_logical_array(im_files, x_lims=(0, 10),y_lims=(0, 10), z_lims=(0, 10))
+    data = geometry.load_images_to_logical_array(im_files, x_lims=(0, 5),y_lims=(0, 5), z_lims=(0, 5))
     surface_data = filter_interior_points(data)
     points, B = build_graph(surface_data)
-    nullspace = linalg.null_space(B * B.transpose())
-    print("Number of pieces:", nullspace.shape[1])
+    L = np.matmul(B, B.transpose())
+    ns = linalg.null_space(L)
+    print("Number of pieces:", ns.shape[1])
