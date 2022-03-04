@@ -94,8 +94,9 @@ def build_graph(array_chunk):
                 continue
             idx_i = points[old_idx]
             idx_j = points[new_idx]
-            graph[(idx_i, idx_j)] = 1
-            graph[(idx_j, idx_i)] = -1
+            if idx_i != idx_j:
+                graph[(idx_i, idx_j)] = 1
+                graph[(idx_j, idx_i)] = 1
 
     return points, graph
 
@@ -135,5 +136,7 @@ if __name__ == "__main__":
     surface_data = filter_interior_points(data)
     points, B = build_graph(surface_data)
     L = np.matmul(B, B.transpose())
+    ns1 = np.around(linalg.null_space(B.transpose()), 0)
+    print(ns1)
     ns = linalg.null_space(L)
     print("Number of pieces:", ns.shape[1])
