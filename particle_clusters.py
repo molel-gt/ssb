@@ -4,10 +4,9 @@ import os
 
 import argparse
 import numpy as np
-import scipy
 
 from collections import defaultdict
-from scipy import linalg  # import null_space
+from scipy import linalg
 
 import geometry
 
@@ -132,8 +131,8 @@ if __name__ == "__main__":
     working_dir = args.working_dir
     im_files = [os.path.join(working_dir, f) for f in os.listdir(working_dir) if f.endswith(".bmp")]
     n_files = len(im_files)
-    data = geometry.load_images_to_logical_array(im_files, x_lims=(0, 20),y_lims=(0, 20), z_lims=(0, 20))
+    data = geometry.load_images_to_logical_array(im_files, x_lims=(0, 10),y_lims=(0, 10), z_lims=(0, 10))
     surface_data = filter_interior_points(data)
     points, B = build_graph(surface_data)
     nullspace = linalg.null_space(B * B.transpose())
-    print(nullspace.shape)
+    print("Number of pieces: ", nullspace.shape)
