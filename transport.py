@@ -89,7 +89,7 @@ if __name__ == '__main__':
     # Post-processing: Compute derivatives
     grad_u = grad(uh)
 
-    W = FunctionSpace(mesh, ("Discontinuous Lagrange", 0))
+    W = FunctionSpace(mesh, ("Lagrange", 1))
     current_expr = dolfinx.fem.Expression(ufl.sqrt(inner(grad_u, grad_u)), W.element.interpolation_points)
     current_h = Function(W)
     current_h.interpolate(current_expr)
