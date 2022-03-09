@@ -239,8 +239,6 @@ def surface_area(cluster, data, points_view):
     num_cases = {k: 0 for k in range(16)}
     for point in cluster:
         cubepoints = build_2x2x2_cube(points_view[point])
-        # if not set(cubepoints).issubset(cluster):
-        #     continue
         case = categorize_area_cases(cubepoints, data)
         if case is None:
             continue
