@@ -13,24 +13,39 @@ from scipy import linalg
 import geometry
 
 AREA_WEIGHTS = {
-    0: 0.1,
-    1: 0.1,
-    2: 0.1,
-    3: 0.1,
-    4: 0.1,
-    5: 0.1,
-    6: 0.1,
-    7: 0.1,
-    8: 0.1,
-    9: 0.1,
-    10: 0.1,
-    11: 0.1,
-    12: 0.1,
-    13: 0.1,
+    0: 0,
+    1: 0.636,
+    2: 0.669,
+    3: 1.272,
+    4: 1.272,
+    5: 0.554,
+    6: 1.305,
+    7: 1.908,
+    8: 0.927,
+    9: 0.442,
+    10: 1.338,
+    11: 1.573,
+    12: 1.190,
+    13: 2.544,
     14: 0.1,
-    15: 0.1,
 }
-
+CASES = {
+    (False, False, False, False, False, False, False, False): 0,
+    (False, True, False, False, False, False, False, False): 1,
+    (False, True, True, False, False, False, False, False): 2,
+    (False, False, True, False, False, False, True, False): 3,
+    (False, False, False, True, False, False, True, False): 4,
+    (True, True, True, False, False, False, False, False): 5,
+    (False, True, True, False, False, False, False, True): 6,
+    (True, False, True, False, False, False, True, False): 7,
+    (True, True, True, True, False, False, False, False): 8,
+    (True, True, True, False, False, False, True, False): 9,
+    (False, True, True, False, True, False, False, True): 10,
+    (True, True, True, False, False, False, False, True): 11,
+    (True, True, True, False, True, False, False, False): 12,
+    (False, True, False, True, False, True, False, True): 13,
+    (True, True, False, True, False, False, True, False): 14,
+}
 
 def get_neighbors(array_chunk):
     neighbors = np.zeros(array_chunk.shape)
@@ -161,8 +176,9 @@ def categorize_area_cases(cubepoints, data):
     :rtype: int
     """
     search_key = tuple([data[p] for p in cubepoints])
-
-    return -1
+    case = CASES[search_key]
+    
+    return case
 
 
 def filter_interior_points(data):
@@ -201,18 +217,24 @@ def is_piece_solid(S):
     if len(S) <= 3:
         return False
     # check if values are on same plane
-    x_values = set([int(v[0]) for v in S])
-    y_values = set([int(v[1]) for v in S])
-    z_values = set([int(v[2]) for v in S])
+    x_values = set([int(v[0]) for _, v in enumerate(S)])
+    y_values = set([int(v[1]) for _, v in enumerate(S)])
+    z_values = set([int(v[2]) for _, v in enumerate(S)])
     if len(x_values) <= 1 or len(y_values) <= 1 or len(z_values) <= 1:
         return False
     # TODO: Add further checks of connectivity to enclose a solid
     return True
 
 
-def surface_area(cluster):
+def surface_area(cluster, data):
     """"""
-    num_cases = {k: 5 for k in range(len(cluster))}
+    num_cases = {k: 0 for k in range(15)}
+    for point in cluster:
+        cubepoints = build_2x2x2_cube(point)
+        # if not set(cubepoints).issubset(cluster):
+        #     continue
+        case = categorize_area_cases(cubepoints, data)
+        num_cases[case] += 1
     surface_area = 0
     for k, num in num_cases:
         surface_area += AREA_WEIGHTS[k] * num
@@ -236,17 +258,25 @@ if __name__ == "__main__":
                                                  y_lims=(0, 15), z_lims=(0, 15))
     data = np.logical_not(data)  # invert to focus on active material
     surface_data = filter_interior_points(data)
-    points, G = build_graph(surface_data)
+    # pad_surf_data
+    surface_data_padded = np.zeros((surface_data.shape[0] + 1, surface_data.shape[1] + 1, surface_data.shape[2] + 1))
+    surface_data_padded[0:surface_data.shape[0], 0:surface_data.shape[1], 0:surface_data.shape[2]] = surface_data
+    points, G = build_graph(surface_data_padded)
 
     B = nx.adjacency_matrix(G).toarray()
     L = nx.laplacian_matrix(G).toarray()
     L_calc = np.matmul(B, B.transpose())
     cycle_basis = nx.simple_cycles(G)
     ns = linalg.null_space(L)
-    total = 0
     pieces = get_connected_pieces(G)
+    areas = []
+    for piece in pieces:
+        if not is_piece_solid(piece):
+            continue
+        area = surface_area(piece, surface_data_padded)
+        areas.append(area)
+    print(areas)
     print("Available points in grid:", np.product(data.shape))
-    print("Total is {}/{} vertices.".format(total, np.sum(data)), "This means none of the separate pieces share vertices - sanity check.")
     print("Number of pieces:", ns.shape[1])
     points_view = {v: k for k, v in points.items()}
     
