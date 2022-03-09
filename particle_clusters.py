@@ -139,15 +139,15 @@ def build_2x2x2_cube(idx):
     cubepoints[0, :] = (x0, y0, z0)
     cubepoints[7, :] = (x0, y0, z0 + 1)
     for counter in range(3):
-            new_idx = (idx[0], idx[1], idx[2])
             if counter == 0:
-                new_idx = (idx[0] + 1, idx[1], idx[2])
+                cubepoints[1, :] = (x0 + 1, y0, z0)
+                cubepoints[6, :] = (x0 + 1, y0, z0 + 1)
             elif counter == 1:
-                new_idx = (idx[0] - 1, idx[1], idx[2])
+                cubepoints[3, :] = (x0, y0 + 1, z0)
+                cubepoints[4, :] = (x0, y0 + 1, z0 + 1)
             elif counter == 2:
-                new_idx = (idx[0], idx[1] + 1, idx[2])
-            elif counter == 3:
-                new_idx = (idx[0], idx[1] - 1, idx[2])
+                cubepoints[2, :] = (x0 + 1, y0 + 1, z0)
+                cubepoints[5, :] = (x0 + 1, y0 + 1, z0 + 1)
             else:
                 raise Exception("Invalid counter")
     return cubepoints
