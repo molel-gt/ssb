@@ -267,7 +267,7 @@ if __name__ == "__main__":
     # active material/void: false
     data = geometry.load_images_to_logical_array(im_files, x_lims=(0, size),
                                                  y_lims=(0, size), z_lims=(0, size))
-    data = np.logical_not(data)  # invert to focus on active material
+    # data = np.logical_not(data)  # invert to focus on active material
     surface_data = filter_interior_points(data)
     # pad_surf_data
     surface_data_padded = np.zeros((surface_data.shape[0] + 1, surface_data.shape[1] + 1, surface_data.shape[2] + 1))
