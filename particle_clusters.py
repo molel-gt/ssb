@@ -12,6 +12,25 @@ from scipy import linalg
 
 import geometry
 
+AREA_WEIGHTS = {
+    0: 0.1,
+    1: 0.1,
+    2: 0.1,
+    3: 0.1,
+    4: 0.1,
+    5: 0.1,
+    6: 0.1,
+    7: 0.1,
+    8: 0.1,
+    9: 0.1,
+    10: 0.1,
+    11: 0.1,
+    12: 0.1,
+    13: 0.1,
+    14: 0.1,
+    15: 0.1,
+}
+
 
 def get_neighbors(array_chunk):
     neighbors = np.zeros(array_chunk.shape)
@@ -109,6 +128,43 @@ def chunk_array(data, chuck_max_size):
     return
 
 
+def build_2x2x2_cube(idx):
+    """
+    Build 2x2x2 cube for marching cubes algorithm
+    :return: cubepoints
+    :rtype: list
+    """
+    x0, y0, z0 = idx
+    cubepoints = np.zeros(8, 3)
+    cubepoints[0, :] = (x0, y0, z0)
+    cubepoints[7, :] = (x0, y0, z0 + 1)
+    for counter in range(3):
+            new_idx = (idx[0], idx[1], idx[2])
+            if counter == 0:
+                new_idx = (idx[0] + 1, idx[1], idx[2])
+            elif counter == 1:
+                new_idx = (idx[0] - 1, idx[1], idx[2])
+            elif counter == 2:
+                new_idx = (idx[0], idx[1] + 1, idx[2])
+            elif counter == 3:
+                new_idx = (idx[0], idx[1] - 1, idx[2])
+            else:
+                raise Exception("Invalid counter")
+    return cubepoints
+
+
+def categorize_area_cases(cubepoints, data):
+    """
+    Categorize the points according to cases reported by Lindblad 2005.
+
+    :return: case
+    :rtype: int
+    """
+    search_key = tuple([data[p] for p in cubepoints])
+
+    return -1
+
+
 def filter_interior_points(data):
     """
     Masks locations where the voxel has 8 neighbors
@@ -125,48 +181,44 @@ def filter_interior_points(data):
     return surface_data
 
 
-  
-class Graph:
-  
-    # init function to declare class variables
-    def __init__(self, V):
-        self.V = V
-        self.adj = [[] for i in range(V)]
-  
-    def DFSUtil(self, temp, v, visited):
-  
-        # Mark the current vertex as visited
-        visited[v] = True
-  
-        # Store the vertex to list
-        temp.append(v)
-  
-        # Repeat for all vertices adjacent
-        # to this vertex v
-        for i in self.adj[v]:
-            if visited[i] == False:
-  
-                # Update the list
-                temp = self.DFSUtil(temp, i, visited)
-        return temp
-  
-    # method to add an undirected edge
-    def addEdge(self, v, w):
-        self.adj[v].append(w)
-        self.adj[w].append(v)
-  
-    # Method to retrieve connected components
-    # in an undirected graph
-    def connectedComponents(self):
-        visited = []
-        cc = []
-        for i in range(self.V):
-            visited.append(False)
-        for v in range(self.V):
-            if visited[v] == False:
-                temp = []
-                cc.append(self.DFSUtil(temp, v, visited))
-        return cc
+def get_connected_pieces(G):
+    """"""
+    pieces = []
+    for item in nx.connected_components(G):
+        pieces.append(item)
+    
+    return pieces
+
+
+def is_piece_solid(S):
+    """
+    Rules for checking if piece encloses a solid:
+    1. ignore pieces with <= 3 points as they cannot enclose a solid
+    2. ignore pieces with points all on the same plane, e.g. {(x1, y1, z0), (x1, y2, z0), (x3, y1, z0), (x2, y1, z0)}
+
+    :rtype: bool
+    """
+    if len(S) <= 3:
+        return False
+    # check if values are on same plane
+    x_values = set([int(v[0]) for v in S])
+    y_values = set([int(v[1]) for v in S])
+    z_values = set([int(v[2]) for v in S])
+    if len(x_values) <= 1 or len(y_values) <= 1 or len(z_values) <= 1:
+        return False
+    # TODO: Add further checks of connectivity to enclose a solid
+    return True
+
+
+def surface_area(cluster):
+    """"""
+    num_cases = {k: 5 for k in range(len(cluster))}
+    surface_area = 0
+    for k, num in num_cases:
+        surface_area += AREA_WEIGHTS[k] * num
+
+    return surface_area
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='computes specific area')
@@ -178,8 +230,11 @@ if __name__ == "__main__":
     im_files = sorted([os.path.join(working_dir, f) for
                        f in os.listdir(working_dir) if f.endswith(".bmp")])
     n_files = len(im_files)
-    data = geometry.load_images_to_logical_array(im_files, x_lims=(0, 10),
-                                                 y_lims=(0, 10), z_lims=(0, 10))
+    # solid electrolyte: true
+    # active material/void: false
+    data = geometry.load_images_to_logical_array(im_files, x_lims=(0, 15),
+                                                 y_lims=(0, 15), z_lims=(0, 15))
+    data = np.logical_not(data)  # invert to focus on active material
     surface_data = filter_interior_points(data)
     points, G = build_graph(surface_data)
 
@@ -188,6 +243,12 @@ if __name__ == "__main__":
     L_calc = np.matmul(B, B.transpose())
     cycle_basis = nx.simple_cycles(G)
     ns = linalg.null_space(L)
-    for item in nx.connected_components(G):
-        print(item)
+    total = 0
+    pieces = get_connected_pieces(G)
+    print("Available points in grid:", np.product(data.shape))
+    print("Total is {}/{} vertices.".format(total, np.sum(data)), "This means none of the separate pieces share vertices - sanity check.")
     print("Number of pieces:", ns.shape[1])
+    points_view = {v: k for k, v in points.items()}
+    
+    print(points_view[pieces[-1].pop()])
+    print(points_view[pieces[-2].pop()])
