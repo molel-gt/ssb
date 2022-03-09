@@ -59,12 +59,12 @@ def build_graph(array_chunk):
     :returns: graph
     :rtype: sparse matrix
     """
+    G = nx.Graph()
     points = defaultdict(lambda: -1, {})
     valid_points = set([tuple(v) for v in np.argwhere(array_chunk == 1)])
-    G = Graph(len(valid_points))
     for idx, value in enumerate(valid_points):
         points[(value[0], value[1], value[2])] = idx
-        # G.add_node(idx)
+        G.add_node(idx)
 
     for idx in valid_points:
         old_idx = (idx[0], idx[1], idx[2])
@@ -97,7 +97,7 @@ def build_graph(array_chunk):
             idx_i = points[old_idx]
             idx_j = points[new_idx]
             if idx_i != idx_j:
-                G.addEdge(idx_i, idx_j)
+                G.add_edge(idx_i, idx_j)
 
     return points, G
 
@@ -178,13 +178,16 @@ if __name__ == "__main__":
     im_files = sorted([os.path.join(working_dir, f) for
                        f in os.listdir(working_dir) if f.endswith(".bmp")])
     n_files = len(im_files)
-    data = geometry.load_images_to_logical_array(im_files, x_lims=(0, 25),
-                                                 y_lims=(0, 25), z_lims=(0, 25))
+    data = geometry.load_images_to_logical_array(im_files, x_lims=(0, 10),
+                                                 y_lims=(0, 10), z_lims=(0, 10))
     surface_data = filter_interior_points(data)
     points, G = build_graph(surface_data)
-    cc = G.connectedComponents()
-    # print("Connected pieces:", cc)
-    print("Grid size:", data.shape[0] * data.shape[1] * data.shape[2])
-    print("Number of connected pieces:", len(cc))
-    for item in cc:
-        print(len(item))
+
+    B = nx.adjacency_matrix(G).toarray()
+    L = nx.laplacian_matrix(G).toarray()
+    L_calc = np.matmul(B, B.transpose())
+    cycle_basis = nx.simple_cycles(G)
+    ns = linalg.null_space(L)
+    for item in nx.connected_components(G):
+        print(item)
+    print("Number of pieces:", ns.shape[1])
