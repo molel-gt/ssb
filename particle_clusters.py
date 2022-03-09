@@ -256,16 +256,19 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='computes specific area')
     parser.add_argument('--working_dir', help='bmp files directory',
                         required=True)
+    parser.add_argument('--size', help='grid size',
+                        required=True)
 
     args = parser.parse_args()
+    size = int(args.size)
     working_dir = args.working_dir
     im_files = sorted([os.path.join(working_dir, f) for
                        f in os.listdir(working_dir) if f.endswith(".bmp")])
     n_files = len(im_files)
     # solid electrolyte: true
     # active material/void: false
-    data = geometry.load_images_to_logical_array(im_files, x_lims=(0, 10),
-                                                 y_lims=(0, 10), z_lims=(0, 10))
+    data = geometry.load_images_to_logical_array(im_files, x_lims=(0, size),
+                                                 y_lims=(0, size), z_lims=(0, size))
     data = np.logical_not(data)  # invert to focus on active material
     surface_data = filter_interior_points(data)
     # pad_surf_data
