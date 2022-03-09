@@ -28,6 +28,7 @@ AREA_WEIGHTS = {
     12: 1.190,
     13: 2.544,
     14: 0.1,
+    15: 0,
 }
 CASES = {
     (False, False, False, False, False, False, False, False): 0,
@@ -45,6 +46,7 @@ CASES = {
     (True, True, True, False, True, False, False, False): 12,
     (False, True, False, True, False, True, False, True): 13,
     (True, True, False, True, False, False, True, False): 14,
+    (True, True, True, True, True, True, True, True): 15,
 }
 
 def get_neighbors(array_chunk):
@@ -150,19 +152,19 @@ def build_2x2x2_cube(idx):
     :rtype: list
     """
     x0, y0, z0 = idx
-    cubepoints = np.zeros(8, 3)
+    cubepoints = np.zeros((8, 3))
     cubepoints[0, :] = (x0, y0, z0)
-    cubepoints[7, :] = (x0, y0, z0 + 1)
+    cubepoints[7, :] = (x0, y0, int(z0 + 1))
     for counter in range(3):
             if counter == 0:
-                cubepoints[1, :] = (x0 + 1, y0, z0)
-                cubepoints[6, :] = (x0 + 1, y0, z0 + 1)
+                cubepoints[1, :] = (int(x0 + 1), y0, z0)
+                cubepoints[6, :] = (int(x0 + 1), y0, int(z0 + 1))
             elif counter == 1:
-                cubepoints[3, :] = (x0, y0 + 1, z0)
-                cubepoints[4, :] = (x0, y0 + 1, z0 + 1)
+                cubepoints[3, :] = (x0, int(y0 + 1), z0)
+                cubepoints[4, :] = (x0, int(y0 + 1), int(z0 + 1))
             elif counter == 2:
-                cubepoints[2, :] = (x0 + 1, y0 + 1, z0)
-                cubepoints[5, :] = (x0 + 1, y0 + 1, z0 + 1)
+                cubepoints[2, :] = (int(x0 + 1), int(y0 + 1), z0)
+                cubepoints[5, :] = (int(x0 + 1), int(y0 + 1), int(z0 + 1))
             else:
                 raise Exception("Invalid counter")
     return cubepoints
@@ -175,8 +177,8 @@ def categorize_area_cases(cubepoints, data):
     :return: case
     :rtype: int
     """
-    search_key = tuple([data[p] for p in cubepoints])
-    case = CASES[search_key]
+    search_key = tuple([data[(int(p[0]), int(p[1]), int(p[2]))] == 1 for p in cubepoints])
+    case = CASES.get(search_key)
     
     return case
 
@@ -206,7 +208,7 @@ def get_connected_pieces(G):
     return pieces
 
 
-def is_piece_solid(S):
+def is_piece_solid(S, points_view):
     """
     Rules for checking if piece encloses a solid:
     1. ignore pieces with <= 3 points as they cannot enclose a solid
@@ -221,9 +223,10 @@ def is_piece_solid(S):
     y_values = set()
     z_values = set()
     for val in S:
-        x_values.add(val[0])
-        y_values.add(val[1])
-        z_values.add(val[2])
+        x, y, z = points_view[val]
+        x_values.add(x)
+        y_values.add(y)
+        z_values.add(z)
 
     if len(x_values) <= 1 or len(y_values) <= 1 or len(z_values) <= 1:
         return False
@@ -231,17 +234,19 @@ def is_piece_solid(S):
     return True
 
 
-def surface_area(cluster, data):
+def surface_area(cluster, data, points_view):
     """"""
-    num_cases = {k: 0 for k in range(15)}
+    num_cases = {k: 0 for k in range(16)}
     for point in cluster:
-        cubepoints = build_2x2x2_cube(point)
+        cubepoints = build_2x2x2_cube(points_view[point])
         # if not set(cubepoints).issubset(cluster):
         #     continue
         case = categorize_area_cases(cubepoints, data)
+        if case is None:
+            continue
         num_cases[case] += 1
     surface_area = 0
-    for k, num in num_cases:
+    for k, num in num_cases.items():
         surface_area += AREA_WEIGHTS[k] * num
 
     return surface_area
@@ -267,6 +272,7 @@ if __name__ == "__main__":
     surface_data_padded = np.zeros((surface_data.shape[0] + 1, surface_data.shape[1] + 1, surface_data.shape[2] + 1))
     surface_data_padded[0:surface_data.shape[0], 0:surface_data.shape[1], 0:surface_data.shape[2]] = surface_data
     points, G = build_graph(surface_data_padded)
+    points_view = {v: k for k, v in points.items()}
 
     B = nx.adjacency_matrix(G).toarray()
     L = nx.laplacian_matrix(G).toarray()
@@ -276,14 +282,11 @@ if __name__ == "__main__":
     pieces = get_connected_pieces(G)
     areas = []
     for piece in pieces:
-        if not is_piece_solid(piece):
+        if not is_piece_solid(piece, points_view):
             continue
-        area = surface_area(piece, surface_data_padded)
+        area = surface_area(piece, surface_data_padded, points_view)
         areas.append(area)
+    print("Areas of clusters...")
     print(areas)
     print("Available points in grid:", np.product(data.shape))
     print("Number of pieces:", ns.shape[1])
-    points_view = {v: k for k, v in points.items()}
-    
-    print(points_view[pieces[-1].pop()])
-    print(points_view[pieces[-2].pop()])
