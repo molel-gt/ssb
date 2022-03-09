@@ -217,9 +217,14 @@ def is_piece_solid(S):
     if len(S) <= 3:
         return False
     # check if values are on same plane
-    x_values = set([int(v[0]) for _, v in enumerate(S)])
-    y_values = set([int(v[1]) for _, v in enumerate(S)])
-    z_values = set([int(v[2]) for _, v in enumerate(S)])
+    x_values = set()
+    y_values = set()
+    z_values = set()
+    for val in S:
+        x_values.add(val[0])
+        y_values.add(val[1])
+        z_values.add(val[2])
+
     if len(x_values) <= 1 or len(y_values) <= 1 or len(z_values) <= 1:
         return False
     # TODO: Add further checks of connectivity to enclose a solid
@@ -254,8 +259,8 @@ if __name__ == "__main__":
     n_files = len(im_files)
     # solid electrolyte: true
     # active material/void: false
-    data = geometry.load_images_to_logical_array(im_files, x_lims=(0, 15),
-                                                 y_lims=(0, 15), z_lims=(0, 15))
+    data = geometry.load_images_to_logical_array(im_files, x_lims=(0, 10),
+                                                 y_lims=(0, 10), z_lims=(0, 10))
     data = np.logical_not(data)  # invert to focus on active material
     surface_data = filter_interior_points(data)
     # pad_surf_data
