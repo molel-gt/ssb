@@ -9,7 +9,7 @@ import numpy as np
 import subprocess
 
 
-def load_images_to_logical_array(files_list, x_lims=(1, 202), y_lims=(126, 327), z_lims=(301, 502)):
+def load_images_to_logical_array(files_list, x_lims=(0, 201), y_lims=(0, 201), z_lims=(0, 201)):
     """
     grid_sizes: Lx.Ly.Lz
     """
@@ -98,6 +98,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     grid_info = args.grid_info
+    Nx, Ny, Nz = grid_info.split("-")
     
     files_list = sorted([os.path.join(args.img_sub_dir, f) for f in os.listdir(args.img_sub_dir)
                   if f.endswith(".bmp")])
@@ -111,7 +112,7 @@ if __name__ == '__main__':
     tria_mesh_path = os.path.join(meshes_dir, "mesh_tria.xdmf")
     tetr_mesh_path = os.path.join(meshes_dir, "mesh_tetr.xdmf")
 
-    image_data = load_images_to_logical_array(files_list)
+    image_data = load_images_to_logical_array(files_list, (0, int(Nx)), (0, int(Ny)), (0, int(Nz)))
     nodes = create_nodes(image_data)
     write_node_to_file(nodes, node_file_path)
     # build .msh file from .node file
