@@ -1,16 +1,20 @@
 #! /usr/bin/env python3
 
 import os
+import subprocess
 
 import argparse
 import matplotlib.pyplot as plt
+import meshio
 import networkx as nx
 import numpy as np
 
 from collections import defaultdict
+from mpi4py import MPI
 from scipy import linalg
 
 import geometry
+
 
 AREA_WEIGHTS = {
     0: 0,
@@ -89,6 +93,7 @@ CASES = {
     (False, True, False, True, False, True, False, True): 13,
     (True, True, False, True, False, False, True, False): 14,
 }
+
 
 def get_neighbors(array_chunk):
     neighbors = np.zeros(array_chunk.shape)
@@ -288,6 +293,21 @@ def surface_area(cluster, data, points_view):
     return surface_area
 
 
+def particle_mesh(piece, points_view, shape, file_names):
+    """
+    file_names =: (node, geo, vtk, msh) files
+    """
+    data = np.zeros(shape)
+    for idx in piece:
+        coord = points_view[idx]
+        data[coord] = True
+    nodes = geometry.create_nodes(data)
+    geometry.write_node_to_file(nodes, file_names[0])
+    _ = subprocess.check_call("./nodes_to_msh.sh %s %s %s %s" % file_names, shell=True)
+
+    return file_names[-1]
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='computes specific area')
     parser.add_argument('--img_dir', help='bmp files directory',
@@ -315,10 +335,12 @@ if __name__ == "__main__":
     pieces = get_connected_pieces(G)
     solid_pieces = [p for p in pieces if is_piece_solid(p, points_view)]
     areas = [np.around(surface_area(p, data_padded, points_view), 3) for p in solid_pieces]
+
+    # Summary
     print("Grid: {}x{}x{}".format(*[int(v + 1) for v in data.shape]))
     print("Number of pieces:", len(solid_pieces))
     print("Areas:", sorted(areas, reverse=True))
-    plt.plot(areas, 'b-')
+    plt.plot(areas[1:], 'b-')
     plt.xlabel("rank")
     plt.ylabel("area")
     plt.title("Grid: {}x{}x{}".format(Nx + 1, Ny + 1, Nz + 1))
