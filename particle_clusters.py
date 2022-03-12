@@ -325,3 +325,8 @@ if __name__ == "__main__":
     print("Grid: {}x{}x{}".format(*[int(v + 1) for v in data.shape]))
     print("Number of pieces:", len(solid_pieces))
     print("Areas:", sorted(areas, reverse=True))
+    plt.plot(areas[1:], 'b-')
+    plt.xlabel("rank")
+    plt.ylabel("area")
+    plt.title("Grid: {}x{}x{}".format(Nx + 1, Ny + 1, Nz + 1))
+    plt.show()
