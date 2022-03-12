@@ -28,7 +28,7 @@ if __name__ == '__main__':
     data = geometry.load_images_to_voxel(im_files, x_lims=(0, grid_size),
                                                  y_lims=(0, grid_size), z_lims=(0, grid_size))
     # reverse: electrolyte =: 0, other =: 1
-    data = np.logical_not(data)
+    # data = np.logical_not(data)
     Nx, Ny, Nz = data.shape
     surface_data = particles.filter_interior_points(data)
     # pad data with extra row and column to allow +1 out-of-index access
@@ -42,10 +42,10 @@ if __name__ == '__main__':
 
     for idx, piece in enumerate(solid_pieces):
         mshfile = particles.meshfile(piece, points_view, data.shape,
-                (f"mesh/p{idx}.node", f"mesh/p{idx}.geo", f"mesh/p{idx}.vtk", f"mesh/p{idx}.msh"))
+                (f"mesh/p{args.grid_info}_{idx}.node", f"mesh/p{args.grid_info}_{idx}.geo", f"mesh/p{args.grid_info}_{idx}.vtk", f"mesh/p{args.grid_info}_{idx}.msh"))
 
         # build .xdmf/.h5 file from .msh file
         msh = meshio.read(mshfile)
         print("creating tetrahedral mesh")  
         tetra_mesh = geometry.create_mesh(msh, "tetra")
-        meshio.write(f"mesh/p{idx}_tetr.xdmf", tetra_mesh)
+        meshio.write(f"mesh/p{args.grid_info}_{idx}_tetr.xdmf", tetra_mesh)
