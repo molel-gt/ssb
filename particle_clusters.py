@@ -296,10 +296,10 @@ if __name__ == "__main__":
                         required=True)
 
     args = parser.parse_args()
-    grid_size = int(args.size)
-    working_dir = args.working_dir
-    im_files = sorted([os.path.join(working_dir, f) for
-                       f in os.listdir(working_dir) if f.endswith(".bmp")])
+    grid_size = int(args.grid_size)
+    img_dir = args.img_dir
+    im_files = sorted([os.path.join(img_dir, f) for
+                       f in os.listdir(img_dir) if f.endswith(".bmp")])
     n_files = len(im_files)
 
     data = geometry.load_images_to_logical_array(im_files, x_lims=(0, grid_size),
@@ -318,7 +318,7 @@ if __name__ == "__main__":
     print("Grid: {}x{}x{}".format(*[int(v + 1) for v in data.shape]))
     print("Number of pieces:", len(solid_pieces))
     print("Areas:", sorted(areas, reverse=True))
-    plt.plot(areas[1:], 'b-')
+    plt.plot(areas, 'b-')
     plt.xlabel("rank")
     plt.ylabel("area")
     plt.title("Grid: {}x{}x{}".format(Nx + 1, Ny + 1, Nz + 1))
