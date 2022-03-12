@@ -293,7 +293,7 @@ def surface_area(cluster, data, points_view):
     return surface_area
 
 
-def particle_mesh(piece, points_view, shape, file_names):
+def meshfile(piece, points_view, shape, file_names):
     """
     file_names =: (node, geo, vtk, msh) files
     """
@@ -312,11 +312,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='computes specific area')
     parser.add_argument('--img_dir', help='bmp files directory',
                         required=True)
-    parser.add_argument('--grid_size', help='grid size',
+    parser.add_argument('--grid_info', help='Nx-Ny-Nz',
                         required=True)
 
     args = parser.parse_args()
-    grid_size = int(args.grid_size)
+    grid_size = int(args.grid_info.split("-")[0])
     img_dir = args.img_dir
     im_files = sorted([os.path.join(img_dir, f) for
                        f in os.listdir(img_dir) if f.endswith(".bmp")])
