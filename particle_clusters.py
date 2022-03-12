@@ -215,6 +215,8 @@ def categorize_area_cases(cubepoints, data):
     """
     search_key = tuple([data[(int(p[0]), int(p[1]), int(p[2]))] == 1 for p in cubepoints])
     case = CASES.get(search_key)
+    if search_key is None:
+        print(search_key)
     
     return case
 
@@ -319,7 +321,7 @@ if __name__ == "__main__":
 
     pieces = get_connected_pieces(G)
     solid_pieces = [p for p in pieces if is_piece_solid(p, points_view)]
-    areas = [surface_area(p, data_padded, points_view) for p in solid_pieces]
+    areas = [np.around(surface_area(p, data_padded, points_view), 3) for p in solid_pieces]
     print("Grid: {}x{}x{}".format(*[int(v + 1) for v in data.shape]))
     print("Number of pieces:", len(solid_pieces))
     print("Areas:", sorted(areas, reverse=True))
