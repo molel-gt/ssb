@@ -283,7 +283,7 @@ def surface_area(cluster, data, points_view):
     for k, num in num_cases.items():
         surface_area += AREA_WEIGHTS[k] * num
 
-    return num_cases, surface_area
+    return surface_area
 
 
 if __name__ == "__main__":
@@ -294,15 +294,15 @@ if __name__ == "__main__":
                         required=True)
 
     args = parser.parse_args()
-    size = int(args.size)
+    grid_size = int(args.size)
     working_dir = args.working_dir
     im_files = sorted([os.path.join(working_dir, f) for
                        f in os.listdir(working_dir) if f.endswith(".bmp")])
     n_files = len(im_files)
     # solid electrolyte: true
     # active material/void: false
-    data = geometry.load_images_to_logical_array(im_files, x_lims=(0, size),
-                                                 y_lims=(0, size), z_lims=(0, size))
+    data = geometry.load_images_to_logical_array(im_files, x_lims=(0, grid_size),
+                                                 y_lims=(0, grid_size), z_lims=(0, grid_size))
     Nx, Ny, Nz = data.shape
     # data = np.logical_not(data)  # invert to focus on active material
     surface_data = filter_interior_points(data)
@@ -319,10 +319,7 @@ if __name__ == "__main__":
     ns = linalg.null_space(L)
     pieces = get_connected_pieces(G)
     solid_pieces = [p for p in pieces if is_piece_solid(p, points_view)]
-    areas = []
-    for piece in solid_pieces:
-        num_cases, area = surface_area(piece, data_padded, points_view)
-        areas.append(area)
+    areas = [surface_area(p, data_padded, points_view) for p in solid_pieces]
     print("Grid: {}x{}x{}".format(*[int(v + 1) for v in data.shape]))
     print("Number of pieces:", ns.shape[1])
     print("Areas:", sorted(areas, reverse=True))
