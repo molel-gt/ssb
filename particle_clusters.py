@@ -27,26 +27,67 @@ AREA_WEIGHTS = {
     11: 1.573,
     12: 1.190,
     13: 2.544,
-    14: 0.1,
-    15: 0,
+    14: 1.573,
 }
 CASES = {
     (False, False, False, False, False, False, False, False): 0,
+    # case 1 config
+    (True, False, False, False, False, False, False, False): 1,
     (False, True, False, False, False, False, False, False): 1,
+    (False, False, True, False, False, False, False, False): 1,
+    (False, False, False, True, False, False, False, False): 1,
+    # case 2 config
+    (True, True, False, False, False, False, False, False): 2,
     (False, True, True, False, False, False, False, False): 2,
+    (False, False, True, True, False, False, False, False): 2,
+    (True, False, False, True, False, False, False, False): 2,
+    ##
+    (True, False, True, False, False, False, False, False): 3,
+    (True, False, False, False, True, False, False, False): 3,
+    (True, False, False, False, False, False, True, False): 3,
+
+    (False, True, False, True, False, False, False, False): 3,
+    (False, True, False, False, False, True, False, False): 3,
+    (False, True, False, False, False, False, False, True): 3,
+
+    (False, False, True, False, True, False, False, False): 3,
     (False, False, True, False, False, False, True, False): 3,
+
+    (False, False, False, True, False, True, False, False): 3,
+    (False, False, False, True, False, False, False, True): 3,
+
     (False, False, False, True, False, False, True, False): 4,
+    ##
     (True, True, True, False, False, False, False, False): 5,
+    (False, True, True, True, False, False, False, False): 5,
+    (True, False, True, True, False, False, False, False): 5,
+    (True, True, False, True, False, False, False, False): 5,
+
+    (False, False, False, False, False, True, True, True): 5,
+    (False, False, False, False, False, True, True, True): 5,
+    (False, False, False, False, True, False, True, True): 5,
+    (False, False, False, False, True, True, False, True): 5,
+    ##
     (False, True, True, False, False, False, False, True): 6,
     (True, False, True, False, False, False, True, False): 7,
+    ##
     (True, True, True, True, False, False, False, False): 8,
+    (False, False, False, False, True, True, True, True): 8,
+    (True, True, False, False, False, True, True, False): 8,
+    (False, False, True, True, True, False, False, True): 8,
+    (False, True, True, False, False, False, True, True): 8,
+    (True, False, False, True, True, True, False, False): 8,
+    ##
     (True, True, True, False, False, False, True, False): 9,
+    (False, True, True, True, False, False, False, True): 9,
+    (True, False, True, True, True, False, False, False): 9,
+    (True, True, False, True, False, True, False, False): 9,
+    ##
     (False, True, True, False, True, False, False, True): 10,
     (True, True, True, False, False, False, False, True): 11,
     (True, True, True, False, True, False, False, False): 12,
     (False, True, False, True, False, True, False, True): 13,
     (True, True, False, True, False, False, True, False): 14,
-    (True, True, True, True, True, True, True, True): 15,
 }
 
 def get_neighbors(array_chunk):
@@ -154,19 +195,14 @@ def build_2x2x2_cube(idx):
     x0, y0, z0 = idx
     cubepoints = np.zeros((8, 3))
     cubepoints[0, :] = (x0, y0, z0)
-    cubepoints[7, :] = (x0, y0, int(z0 + 1))
-    for counter in range(3):
-            if counter == 0:
-                cubepoints[1, :] = (int(x0 + 1), y0, z0)
-                cubepoints[6, :] = (int(x0 + 1), y0, int(z0 + 1))
-            elif counter == 1:
-                cubepoints[3, :] = (x0, int(y0 + 1), z0)
-                cubepoints[4, :] = (x0, int(y0 + 1), int(z0 + 1))
-            elif counter == 2:
-                cubepoints[2, :] = (int(x0 + 1), int(y0 + 1), z0)
-                cubepoints[5, :] = (int(x0 + 1), int(y0 + 1), int(z0 + 1))
-            else:
-                raise Exception("Invalid counter")
+    cubepoints[1, :] = (int(x0 + 1), y0, z0)
+    cubepoints[2, :] = (int(x0 + 1), int(y0 + 1), z0)
+    cubepoints[3, :] = (x0, int(y0 + 1), z0)
+    cubepoints[4, :] = (x0, int(y0 + 1), int(z0 + 1))
+    cubepoints[5, :] = (x0, y0, int(z0 + 1))
+    cubepoints[6, :] = (int(x0 + 1), y0, int(z0 + 1))
+    cubepoints[7, :] = (int(x0 + 1), int(y0 + 1), int(z0 + 1))
+
     return cubepoints
 
 
@@ -236,7 +272,7 @@ def is_piece_solid(S, points_view):
 
 def surface_area(cluster, data, points_view):
     """"""
-    num_cases = {k: 0 for k in range(16)}
+    num_cases = {k: 0 for k in range(15)}
     for point in cluster:
         cubepoints = build_2x2x2_cube(points_view[point])
         case = categorize_area_cases(cubepoints, data)
@@ -247,7 +283,7 @@ def surface_area(cluster, data, points_view):
     for k, num in num_cases.items():
         surface_area += AREA_WEIGHTS[k] * num
 
-    return surface_area
+    return num_cases, surface_area
 
 
 if __name__ == "__main__":
@@ -267,12 +303,13 @@ if __name__ == "__main__":
     # active material/void: false
     data = geometry.load_images_to_logical_array(im_files, x_lims=(0, size),
                                                  y_lims=(0, size), z_lims=(0, size))
+    Nx, Ny, Nz = data.shape
     # data = np.logical_not(data)  # invert to focus on active material
     surface_data = filter_interior_points(data)
-    # pad_surf_data
-    surface_data_padded = np.zeros((surface_data.shape[0] + 1, surface_data.shape[1] + 1, surface_data.shape[2] + 1))
-    surface_data_padded[0:surface_data.shape[0], 0:surface_data.shape[1], 0:surface_data.shape[2]] = surface_data
-    points, G = build_graph(surface_data_padded)
+    # pad data with extra row and column to allow +1 out-of-index access
+    data_padded = np.zeros((Nx + 1, Ny + 1, Nz + 1))
+    data_padded[0:Nx, 0:Ny, 0:Nz] = surface_data
+    points, G = build_graph(data_padded)
     points_view = {v: k for k, v in points.items()}
 
     B = nx.adjacency_matrix(G).toarray()
@@ -285,9 +322,11 @@ if __name__ == "__main__":
     for piece in pieces:
         if not is_piece_solid(piece, points_view):
             continue
-        area = surface_area(piece, surface_data_padded, points_view)
+        num_cases, area = surface_area(piece, data_padded, points_view)
         areas.append(area)
-    print("Areas of clusters...")
-    print(areas)
-    print("Available points in grid:", np.product(data.shape))
+    print("Grid: {}x{}x{}".format(*[int(v + 1) for v in data.shape]))
     print("Number of pieces:", ns.shape[1])
+    print("Areas:", sorted(areas))
+    print("Case Summary")
+    for k, v in num_cases.items():
+        print("{}:".format(str(k).zfill(2)), v)
