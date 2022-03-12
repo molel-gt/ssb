@@ -318,10 +318,9 @@ if __name__ == "__main__":
     cycle_basis = nx.simple_cycles(G)
     ns = linalg.null_space(L)
     pieces = get_connected_pieces(G)
+    solid_pieces = [p for p in pieces if is_piece_solid(p, points_view)]
     areas = []
-    for piece in pieces:
-        if not is_piece_solid(piece, points_view):
-            continue
+    for piece in solid_pieces:
         num_cases, area = surface_area(piece, data_padded, points_view)
         areas.append(area)
     print("Grid: {}x{}x{}".format(*[int(v + 1) for v in data.shape]))
