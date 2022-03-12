@@ -108,9 +108,9 @@ if __name__ == '__main__':
     geo_file_path = os.path.join(meshes_dir, '{}.geo'.format(grid_info))
     vtk_file_path = os.path.join(meshes_dir, '{}.vtk'.format(grid_info))
     msh_file_path = os.path.join(meshes_dir, '{}.msh'.format(grid_info))
-    line_mesh_path = os.path.join(meshes_dir, "mesh_line.xdmf")
-    tria_mesh_path = os.path.join(meshes_dir, "mesh_tria.xdmf")
-    tetr_mesh_path = os.path.join(meshes_dir, "mesh_tetr.xdmf")
+    line_mesh_path = os.path.join(meshes_dir, f"{grid_info}_line.xdmf")
+    tria_mesh_path = os.path.join(meshes_dir, f"{grid_info}_tria.xdmf")
+    tetr_mesh_path = os.path.join(meshes_dir, f"{grid_info}_tetr.xdmf")
 
     image_data = load_images_to_logical_array(files_list, (0, int(Nx)), (0, int(Ny)), (0, int(Nz)))
     nodes = create_nodes(image_data)
