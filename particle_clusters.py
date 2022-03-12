@@ -326,4 +326,4 @@ if __name__ == "__main__":
         areas.append(area)
     print("Grid: {}x{}x{}".format(*[int(v + 1) for v in data.shape]))
     print("Number of pieces:", ns.shape[1])
-    print("Areas:", sorted(areas))
+    print("Areas:", sorted(areas, reverse=True))
