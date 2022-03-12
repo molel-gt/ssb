@@ -34,13 +34,12 @@ if __name__ == '__main__':
     make_dir_if_missing(meshes_dir)
     make_dir_if_missing(output_dir)
     tetr_mesh_path = os.path.join(meshes_dir, f'{grid_info}_tetr.xdmf')
-    tria_mesh_path = os.path.join(meshes_dir, f'{grid_info}_tria.xdmf')
     output_current_path = os.path.join(output_dir, f'{grid_info}_current.xdmf')
     output_potential_path = os.path.join(output_dir, f'{grid_info}_potential.xdmf')
 
     with XDMFFile(MPI.COMM_WORLD, tetr_mesh_path, "r") as infile3:
         mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
-    print("done loading tetrahedral mesh")
+
     mesh_dim = mesh.topology.dim
     V = FunctionSpace(mesh, ("Lagrange", 2))
 
@@ -68,8 +67,6 @@ if __name__ == '__main__':
 
     a = inner(grad(u), grad(v)) * dx
     L = inner(f, v) * dx(x) + inner(g, v) * ds(mesh)
-
-    print("setting problem..")
 
     problem = LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 
