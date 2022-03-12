@@ -301,23 +301,16 @@ if __name__ == "__main__":
     im_files = sorted([os.path.join(working_dir, f) for
                        f in os.listdir(working_dir) if f.endswith(".bmp")])
     n_files = len(im_files)
-    # solid electrolyte: true
-    # active material/void: false
+
     data = geometry.load_images_to_logical_array(im_files, x_lims=(0, grid_size),
                                                  y_lims=(0, grid_size), z_lims=(0, grid_size))
     Nx, Ny, Nz = data.shape
-    # data = np.logical_not(data)  # invert to focus on active material
     surface_data = filter_interior_points(data)
     # pad data with extra row and column to allow +1 out-of-index access
     data_padded = np.zeros((Nx + 1, Ny + 1, Nz + 1))
     data_padded[0:Nx, 0:Ny, 0:Nz] = surface_data
     points, G = build_graph(data_padded)
     points_view = {v: k for k, v in points.items()}
-
-    # B = nx.adjacency_matrix(G).toarray()
-    # L = nx.laplacian_matrix(G).toarray()
-    # L_calc = np.matmul(B, B.transpose())
-    # ns = linalg.null_space(L)
 
     pieces = get_connected_pieces(G)
     solid_pieces = [p for p in pieces if is_piece_solid(p, points_view)]
