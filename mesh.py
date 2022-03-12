@@ -3,10 +3,8 @@
 import os
 
 import argparse
-import matplotlib.pyplot as plt
 import meshio
 import numpy as np
-import subprocess
 
 import particles
 import geometry
