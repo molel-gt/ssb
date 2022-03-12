@@ -24,7 +24,7 @@ def load_images_to_logical_array(files_list, x_lims=(0, 201), y_lims=(0, 201), z
         if not (x0 <= i_x <= x1):
             continue
         img_data = plt.imread(img_file)
-        img_data = np.logical_not(img_data / 255)
+        img_data = img_data / 255
         data[i_x - x0 - 1, :, :] = img_data[y0:y1, z0:z1]
     return data
 
