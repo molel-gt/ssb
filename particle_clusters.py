@@ -327,6 +327,3 @@ if __name__ == "__main__":
     print("Grid: {}x{}x{}".format(*[int(v + 1) for v in data.shape]))
     print("Number of pieces:", ns.shape[1])
     print("Areas:", sorted(areas))
-    print("Case Summary")
-    for k, v in num_cases.items():
-        print("{}:".format(str(k).zfill(2)), v)
