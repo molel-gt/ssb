@@ -312,14 +312,14 @@ if __name__ == "__main__":
     points, G = build_graph(data_padded)
     points_view = {v: k for k, v in points.items()}
 
-    B = nx.adjacency_matrix(G).toarray()
-    L = nx.laplacian_matrix(G).toarray()
-    L_calc = np.matmul(B, B.transpose())
-    cycle_basis = nx.simple_cycles(G)
-    ns = linalg.null_space(L)
+    # B = nx.adjacency_matrix(G).toarray()
+    # L = nx.laplacian_matrix(G).toarray()
+    # L_calc = np.matmul(B, B.transpose())
+    # ns = linalg.null_space(L)
+
     pieces = get_connected_pieces(G)
     solid_pieces = [p for p in pieces if is_piece_solid(p, points_view)]
     areas = [surface_area(p, data_padded, points_view) for p in solid_pieces]
     print("Grid: {}x{}x{}".format(*[int(v + 1) for v in data.shape]))
-    print("Number of pieces:", ns.shape[1])
+    print("Number of pieces:", len(solid_pieces))
     print("Areas:", sorted(areas, reverse=True))
