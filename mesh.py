@@ -25,7 +25,7 @@ if __name__ == '__main__':
     n_files = len(im_files)
     # where other is active material and void
     # electrolyte =: 1, other =: 0
-    data = geometry.load_images_to_logical_array(im_files, x_lims=(0, grid_size),
+    data = geometry.load_images_to_voxel(im_files, x_lims=(0, grid_size),
                                                  y_lims=(0, grid_size), z_lims=(0, grid_size))
     # reverse: electrolyte =: 0, other =: 1
     data = np.logical_not(data)

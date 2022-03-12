@@ -9,7 +9,7 @@ import numpy as np
 import subprocess
 
 
-def load_images_to_logical_array(files_list, x_lims=(0, 201), y_lims=(0, 201), z_lims=(0, 201)):
+def load_images_to_voxel(files_list, x_lims=(0, 201), y_lims=(0, 201), z_lims=(0, 201)):
     """
     grid_sizes: Lx.Ly.Lz
     """
@@ -112,7 +112,7 @@ if __name__ == '__main__':
     tria_mesh_path = os.path.join(meshes_dir, f"{grid_info}_tria.xdmf")
     tetr_mesh_path = os.path.join(meshes_dir, f"{grid_info}_tetr.xdmf")
 
-    image_data = load_images_to_logical_array(files_list, (0, int(Nx)), (0, int(Ny)), (0, int(Nz)))
+    image_data = load_images_to_voxel(files_list, (0, int(Nx)), (0, int(Ny)), (0, int(Nz)))
     nodes = create_nodes(image_data)
     write_node_to_file(nodes, node_file_path)
     # build .msh file from .node file

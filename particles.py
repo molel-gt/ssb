@@ -322,7 +322,7 @@ if __name__ == "__main__":
                        f in os.listdir(img_dir) if f.endswith(".bmp")])
     n_files = len(im_files)
 
-    data = geometry.load_images_to_logical_array(im_files, x_lims=(0, grid_size),
+    data = geometry.load_images_to_voxel(im_files, x_lims=(0, grid_size),
                                                  y_lims=(0, grid_size), z_lims=(0, grid_size))
     Nx, Ny, Nz = data.shape
     surface_data = filter_interior_points(data)
