@@ -104,10 +104,10 @@ if __name__ == '__main__':
                   if f.endswith(".bmp")])
     
     meshes_dir = 'mesh'
-    node_file_path = os.path.join(meshes_dir, '{}.node'.format(grid_info))
-    geo_file_path = os.path.join(meshes_dir, '{}.geo'.format(grid_info))
-    vtk_file_path = os.path.join(meshes_dir, '{}.vtk'.format(grid_info))
-    msh_file_path = os.path.join(meshes_dir, '{}.msh'.format(grid_info))
+    node_file_path = os.path.join(meshes_dir, f'{grid_info}.node')
+    geo_file_path = os.path.join(meshes_dir, f'{grid_info}.geo')
+    vtk_file_path = os.path.join(meshes_dir, f'{grid_info}.vtk')
+    msh_file_path = os.path.join(meshes_dir, f'{grid_info}.msh')
     line_mesh_path = os.path.join(meshes_dir, f"{grid_info}_line.xdmf")
     tria_mesh_path = os.path.join(meshes_dir, f"{grid_info}_tria.xdmf")
     tetr_mesh_path = os.path.join(meshes_dir, f"{grid_info}_tetr.xdmf")
@@ -129,4 +129,4 @@ if __name__ == '__main__':
     print("create line mesh")
     line_mesh = create_mesh(msh, "line")
     meshio.write(line_mesh_path, line_mesh)
-    print("wrote files {}, {}, {}".format(tetr_mesh_path, tria_mesh_path, line_mesh_path))
+    print(f"wrote files {tetr_mesh_path}, {tria_mesh_path}, {line_mesh_path}")
