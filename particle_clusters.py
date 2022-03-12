@@ -290,9 +290,9 @@ def surface_area(cluster, data, points_view):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='computes specific area')
-    parser.add_argument('--working_dir', help='bmp files directory',
+    parser.add_argument('--img_dir', help='bmp files directory',
                         required=True)
-    parser.add_argument('--size', help='grid size',
+    parser.add_argument('--grid_size', help='grid size',
                         required=True)
 
     args = parser.parse_args()
