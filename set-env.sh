@@ -1,4 +1,6 @@
-module load anaconda3/2021.05
+cd $HOME
+. .bashrc
+
 module load boost/1.70.0
 module load cmake/3.20.3
 module load eigen/3.3.7
