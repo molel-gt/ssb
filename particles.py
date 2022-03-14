@@ -324,7 +324,7 @@ if __name__ == "__main__":
 
     data = geometry.load_images_to_voxel(im_files, x_lims=(0, grid_size),
                                                  y_lims=(0, grid_size), z_lims=(0, grid_size))
-    data = np.logical_not(data)
+    # data = np.logical_not(data)
     Nx, Ny, Nz = data.shape
     surface_data = filter_interior_points(data)
     # pad data with extra row and column to allow +1 out-of-index access
