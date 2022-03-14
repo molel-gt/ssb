@@ -23,12 +23,15 @@ def two_point_correlation(im, r=0, r_max=100, phase=1):
     for _ in range(int(n_tries)):
         origin, direction = get_sampling_template(r_max)
         destination = tuple((origin + direction * r).astype(int))
-        if phase == phase_1:
-            if im[origin] and im[destination]:
-                n_hits += 1
-        elif phase == phase_2:
-            if not im[origin] and not im[destination]:
-                n_hits += 1
+        try:
+            if phase == phase_1:
+                if im[origin] and im[destination]:
+                    n_hits += 1
+            elif phase == phase_2:
+                if not im[origin] and not im[destination]:
+                    n_hits += 1
+        except IndexError as e:
+            pass
     return n_hits / n_tries
 
 
