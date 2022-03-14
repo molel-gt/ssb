@@ -340,7 +340,7 @@ if __name__ == "__main__":
     specific_areas = np.array(areas) / np.array(volumes)
     print("Volume:", volumes)
     print("Specific area:", specific_areas)
-    print("Avg: specific area:", np.average(specific_areas))
+    print("Avg. specific area:", np.average(specific_areas))
 
     # Summary
     print("Grid: {}x{}x{}".format(*[int(v + 1) for v in data.shape]))
