@@ -15,10 +15,7 @@ from petsc4py import PETSc
 from petsc4py.PETSc import ScalarType
 from ufl import ds, dx, grad, inner
 
-
-def make_dir_if_missing(f_path):
-    """"""
-    os.makedirs(f_path, exist_ok=True)
+import utils
 
 
 if __name__ == '__main__':
@@ -31,8 +28,8 @@ if __name__ == '__main__':
     Lx = int(grid_info.split("-")[0]) - 1
     meshes_dir = os.path.join(args.working_dir, 'mesh')
     output_dir = os.path.join(args.working_dir, 'output')
-    make_dir_if_missing(meshes_dir)
-    make_dir_if_missing(output_dir)
+    utils.make_dir_if_missing(meshes_dir)
+    utils.make_dir_if_missing(output_dir)
     tetr_mesh_path = os.path.join(meshes_dir, f'{grid_info}_tetr.xdmf')
     output_current_path = os.path.join(output_dir, f'{grid_info}_current.xdmf')
     output_potential_path = os.path.join(output_dir, f'{grid_info}_potential.xdmf')

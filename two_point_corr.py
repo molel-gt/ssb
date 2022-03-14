@@ -5,6 +5,8 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 
+import utils
+
 
 d = 2
 phase_1 = 1
@@ -63,4 +65,6 @@ if __name__ == '__main__':
     plt.xlabel('r')
     plt.ylabel(r'$S_2(r)$')
     plt.grid()
-    plt.show()
+    utils.make_dir_if_missing("figures")
+    plt.savefig("figures/two-point-correlation.png")
+    print("plot saved to figures/two-point-correlation.png")
