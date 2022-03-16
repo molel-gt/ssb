@@ -41,8 +41,9 @@ if __name__ == '__main__':
     solid_pieces = [p for p in pieces if particles.is_piece_solid(p, points_view)]
 
     for idx, piece in enumerate(solid_pieces):
+        fname = f"mesh/p{args.grid_info}_{idx}"
         mshfile = particles.meshfile(piece, points_view, data.shape,
-                (f"mesh/p{args.grid_info}_{idx}.node", f"mesh/p{args.grid_info}_{idx}.geo", f"mesh/p{args.grid_info}_{idx}.vtk", f"mesh/p{args.grid_info}_{idx}.msh"))
+                (f"{fname}.node", f"{fname}.geo", f"{fname}.vtk", f"{fname}.msh"))
 
         # build .xdmf/.h5 file from .msh file
         msh = meshio.read(mshfile)
