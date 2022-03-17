@@ -293,6 +293,26 @@ def surface_area(cluster, data, points_view):
     return surface_area
 
 
+def center_of_mass(piece, points_view):
+    x_cm = y_cm = z_cm = 0
+    n = len(piece)
+    for point in piece:
+        x, y, z = points_view[point]
+        x_cm += x / n
+        y_cm += y / n
+        z_cm += z / n
+
+    return x_cm, y_cm, z_cm
+
+
+def sphericity(V_p, A_p):
+    """
+    param V_p: particle volume
+    param A_p: particle surface area
+    """
+    return ((np.pi) ** (1/3) ) * ((6 * V_p) ** (2/3)) / A_p
+
+
 def meshfile(piece, points_view, shape, file_names):
     """
     file_names =: (node, geo, vtk, msh) files
@@ -337,6 +357,8 @@ if __name__ == "__main__":
     solid_pieces = [p for p in pieces if is_piece_solid(p, points_view)]
     areas = [np.around(surface_area(p, data_padded, points_view), 3) for p in solid_pieces]
     volumes = [len(p) for p in solid_pieces]
+    # sphericities = [sphericity(volumes[idx], A_p) for idx, A_p in enumerate(areas)]
+    centers_of_mass = [center_of_mass(p, points_view) for p in solid_pieces]
     specific_areas = np.array(areas) / np.array(volumes)
     print("Volume:", volumes)
     print("Specific area:", specific_areas)
@@ -346,6 +368,8 @@ if __name__ == "__main__":
     print("Grid: {}x{}x{}".format(*[int(v + 1) for v in data.shape]))
     print("Number of pieces:", len(solid_pieces))
     print("Areas:", sorted(areas, reverse=True))
+    # print(sphericities)
+    print("Centers of mass:", np.around(centers_of_mass, 2))
     plt.plot(areas[1:], 'b-')
     plt.xlabel("rank")
     plt.ylabel("area")
