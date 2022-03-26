@@ -33,6 +33,8 @@ def slice_to_file(slice, fname):
     """
     plt.imsave(fname, slice, format='bmp')
 
+    return
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generates 2D slices of packed spheres')
@@ -42,7 +44,7 @@ if __name__ == '__main__':
     
     Nx, Ny, Nz = map(lambda x: int(x), args.grid_info.split("-"))
     centers, radius, _ = spheres.read_spheres_position_file(args.centers_file)
-    centers = map(lambda x: (int(x[0] * Nx), int(x[1] * Ny), int(x[2] * Nz)), centers)
+    centers = list(map(lambda x: (int(x[0] * Nx), int(x[1] * Ny), int(x[2] * Nz)), centers))
     radius = radius * Nx
 
     for at_x in range(Nx):
