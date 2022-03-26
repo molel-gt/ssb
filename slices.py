@@ -44,7 +44,7 @@ if __name__ == '__main__':
     Nx, Ny, Nz = map(lambda x: int(x), args.grid_info.split("-"))
     centers, radius, n = spheres.read_spheres_position_file(args.centers_file)
     centers = list(map(lambda x: (int(x[0] * Nx), int(x[1] * Ny), int(x[2] * Nz)), centers))
-    radius = radius * Nx
+    radius = int(radius * Nx)
 
     print(n, "spheres of radius", radius)
     print("sphere surface area:", 4 * np.pi * radius ** 2)
