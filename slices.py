@@ -21,7 +21,7 @@ def build_slice(at_x, centers, radius, yz_size):
     for center in centers:
         for idx, _ in np.ndenumerate(slice):
             if ((at_x - center[0]) ** 2 + (idx[0] - center[1]) ** 2 + (idx[1] - center[2]) ** 2) <= radius ** 2:
-                slice[idx] = 255
+                slice[idx] = 1
 
     return slice
 
@@ -31,7 +31,7 @@ def slice_to_file(slice, fname):
     :param slice:
     :param fname:
     """
-    plt.imsave(fname, slice, format='bmp')
+    plt.imsave(fname, slice, format='bmp', cmap='Greys')
 
     return
 
