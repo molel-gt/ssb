@@ -370,7 +370,7 @@ if __name__ == "__main__":
     print("Areas:", sorted(areas, reverse=True))
     # print(sphericities)
     print("Centers of mass:", np.around(centers_of_mass, 2))
-    plt.plot(areas[1:], 'b-')
+    plt.plot(sorted(areas, reverse=True), 'b-')
     plt.xlabel("rank")
     plt.ylabel("area")
     plt.title("Grid: {}x{}x{}".format(Nx + 1, Ny + 1, Nz + 1))
