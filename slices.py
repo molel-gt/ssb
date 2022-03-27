@@ -30,9 +30,7 @@ def slice_to_file(slice, fname):
     :param slice:
     :param fname:
     """
-    plt.imsave(fname, slice, format='bmp', cmap='Greys')
-
-    return
+    plt.imsave(fname, slice, format='bmp', cmap='binary')
 
 
 if __name__ == '__main__':
