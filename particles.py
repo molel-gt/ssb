@@ -220,10 +220,8 @@ def categorize_area_cases(cubepoints, data):
     """
     search_key = tuple([data[(int(p[0]), int(p[1]), int(p[2]))] == 1 for p in cubepoints])
     case = CASES.get(search_key)
-    if search_key is None:
-        print(search_key)
-    
-    return case
+
+    return case, search_key
 
 
 def filter_interior_points(data):
@@ -279,17 +277,23 @@ def is_piece_solid(S, points_view):
 
 def surface_area(cluster, data, points_view):
     """"""
-    num_cases = {k: 0 for k in range(15)}
+    unfound_cases = set()
+    num_cases = {k: 0 for k in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]}
     for point in cluster:
         cubepoints = build_2x2x2_cube(points_view[point])
-        case = categorize_area_cases(cubepoints, data)
+        case, key = categorize_area_cases(cubepoints, data)
+        # FIXME:
+
         if case is None:
+            if sum(key) in [6]:
+                unfound_cases.add(key)
             continue
         num_cases[case] += 1
     surface_area = 0
     for k, num in num_cases.items():
         surface_area += AREA_WEIGHTS[k] * num
-
+    print(len(unfound_cases), "cases not found")
+    print(unfound_cases)
     return surface_area
 
 
@@ -328,6 +332,16 @@ def meshfile(piece, points_view, shape, file_names):
     return file_names[-1]
 
 
+def save_solid_piece_to_file(piece, points_view, shape, fname):
+    """"""
+    data = np.zeros(shape, dtype=int)
+    for point in piece:
+        coord = points_view[point]
+        data[coord] = 1
+    np.save(fname, data)
+
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='computes specific area')
     parser.add_argument('--img_dir', help='bmp files directory',
@@ -355,6 +369,8 @@ if __name__ == "__main__":
 
     pieces = get_connected_pieces(G)
     solid_pieces = [p for p in pieces if is_piece_solid(p, points_view)]
+    for idx, piece in enumerate(solid_pieces):
+        save_solid_piece_to_file(piece, points_view, data.shape, os.path.join('spheres', str(idx).zfill(3) + '.dat'))
     areas = [np.around(surface_area(p, data_padded, points_view), 3) for p in solid_pieces]
     volumes = [len(p) for p in solid_pieces]
     # sphericities = [sphericity(volumes[idx], A_p) for idx, A_p in enumerate(areas)]
