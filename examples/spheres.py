@@ -107,8 +107,9 @@ if __name__ == '__main__':
     spheres_locations_file = "/home/leshinka/spheres/write.dat"
     task_dir = '/home/leshinka/dev/ssb/'
     output_mesh_file = os.path.join(task_dir, "mesh/spheres.msh")
+    grid_info = '2-1-1'
     build_packed_spheres_mesh(output_mesh_file, spheres_locations_file)
     mesh_3d = meshio.read(output_mesh_file)
     tetrahedral_mesh = create_mesh(mesh_3d, "tetra")
-    meshio.write(os.path.join(task_dir, "mesh/mesh_tetr.xdmf"), tetrahedral_mesh)
-    val = subprocess.check_call('mpirun -n 2 python3 /home/leshinka/dev/ssb/transport.py --working_dir=/home/leshinka/dev/ssb/ --grid_info=2-1-1', shell=True)
+    meshio.write(os.path.join(task_dir, f"mesh/{grid_info}_tetr.xdmf"), tetrahedral_mesh)
+    val = subprocess.check_call(f'mpirun -n 2 python3 /home/leshinka/dev/ssb/transport.py --working_dir=/home/leshinka/dev/ssb/ --grid_info={grid_info}', shell=True)
