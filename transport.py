@@ -20,14 +20,14 @@ import utils
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
-    parser.add_argument('--working_dir', help='bmp files parent directory', required=True)
     parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
 
     args = parser.parse_args()
     grid_info = args.grid_info
     Lx = int(grid_info.split("-")[0]) - 1
-    meshes_dir = os.path.join(args.working_dir, 'mesh')
-    output_dir = os.path.join(args.working_dir, 'output')
+    working_dir = os.path.abspath(os.path.dirname(__file__))
+    meshes_dir = os.path.join(working_dir, 'mesh')
+    output_dir = os.path.join(working_dir, 'output')
     utils.make_dir_if_missing(meshes_dir)
     utils.make_dir_if_missing(output_dir)
     tetr_mesh_path = os.path.join(meshes_dir, f'{grid_info}_tetr.xdmf')
