@@ -11,6 +11,14 @@ echo "Installing dolfinx.."
 # tar xvzf boost_1_78_0.tar.gz
 # cd boost_1_78_0
 
+# openmpi
+cd $HOME
+wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.2.tar.gz
+tar xvzf openmpi-4.1.2.tar.gz
+cd openmpi-4.1.2
+./configure --prefix=/opt/
+make all install
+
 # eigen3
 cd $HOME
 wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
@@ -45,19 +53,22 @@ cd $HOME
 wget https://ftp.mcs.anl.gov/pub/petsc/release-snapshots/petsc-3.16.5.tar.gz
 tar xvzf petsc-3.16.5.tar.gz
 cd petsc
-./configure --prefix=/opt/  --download-parmetis --download-ptscotch --download-suitesparse --download-mumps --download-hypre
+./configure --prefix=/opt/  --download-parmetis --download-ptscotch --download-suitesparse --download-mumps --download-hypre --download-fblaslapack
+make && make install
 
 # parmetis
 cd $HOME
 wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/parmetis/parmetis-4.0.3.tar.gz
 tar xvzf parmetis-4.0.3.tar.gz
 cd parmetis-4.0.3
+make && make install
 
 # scotch
 cd $HOME
 wget https://gitlab.inria.fr/scotch/scotch/-/archive/v7.0.1/scotch-v7.0.1.tar.gz
 tar xvzf scotch-v7.0.1.tar.gz
 cd scotch-v7.0.1
+make prefix=/opt && make install
 
 # slepc
 cd $HOME
@@ -69,6 +80,8 @@ if $slepchash != 673dbda220e5a4bd2c3a6618267d8e55; then
 fi
 tar xvzf slepc-3.16.2.tar.gz
 cd slepc-3.16.2
+./configure --prefix=/opt/
+make && make install
 
 # ffc-x
 cd $HOME
