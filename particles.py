@@ -17,85 +17,6 @@ from scipy.io import savemat
 import geometry
 
 
-AREA_WEIGHTS = {
-    0: 0,
-    1: 0.636,
-    2: 0.669,
-    3: 1.272,
-    4: 1.272,
-    5: 0.554,
-    6: 1.305,
-    7: 1.908,
-    8: 0.927,
-    9: 0.442,
-    10: 1.338,
-    11: 1.573,
-    12: 1.190,
-    13: 2.544,
-    14: 1.573,
-}
-CASES = {
-    (False, False, False, False, False, False, False, False): 0,
-    # case 1 config
-    (True, False, False, False, False, False, False, False): 1,
-    (False, True, False, False, False, False, False, False): 1,
-    (False, False, True, False, False, False, False, False): 1,
-    (False, False, False, True, False, False, False, False): 1,
-    # case 2 config
-    (True, True, False, False, False, False, False, False): 2,
-    (False, True, True, False, False, False, False, False): 2,
-    (False, False, True, True, False, False, False, False): 2,
-    (True, False, False, True, False, False, False, False): 2,
-    ##
-    (True, False, True, False, False, False, False, False): 3,
-    (True, False, False, False, True, False, False, False): 3,
-    (True, False, False, False, False, False, True, False): 3,
-
-    (False, True, False, True, False, False, False, False): 3,
-    (False, True, False, False, False, True, False, False): 3,
-    (False, True, False, False, False, False, False, True): 3,
-
-    (False, False, True, False, True, False, False, False): 3,
-    (False, False, True, False, False, False, True, False): 3,
-
-    (False, False, False, True, False, True, False, False): 3,
-    (False, False, False, True, False, False, False, True): 3,
-
-    (False, False, False, True, False, False, True, False): 4,
-    ##
-    (True, True, True, False, False, False, False, False): 5,
-    (False, True, True, True, False, False, False, False): 5,
-    (True, False, True, True, False, False, False, False): 5,
-    (True, True, False, True, False, False, False, False): 5,
-
-    (False, False, False, False, False, True, True, True): 5,
-    (False, False, False, False, False, True, True, True): 5,
-    (False, False, False, False, True, False, True, True): 5,
-    (False, False, False, False, True, True, False, True): 5,
-    ##
-    (False, True, True, False, False, False, False, True): 6,
-    (True, False, True, False, False, False, True, False): 7,
-    ##
-    (True, True, True, True, False, False, False, False): 8,
-    (False, False, False, False, True, True, True, True): 8,
-    (True, True, False, False, False, True, True, False): 8,
-    (False, False, True, True, True, False, False, True): 8,
-    (False, True, True, False, False, False, True, True): 8,
-    (True, False, False, True, True, True, False, False): 8,
-    ##
-    (True, True, True, False, False, False, True, False): 9,
-    (False, True, True, True, False, False, False, True): 9,
-    (True, False, True, True, True, False, False, False): 9,
-    (True, True, False, True, False, True, False, False): 9,
-    ##
-    (False, True, True, False, True, False, False, True): 10,
-    (True, True, True, False, False, False, False, True): 11,
-    (True, True, True, False, True, False, False, False): 12,
-    (False, True, False, True, False, True, False, True): 13,
-    (True, True, False, True, False, False, True, False): 14,
-}
-
-
 def get_neighbors(array_chunk):
     neighbors = np.zeros(array_chunk.shape)
 
@@ -185,46 +106,6 @@ def build_graph(array_chunk):
     return points, G
 
 
-def chunk_array(data, chuck_max_size):
-    """
-    Split array into chunks
-    """
-    return
-
-
-def build_2x2x2_cube(idx):
-    """
-    Build 2x2x2 cube for marching cubes algorithm
-    :return: cubepoints
-    :rtype: list
-    """
-    x0, y0, z0 = idx
-    cubepoints = np.zeros((8, 3))
-    cubepoints[0, :] = (x0, y0, z0)
-    cubepoints[1, :] = (int(x0 + 1), y0, z0)
-    cubepoints[2, :] = (int(x0 + 1), int(y0 + 1), z0)
-    cubepoints[3, :] = (x0, int(y0 + 1), z0)
-    cubepoints[4, :] = (x0, int(y0 + 1), int(z0 + 1))
-    cubepoints[5, :] = (x0, y0, int(z0 + 1))
-    cubepoints[6, :] = (int(x0 + 1), y0, int(z0 + 1))
-    cubepoints[7, :] = (int(x0 + 1), int(y0 + 1), int(z0 + 1))
-
-    return cubepoints
-
-
-def categorize_area_cases(cubepoints, data):
-    """
-    Categorize the points according to cases reported by Lindblad 2005.
-
-    :return: case
-    :rtype: int
-    """
-    search_key = tuple([data[(int(p[0]), int(p[1]), int(p[2]))] == 1 for p in cubepoints])
-    case = CASES.get(search_key)
-
-    return case, search_key
-
-
 def filter_interior_points(data):
     """
     Masks locations where the voxel has 8 neighbors
@@ -274,28 +155,6 @@ def is_piece_solid(S, points_view):
         return False
     # TODO: Add further checks of connectivity to enclose a solid
     return True
-
-
-def surface_area(cluster, data, points_view):
-    """"""
-    unfound_cases = set()
-    num_cases = {k: 0 for k in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]}
-    for point in cluster:
-        cubepoints = build_2x2x2_cube(points_view[point])
-        case, key = categorize_area_cases(cubepoints, data)
-        # FIXME:
-
-        if case is None:
-            if sum(key) in [6]:
-                unfound_cases.add(key)
-            continue
-        num_cases[case] += 1
-    surface_area = 0
-    for k, num in num_cases.items():
-        surface_area += AREA_WEIGHTS[k] * num
-    print(len(unfound_cases), "cases not found")
-    print(unfound_cases)
-    return surface_area
 
 
 def center_of_mass(piece, points_view):
@@ -366,7 +225,7 @@ if __name__ == "__main__":
 
     data = geometry.load_images_to_voxel(im_files, x_lims=(0, grid_size),
                                                  y_lims=(0, grid_size), z_lims=(0, grid_size))
-    # data = np.logical_not(data)
+    data = np.logical_not(data)
     Nx, Ny, Nz = data.shape
     surface_data = filter_interior_points(data)
     # pad data with extra row and column to allow +1 out-of-index access
@@ -379,23 +238,9 @@ if __name__ == "__main__":
     solid_pieces = [p for p in pieces if is_piece_solid(p, points_view)]
     for idx, piece in enumerate(solid_pieces):
         save_solid_piece_to_file(piece, points_view, data.shape, os.path.join('spheres', str(idx).zfill(3) + '.dat'))
-    areas = [np.around(surface_area(p, data_padded, points_view), 3) for p in solid_pieces]
-    volumes = [len(p) for p in solid_pieces]
-    # sphericities = [sphericity(volumes[idx], A_p) for idx, A_p in enumerate(areas)]
     centers_of_mass = [center_of_mass(p, points_view) for p in solid_pieces]
-    specific_areas = np.array(areas) / np.array(volumes)
-    print("Volume:", volumes)
-    print("Specific area:", specific_areas)
-    print("Avg. specific area:", np.average(specific_areas))
 
     # Summary
-    print("Grid: {}x{}x{}".format(*[int(v + 1) for v in data.shape]))
+    print("Grid: {}x{}x{}".format(*[int(v) for v in data.shape]))
     print("Number of pieces:", len(solid_pieces))
-    print("Areas:", sorted(areas, reverse=True))
-    # print(sphericities)
     print("Centers of mass:", np.around(centers_of_mass, 2))
-    plt.plot(sorted(areas, reverse=True), 'b-')
-    plt.xlabel("rank")
-    plt.ylabel("area")
-    plt.title("Grid: {}x{}x{}".format(Nx + 1, Ny + 1, Nz + 1))
-    plt.show()
