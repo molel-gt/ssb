@@ -13,7 +13,7 @@ import numpy as np
 from collections import defaultdict
 from mpi4py import MPI
 from scipy import linalg
-from scipy.io import savemat
+from scipy.io import loadmat, savemat
 
 import geometry
 
@@ -193,20 +193,20 @@ def meshfile(piece, points_view, shape, file_names):
     return file_names[-1]
 
 
-def build_piece_matrix(data, piece_idx):
+def build_piece_matrix(data, idx, fname):
     """"""
-    piece = {f"p{piece_idx}": data}
-    savemat(f"{piece_idx}.mat", piece)
+    piece = {f"p{idx}": data}
+    savemat(fname, piece)
     return
 
 
-def save_solid_piece_to_file(piece, points_view, shape, fname):
+def save_solid_piece_to_file(piece, points_view, shape, idx, fname):
     """"""
     data = np.zeros(shape, dtype=int)
     for point in piece:
         coord = points_view[point]
         data[coord] = 1
-    build_piece_matrix(data, fname.strip(".dat"))
+    build_piece_matrix(data, idx, fname)
     return
 
 
@@ -238,7 +238,7 @@ if __name__ == "__main__":
     pieces = get_connected_pieces(G)
     solid_pieces = [p for p in pieces if is_piece_solid(p, points_view)]
     for idx, piece in enumerate(solid_pieces):
-        save_solid_piece_to_file(piece, points_view, data.shape, os.path.join('spheres', str(idx).zfill(3) + '.dat'))
+        save_solid_piece_to_file(piece, points_view, data.shape, str(idx).zfill(3), os.path.join('spheres', str(idx).zfill(3) + '.mat'))
     centers_of_mass = [center_of_mass(p, points_view) for p in solid_pieces]
 
     # Summary
@@ -248,11 +248,13 @@ if __name__ == "__main__":
 
     # compute surface area of pieces using Lindblad method
     eng = matlab.engine.start_matlab()
-    mat_files = os.listdir("spheres/*.mat")
+    mat_files = sorted([os.path.join('spheres', f) for f in os.listdir("spheres") if f.endswith(".mat")], reverse=True)
     areas = []
     for f in mat_files:
-        p = eng.load(f)
-        area = eng.SurfArea(p)
+        print("processing", f)
+        var_name = 'p' + f.split("/")[-1].strip(".mat")
+        mat = eng.load(f)
+        area = eng.SurfArea(mat[var_name])
         areas.append(area)
     print(areas)
 
