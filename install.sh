@@ -39,7 +39,7 @@ make && make install
 # hdf5
 cd $HOME
 wget https://www.hdfgroup.org/package/hdf5-1-12-1-tar-gz/?wpdmdl=15727&refresh=62439b2b5d5f51648597803
-hsf5hash=`sha256sum hdf5-1-12-1.tar.gz`
+hdf5hash=`sha256sum hdf5-1-12-1.tar.gz | awk '{split($0,a," "); print a[1]}'`
 if $hdf5hash != 79c66ff67e666665369396e9c90b32e238e501f345afd2234186bfb8331081ca; then
     echo "file is corrupted"
     exit 1
@@ -73,7 +73,7 @@ make prefix=/opt && make install
 # slepc
 cd $HOME
 wget https://slepc.upv.es/download/distrib/slepc-3.16.2.tar.gz
-slepchash=`md5sum slepc-3.16.2.tar.gz`
+slepchash=`md5sum slepc-3.16.2.tar.gz | awk '{split($0,a," "); print a[1]}'`
 if $slepchash != 673dbda220e5a4bd2c3a6618267d8e55; then
     echo "file corrupted"
     exit 1
