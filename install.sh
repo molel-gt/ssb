@@ -30,9 +30,22 @@ make && make install
 
 # hdf5
 cd $HOME
+wget https://www.hdfgroup.org/package/hdf5-1-12-1-tar-gz/?wpdmdl=15727&refresh=62439b2b5d5f51648597803
+hsf5hash=`sha256sum hdf5-1-12-1.tar.gz`
+if $hdf5hash != 79c66ff67e666665369396e9c90b32e238e501f345afd2234186bfb8331081ca; then
+    echo "file is corrupted"
+    exit 1
+fi
+tar xvzf hdf5-1-12-1.tar.gz
+cd hdf5-1-12-1
 
 # petsc
 cd $HOME
+# git clone -b release https://gitlab.com/petsc/petsc.git petsc
+wget https://ftp.mcs.anl.gov/pub/petsc/release-snapshots/petsc-3.16.5.tar.gz
+tar xvzf petsc-3.16.5.tar.gz
+cd petsc
+./configure --prefix=/opt/  --download-parmetis --download-ptscotch --download-suitesparse --download-mumps --download-hypre
 
 # parmetis
 cd $HOME
@@ -58,6 +71,20 @@ cd $HOME
 https://github.com/FEniCS/ufl.git
 cd ufl
 python3 -m pip install . --user
+
+# xtl
+cd $HOME
+git clone https://github.com/xtensor-stack/xtl.git
+cd xtl
+cmake -DCMAKE_INSTALL_PREFIX=/opt/
+make install
+
+# xtensor
+cd $HOME
+git clone https://github.com/xtensor-stack/xtensor.git
+cd xtensor
+cmake -DCMAKE_INSTALL_PREFIX=/opt/
+make install
 
 # basix
 cd $HOME
