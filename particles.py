@@ -4,6 +4,7 @@ import os
 import subprocess
 
 import argparse
+import matlab.engine
 import matplotlib.pyplot as plt
 import meshio
 import networkx as nx
@@ -194,7 +195,7 @@ def meshfile(piece, points_view, shape, file_names):
 
 def build_piece_matrix(data, piece_idx):
     """"""
-    piece = {"data": data, "label": "piece"}
+    piece = {f"p{piece_idx}": data}
     savemat(f"{piece_idx}.mat", piece)
     return
 
@@ -244,3 +245,14 @@ if __name__ == "__main__":
     print("Grid: {}x{}x{}".format(*[int(v) for v in data.shape]))
     print("Number of pieces:", len(solid_pieces))
     print("Centers of mass:", np.around(centers_of_mass, 2))
+
+    # compute surface area of pieces using Lindblad method
+    eng = matlab.engine.start_matlab()
+    mat_files = os.listdir("spheres/*.mat")
+    areas = []
+    for f in mat_files:
+        p = eng.load(f)
+        area = eng.SurfArea(p)
+        areas.append(area)
+    print(areas)
+
