@@ -12,6 +12,7 @@ import numpy as np
 from collections import defaultdict
 from mpi4py import MPI
 from scipy import linalg
+from scipy.io import savemat
 
 import geometry
 
@@ -332,14 +333,21 @@ def meshfile(piece, points_view, shape, file_names):
     return file_names[-1]
 
 
+def build_piece_matrix(data, piece_idx):
+    """"""
+    piece = {"data": data, "label": "piece"}
+    savemat(f"{piece_idx}.mat", piece)
+    return
+
+
 def save_solid_piece_to_file(piece, points_view, shape, fname):
     """"""
     data = np.zeros(shape, dtype=int)
     for point in piece:
         coord = points_view[point]
         data[coord] = 1
-    np.save(fname, data)
-
+    build_piece_matrix(data, fname.strip(".dat"))
+    return
 
 
 if __name__ == "__main__":
