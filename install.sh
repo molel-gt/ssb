@@ -49,12 +49,26 @@ cd petsc
 
 # parmetis
 cd $HOME
+wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/parmetis/parmetis-4.0.3.tar.gz
+tar xvzf parmetis-4.0.3.tar.gz
+cd parmetis-4.0.3
 
 # scotch
 cd $HOME
+wget https://gitlab.inria.fr/scotch/scotch/-/archive/v7.0.1/scotch-v7.0.1.tar.gz
+tar xvzf scotch-v7.0.1.tar.gz
+cd scotch-v7.0.1
 
 # slepc
 cd $HOME
+wget https://slepc.upv.es/download/distrib/slepc-3.16.2.tar.gz
+slepchash=`md5sum slepc-3.16.2.tar.gz`
+if $slepchash != 673dbda220e5a4bd2c3a6618267d8e55; then
+    echo "file corrupted"
+    exit 1
+fi
+tar xvzf slepc-3.16.2.tar.gz
+cd slepc-3.16.2
 
 # ffc-x
 cd $HOME
