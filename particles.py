@@ -258,6 +258,6 @@ if __name__ == "__main__":
         areas.append(area)
     total_area = sum(areas)
     volume = sum(data)
-    print("Total area: {:,}".format(total_area)))
+    print("Total area: {:,}".format(total_area))
     print("Specific area:", total_area/volume)
 
