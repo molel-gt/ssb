@@ -248,7 +248,8 @@ if __name__ == "__main__":
 
     # compute surface area of pieces using Lindblad method
     eng = matlab.engine.start_matlab()
-    mat_files = sorted([os.path.join('spheres', f) for f in os.listdir("spheres") if f.endswith(".mat")], reverse=True)
+    mat_files = sorted([os.path.join('spheres', f) for f in
+                        os.listdir("spheres") if f.endswith(".mat")])
     areas = []
     for f in mat_files:
         print("processing", f)
@@ -257,7 +258,7 @@ if __name__ == "__main__":
         area = eng.SurfArea(mat[var_name])
         areas.append(area)
     total_area = sum(areas)
-    volume = sum(data)
+    volume = 0.54 * Nx * Ny * Nz # np.sum(data)
     print("Total area: {:,}".format(total_area))
     print("Specific area:", total_area/volume)
 
