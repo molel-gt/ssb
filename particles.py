@@ -256,5 +256,8 @@ if __name__ == "__main__":
         mat = eng.load(f)
         area = eng.SurfArea(mat[var_name])
         areas.append(area)
-    print(areas)
+    total_area = sum(areas)
+    volume = sum(data)
+    print("Total area: {:,}".format(total_area)))
+    print("Specific area:", total_area/volume)
 
