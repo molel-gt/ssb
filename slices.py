@@ -6,6 +6,8 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 
+from PIL import Image
+
 from examples import spheres
 
 
@@ -16,11 +18,11 @@ def build_slice(at_x, centers, radius, yz_size):
     :param radius:
     :param yz_size:
     """
-    slice = np.zeros(yz_size, dtype=int)
+    slice = np.zeros(yz_size, dtype=np.uint8)
     for center in centers:
         for idx, _ in np.ndenumerate(slice):
             if ((at_x - center[0]) ** 2 + (idx[0] - center[1]) ** 2 + (idx[1] - center[2]) ** 2) <= radius ** 2:
-                slice[idx] = 1
+                slice[idx] = 255
 
     return slice
 
@@ -30,7 +32,8 @@ def slice_to_file(slice, fname):
     :param slice:
     :param fname:
     """
-    plt.imsave(fname, slice, format='bmp', cmap='binary')
+    im = Image.fromarray(slice)
+    im.save(fname, format='bmp')
 
 
 if __name__ == '__main__':
