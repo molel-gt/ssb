@@ -248,6 +248,29 @@ if __name__ == "__main__":
 
     # compute surface area of pieces using Lindblad method
     eng = matlab.engine.start_matlab()
+    build_piece_matrix(data, 'full', 'spheres/full.mat')
+    mat = eng.load('spheres/full.mat')
+    # obtain surface correlation function
+    [fvv, fss, fsv] = eng.correlation(mat['pfull'], 0.5, 'YPeriod', nargout=3)
+    fvv = np.array(fvv)
+    fss = np.array(fss)
+    fsv = np.array(fsv)
+    plt.plot(fvv[:, 0], fvv[:, 1])
+    plt.xlabel("r")
+    plt.ylabel(r"$F_{vv}$")
+    plt.savefig("figures/fvv.png")
+    plt.close()
+    plt.plot(fss[:, 0], fss[:, 1])
+    plt.xlabel("r")
+    plt.ylabel(r"$F_{ss}$")
+    plt.savefig("figures/fss.png")
+    plt.close()
+    plt.plot(fsv[:, 0], fsv[:, 1])
+    plt.xlabel("r")
+    plt.ylabel(r"$F_{sv}$")
+    plt.savefig("figures/fsv.png")
+    plt.close()
+
     mat_files = sorted([os.path.join('spheres', f) for f in
                         os.listdir("spheres") if f.endswith(".mat")])
     areas = []
