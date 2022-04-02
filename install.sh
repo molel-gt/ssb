@@ -53,7 +53,7 @@ cd $HOME
 # git clone -b release https://gitlab.com/petsc/petsc.git petsc
 wget https://ftp.mcs.anl.gov/pub/petsc/release-snapshots/petsc-3.16.5.tar.gz
 tar xvzf petsc-3.16.5.tar.gz
-cd petsc
+cd petsc-3.16.5
 ./configure --prefix=/opt/  --download-parmetis --download-ptscotch --download-suitesparse --download-mumps --download-hypre --download-fblaslapack
 make && make install
 
