@@ -13,12 +13,12 @@ echo "Installing dolfinx.."
 # cd boost_1_78_0
 
 # openmpi
-cd $HOME
-wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.2.tar.gz
-tar xvzf openmpi-4.1.2.tar.gz
-cd openmpi-4.1.2
-./configure --prefix=/opt/
-make all install
+# cd $HOME
+# wget https://download.open-mpi.org/release/open-mpi/v4.1/openmpi-4.1.2.tar.gz
+# tar xvzf openmpi-4.1.2.tar.gz
+# cd openmpi-4.1.2
+# ./configure --prefix=/opt/
+# make all install
 
 # eigen3
 cd $HOME
@@ -96,9 +96,17 @@ python3  -m pip install . --user
 
 # ufl
 cd $HOME
-https://github.com/FEniCS/ufl.git
+git clone https://github.com/FEniCS/ufl.git
 cd ufl
 python3 -m pip install . --user
+
+# ADIOS2
+cd $HOME
+git clone https://github.com/ornladios/ADIOS2.git
+cd ADIOS2
+mkdir build && cd build
+cmake -DCMAKE_INSTALL_PREFIX=/opt/ ..
+make install
 
 # xtl
 cd $HOME
@@ -131,9 +139,10 @@ python3 -m pip install pybind11 numpy mpi4py petsc4py matplotlib slepc4py --user
 
 # install dolfinx
 cd $HOME
-cd dolfinx/cpp/
+git clone https://github.com/FEniCS/dolfinx.git
+cd dolfinx/cpp
 mkdir build && cd build
-cmake -DCMAKE_INSTALL_PREFIX=/opt/ ../
+cmake -DCMAKE_INSTALL_PREFIX=/opt/ ..
 make install
 
 cd ../../python && python3 -m pip install . --user
