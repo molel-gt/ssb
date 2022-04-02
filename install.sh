@@ -54,15 +54,15 @@ cd $HOME
 wget https://ftp.mcs.anl.gov/pub/petsc/release-snapshots/petsc-3.16.5.tar.gz
 tar xvzf petsc-3.16.5.tar.gz
 cd petsc
-./configure --prefix=/opt/  --download-parmetis --download-ptscotch --download-suitesparse --download-mumps --download-hypre --download-fblaslapack
+./configure --prefix=/opt/  PETSC_ARCH=linux-gnu --download-metis --download-parmetis --download-ptscotch --download-suitesparse --download-scalapack --download-mumps --download-hypre --download-fblaslapack
 make && make install
 
 # parmetis
-cd $HOME
-wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/parmetis/parmetis-4.0.3.tar.gz
-tar xvzf parmetis-4.0.3.tar.gz
-cd parmetis-4.0.3
-make && make install
+# cd $HOME
+# wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/parmetis/parmetis-4.0.3.tar.gz
+# tar xvzf parmetis-4.0.3.tar.gz
+# cd parmetis-4.0.3
+# make && make install
 
 # scotch
 cd $HOME
@@ -72,17 +72,23 @@ cd scotch-v7.0.1
 make prefix=/opt && make install
 
 # slepc
+# cd $HOME
+# wget https://slepc.upv.es/download/distrib/slepc-3.16.2.tar.gz
+# slepchash=`md5sum slepc-3.16.2.tar.gz | awk '{split($0,a," "); print a[1]}'`
+# if $slepchash != 673dbda220e5a4bd2c3a6618267d8e55; then
+#     echo "file corrupted"
+#     exit 1
+# fi
+# tar xvzf slepc-3.16.2.tar.gz
+# cd slepc-3.16.2
+# ./configure --prefix=/opt/
+# make && make install
+
+# ufl
 cd $HOME
-wget https://slepc.upv.es/download/distrib/slepc-3.16.2.tar.gz
-slepchash=`md5sum slepc-3.16.2.tar.gz | awk '{split($0,a," "); print a[1]}'`
-if $slepchash != 673dbda220e5a4bd2c3a6618267d8e55; then
-    echo "file corrupted"
-    exit 1
-fi
-tar xvzf slepc-3.16.2.tar.gz
-cd slepc-3.16.2
-./configure --prefix=/opt/
-make && make install
+https://github.com/FEniCS/ufl.git
+cd ufl
+python3 -m pip install . --user
 
 # ffc-x
 cd $HOME
@@ -93,12 +99,6 @@ $ cmake --build build-dir
 $ cmake --install build-dir
 cd $HOME/ffcx
 python3  -m pip install . --user
-
-# ufl
-cd $HOME
-https://github.com/FEniCS/ufl.git
-cd ufl
-python3 -m pip install . --user
 
 # xtl
 cd $HOME
@@ -131,9 +131,10 @@ python3 -m pip install pybind11 numpy mpi4py petsc4py matplotlib slepc4py --user
 
 # install dolfinx
 cd $HOME
-cd dolfinx/cpp/
+git clone https://github.com/FEniCS/dolfinx.git
+cd dolfinx/cpp
 mkdir build && cd build
-cmake -DCMAKE_INSTALL_PREFIX=/opt/ ../
+cmake -DCMAKE_INSTALL_PREFIX=/opt/ ..
 make install
 
 cd ../../python && python3 -m pip install . --user
