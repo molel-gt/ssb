@@ -62,14 +62,14 @@ cd $HOME
 wget http://glaros.dtc.umn.edu/gkhome/fetch/sw/parmetis/parmetis-4.0.3.tar.gz
 tar xvzf parmetis-4.0.3.tar.gz
 cd parmetis-4.0.3
-make && make install
+make config prefix=/opt/ && make install
 
 # scotch
 cd $HOME
 wget https://gitlab.inria.fr/scotch/scotch/-/archive/v7.0.1/scotch-v7.0.1.tar.gz
 tar xvzf scotch-v7.0.1.tar.gz
 cd scotch-v7.0.1
-make prefix=/opt && make install
+make prefix=/opt/ && make install
 
 # slepc
 cd $HOME
