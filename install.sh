@@ -106,6 +106,7 @@ git clone https://github.com/ornladios/ADIOS2.git
 cd ADIOS2
 mkdir build && cd build
 cmake -DCMAKE_INSTALL_PREFIX=/opt/ ..
+make -j 16
 make install
 
 # xtl
