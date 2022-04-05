@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+import gc
 import os
 import subprocess
 
@@ -212,21 +213,20 @@ def save_solid_piece_to_file(piece, points_view, shape, idx, fname):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='computes specific area')
-    parser.add_argument('--img_dir', help='bmp files directory',
+    parser.add_argument('--img_sub_dir', help='bmp files directory',
                         required=True)
     parser.add_argument('--grid_info', help='Nx-Ny-Nz',
                         required=True)
 
     args = parser.parse_args()
     grid_size = int(args.grid_info.split("-")[0])
-    img_dir = args.img_dir
+    img_dir = args.img_sub_dir
     im_files = sorted([os.path.join(img_dir, f) for
                        f in os.listdir(img_dir) if f.endswith(".bmp")])
     n_files = len(im_files)
 
     data = geometry.load_images_to_voxel(im_files, x_lims=(0, grid_size),
                                                  y_lims=(0, grid_size), z_lims=(0, grid_size))
-    data = np.logical_not(data)
     Nx, Ny, Nz = data.shape
     surface_data = filter_interior_points(data)
     # pad data with extra row and column to allow +1 out-of-index access
@@ -235,20 +235,31 @@ if __name__ == "__main__":
     points, G = build_graph(data_padded)
     points_view = {v: k for k, v in points.items()}
 
-    pieces = get_connected_pieces(G)
-    solid_pieces = [p for p in pieces if is_piece_solid(p, points_view)]
-    for idx, piece in enumerate(solid_pieces):
-        save_solid_piece_to_file(piece, points_view, data.shape, str(idx).zfill(3), os.path.join('spheres', str(idx).zfill(3) + '.mat'))
-    centers_of_mass = [center_of_mass(p, points_view) for p in solid_pieces]
+    # free up memory
+    del data_padded
+    del surface_data
+    gc.collect()
 
+    print("Getting connected pieces..")
+    solid_pieces = [p for p in get_connected_pieces(G) if is_piece_solid(p, points_view)]
+    # solid_pieces = [p for p in pieces if is_piece_solid(p, points_view)]
+    for idx, piece in enumerate(solid_pieces):
+        save_solid_piece_to_file(piece, points_view, data.shape, str(idx).zfill(3), os.path.join(args.img_sub_dir, str(idx).zfill(3) + '.mat'))
+    # centers_of_mass = [center_of_mass(p, points_view) for p in solid_pieces]
+    # savemat("center-of-mass.mat", np.array(center_of_mass))
     # Summary
     print("Grid: {}x{}x{}".format(*[int(v) for v in data.shape]))
     print("Number of pieces:", len(solid_pieces))
-    print("Centers of mass:", np.around(centers_of_mass, 2))
+    # print("Centers of mass:", np.around(centers_of_mass, 2))
 
     # compute surface area of pieces using Lindblad method
     eng = matlab.engine.start_matlab()
     build_piece_matrix(data, 'full', 'spheres/full.mat')
+    # free up memory
+    del points
+    del points_view
+    del data
+    gc.collect()
     mat = eng.load('spheres/full.mat')
     # obtain surface correlation function
     [fvv, fss, fsv] = eng.correlation(mat['pfull'], 0.5, 'YPeriod', nargout=3)
@@ -275,13 +286,14 @@ if __name__ == "__main__":
                         os.listdir("spheres") if f.endswith(".mat")])
     areas = []
     for f in mat_files:
-        print("processing", f)
+        # print("processing", f)
         var_name = 'p' + f.split("/")[-1].strip(".mat")
         mat = eng.load(f)
         area = eng.SurfArea(mat[var_name])
         areas.append(area)
-    total_area = sum(areas)
-    volume = 0.54 * Nx * Ny * Nz # np.sum(data)
-    print("Total area: {:,}".format(total_area))
-    print("Specific area:", total_area/volume)
+    total_area = int(sum(areas))
+    volume = np.sum(mat[var_name])
+    print("Surface Area: {:,}".format(total_area))
+    print("Volume: {:,}".format(volume))
+    print("Specific Area:", total_area/volume)
 
