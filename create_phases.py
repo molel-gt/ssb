@@ -12,7 +12,8 @@ import utils
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="create phases files from segmented image")
+    parser = argparse.ArgumentParser(description="create phases files from segmented image the selected phase "
+                                    "has a value of 255 (white) and the non-phases a value of 0 (black)")
     parser.add_argument('--phases', help='phase_name1=image_value1,phase_name2=image_value2,...',
                         required=True)
     parser.add_argument("--img_sub_dir", required=True)
