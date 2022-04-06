@@ -25,8 +25,8 @@ cd $HOME
 wget https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz
 tar xvzf eigen-3.4.0.tar.gz
 cd eigen-3.4.0
-mkdir build && cd build
-cmake -DCMAKE_INSTALL_PREFIX=/opt/ ../
+mkdir -p build && cd build
+cmake -DCMAKE_INSTALL_PREFIX=/opt/ ..
 make install
 
 # pkg-config
@@ -34,7 +34,7 @@ cd $HOME
 wget https://pkgconfig.freedesktop.org/releases/pkg-config-0.29.2.tar.gz
 tar xvzf pkg-config-0.29.2.tar.gz
 cd pkg-config-0.29.2
-./configure --prefix=/opt/
+./configure --prefix=/opt/ --with-internal-glib
 make && make install
 
 # hdf5
