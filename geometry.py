@@ -8,6 +8,7 @@ import meshio
 import numpy as np
 import subprocess
 
+import utils
 
 def load_images_to_voxel(files_list, x_lims=(0, 201), y_lims=(0, 201), z_lims=(0, 201)):
     """
@@ -104,6 +105,7 @@ if __name__ == '__main__':
                   if f.endswith(".bmp")])
     
     meshes_dir = 'mesh'
+    utils.make_dir_if_missing(meshes_dir)
     node_file_path = os.path.join(meshes_dir, f'{grid_info}.node')
     geo_file_path = os.path.join(meshes_dir, f'{grid_info}.geo')
     vtk_file_path = os.path.join(meshes_dir, f'{grid_info}.vtk')
