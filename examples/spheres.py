@@ -104,12 +104,13 @@ def create_mesh(mesh, cell_type, prune_z=False):
 
 
 if __name__ == '__main__':
-    spheres_locations_file = "/home/leshinka/spheres/write.dat"
-    task_dir = '/home/leshinka/dev/ssb/'
+    spheres_locations_file = "spheres/write.dat"
+    task_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../')
     output_mesh_file = os.path.join(task_dir, "mesh/spheres.msh")
     grid_info = '2-1-1'
     build_packed_spheres_mesh(output_mesh_file, spheres_locations_file)
     mesh_3d = meshio.read(output_mesh_file)
     tetrahedral_mesh = create_mesh(mesh_3d, "tetra")
     meshio.write(os.path.join(task_dir, f"mesh/{grid_info}_tetr.xdmf"), tetrahedral_mesh)
-    val = subprocess.check_call(f'mpirun -n 2 python3 /home/leshinka/dev/ssb/transport.py --grid_info={grid_info}', shell=True)
+    transport_model_path = os.path.join(task_dir, "transport.py")
+    val = subprocess.check_call(f'mpirun -n 2 python3 {transport_model_path} --grid_info={grid_info}', shell=True)
