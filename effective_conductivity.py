@@ -33,6 +33,6 @@ if __name__ == '__main__':
     current0 = np.average(data[0, :, :])
     current_end = np.average(data[int(Nx - 1), :, :])
     # results summary
-    print("Porosity:", porosity)
-    print("Bruggeman:", porosity ** 1.5)
-    print("Model:", 0.5 * (current0 / delta_phi + current_end / delta_phi) * porosity)
+    print("Porosity:", np.around(porosity, 4))
+    print("Bruggeman:", np.around(porosity ** 1.5, 4))
+    print("Model:", np.around(0.5 * (current0 / delta_phi + current_end / delta_phi) * porosity, 4))
