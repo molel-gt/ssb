@@ -49,12 +49,12 @@ if __name__ == '__main__':
     u1 = Function(V)
     with u1.vector.localForm() as u1_loc:
         u1_loc.set(0)
-    x0facet = locate_entities_boundary(mesh, mesh_dim-1,
+    x0facet = locate_entities_boundary(mesh, 0,
                                     lambda x: np.isclose(x[0], 0.0))
-    x1facet = locate_entities_boundary(mesh, mesh_dim-1,
+    x1facet = locate_entities_boundary(mesh, 0,
                                     lambda x: np.isclose(x[0], Lx))
-    x0bc = DirichletBC(u0, locate_dofs_topological(V, mesh_dim-1, x0facet))
-    x1bc = DirichletBC(u1, locate_dofs_topological(V, mesh_dim-1, x1facet))
+    x0bc = DirichletBC(u0, locate_dofs_topological(V, 0, x0facet))
+    x1bc = DirichletBC(u1, locate_dofs_topological(V, 0, x1facet))
 
     # Define variational problem
     u = ufl.TrialFunction(V)
