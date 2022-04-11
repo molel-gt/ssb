@@ -9,6 +9,13 @@ import numpy as np
 import geometry
 
 
+def kappa_eff(i_cell, eps_sse, delta_phi):
+    """
+    Effective conductivity
+    """
+    return eps_sse * i_cell / (-delta_phi)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
     parser.add_argument('--img_folder', help='bmp files sub directory', required=True)
@@ -29,10 +36,11 @@ if __name__ == '__main__':
                   if f.endswith(".bmp")])
     image_data = geometry.load_images_to_voxel(files_list, (0, int(Nx)), (0, int(Ny)), (0, int(Nz)))
     porosity = np.average(image_data)
-    delta_phi = 1 / (Nx - 1)
+    delta_phi = -1 / (Nx - 1)
     current0 = np.average(data[0, :, :])
     current_end = np.average(data[int(Nx - 1), :, :])
+    i_cell = 0.5 * (current0 + current_end)
     # results summary
     print("Porosity:", np.around(porosity, 4))
     print("Bruggeman:", np.around(porosity ** 1.5, 4))
-    print("Model:", np.around(0.5 * (current0 / delta_phi + current_end / delta_phi) * porosity, 4))
+    print("Model:", np.around(kappa_eff(i_cell, porosity, delta_phi), 4))
