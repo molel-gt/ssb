@@ -20,4 +20,4 @@ vtk_file=$(echo "$3" | sed "s/.*\///")
 
 sed '1 i file_name = \"'$vtk_file'\";' porous.geo | tee $2
 
-gmsh -3 $2 -o $4 -optimize_netgen -smooth 500
+gmsh -3 $2 -o $4 -optimize_netgen
