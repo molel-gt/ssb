@@ -16,10 +16,10 @@ if __name__ == '__main__':
                                     "has a value of 255 (white) and the non-phases a value of 0 (black)")
     parser.add_argument('--phases', help='phase_name1=image_value1,phase_name2=image_value2,...',
                         required=True)
-    parser.add_argument("--img_sub_dir", required=True)
+    parser.add_argument("--img_folder", required=True)
     args = parser.parse_args()
     phases = OrderedDict([(phase.split("=")[0], phase.split("=")[1]) for phase in args.phases.split(",")])
-    image_files = sorted([os.path.join(os.path.abspath(os.path.dirname(__file__)), args.img_sub_dir, f) for f in os.listdir(args.img_sub_dir)
+    image_files = sorted([os.path.join(os.path.abspath(os.path.dirname(__file__)), args.img_folder, f) for f in os.listdir(args.img_folder)
                    if f.endswith(".tif")])
     for img_file in image_files:
         file_number = int(img_file.split("/")[-1].split(".")[0])

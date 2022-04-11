@@ -11,7 +11,7 @@ import geometry
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
-    parser.add_argument('--img_sub_dir', help='bmp files sub directory', required=True)
+    parser.add_argument('--img_folder', help='bmp files sub directory', required=True)
     parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
 
     args = parser.parse_args()
@@ -25,7 +25,7 @@ if __name__ == '__main__':
     for idx, value in enumerate(values):
         coord = [int(v) for v in geom[idx]]
         data[tuple(coord)] = value
-    files_list = sorted([os.path.join(args.img_sub_dir, f) for f in os.listdir(args.img_sub_dir)
+    files_list = sorted([os.path.join(args.img_folder, f) for f in os.listdir(args.img_folder)
                   if f.endswith(".bmp")])
     image_data = geometry.load_images_to_voxel(files_list, (0, int(Nx)), (0, int(Ny)), (0, int(Nz)))
     porosity = np.average(image_data)

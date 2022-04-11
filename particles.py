@@ -213,14 +213,14 @@ def save_solid_piece_to_file(piece, points_view, shape, idx, fname):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='computes specific area')
-    parser.add_argument('--img_sub_dir', help='bmp files directory',
+    parser.add_argument('--img_folder', help='bmp files directory',
                         required=True)
     parser.add_argument('--grid_info', help='Nx-Ny-Nz',
                         required=True)
 
     args = parser.parse_args()
     grid_size = int(args.grid_info.split("-")[0])
-    img_dir = args.img_sub_dir
+    img_dir = args.img_folder
     im_files = sorted([os.path.join(img_dir, f) for
                        f in os.listdir(img_dir) if f.endswith(".bmp")])
     n_files = len(im_files)
@@ -244,7 +244,7 @@ if __name__ == "__main__":
     solid_pieces = [p for p in get_connected_pieces(G) if is_piece_solid(p, points_view)]
     # solid_pieces = [p for p in pieces if is_piece_solid(p, points_view)]
     for idx, piece in enumerate(solid_pieces):
-        save_solid_piece_to_file(piece, points_view, data.shape, str(idx).zfill(3), os.path.join(args.img_sub_dir, str(idx).zfill(3) + '.mat'))
+        save_solid_piece_to_file(piece, points_view, data.shape, str(idx).zfill(3), os.path.join(args.img_folder, str(idx).zfill(3) + '.mat'))
     # centers_of_mass = [center_of_mass(p, points_view) for p in solid_pieces]
     # savemat("center-of-mass.mat", np.array(center_of_mass))
     # Summary
