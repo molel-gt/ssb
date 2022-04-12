@@ -2,7 +2,7 @@
 
 if [ "$1" == "-h" ]; then
   echo "Usage: `basename $0` [generates msh file from node file using tetgen and gmsh]
-        Example: ./build_nodes_to_msh.sh 101-101-101.node 101-101-101.vtk 101-101-101.geo 101-101-101.msh
+        Example: ./build_nodes_to_msh.sh s101-101-101o0-0-0.node 101-101-101o0-0-0.vtk s101-101-101o0-0-0.geo s101-101-101o0-0-0.msh
         "
   exit 0
 fi

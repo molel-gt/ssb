@@ -22,8 +22,14 @@ import utils
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
     parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
+    parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
 
     args = parser.parse_args()
+    if isinstance(args.origin, str):
+        origin = tuple(map(lambda v: int(v), args.origin.split(",")))
+    else:
+        origin = args.origin
+    origin_str = "_".join([str(v) for v in origin])
     grid_info = args.grid_info
     Lx = int(grid_info.split("-")[0]) - 1
     working_dir = os.path.abspath(os.path.dirname(__file__))
@@ -31,9 +37,9 @@ if __name__ == '__main__':
     output_dir = os.path.join(working_dir, 'output')
     utils.make_dir_if_missing(meshes_dir)
     utils.make_dir_if_missing(output_dir)
-    tetr_mesh_path = os.path.join(meshes_dir, f'{grid_info}_tetr.xdmf')
-    output_current_path = os.path.join(output_dir, f'{grid_info}_current.xdmf')
-    output_potential_path = os.path.join(output_dir, f'{grid_info}_potential.xdmf')
+    tetr_mesh_path = os.path.join(meshes_dir, f's{grid_info}o{origin_str}_tetr.xdmf')
+    output_current_path = os.path.join(output_dir, f's{grid_info}o{origin_str}_current.xdmf')
+    output_potential_path = os.path.join(output_dir, f's{grid_info}o{origin_str}_potential.xdmf')
 
     with XDMFFile(MPI.COMM_WORLD, tetr_mesh_path, "r") as infile3:
         mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')

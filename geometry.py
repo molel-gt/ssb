@@ -10,6 +10,7 @@ import subprocess
 
 import utils
 
+
 def load_images_to_voxel(files_list, x_lims=(0, 201), y_lims=(0, 201), z_lims=(0, 201), origin=(0, 0, 0)):
     """
     grid_sizes: Lx.Ly.Lz
@@ -104,6 +105,7 @@ if __name__ == '__main__':
         origin = tuple(map(lambda v: int(v), args.origin.split(",")))
     else:
         origin = args.origin
+    origin_str = "_".join([str(v) for v in origin])
     grid_info = args.grid_info
     Nx, Ny, Nz = grid_info.split("-")
     
@@ -112,13 +114,13 @@ if __name__ == '__main__':
     
     meshes_dir = 'mesh'
     utils.make_dir_if_missing(meshes_dir)
-    node_file_path = os.path.join(meshes_dir, f'{grid_info}.node')
-    geo_file_path = os.path.join(meshes_dir, f'{grid_info}.geo')
-    vtk_file_path = os.path.join(meshes_dir, f'{grid_info}.vtk')
-    msh_file_path = os.path.join(meshes_dir, f'{grid_info}.msh')
-    line_mesh_path = os.path.join(meshes_dir, f"{grid_info}_line.xdmf")
-    tria_mesh_path = os.path.join(meshes_dir, f"{grid_info}_tria.xdmf")
-    tetr_mesh_path = os.path.join(meshes_dir, f"{grid_info}_tetr.xdmf")
+    node_file_path = os.path.join(meshes_dir, f's{grid_info}o{origin_str}.node')
+    geo_file_path = os.path.join(meshes_dir, f's{grid_info}o{origin_str}.geo')
+    vtk_file_path = os.path.join(meshes_dir, f's{grid_info}o{origin_str}.vtk')
+    msh_file_path = os.path.join(meshes_dir, f's{grid_info}o{origin_str}.msh')
+    line_mesh_path = os.path.join(meshes_dir, f"s{grid_info}o{origin_str}_line.xdmf")
+    tria_mesh_path = os.path.join(meshes_dir, f"s{grid_info}o{origin_str}_tria.xdmf")
+    tetr_mesh_path = os.path.join(meshes_dir, f"s{grid_info}o{origin_str}_tetr.xdmf")
 
     image_data = load_images_to_voxel(files_list, (0, int(Nx)), (0, int(Ny)), (0, int(Nz)), origin)
     nodes = create_nodes(image_data)

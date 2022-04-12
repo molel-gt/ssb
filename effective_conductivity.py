@@ -20,10 +20,16 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
     parser.add_argument('--img_folder', help='bmp files sub directory', required=True)
     parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
+    parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
 
     args = parser.parse_args()
+    if isinstance(args.origin, str):
+        origin = tuple(map(lambda v: int(v), args.origin.split(",")))
+    else:
+        origin = args.origin
+    origin_str = "_".join([str(v) for v in origin])
     grid_info = args.grid_info
-    current_file_path = os.path.join("output", grid_info + "_current.h5")
+    current_file_path = os.path.join("output", 's'+grid_info+'o'+origin_str + "_current.h5")
     current_data = h5py.File(current_file_path, "r")
     geom = current_data["/Mesh/Grid/geometry"]
     values = current_data["/Function/f/0"]
@@ -34,7 +40,7 @@ if __name__ == '__main__':
         data[tuple(coord)] = value
     files_list = sorted([os.path.join(args.img_folder, f) for f in os.listdir(args.img_folder)
                   if f.endswith(".bmp")])
-    image_data = geometry.load_images_to_voxel(files_list, (0, int(Nx)), (0, int(Ny)), (0, int(Nz)))
+    image_data = geometry.load_images_to_voxel(files_list, (0, int(Nx)), (0, int(Ny)), (0, int(Nz)), origin)
     eps_sse = np.average(image_data)
     delta_phi = -1 / (Nx - 1)
     current_at_0 = np.sum(data[0, :, :]) / ((Ny - 1) * (Nz - 1))
