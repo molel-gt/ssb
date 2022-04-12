@@ -10,7 +10,7 @@ import subprocess
 
 import utils
 
-def load_images_to_voxel(files_list, x_lims=(0, 201), y_lims=(0, 201), z_lims=(0, 201)):
+def load_images_to_voxel(files_list, x_lims=(0, 201), y_lims=(0, 201), z_lims=(0, 201), origin=(0, 0, 0)):
     """
     grid_sizes: Lx.Ly.Lz
     """
@@ -20,13 +20,14 @@ def load_images_to_voxel(files_list, x_lims=(0, 201), y_lims=(0, 201), z_lims=(0
     Lx = x1 - x0
     Ly = y1 - y0
     Lz = z1 - z0
+    x_shift, y_shift, z_shift = origin
     data = np.zeros([int(Lx), int(Ly), int(Lz)], dtype=bool)
     for i_x, img_file in enumerate(files_list):
-        if not (x0 <= i_x <= x1):
+        if not (x0 + x_shift <= i_x <= x1 + x_shift):
             continue
         img_data = plt.imread(img_file)
         img_data = img_data / 255
-        data[i_x - x0 - 1, :, :] = img_data[y0:y1, z0:z1]
+        data[i_x - x0 - x_shift - 1, :, :] = img_data[int(y_shift + y0):int(y1 + y_shift), int(z_shift + z0):int(z_shift + z1)]
     return data
 
 
@@ -96,8 +97,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='build geometry')
     parser.add_argument('--img_folder', help='bmp files sub directory', required=True)
     parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
+    parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
 
     args = parser.parse_args()
+    if isinstance(args.origin, str):
+        origin = tuple(map(lambda v: int(v), args.origin.split(",")))
+    else:
+        origin = args.origin
     grid_info = args.grid_info
     Nx, Ny, Nz = grid_info.split("-")
     
@@ -114,7 +120,7 @@ if __name__ == '__main__':
     tria_mesh_path = os.path.join(meshes_dir, f"{grid_info}_tria.xdmf")
     tetr_mesh_path = os.path.join(meshes_dir, f"{grid_info}_tetr.xdmf")
 
-    image_data = load_images_to_voxel(files_list, (0, int(Nx)), (0, int(Ny)), (0, int(Nz)))
+    image_data = load_images_to_voxel(files_list, (0, int(Nx)), (0, int(Ny)), (0, int(Nz)), origin)
     nodes = create_nodes(image_data)
     write_node_to_file(nodes, node_file_path)
     # build .msh file from .node file
