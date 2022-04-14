@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+import csv
 import gc
 import os
 import subprocess
@@ -12,6 +13,7 @@ import networkx as nx
 import numpy as np
 
 from collections import defaultdict
+from PIL import Image
 from mpi4py import MPI
 from scipy import linalg
 from scipy.io import loadmat, savemat
@@ -137,7 +139,8 @@ def is_piece_solid(S, points_view):
     """
     Rules for checking if piece encloses a solid:
     1. ignore pieces with <= 3 points as they cannot enclose a solid
-    2. ignore pieces with points all on the same plane, e.g. {(x1, y1, z0), (x1, y2, z0), (x3, y1, z0), (x2, y1, z0)}
+    2. ignore pieces with points all on the same plane,
+       e.g. {(x1, y1, z0), (x1, y2, z0), (x3, y1, z0), (x2, y1, z0)}
 
     :rtype: bool
     """
@@ -211,23 +214,58 @@ def save_solid_piece_to_file(piece, points_view, shape, idx, fname):
     return
 
 
+def particle_neighborhood(data, particle_surf_points, points_view, particle_phase):
+    """
+    :param data:
+    :param particle_surf_points:
+    :param particle_phase:
+    :param other_phase:
+    """
+    neighbor_points = set()
+    neighborhood = defaultdict(lambda: 0)
+    for point_idx in particle_surf_points:
+        x, y, z = points_view[point_idx]
+        neighbors = [(int(x - 1), int(y), int(z)), (int(x + 1), int(y), int(z)),
+                     (int(x), int(y - 1), int(z)), (int(x), int(y + 1), int(z)),
+                     (int(x), int(y), int(z - 1)), (int(x), int(y), int(z + 1))
+                    ]
+        for neighbor in neighbors:
+            # try block for out of index access
+            try:
+                value = data[neighbor]
+                if neighbor not in neighbor_points and value != particle_phase:
+                    neighborhood[value] += 1
+                    neighbor_points.add(neighbor)
+            except IndexError:
+                continue
+    return neighborhood
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='computes specific area')
     parser.add_argument('--img_folder', help='bmp files directory',
                         required=True)
     parser.add_argument('--grid_info', help='Nx-Ny-Nz',
                         required=True)
+    parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
 
     args = parser.parse_args()
+    if isinstance(args.origin, str):
+        origin = tuple(map(lambda v: int(v), args.origin.split(",")))
+    else:
+        origin = args.origin
+    origin_str = "_".join([str(v) for v in origin])
+    grid_info = args.grid_info
     grid_size = int(args.grid_info.split("-")[0])
+    Nx, Ny, Nz = [int(v) for v in args.grid_info.split("-")]
     img_dir = args.img_folder
     im_files = sorted([os.path.join(img_dir, f) for
                        f in os.listdir(img_dir) if f.endswith(".bmp")])
     n_files = len(im_files)
 
-    data = geometry.load_images_to_voxel(im_files, x_lims=(0, grid_size),
-                                                 y_lims=(0, grid_size), z_lims=(0, grid_size))
-    Nx, Ny, Nz = data.shape
+    data = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
+                                         y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
+
     surface_data = filter_interior_points(data)
     # pad data with extra row and column to allow +1 out-of-index access
     data_padded = np.zeros((Nx + 1, Ny + 1, Nz + 1))
@@ -235,65 +273,57 @@ if __name__ == "__main__":
     points, G = build_graph(data_padded)
     points_view = {v: k for k, v in points.items()}
 
-    # free up memory
-    del data_padded
-    del surface_data
-    gc.collect()
-
     print("Getting connected pieces..")
     solid_pieces = [p for p in get_connected_pieces(G) if is_piece_solid(p, points_view)]
-    # solid_pieces = [p for p in pieces if is_piece_solid(p, points_view)]
-    for idx, piece in enumerate(solid_pieces):
-        save_solid_piece_to_file(piece, points_view, data.shape, str(idx).zfill(3), os.path.join(args.img_folder, str(idx).zfill(3) + '.mat'))
-    # centers_of_mass = [center_of_mass(p, points_view) for p in solid_pieces]
-    # savemat("center-of-mass.mat", np.array(center_of_mass))
+
     # Summary
     print("Grid: {}x{}x{}".format(*[int(v) for v in data.shape]))
     print("Number of pieces:", len(solid_pieces))
-    # print("Centers of mass:", np.around(centers_of_mass, 2))
+    tif_files = sorted([os.path.join(img_dir, '../', f) for
+                       f in os.listdir(os.path.join(img_dir, '../')) if f.endswith(".tif")])
+    tif_data = np.zeros((len(tif_files), 451, 801), dtype=np.uint8)
+    for idx, tif_file in enumerate(tif_files):
+        tif_data[idx, :, :] = np.array(Image.open(tif_file), dtype=np.uint8)
+    matlab_eng = matlab.engine.start_matlab()
+    voxels = matlab_eng.GetVoxels()
+    volume = matlab_eng.sum(voxels, 'all')
+    am_surface_area = matlab_eng.SurfArea(voxels)
+    print("Nominal active material surface area:", int(am_surface_area))
+    print("Active material volume:", int(volume))
+    print("Nominal active material specific area:", np.around(am_surface_area / volume, 4))
+    areas = {}
+    for idx, piece in enumerate(solid_pieces):
+        neighborhood = particle_neighborhood(tif_data, piece, points_view, np.uint8(1))
+        neighborhood_ratios = {}
+        total = 0
+        for k, v in neighborhood.items():
+            total += v
+        for k, v in neighborhood.items():
+            neighborhood_ratios[k] = v / total
+        void_in_one_phase = False
+        for k, v in neighborhood_ratios.items():
+            if np.isclose(v, 1):
+                void_in_one_phase = True
+        # do not calculate area of voids that are wholly in electrolyte or active material
+        if void_in_one_phase:
+            continue
+        piece_data = np.zeros(data.shape, dtype=np.uint8)
+        for point_idx in piece:
+            piece_data[points_view[point_idx]] = 1
+        fname = os.path.join(args.img_folder, f"p{idx}.mat")
+        build_piece_matrix(piece_data, idx, fname)
+        var_name = f'p{idx}'
+        mat = matlab_eng.load(fname)
+        area = matlab_eng.SurfArea(mat[var_name])
+        areas[idx] = {"area": area, "ratio": neighborhood_ratios}
+        os.remove(fname)
+    am_void_area = 0
+    for k, v in areas.items():
+        am_void_area += v["area"] * v["ratio"][0]
 
-    # compute surface area of pieces using Lindblad method
-    eng = matlab.engine.start_matlab()
-    build_piece_matrix(data, 'full', 'spheres/full.mat')
-    # free up memory
-    del points
-    del points_view
-    del data
-    gc.collect()
-    mat = eng.load('spheres/full.mat')
-    # obtain surface correlation function
-    [fvv, fss, fsv] = eng.correlation(mat['pfull'], 0.5, 'YPeriod', nargout=3)
-    fvv = np.array(fvv)
-    fss = np.array(fss)
-    fsv = np.array(fsv)
-    plt.plot(fvv[:, 0], fvv[:, 1])
-    plt.xlabel("r")
-    plt.ylabel(r"$F_{vv}$")
-    plt.savefig("figures/fvv.png")
-    plt.close()
-    plt.plot(fss[:, 0], fss[:, 1])
-    plt.xlabel("r")
-    plt.ylabel(r"$F_{ss}$")
-    plt.savefig("figures/fss.png")
-    plt.close()
-    plt.plot(fsv[:, 0], fsv[:, 1])
-    plt.xlabel("r")
-    plt.ylabel(r"$F_{sv}$")
-    plt.savefig("figures/fsv.png")
-    plt.close()
-
-    mat_files = sorted([os.path.join('spheres', f) for f in
-                        os.listdir("spheres") if f.endswith(".mat")])
-    areas = []
-    for f in mat_files:
-        # print("processing", f)
-        var_name = 'p' + f.split("/")[-1].strip(".mat")
-        mat = eng.load(f)
-        area = eng.SurfArea(mat[var_name])
-        areas.append(area)
-    total_area = int(sum(areas))
-    volume = np.sum(mat[var_name])
-    print("Surface Area: {:,}".format(total_area))
-    print("Volume: {:,}".format(volume))
-    print("Specific Area:", total_area/volume)
-
+    print("AM area fraction covered by voids:", np.around(am_void_area / am_surface_area, 4))
+    with open("void-areas.csv", "w") as fp:
+        writer = csv.DictWriter(fp, fieldnames=["piece_idx", "area", "am_ratio"])
+        writer.writeheader()
+        for k, v in areas.items():
+            writer.writerow({"piece_idx": k, "area": np.around(v["area"], 0), "am_ratio": np.around(v["ratio"][0], 4)})
