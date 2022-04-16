@@ -49,9 +49,11 @@ if __name__ == '__main__':
     eps_sse_at_0 = np.average(image_data[0, :, :])
     eps_sse_at_Lx = np.average(image_data[int(Nx - 1), :, :])
 
-    cond_eff = 0.5 * (kappa_eff(current_at_0, eps_sse_at_0, delta_phi) + kappa_eff(current_at_Lx, eps_sse_at_Lx, delta_phi))
     # results summary
     print("Porosity @ x = 0  :", np.around(eps_sse_at_0, 4))
     print("Porosity @ x = Lx :", np.around(eps_sse_at_Lx, 4))
+    print("Avg. Porosity     :", np.around(eps_sse, 4))
+    print("Model @x = 0      :", np.around(kappa_eff(current_at_0, eps_sse_at_0, delta_phi), 4))
+    print("Model @x = Lx     :", np.around(kappa_eff(current_at_Lx, eps_sse_at_Lx, delta_phi), 4))
+    print("Model avg.        :", np.around(kappa_eff(np.average(values), eps_sse, delta_phi), 4))
     print("Bruggeman         :", np.around(eps_sse ** 1.5, 4))
-    print("Model             :", np.around(cond_eff, 4))

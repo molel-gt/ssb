@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import os
+import sys
 import warnings
 warnings.filterwarnings("ignore")
 import gmsh
@@ -104,13 +105,19 @@ def create_mesh(mesh, cell_type, prune_z=False):
 
 
 if __name__ == '__main__':
-    spheres_locations_file = "spheres/write.dat"
+    origin = sys.argv[1]
+    home_dir = os.environ["HOME"]
+    pf = origin.split(",")[0]
+    spheres_locations_file = os.path.join(home_dir, f"spheres/{pf}.dat")
+    print(spheres_locations_file)
     task_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../')
     output_mesh_file = os.path.join(task_dir, "mesh/spheres.msh")
     grid_info = '2-1-1'
+    origin_str = origin.replace(",", "_")
+    
     build_packed_spheres_mesh(output_mesh_file, spheres_locations_file)
     mesh_3d = meshio.read(output_mesh_file)
     tetrahedral_mesh = create_mesh(mesh_3d, "tetra")
-    meshio.write(os.path.join(task_dir, f"mesh/{grid_info}_tetr.xdmf"), tetrahedral_mesh)
-    transport_model_path = os.path.join(task_dir, "transport.py")
-    val = subprocess.check_call(f'mpirun -n 2 python3 {transport_model_path} --grid_info={grid_info}', shell=True)
+    meshio.write(os.path.join(task_dir, f"mesh/s{grid_info}o{origin_str}_tetr.xdmf"), tetrahedral_mesh)
+    transport_model_path = os.path.join(home_dir, 'dev/ssb', "transport.py")
+    val = subprocess.check_call(f'mpirun -n 4 python3 {transport_model_path} --grid_info={grid_info} --origin={origin}', shell=True)
