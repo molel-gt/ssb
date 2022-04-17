@@ -10,9 +10,8 @@
 
 
 cd $PBS_O_WORKDIR
-sh set-env.sh
+source env.txt
 
 echo "Started on `/bin/hostname`"
-python3.8 geometry.py --img_folder segim --grid_info 201-201-201
 
-python3.8 transport.py --working_dir=$PBS_O_WORKDIR --grid_info=201-201-201
+python3.8 transport.py --grid_info 203-451-801 --origin 0,0,0
