@@ -285,7 +285,7 @@ if __name__ == "__main__":
     for idx, tif_file in enumerate(tif_files):
         tif_data[idx, :, :] = np.array(Image.open(tif_file), dtype=np.uint8)
     matlab_eng = matlab.engine.start_matlab()
-    voxels = matlab_eng.GetVoxels()
+    voxels = matlab_eng.GetVoxels('activematerial')
     volume = matlab_eng.sum(voxels, 'all')
     am_surface_area = matlab_eng.SurfArea(voxels)
     print("Nominal active material surface area:", int(am_surface_area))
