@@ -22,9 +22,6 @@ if __name__ == '__main__':
             vals_at_x0.append(values[idx])
         if np.isclose(coord[0], 1):
             vals_at_x1.append(values[idx])
-    # plt.plot(vals_at_x0)
-    # plt.show()
-    # print(len(vals_at_x0), len(vals_at_x1))
     print("eff. conductivity @ x=0  :", np.average(vals_at_x0) * pf)
     print("eff. conductivity @ x=1  :", np.average(vals_at_x1) * pf)
     print("avg. eff. conductivity   :", np.average(values) * pf)
