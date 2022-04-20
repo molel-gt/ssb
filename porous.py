@@ -29,25 +29,19 @@ def get_local_faces(point, surface_points):
     x0, y0, z0 = point
     pairs = [
         [(int(x0 + 1), y0, z0), (x0, int(y0 + 1), z0)],
-        # [(int(x0 + 1), y0, z0), (x0, int(y0 - 1), z0)],
-        # [(int(x0 - 1), y0, z0), (x0, int(y0 + 1), z0)],
         [(int(x0 - 1), y0, z0), (x0, int(y0 - 1), z0)],
 
         [(int(x0 + 1), y0, z0), (x0, y0, int(z0 + 1))],
-        # [(int(x0 + 1), y0, z0), (x0, y0, int(z0 - 1))],
-        # [(int(x0 - 1), y0, z0), (x0, y0, int(z0 + 1))],
         [(int(x0 - 1), y0, z0), (x0, y0, int(z0 - 1))],
 
         [(x0, y0, int(z0 + 1)), (x0, int(y0 + 1), z0)],
-        # [(x0, y0, int(z0 + 1)), (x0, int(y0 - 1), z0)],
-        # [(x0, y0, int(z0 - 1)), (x0, int(y0 + 1), z0)],
         [(x0, y0, int(z0 - 1)), (x0, int(y0 - 1), z0)],
     ]
     for point_1, point_2 in pairs:
         coord1_idx = surface_points.get(point_1)
         coord2_idx = surface_points.get(point_2)
         if coord1_idx is not None and coord2_idx is not None:
-            f = (point_idx, coord1_idx, coord2_idx)
+            f = tuple(sorted([point_idx, coord1_idx, coord2_idx]))
             faces.add(f)
     return faces
 
@@ -134,5 +128,7 @@ if __name__ == '__main__':
     msh = meshio.read("porous.msh")
     tetra_mesh = geometry.create_mesh(msh, "tetra")
     meshio.write(f"mesh/s{grid_info}o{origin_str}_tetr.xdmf", tetra_mesh)
+    os.remove("porous.msh")
+    os.remove("porous.stl")
 
     gmsh.finalize()
