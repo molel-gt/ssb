@@ -110,7 +110,7 @@ if __name__ == '__main__':
     pf = origin.split(",")[0]
     spheres_locations_file = os.path.join(home_dir, f"spheres/{pf}.dat")
     print(spheres_locations_file)
-    task_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../')
+    task_dir = os.path.abspath(os.path.dirname(__file__))
     output_mesh_file = os.path.join(task_dir, "mesh/spheres.msh")
     grid_info = '2-1-1'
     origin_str = origin.replace(",", "_")
