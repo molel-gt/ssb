@@ -8,9 +8,9 @@ using namespace std;
 using namespace gmsh;
 
 // default grid size
-const int Nx = 5; //203;
-const int Ny = 5; //451;
-const int Nz = 5; //801;
+const int Nx = 203;
+const int Ny = 451;
+const int Nz = 801;
 const int NUM_GRID = Nx * Ny * Nz;
 
 struct Rectangle {
