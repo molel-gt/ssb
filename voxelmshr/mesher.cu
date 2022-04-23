@@ -8,18 +8,18 @@ using namespace std;
 using namespace gmsh;
 
 // default grid size
-const int Nx = 20; //203;
-const int Ny = 20; //451;
-const int Nz = 20; //801;
+const int Nx = 5; //203;
+const int Ny = 5; //451;
+const int Nz = 5; //801;
 const int NUM_GRID = Nx * Ny * Nz;
 
 struct Rectangle {
-    int x0;
-    int y0;
-    int z0;
-    int dx;
-    int dy;
-    int dz;
+    int x0 = 0;
+    int y0 = 0;
+    int z0 = 0;
+    int dx = 0;
+    int dy = 0;
+    int dz = 0;
 };
 
 __global__ void makeRectangles(int *voxelData, Rectangle *rectangles, int NX)
@@ -84,32 +84,54 @@ __global__ void makeRectangles(int *voxelData, Rectangle *rectangles, int NX)
     }
 }
 
-void buildGeometry(struct Rectangle *rectangles){
+void generateMesh(struct Rectangle *rectangles){
     gmsh::initialize();
     gmsh::logger::start();
     
     gmsh::model::add("porous");
+    std::vector<std::pair<int, int> > solids;
+    std::vector<std::pair<int, int> > ov;
+    std::vector<std::vector<std::pair<int, int> > > ovv;
+    int tag = 0;
     try
     {
-        gmsh::model::occ::addBox(0, 0, 0, Nx - 1, Ny - 1, Nz - 1);
-        gmsh::model::occ::addSphere(Nx/2, Ny/2, Nz/2, Nx/4);
+        tag++;
+        gmsh::model::occ::addBox(0, 0, 0, Nx - 1, Ny - 1, Nz - 1, tag);
     }
     catch (...){
         gmsh::logger::write("Could not create OpenCASCADE shapes: bye!");
         return;
     }
-    std::vector<std::pair<int, int> > ov;
-    std::vector<std::vector<std::pair<int, int> > > ovv;
 
-    gmsh::model::occ::cut({{3, 1}}, {{3, 2}}, ov, ovv, 3);
-    std::vector<std::pair<int, int> > holes;
+    for (int idx = 0; idx < Nx - 1; idx++){
+        for (int idy = 0; idy < Ny - 1; idy++){
+            for (int idz = 0; idz < Nz - 1; idz++){
+                int rect_index = idx + idy * Ny + idz * Ny * Nz;
+                if (rectangles[rect_index].dx > 0 && rectangles[rect_index].dy > 0 && rectangles[rect_index].dz > 0){
+                    tag++;
+                    printf("%d,%d,%d\n", rectangles[rect_index].dx, rectangles[rect_index].dy, rectangles[rect_index].dz);
+                    gmsh::model::occ::addBox(rectangles[rect_index].x0, rectangles[rect_index].y0, rectangles[rect_index].z0,
+                                            rectangles[rect_index].dx, rectangles[rect_index].dy, rectangles[rect_index].dz,
+                                            tag
+                                            );
+                    solids.push_back({3, tag});
+                }
+            }
+        }
+    }
+
+    gmsh::model::occ::cut({{3, 1}}, solids, ov, ovv, tag + 1);
     gmsh::model::occ::synchronize();
-    double lcar2 = .001;
-    gmsh::model::mesh::setSize(ov, lcar2);
+
+    gmsh::model::addPhysicalGroup(3, {tag + 1}, 1);
+
+    double lcar1 = .1;
+    gmsh::model::getEntities(ov, 0);
+    gmsh::model::mesh::setSize(ov, lcar1);
+
     gmsh::model::mesh::generate(3);
     gmsh::logger::write("Writing mesh..");
-    gmsh::write("porous.msh");
-
+    gmsh::write("../porous.msh");
     
     gmsh::finalize();
 }
@@ -151,10 +173,10 @@ int main(int argc, char **argv)
     voxels[20] = 1;
     voxels[21] = 1;
     voxels[22] = 1;
-    voxels[23] = 0;
+    voxels[23] = 1;
     voxels[24] = 1;
-    voxels[25] = 0;
-    voxels[26] = 0;
+    voxels[25] = 1;
+    voxels[26] = 1;
 
     // copy inputs to device
     cudaMemcpy(d_voxels, voxels, sizeof(int) * NUM_GRID, cudaMemcpyHostToDevice);
@@ -165,7 +187,7 @@ int main(int argc, char **argv)
     // free memory on device
     cudaFree(d_voxels); cudaFree(d_rectangles);
     // build geometry
-    buildGeometry(rectangles);
-    printf("%d\n", rectangles[9].dz);
+    generateMesh(rectangles);
+    printf("%d\n", rectangles[0].dz);
     return 0;
 }
