@@ -113,6 +113,7 @@ void buildGeometry(struct Rectangle *rectangles){
     
     gmsh::finalize();
 }
+
 #define N (2048*2048)
 #define THREADS_PER_BLOCK 512
 int main(int argc, char **argv)
