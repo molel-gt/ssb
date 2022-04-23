@@ -1,15 +1,16 @@
 #include <iostream>
 #include <set>
 
-#include "gmsh.h"
+#include <gmsh.h>
+#include <algorithm>
 
 using namespace std;
 using namespace gmsh;
 
 // default grid size
-const int Nx = 3; //203;
-const int Ny = 3; //451;
-const int Nz = 3; //801;
+const int Nx = 20; //203;
+const int Ny = 20; //451;
+const int Nz = 20; //801;
 const int NUM_GRID = Nx * Ny * Nz;
 
 struct Rectangle {
@@ -83,6 +84,35 @@ __global__ void makeRectangles(int *voxelData, Rectangle *rectangles, int NX)
     }
 }
 
+void buildGeometry(struct Rectangle *rectangles){
+    gmsh::initialize();
+    gmsh::logger::start();
+    
+    gmsh::model::add("porous");
+    try
+    {
+        gmsh::model::occ::addBox(0, 0, 0, Nx - 1, Ny - 1, Nz - 1);
+        gmsh::model::occ::addSphere(Nx/2, Ny/2, Nz/2, Nx/4);
+    }
+    catch (...){
+        gmsh::logger::write("Could not create OpenCASCADE shapes: bye!");
+        return;
+    }
+    std::vector<std::pair<int, int> > ov;
+    std::vector<std::vector<std::pair<int, int> > > ovv;
+
+    gmsh::model::occ::cut({{3, 1}}, {{3, 2}}, ov, ovv, 3);
+    std::vector<std::pair<int, int> > holes;
+    gmsh::model::occ::synchronize();
+    double lcar2 = .001;
+    gmsh::model::mesh::setSize(ov, lcar2);
+    gmsh::model::mesh::generate(3);
+    gmsh::logger::write("Writing mesh..");
+    gmsh::write("porous.msh");
+
+    
+    gmsh::finalize();
+}
 #define N (2048*2048)
 #define THREADS_PER_BLOCK 512
 int main(int argc, char **argv)
@@ -133,26 +163,8 @@ int main(int argc, char **argv)
 
     // free memory on device
     cudaFree(d_voxels); cudaFree(d_rectangles);
-
-    // gmsh::initialize(argc, argv);
-    // gmsh::logger::start();
-    
-    // gmsh::model::add("porous");
-    // gmsh::model::occ::addBox(0, 0, 0, Nx - 1, Ny - 1, Nz - 1);
-    // gmsh::model::occ::addSphere(Nx/2, Ny/2, Nz/2, Nx/4);
-    // std::vector<std::pair<int, int> > ov;
-    // std::vector<std::vector<std::pair<int, int> > > ovv;
-
-    // gmsh::model::occ::cut({{3, 1}}, {{3, 2}}, ov, ovv, 3);
-    // std::vector<std::pair<int, int> > holes;
-    // gmsh::model::occ::synchronize();
-    // double lcar2 = .001;
-    // gmsh::model::mesh::setSize(ov, lcar2);
-    // gmsh::model::mesh::generate(3);
-    // gmsh::logger::write("Writing mesh..");
-    // gmsh::write("porous.msh");
-
-    // gmsh::finalize();
+    // build geometry
+    buildGeometry(rectangles);
     printf("%d\n", rectangles[9].dz);
     return 0;
 }
