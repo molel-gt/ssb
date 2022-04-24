@@ -63,7 +63,7 @@ def build_voxels_mesh(boxes, output_mshfile):
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
-    resolution = 0.025
+    resolution = 0.1
     channel = gmsh.model.occ.addBox(0, 0, 0, Lx, Ly, Lz)
     gmsh_boxes = []
 
@@ -78,37 +78,24 @@ def build_voxels_mesh(boxes, output_mshfile):
     gmsh.model.addPhysicalGroup(volumes[0][0], [volumes[0][1]], marker)
     gmsh.model.setPhysicalName(volumes[0][0], marker, "conductor")
     surfaces = gmsh.model.occ.getEntities(dim=2)
-    left_marker = 1
-    right_marker = 3
-    box_marker = 5
-    spheres = []
+    wall_marker = 15
     walls = []
     for surface in surfaces:
         com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
-        if np.allclose(com, [0, Ly/2, Lz/2]):
-            gmsh.model.addPhysicalGroup(surface[0], [surface[1]], left_marker)
-            left = surface[1]
-            gmsh.model.setPhysicalName(surface[0], left_marker, "left")
-        elif np.allclose(com, [Lx, Ly/2, Lz/2]):
-            gmsh.model.addPhysicalGroup(surface[0], [surface[1]], right_marker)
-            gmsh.model.setPhysicalName(surface[0], right_marker, "right")
-            right = surface[1]
-        elif np.isclose(com[2], 0) or np.isclose(com[1], Ly) or np.isclose(com[2], Lz) or np.isclose(com[1], 0):
+        if np.isclose(com[2], 0) or np.isclose(com[2], Lz) or np.isclose(com[1], 0) or np.isclose(com[1], Ly) or np.isclose(com[0], 0) or np.isclose(com[0], Lx):
             walls.append(surface[1])
-        else:
-            spheres.append(surface[1])
-    gmsh.model.addPhysicalGroup(2, spheres, box_marker)
-    gmsh.model.setPhysicalName(2, box_marker, "box")
+    gmsh.model.addPhysicalGroup(2, walls, wall_marker)
+    gmsh.model.setPhysicalName(2, wall_marker, "Walls")
 
     gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "FacesList", spheres)
+    gmsh.model.mesh.field.setNumbers(1, "FacesList", walls)
 
     gmsh.model.mesh.field.add("Threshold", 2)
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
     gmsh.model.mesh.field.setNumber(2, "LcMin", resolution)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", 20*resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5 * Nx / 10)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", Nx / 10)
+    gmsh.model.mesh.field.setNumber(2, "LcMax", 20 * resolution)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 1)
 
     gmsh.model.mesh.field.add("Min", 5)
     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
