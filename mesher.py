@@ -137,8 +137,6 @@ if __name__ == '__main__':
     occlusions = np.logical_not(data)
     rectangles = make_rectangles(occlusions)
     boxes = make_boxes(rectangles)
-    print(np.unique(boxes))
-    # task_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), '../')
     output_mshfile = f"mesh/s{grid_info}o{origin_str}_porous.msh"
     gmsh.initialize()
     build_voxels_mesh(boxes, output_mshfile)
