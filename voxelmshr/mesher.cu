@@ -8,9 +8,9 @@ using namespace std;
 using namespace gmsh;
 
 // default grid size
-const int Nx = 203;
-const int Ny = 451;
-const int Nz = 801;
+const int Nx = 101;
+const int Ny = 201;
+const int Nz = 101;
 const int NUM_GRID = Nx * Ny * Nz;
 
 struct Rectangle {
@@ -22,7 +22,7 @@ struct Rectangle {
     int dz = 0;
 };
 
-__global__ void makeRectangles(int *voxelData, Rectangle *rectangles, int NX)
+__global__ void makeRectangles(int *voxelData, struct Rectangle *rectangles, int NX)
 {
     int idx = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -99,7 +99,7 @@ void generateMesh(struct Rectangle *rectangles){
         gmsh::model::occ::addBox(0, 0, 0, Nx - 1, Ny - 1, Nz - 1, tag);
     }
     catch (...){
-        gmsh::logger::write("Could not create OpenCASCADE shapes: bye!");
+        gmsh::logger::write("Could not create OpenCASCADE shapes!");
         return;
     }
 
@@ -107,7 +107,7 @@ void generateMesh(struct Rectangle *rectangles){
         for (int idy = 0; idy < Ny - 1; idy++){
             for (int idz = 0; idz < Nz - 1; idz++){
                 int rect_index = idx + idy * Ny + idz * Ny * Nz;
-                if (rectangles[rect_index].dx > 0 && rectangles[rect_index].dy > 0 && rectangles[rect_index].dz > 0){
+                if (3 > rectangles[rect_index].dx > 0 && 3 > rectangles[rect_index].dy > 0 && 3 > rectangles[rect_index].dz > 0){
                     tag++;
                     printf("%d,%d,%d\n", rectangles[rect_index].dx, rectangles[rect_index].dy, rectangles[rect_index].dz);
                     gmsh::model::occ::addBox(rectangles[rect_index].x0, rectangles[rect_index].y0, rectangles[rect_index].z0,
@@ -150,33 +150,10 @@ int main(int argc, char **argv)
 
     voxels = (int *)malloc(sizeof(int) * NUM_GRID);
     rectangles = (struct Rectangle *)malloc(sizeof(struct Rectangle) * NUM_GRID);
-    voxels[0] = 1;
-    voxels[1] = 1;
-    voxels[2] = 1;
-    voxels[3] = 1;
-    voxels[4] = 1;
-    voxels[5] = 1;
-    voxels[6] = 1;
-    voxels[7] = 1;
-    voxels[8] = 1;
-    voxels[9] = 1;
-    voxels[10] = 1;
-    voxels[11] = 1;
-    voxels[12] = 1;
-    voxels[13] = 1;
-    voxels[14] = 1;
-    voxels[15] = 1;
-    voxels[16] = 1;
-    voxels[17] = 1;
-    voxels[18] = 1;
-    voxels[19] = 1;
-    voxels[20] = 1;
-    voxels[21] = 1;
-    voxels[22] = 1;
-    voxels[23] = 1;
-    voxels[24] = 1;
-    voxels[25] = 1;
-    voxels[26] = 1;
+    // build voxels
+     for (int i = 0; i < 30; i++){
+        voxels[i] = 1;
+    }
 
     // copy inputs to device
     cudaMemcpy(d_voxels, voxels, sizeof(int) * NUM_GRID, cudaMemcpyHostToDevice);
@@ -187,7 +164,7 @@ int main(int argc, char **argv)
     // free memory on device
     cudaFree(d_voxels); cudaFree(d_rectangles);
     // build geometry
-    generateMesh(rectangles);
+    // generateMesh(rectangles);
     printf("%d\n", rectangles[0].dz);
     return 0;
 }
