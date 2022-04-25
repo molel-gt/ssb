@@ -1,0 +1,17 @@
+#PBS -A GT-tf74
+#PBS -l walltime=2:30:00
+#PBS -l nodes=1:ppn=8
+#PBS -l pmem=32gb
+#PBS -m abe
+#PBS -q inferno
+#PBS -j oe
+#PBS -o mesher.out
+#PBS -M emolel3@gatech.edu
+
+
+cd $PBS_O_WORKDIR
+export PATH=$PATH:/storage/coda1/p-tf74/0/emolel3/Python-3.8.10/bin:/storage/home/hcoda1/0/emolel3/.local/bin
+
+echo "Started on `/bin/hostname`"
+
+python3.8 mesher.py --img_folder Archive/electrolyte --grid_info 101-101-101 --origin 0,0,0
