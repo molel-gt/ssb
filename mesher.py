@@ -12,13 +12,15 @@ import meshio
 import numpy as np
 import subprocess
 
+from itertools import groupby
+from operator import itemgetter
+
 import geometry
 
 
 def make_rectangles(voxels):
     Nx, Ny, Nz = voxels.shape
     rectangles = np.zeros(voxels.shape, dtype=np.uint8)
-
     for idx in range(Nx - 1):
         for idy in range(Ny - 1):
             for idz in range(Nz):
@@ -27,33 +29,29 @@ def make_rectangles(voxels):
                 p2 = (idx, idy + 1, idz)
                 p3 = (idx + 1, idy + 1, idz)
 
-                if voxels[p0] and voxels[p1] and voxels[p2] and voxels[p3]:
+                if (voxels[p0] and voxels[p1] and voxels[p2] and voxels[p3]):
                     rectangles[p0] = 1
 
     return rectangles
 
 
 def make_boxes(rectangles):
-    Nx, Ny, Nz = rectangles.shape
+    Nx, Ny, _ = rectangles.shape
     boxes = np.zeros(rectangles.shape, dtype=np.uint16)
     for idx in range(Nx - 1):
         for idy in range(Ny - 1):
             box_length = 0
             start_pos = 0
-            counter = 0
-            for idz in range(Nz - 1):
-                if not rectangles[idx][idy][idz]:
-                    if box_length > 0:
-                        boxes[idx][idz][start_pos] = box_length
-                        counter += 1
-                    start_pos = idz
-                    box_length = 0
-                    continue
-                if rectangles[idx][idy][idz] and rectangles[idx][idy][idz + 1]:
-                    box_length += 1
-                    if idz == (Nx - 3):
-                        boxes[idx][idy][start_pos] = box_length
-                    start_pos = idz
+            pieces = []
+            rect_positions = [v[0] for v in np.argwhere(rectangles[idx, idy, :] != 0 )]
+            if len(rect_positions) < 2:
+                continue
+            for _, g in groupby(enumerate(rect_positions), lambda ix: ix[0] - ix[1]):
+                pieces.append(list(map(itemgetter(1), g)))
+            for p in pieces:
+                box_length = p[len(p) - 1] - p[0]
+                start_pos = p[0]
+                boxes[idx, idy, start_pos] = box_length
     return boxes
 
 
@@ -66,17 +64,24 @@ def build_voxels_mesh(boxes, output_mshfile):
     resolution = 0.1
     channel = gmsh.model.occ.addBox(0, 0, 0, Lx, Ly, Lz)
     gmsh_boxes = []
+    counter = 1
 
-    for index, box_length in np.ndenumerate(boxes):
-        if box_length > 0:
-            box = gmsh.model.occ.addBox(index[0], index[1], index[2], 1, 1, box_length)
-            gmsh_boxes.append(box)
+    for idx in range(Nx):
+        for idy in range(Ny):
+            for idz in range(Nz):
+                box_length = boxes[idx, idy, idz]
+                if box_length > 0:
+                    counter += 1
+                    box = gmsh.model.occ.addBox(idx, idy, idz, 1, 1, box_length)
+                    gmsh_boxes.append(box)
     channel = gmsh.model.occ.cut([(3, channel)], [(3, box) for box in gmsh_boxes])
     gmsh.model.occ.synchronize()
     volumes = gmsh.model.getEntities(dim=3)
-    marker = 11
-    gmsh.model.addPhysicalGroup(volumes[0][0], [volumes[0][1]], marker)
-    gmsh.model.setPhysicalName(volumes[0][0], marker, "conductor")
+
+    for i, volume in enumerate(volumes):
+        marker = int(counter + i)
+        gmsh.model.addPhysicalGroup(volume[0], [volume[1]], marker)
+        gmsh.model.setPhysicalName(volume[0], marker, f"V{marker}")
     surfaces = gmsh.model.occ.getEntities(dim=2)
     wall_marker = 15
     walls = []
@@ -94,12 +99,14 @@ def build_voxels_mesh(boxes, output_mshfile):
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
     gmsh.model.mesh.field.setNumber(2, "LcMin", resolution)
     gmsh.model.mesh.field.setNumber(2, "LcMax", 20 * resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.25)
     gmsh.model.mesh.field.setNumber(2, "DistMax", 1)
 
     gmsh.model.mesh.field.add("Min", 5)
     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
     gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    # points = gmsh.model.getEntities(dim=0)
+    # gmsh.model.mesh.setSize(points, resolution)
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
     
@@ -137,6 +144,9 @@ if __name__ == '__main__':
     occlusions = np.logical_not(data)
     rectangles = make_rectangles(occlusions)
     boxes = make_boxes(rectangles)
+    print("No. voxels:", np.sum(occlusions))
+    print("No. rectangles:", np.sum(rectangles))
+    print("No. boxes:", np.sum(boxes))
     output_mshfile = f"mesh/s{grid_info}o{origin_str}_porous.msh"
     gmsh.initialize()
     build_voxels_mesh(boxes, output_mshfile)
