@@ -2,7 +2,6 @@
 # coding: utf-8
 
 import os
-import sys
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -10,7 +9,6 @@ import argparse
 import gmsh
 import meshio
 import numpy as np
-import subprocess
 
 from itertools import groupby
 from operator import itemgetter
@@ -144,9 +142,9 @@ if __name__ == '__main__':
     occlusions = np.logical_not(data)
     rectangles = make_rectangles(occlusions)
     boxes = make_boxes(rectangles)
-    print("No. voxels:", np.sum(occlusions))
-    print("No. rectangles:", np.sum(rectangles))
-    print("No. boxes:", np.sum(boxes))
+    print("No. voxels       :", np.sum(occlusions))
+    print("No. rectangles   :", np.sum(rectangles))
+    print("No. boxes        :", np.sum(boxes))
     output_mshfile = f"mesh/s{grid_info}o{origin_str}_porous.msh"
     gmsh.initialize()
     build_voxels_mesh(boxes, output_mshfile)

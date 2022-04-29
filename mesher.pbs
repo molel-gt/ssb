@@ -9,6 +9,8 @@
 #PBS -M emolel3@gatech.edu
 
 
+export CMAKE_PREFIX_PATH=/storage/home/hcoda1/0/emolel3/p-tf74-0/
+
 cd $PBS_O_WORKDIR
 export PATH=$PATH:/storage/coda1/p-tf74/0/emolel3/Python-3.8.10/bin:/storage/home/hcoda1/0/emolel3/.local/bin
 alias gmsh=/storage/home/hcoda1/0/emolel3/p-tf74-0/gmsh-4.10.0-Linux64/bin/gmsh
