@@ -5,6 +5,8 @@ import os
 import sys
 import warnings
 warnings.filterwarnings("ignore")
+
+import argparse
 import gmsh
 import meshio
 import numpy as np
@@ -38,7 +40,7 @@ def read_spheres_position_file(spheres_position_path):
 def build_packed_spheres_mesh(output_mesh_file, spheres_locations_file):
     gmsh.model.add("3D")
     Lx, Ly, Lz = 1, 1, 1
-    resolution = 0.025
+    resolution = 0.001
     channel = gmsh.model.occ.addBox(0, 0, 0, Lx, Ly, Lz)
     spheres_ = []
     centers, r, n_spheres = read_spheres_position_file(spheres_locations_file)
@@ -105,11 +107,14 @@ def create_mesh(mesh, cell_type, prune_z=False):
 
 
 if __name__ == '__main__':
-    origin = sys.argv[1]
+    parser = argparse.ArgumentParser(description='run simulation..')
+    parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
+
+    args = parser.parse_args()
+    origin = args.origin
     home_dir = os.environ["HOME"]
     pf = origin.split(",")[0]
     spheres_locations_file = os.path.join(home_dir, f"spheres/{pf}.dat")
-    print(spheres_locations_file)
     task_dir = os.path.abspath(os.path.dirname(__file__))
     output_mesh_file = os.path.join(task_dir, "mesh/spheres.msh")
     grid_info = '2-1-1'
