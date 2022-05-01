@@ -8,18 +8,12 @@
 #PBS -o mesher.out
 #PBS -M emolel3@gatech.edu
 
-module load pace/2020.01
-module load xalt/2.8.4
-module load cmake/3.20.3
-module load gcc/8.3.0
-module load boost/1.70.0
-module load mvapich2/2.3.2
-module load gmsh/4.4.1-mva2
 
 export CMAKE_PREFIX_PATH=/storage/home/hcoda1/0/emolel3/p-tf74-0/
 
 cd $PBS_O_WORKDIR
 export PATH=$PATH:/storage/coda1/p-tf74/0/emolel3/Python-3.8.10/bin:/storage/home/hcoda1/0/emolel3/.local/bin
+alias gmsh=/storage/home/hcoda1/0/emolel3/p-tf74-0/gmsh-4.10.0-Linux64/bin/gmsh
 
 echo "Started on `/bin/hostname`"
 
