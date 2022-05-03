@@ -31,7 +31,7 @@ if __name__ == '__main__':
         origin = args.origin
     origin_str = "_".join([str(v) for v in origin])
     grid_info = args.grid_info
-    Lx = int(grid_info.split("-")[0]) - 1
+    Ly = int(grid_info.split("-")[1]) - 1
     working_dir = os.path.abspath(os.path.dirname(__file__))
     meshes_dir = os.path.join(working_dir, 'mesh')
     output_dir = os.path.join(working_dir, 'output')
@@ -56,9 +56,9 @@ if __name__ == '__main__':
     with u1.vector.localForm() as u1_loc:
         u1_loc.set(0)
     x0facet = locate_entities_boundary(mesh, 0,
-                                    lambda x: np.isclose(x[0], 0.0))
+                                    lambda x: np.isclose(x[1], 0.0))
     x1facet = locate_entities_boundary(mesh, 0,
-                                    lambda x: np.isclose(x[0], Lx))
+                                    lambda x: np.isclose(x[1], Ly))
     x0bc = DirichletBC(u0, locate_dofs_topological(V, 0, x0facet))
     x1bc = DirichletBC(u1, locate_dofs_topological(V, 0, x1facet))
 
