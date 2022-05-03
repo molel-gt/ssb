@@ -10,8 +10,6 @@
 
 
 cd $PBS_O_WORKDIR
-source env.txt
-
-echo "Started on `/bin/hostname`"
-
-python3.8 transport.py --grid_info 51-51-51 --origin 0,0,0
+module load pace-community
+module load dolfinx
+singularity run $DOLFINX_SIF python3 transport.py --grid_info 51-51-51 --origin 0,0,0
