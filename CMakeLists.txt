@@ -4,7 +4,7 @@
 #
 cmake_minimum_required(VERSION 3.16)
 
-set(PROJECT_NAME demo_poisson_matrix_free)
+set(PROJECT_NAME conduction)
 project(${PROJECT_NAME} LANGUAGES C CXX)
 
 # Set C++17 standard
@@ -23,7 +23,7 @@ endif()
 add_custom_command(
   OUTPUT conduction.c
   COMMAND ffcx ${CMAKE_CURRENT_SOURCE_DIR}/conduction.py ${SCALAR_TYPE}
-  VERBATIM DEPENDS poisson.py COMMENT "Compile conduction.py using FFCx")
+  VERBATIM DEPENDS conduction.py COMMENT "Compile conduction.py using FFCx")
 
 add_executable(${PROJECT_NAME} conduction.cpp ${CMAKE_CURRENT_BINARY_DIR}/conduction.c)
 target_link_libraries(${PROJECT_NAME} dolfinx)
