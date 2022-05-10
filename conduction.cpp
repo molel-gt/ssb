@@ -19,8 +19,6 @@
 using namespace dolfinx;
 using namespace std;
 
-using namespace dolfinx;
-
 namespace linalg
 {
 /// Compute vector r = alpha*x + y
