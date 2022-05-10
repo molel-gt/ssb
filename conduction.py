@@ -1,5 +1,5 @@
 from ufl import (Coefficient, Constant, FiniteElement, FunctionSpace, Mesh,
-                 TestFunction, TrialFunction, VectorElement, action, dx, grad,
+                 TestFunction, TrialFunction, VectorElement, action, ds, dx, grad,
                  inner, tetrahedron)
 
 coord_element = VectorElement("Lagrange", tetrahedron, 1)
@@ -15,11 +15,12 @@ v = TestFunction(V)
 
 # Define a constant RHS
 f = Constant(V)
+g = Constant(V)
 
 # Define the bilinear and linear forms according to the
 # variational formulation of the equations::
 a = inner(grad(u), grad(v)) * dx
-L = inner(f, v) * dx
+L = inner(f, v) * dx + inner(g, v) * ds
 
 # Define linear form representing the action of the form "a" on
 # the coefficient "ui"
