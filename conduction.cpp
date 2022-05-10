@@ -116,19 +116,19 @@ int main(int argc, char* argv[])
         comm, {{{0.0, 0.0}, {1.0, 1.0}}}, {10, 10}, mesh::CellType::triangle,
         mesh::GhostMode::none));
     auto V = std::make_shared<fem::FunctionSpace>(
-        fem::create_functionspace(functionspace_form_poisson_M, "ui", mesh));
+        fem::create_functionspace(functionspace_form_conduction_M, "ui", mesh));
 
     // Prepare and set Constants for the bilinear form
     auto f = std::make_shared<fem::Constant<T>>(-6.0);
 
     // Define variational forms
     auto L = std::make_shared<fem::Form<T>>(
-        fem::create_form<T>(*form_poisson_L, {V}, {}, {{"f", f}}, {}));
+        fem::create_form<T>(*form_conduction_L, {V}, {}, {{"f", f}}, {}));
 
     // Action of the bilinear form "a" on a function ui
     auto ui = std::make_shared<fem::Function<T>>(V);
     auto M = std::make_shared<fem::Form<T>>(
-        fem::create_form<T>(*form_poisson_M, {V}, {{"ui", ui}}, {{}}, {}));
+        fem::create_form<T>(*form_conduction_M, {V}, {{"ui", ui}}, {{}}, {}));
 
     // Define boundary condition
     auto u_D = std::make_shared<fem::Function<T>>(V);
@@ -198,7 +198,7 @@ int main(int argc, char* argv[])
     // Compute L2 error (squared) of the solution vector e = (u - u_d, u
     // - u_d)*dx
     auto E = std::make_shared<fem::Form<T>>(fem::create_form<T>(
-        *form_poisson_E, {}, {{"uexact", u_D}, {"usol", u}}, {}, {}, mesh));
+        *form_conduction_E, {}, {{"uexact", u_D}, {"usol", u}}, {}, {}, mesh));
     T error = fem::assemble_scalar(*E);
 
     if (dolfinx::MPI::rank(comm) == 0)
