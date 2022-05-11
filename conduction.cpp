@@ -181,7 +181,7 @@ int main(int argc, char* argv[])
                            fem::make_coefficients_span(coeff));
 
       // Set BC dofs to zero (effectively zeroes rows of A)
-      fem::set_bc(y.mutable_array(), {x0bc, x1bc}, 0.0);
+      fem::set_bc(y.mutable_array(), {x0bc, x1bc}, {{1.0, 0.0}});
       // fem::set_bc(y.mutable_array(), {x1bc}, 0.0);
 
       // Accumulate ghost values
@@ -196,8 +196,8 @@ int main(int argc, char* argv[])
     int num_it = linalg::cg(*u->x(), b, action, 200, 1e-6);
 
     // Set BC values in the solution vectors
-    fem::set_bc(u->x()->mutable_array(), {x0bc}, 1.0);
-    fem::set_bc(u->x()->mutable_array(), {x1bc}, 0.0);
+    fem::set_bc(u->x()->mutable_array(), {x0bc, x1bc}, {{1.0, 0.0}});
+    // fem::set_bc(u->x()->mutable_array(), {x1bc}, 0.0);
 
     if (dolfinx::MPI::rank(comm) == 0)
     {
