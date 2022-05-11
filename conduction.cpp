@@ -119,15 +119,30 @@ int main(int argc, char* argv[])
         fem::create_form<T>(*form_conduction_M, {V}, {{"ui", ui}}, {{}}, {}));
 
     // Define boundary condition
-    auto u_D = std::make_shared<fem::Function<T>>(V);
-    u_D->interpolate(
-        [](auto&& x) {
-          return 1 + xt::square(xt::row(x, 0)) + 2 * xt::square(xt::row(x, 1));
-        });
-    std::vector<std::int32_t> facets = mesh::exterior_facet_indices(*mesh);
-    std::vector<std::int32_t> bdofs
-        = fem::locate_dofs_topological({*V}, 1, facets);
-    auto bc = std::make_shared<const fem::DirichletBC<T>>(u_D, bdofs);
+    // auto u_D = std::make_shared<fem::Function<T>>(V);
+    // u_D->interpolate(
+    //     [](auto&& x) {
+    //       return 1 + xt::square(xt::row(x, 0)) + 2 * xt::square(xt::row(x, 1));
+    //     });
+
+    // Create Dirichlet boundary conditions
+    auto bdofs_left
+        = fem::locate_dofs_geometrical({*V},
+                                       [](auto&& x) -> xt::xtensor<bool, 1> {
+                                         return xt::isclose(xt::row(x, 0), 0.0);
+                                       });
+    auto bdofs_right
+        = fem::locate_dofs_geometrical({*V},
+                                       [](auto&& x) -> xt::xtensor<bool, 1> {
+                                         return xt::isclose(xt::row(x, 0), 1.0);
+                                       });
+    auto bcs = std::vector{
+        std::make_shared<const fem::DirichletBC<T>>(ui, bdofs_left),
+        std::make_shared<const fem::DirichletBC<T>>(ui, bdofs_right)};
+    // std::vector<std::int32_t> facets = mesh::exterior_facet_indices(*mesh);
+    // std::vector<std::int32_t> bdofs
+        // = fem::locate_dofs_topological({*V}, 1, facets);
+    // auto bc = std::make_shared<const fem::DirichletBC<T>>(u_D, bdofs);
 
     // Assemble RHS vector
     la::Vector<T> b(V->dofmap()->index_map, V->dofmap()->index_map_bs());
@@ -135,14 +150,15 @@ int main(int argc, char* argv[])
 
     // Apply lifting to account for Dirichlet boundary condition
     // b <- b - A * x_bc
-    fem::set_bc(ui->x()->mutable_array(), {bc}, -1.0);
+    fem::set_bc(ui->x()->mutable_array(), bcs, -1.0);
     dolfinx::fem::assemble_vector(b.mutable_array(), *M);
 
     // Communicate ghost values
     b.scatter_rev(common::IndexMap::Mode::add);
 
     // Set BC dofs to zero (effectively zeroes columns of A)
-    fem::set_bc(b.mutable_array(), {bc}, 0.0);
+    fem::set_bc(b.mutable_array(), {bcs[0]}, 1.0);
+    fem::set_bc(b.mutable_array(), {bcs[1]}, 0.0);
 
     b.scatter_fwd();
 
@@ -152,7 +168,7 @@ int main(int argc, char* argv[])
 
     // Create function for computing the action of A on x (y = Ax)
     std::function<void(la::Vector<T>&, la::Vector<T>&)> action
-        = [&M, &ui, &bc, &coeff, &constants](la::Vector<T>& x, la::Vector<T>& y)
+        = [&M, &ui, &bcs, &coeff, &constants](la::Vector<T>& x, la::Vector<T>& y)
     {
       // Zero y
       y.set(0.0);
@@ -167,7 +183,8 @@ int main(int argc, char* argv[])
                            fem::make_coefficients_span(coeff));
 
       // Set BC dofs to zero (effectively zeroes rows of A)
-      fem::set_bc(y.mutable_array(), {bc}, 0.0);
+      fem::set_bc(y.mutable_array(), {bcs[0]}, 1.0);
+      fem::set_bc(y.mutable_array(), {bcs[1]}, 0.0);
 
       // Accumuate ghost values
       y.scatter_rev(common::IndexMap::Mode::add);
@@ -181,13 +198,13 @@ int main(int argc, char* argv[])
     int num_it = linalg::cg(*u->x(), b, action, 200, 1e-6);
 
     // Set BC values in the solution vectors
-    fem::set_bc(u->x()->mutable_array(), {bc}, 1.0);
+    fem::set_bc(u->x()->mutable_array(), bcs, 1.0);
 
     // Compute L2 error (squared) of the solution vector e = (u - u_d, u
     // - u_d)*dx
-    auto E = std::make_shared<fem::Form<T>>(fem::create_form<T>(
-        *form_conduction_E, {}, {{"uexact", u_D}, {"usol", u}}, {}, {}, mesh));
-    T error = fem::assemble_scalar(*E);
+    // auto E = std::make_shared<fem::Form<T>>(fem::create_form<T>(
+    //     *form_conduction_E, {}, {{"uexact", u_D}, {"usol", u}}, {}, {}, mesh));
+    // T error = fem::assemble_scalar(*E);
 
     if (dolfinx::MPI::rank(comm) == 0)
     {
@@ -196,8 +213,8 @@ int main(int argc, char* argv[])
       file.write_mesh(*mesh);
       file.write_function({*u}, 0.0);
       std::cout << "Number of CG iterations " << num_it << std::endl;
-      std::cout << "Finite element error (L2 norm (squared)) "
-                << std::abs(error) << std::endl;
+      // std::cout << "Finite element error (L2 norm (squared)) "
+      //           << std::abs(error) << std::endl;
     }
   }
 
