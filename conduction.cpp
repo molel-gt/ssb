@@ -19,8 +19,6 @@
 using namespace dolfinx;
 using namespace std;
 
-using namespace dolfinx;
-
 namespace linalg
 {
 /// Compute vector r = alpha*x + y
@@ -113,13 +111,14 @@ int main(int argc, char* argv[])
 
     // Create mesh and function space
     auto mesh = std::make_shared<mesh::Mesh>(mesh::create_box(
-        comm, {0.0, 0.0, 0.0}, {10, 10, 10}, mesh::CellType::tetrahedron,
+        comm, {{{0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}}}, {10, 10, 10}, mesh::CellType::tetrahedron,
         mesh::GhostMode::none));
     auto V = std::make_shared<fem::FunctionSpace>(
         fem::create_functionspace(functionspace_form_conduction_M, "ui", mesh));
 
     // Prepare and set Constants for the bilinear form
     auto f = std::make_shared<fem::Constant<T>>(0);
+    auto g = std::make_shared<fem::Constant<T>>(0);
 
     // Define variational forms
     auto L = std::make_shared<fem::Form<T>>(
