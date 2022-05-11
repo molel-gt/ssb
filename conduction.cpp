@@ -196,7 +196,8 @@ int main(int argc, char* argv[])
     int num_it = linalg::cg(*u->x(), b, action, 200, 1e-6);
 
     // Set BC values in the solution vectors
-    fem::set_bc(u->x()->mutable_array(), {x0bc, x1bc}, 1.0);
+    fem::set_bc(u->x()->mutable_array(), {x0bc}, 1.0);
+    fem::set_bc(u->x()->mutable_array(), {x1bc}, 0.0);
 
     // Compute L2 error (squared) of the solution vector e = (u - u_d, u
     // - u_d)*dx
