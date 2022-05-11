@@ -1,4 +1,5 @@
 #include <cmath>
+#include "conduction.h"
 #include <dolfinx.h>
 #include <dolfinx/common/log.h>
 #include <dolfinx/fem/Constant.h>
