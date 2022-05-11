@@ -199,12 +199,6 @@ int main(int argc, char* argv[])
     fem::set_bc(u->x()->mutable_array(), {x0bc}, 1.0);
     fem::set_bc(u->x()->mutable_array(), {x1bc}, 0.0);
 
-    // Compute L2 error (squared) of the solution vector e = (u - u_d, u
-    // - u_d)*dx
-    // auto E = std::make_shared<fem::Form<T>>(fem::create_form<T>(
-    //     *form_conduction_E, {}, {{"uexact", u_D}, {"usol", u}}, {}, {}, mesh));
-    // T error = fem::assemble_scalar(*E);
-
     if (dolfinx::MPI::rank(comm) == 0)
     {
       // Save solution in XDMF format
@@ -212,8 +206,6 @@ int main(int argc, char* argv[])
       file.write_mesh(*mesh);
       file.write_function({*u}, 0.0);
       std::cout << "Number of CG iterations " << num_it << std::endl;
-      // std::cout << "Finite element error (L2 norm (squared)) "
-      //           << std::abs(error) << std::endl;
     }
   }
 
