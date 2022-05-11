@@ -134,7 +134,7 @@ int main(int argc, char* argv[])
     auto u_D = std::make_shared<fem::Function<T>>(V);
     u_D->interpolate(
         [](auto&& x) {
-          return 0; //1 + xt::square(xt::row(x, 0)) + 2 * xt::square(xt::row(x, 1));
+          return 1 + xt::square(xt::row(x, 0)) + 2 * xt::square(xt::row(x, 1));
         });
     std::vector<std::int32_t> facets = mesh::exterior_facet_indices(*mesh);
     std::vector<std::int32_t> bdofs
