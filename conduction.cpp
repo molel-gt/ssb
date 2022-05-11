@@ -1,19 +1,7 @@
 #include <cmath>
 #include "conduction.h"
 #include <dolfinx.h>
-#include <dolfinx/common/log.h>
-#include <dolfinx/fem/Constant.h>
-#include <dolfinx/fem/DirichletBC.h>
-#include <dolfinx/fem/Function.h>
-#include <dolfinx/fem/FunctionSpace.h>
-#include <dolfinx/fem/petsc.h>
 #include <dolfinx/io/XDMFFile.h>
-#include <dolfinx/la/petsc.h>
-#include <dolfinx/mesh/Mesh.h>
-#include <dolfinx/mesh/Topology.h>
-#include <iostream>
-#include <mpi.h>
-#include <ufcx.h>
 #include <xtensor/xarray.hpp>
 #include <xtensor/xtensor.hpp>
 
@@ -217,21 +205,3 @@ int main(int argc, char* argv[])
 
   return 0;
 }
-
-
-// using T = PetscScalar;
-
-// int main(int argc, char **argv){
-//     int size, rank;
-//     // mesh::Mesh mesh;
-//     dolfinx::init_logging(argc, argv);
-//     PetscInitialize(&argc, &argv, nullptr, nullptr);
-//     MPI_Init(&argc, &argv);
-//     MPI_Comm comm = MPI_COMM_WORLD;
-//     // io::XDMFFile file_sigma(mesh->comm(), "s51-51-51o0_0_0_tetr.xdmf", "r");
-//     // file_sigma.read_mesh(*mesh);
-//     int Nx = 51, Ny = 51, Nz = 51;
-//     cout << "Trying out cxx dolfinx" << endl;
-//     MPI_Finalize();
-//     return 0;
-// }
