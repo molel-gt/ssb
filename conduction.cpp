@@ -203,6 +203,10 @@ int main(int argc, char* argv[])
 
     if (dolfinx::MPI::rank(comm) == 0)
     {
+      // Save solution in XDMF format
+      io::XDMFFile file(MPI_COMM_WORLD, "u.xdmf", "w");
+      file.write_mesh(*mesh);
+      file.write_function({*u}, 0.0);
       std::cout << "Number of CG iterations " << num_it << std::endl;
       std::cout << "Finite element error (L2 norm (squared)) "
                 << std::abs(error) << std::endl;
