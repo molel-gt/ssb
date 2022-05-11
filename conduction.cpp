@@ -123,7 +123,7 @@ int main(int argc, char* argv[])
 
     // Define variational forms
     auto L = std::make_shared<fem::Form<T>>(
-        fem::create_form<T>(*form_conduction_L, {V}, {}, {{"f", f}}, {}));
+        fem::create_form<T>(*form_conduction_L, {V}, {}, {{"f", f}, {"g", g}}, {}));
 
     // Action of the bilinear form "a" on a function ui
     auto ui = std::make_shared<fem::Function<T>>(V);
