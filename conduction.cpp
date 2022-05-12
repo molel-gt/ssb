@@ -135,12 +135,10 @@ int main(int argc, char* argv[])
         [](auto&& x) {
           return xt::square(xt::row(x, 0)) - xt::square(xt::row(x, 0));
         });
-    std::vector<std::int32_t> x0bdofs
-        = fem::locate_dofs_topological({*V}, 0, x0facet);
+    std::vector<std::int32_t> x0bdofs = fem::locate_dofs_topological({*V}, 0, x0facet);
     auto x0bc = std::make_shared<const fem::DirichletBC<T>>(u0, x0bdofs);
-    std::vector<std::int32_t> x1bdofs
-        = fem::locate_dofs_topological({*V}, 0, x1facet);
-    auto x1bc = std::make_shared<const fem::DirichletBC<T>>(u0, x1bdofs);
+    std::vector<std::int32_t> x1bdofs = fem::locate_dofs_topological({*V}, 0, x1facet);
+    auto x1bc = std::make_shared<const fem::DirichletBC<T>>(u1, x1bdofs);
 
     // Assemble RHS vector
     la::Vector<T> b(V->dofmap()->index_map, V->dofmap()->index_map_bs());
@@ -155,7 +153,7 @@ int main(int argc, char* argv[])
     b.scatter_rev(common::IndexMap::Mode::add);
 
     // Set BC dofs to zero (effectively zeroes columns of A)
-    fem::set_bc(b.mutable_array(), {x0bc}, 1.0);
+    fem::set_bc(b.mutable_array(), {x0bc}, 0.0);
     fem::set_bc(b.mutable_array(), {x1bc}, 0.0);
 
     b.scatter_fwd();
@@ -181,8 +179,8 @@ int main(int argc, char* argv[])
                            fem::make_coefficients_span(coeff));
 
       // Set BC dofs to zero (effectively zeroes rows of A)
-      fem::set_bc(y.mutable_array(), {x0bc, x1bc}, {{1.0, 0.0}});
-      // fem::set_bc(y.mutable_array(), {x1bc}, 0.0);
+      fem::set_bc(y.mutable_array(), {x0bc}, 0.0);
+      fem::set_bc(y.mutable_array(), {x1bc}, 0.0);
 
       // Accumulate ghost values
       y.scatter_rev(common::IndexMap::Mode::add);
@@ -196,8 +194,8 @@ int main(int argc, char* argv[])
     int num_it = linalg::cg(*u->x(), b, action, 200, 1e-6);
 
     // Set BC values in the solution vectors
-    fem::set_bc(u->x()->mutable_array(), {x0bc, x1bc}, {{1.0, 0.0}});
-    // fem::set_bc(u->x()->mutable_array(), {x1bc}, 0.0);
+    fem::set_bc(u->x()->mutable_array(), {x0bc}, 1.0);
+    fem::set_bc(u->x()->mutable_array(), {x1bc}, 0.0);
 
     if (dolfinx::MPI::rank(comm) == 0)
     {
