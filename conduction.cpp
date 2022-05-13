@@ -116,11 +116,12 @@ int main(int argc, char* argv[])
     MPI_Comm comm = MPI_COMM_WORLD;
 
     // Create mesh and function space
-    io::XDMFFile file_sigma(comm, "mesh/s51-51-51o0_0_0_tetr.xdmf", "r");
+    // io::XDMFFile file_sigma(comm, "mesh/s51-51-51o0_0_0_tetr.xdmf", "r");
     auto mesh = std::make_shared<mesh::Mesh>(mesh::create_box(
         comm, {{{0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}}}, {100, 100, 100}, mesh::CellType::tetrahedron,
         mesh::GhostMode::none));
-    // file_sigma.read_mesh(mesh, mesh::GhostMode::none, "Grid");
+    // auto el = std::make_shared<fem::CoordinateElement>(mesh::CellType::tetrahedron, 3, 3);
+    // auto mesh = std::make_shared<file_sigma.read_mesh(*el, mesh::GhostMode::none, "Grid")>;
     auto V = std::make_shared<fem::FunctionSpace>(
         fem::create_functionspace(functionspace_form_conduction_M, "ui", mesh));
 
