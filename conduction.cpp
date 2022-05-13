@@ -133,7 +133,7 @@ int main(int argc, char* argv[])
     if (dolfinx::MPI::rank(infile.comm()) == 0)
       std::cout << "Creating Mesh ..." << std::endl;
 
-        // Set graph partitioner (prefer ParMETIS)
+    // Set graph partitioner (prefer ParMETIS)
     #ifdef HAS_PARMETIS
           auto graph_part = dolfinx::graph::parmetis::partitioner(1.01);
     #elif HAS_PTSCOTCH
@@ -149,22 +149,6 @@ int main(int argc, char* argv[])
     auto cell_part = dolfinx::mesh::create_cell_partitioner(graph_part);
     mesh = std::make_shared<mesh::Mesh>(mesh::create_mesh(
         MPI_COMM_WORLD, cells, cmap, x, mesh::GhostMode::none, cell_part));
-    // auto mesh = std::make_shared<mesh::Mesh>(mesh::create_box(
-    //     comm, {{{0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}}}, {50, 50, 50}, mesh::CellType::tetrahedron,
-    //     mesh::GhostMode::none));
-    // auto mesh = std::make_shared<mesh::Mesh>();
-    // basix::FiniteElement el2 = basix::create_element(basix::element::family::P, basix::cell::type::tetrahedron, 3);
-    // xt::xtensor<double, 2> x({0, 3});
-    // xt::xtensor<std::int64_t, 2> cells(
-    //     {0, static_cast<std::size_t>(
-    //             mesh::num_cell_vertices(mesh::CellType::tetrahedron))});
-    // cells = infile.read_topology_data("Grid");
-    // x = infile.read_geometry_data("Grid");
-    // auto e = std::make_shared<basix::FiniteElement>(basix::create_element(
-    // basix::element::family::P, basix::cell::type::tetrahedron, 2,
-    // basix::element::lagrange_variant::equispaced, false));
-    // fem::CoordinateElement cmap(e);
-    // mesh = std::make_shared<infile.read_mesh(cmap, mesh::GhostMode::none, "Grid")>;
     auto V = std::make_shared<fem::FunctionSpace>(
         fem::create_functionspace(functionspace_form_conduction_M, "ui", mesh));
 
