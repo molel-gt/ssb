@@ -118,7 +118,7 @@ int main(int argc, char* argv[])
     // Create mesh and function space
     // io::XDMFFile file_sigma(comm, "mesh/s51-51-51o0_0_0_tetr.xdmf", "r");
     auto mesh = std::make_shared<mesh::Mesh>(mesh::create_box(
-        comm, {{{0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}}}, {25, 25, 25}, mesh::CellType::tetrahedron,
+        comm, {{{0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}}}, {50, 50, 50}, mesh::CellType::tetrahedron,
         mesh::GhostMode::none));
     // auto el = std::make_shared<fem::CoordinateElement>(mesh::CellType::tetrahedron, 3, 3);
     // auto mesh = std::make_shared<file_sigma.read_mesh(*el, mesh::GhostMode::none, "Grid")>;
