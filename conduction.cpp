@@ -109,8 +109,8 @@ int main(int argc, char* argv[])
     return 1;
   }
 
-  std::string meshfile(vm["meshfile"].as<std::string>());
-  std::string results_dir(vm["results_dir"].as<std::string>());
+  std::vector<std::string> meshfile(vm["meshfile"].as<std::string>());
+  std::vector<std::string> results_dir(vm["results_dir"].as<std::string>());
   
   dolfinx::init_logging(argc, argv);
   MPI_Init(&argc, &argv);
