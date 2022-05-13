@@ -1,3 +1,4 @@
+#include <boost/program_options.hpp>
 #include <cmath>
 #include "conduction.h"
 #include <dolfinx.h>
@@ -7,6 +8,7 @@
 
 using namespace dolfinx;
 using namespace std;
+namespace po = boost::program_options;
 
 namespace linalg
 {
@@ -90,6 +92,20 @@ int cg(la::Vector<U>& x, const la::Vector<U>& b, ApplyFunction&& action,
 
 int main(int argc, char* argv[])
 {
+  po::options_description desc("Options");
+  desc.add_options()
+  ("help", "how to pass arguments")
+  ("grid_info", po::value<string>(), "grid information: Nx-Ny-Nz")
+  ("origin", po::value<string>(), "location of origin: x,y,z");
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);
+  if (vm.count("help")){
+    std::cout << desc << endl;
+    return 1;
+  }
+  std::string grid_info = vm["grid_info"].as<std::string>();
+  std::string origin = vm["origin"].as<std::string>();
   dolfinx::init_logging(argc, argv);
   MPI_Init(&argc, &argv);
 
