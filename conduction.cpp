@@ -92,20 +92,21 @@ int cg(la::Vector<U>& x, const la::Vector<U>& b, ApplyFunction&& action,
 
 int main(int argc, char* argv[])
 {
-  po::options_description desc("Options");
-  desc.add_options()
-  ("help", "how to pass arguments")
-  ("grid_info", po::value<string>(), "grid information: Nx-Ny-Nz")
-  ("origin", po::value<string>(), "location of origin: x,y,z");
-  po::variables_map vm;
-  po::store(po::parse_command_line(argc, argv, desc), vm);
-  po::notify(vm);
-  if (vm.count("help")){
-    std::cout << desc << endl;
-    return 1;
-  }
-  std::string grid_info = vm["grid_info"].as<std::string>();
-  std::string origin = vm["origin"].as<std::string>();
+  // std::string grid_info;
+  // std::string origin;
+  // po::options_description desc("Options");
+  // desc.add_options()
+  // ("help", "how to pass arguments")
+  // ("grid_info", po::value<std::string>(&grid_info), "grid information: Nx-Ny-Nz")
+  // ("origin", po::value<std::string>(&origin), "location of origin: x,y,z");
+  // po::variables_map vm;
+  // po::store(po::parse_command_line(argc, argv, desc), vm);
+  // po::notify(vm);
+  // if (vm.count("help")){
+  //   std::cout << desc << endl;
+  //   return 1;
+  // }
+  
   dolfinx::init_logging(argc, argv);
   MPI_Init(&argc, &argv);
 
@@ -115,10 +116,10 @@ int main(int argc, char* argv[])
     MPI_Comm comm = MPI_COMM_WORLD;
 
     // Create mesh and function space
+    io::XDMFFile file_sigma(comm, "mesh/s51-51-51o0_0_0_tetr.xdmf", "r");
     auto mesh = std::make_shared<mesh::Mesh>(mesh::create_box(
         comm, {{{0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}}}, {10, 10, 10}, mesh::CellType::tetrahedron,
         mesh::GhostMode::none));
-    // io::XDMFFile file_sigma(comm, "mesh/s51-51-51o0_0_0_tetr.xdmf", "r");
     // file_sigma.read_mesh(mesh, mesh::GhostMode::none, "Grid");
     auto V = std::make_shared<fem::FunctionSpace>(
         fem::create_functionspace(functionspace_form_conduction_M, "ui", mesh));
