@@ -5,6 +5,7 @@
 #include <dolfinx.h>
 #include <dolfinx/io/XDMFFile.h>
 #include <dolfinx/graph/partitioners.h>
+#include <string>
 #include <xtensor/xarray.hpp>
 #include <xtensor/xtensor.hpp>
 
@@ -94,20 +95,21 @@ int cg(la::Vector<U>& x, const la::Vector<U>& b, ApplyFunction&& action,
 
 int main(int argc, char* argv[])
 {
-  // std::string grid_info;
-  // std::string origin;
-  // po::options_description desc("Options");
-  // desc.add_options()
-  // ("help", "how to pass arguments")
-  // ("grid_info", po::value<std::string>(&grid_info), "grid information: Nx-Ny-Nz")
-  // ("origin", po::value<std::string>(&origin), "location of origin: x,y,z");
-  // po::variables_map vm;
-  // po::store(po::parse_command_line(argc, argv, desc), vm);
-  // po::notify(vm);
-  // if (vm.count("help")){
-  //   std::cout << desc << endl;
-  //   return 1;
-  // }
+  po::options_description desc("Options");
+  desc.add_options()
+  ("help", "how to pass arguments")
+  ("meshfile", po::value<std::string>()->required(), "input mesh filepath")
+  ("results_dir", po::value<std::string>()->required(), "output results directory");
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);
+  if (vm.count("help")){
+    std::cout << desc << endl;
+    return 1;
+  }
+
+  std::string meshfile(vm["meshfile"].as<std::string>());
+  std::string results_dir(vm["results_dir"].as<std::string>());
   
   dolfinx::init_logging(argc, argv);
   MPI_Init(&argc, &argv);
