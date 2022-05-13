@@ -1,3 +1,4 @@
+#include <basix/finite-element.h>
 #include <boost/program_options.hpp>
 #include <cmath>
 #include "conduction.h"
@@ -116,12 +117,53 @@ int main(int argc, char* argv[])
     MPI_Comm comm = MPI_COMM_WORLD;
 
     // Create mesh and function space
-    // io::XDMFFile file_sigma(comm, "mesh/s51-51-51o0_0_0_tetr.xdmf", "r");
-    auto mesh = std::make_shared<mesh::Mesh>(mesh::create_box(
-        comm, {{{0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}}}, {50, 50, 50}, mesh::CellType::tetrahedron,
-        mesh::GhostMode::none));
-    // auto el = std::make_shared<fem::CoordinateElement>(mesh::CellType::tetrahedron, 3, 3);
-    // auto mesh = std::make_shared<file_sigma.read_mesh(*el, mesh::GhostMode::none, "Grid")>;
+    io::XDMFFile infile(comm, "mesh/s51-51-51o0_0_0_tetr.xdmf", "r");
+    std::shared_ptr<mesh::Mesh> mesh;
+    fem::CoordinateElement cmap = fem::CoordinateElement(mesh::CellType::tetrahedron, 1);
+    xt::xtensor<double, 2> x;
+    xt::xtensor<std::int64_t, 2> topology;
+   
+    x = infile.read_geometry_data("Grid");
+    topology = infile.read_topology_data("Grid");
+
+    auto [data, offset] = graph::create_adjacency_data(topology);
+    graph::AdjacencyList<std::int64_t> cells(std::move(data), std::move(offset));
+
+    if (dolfinx::MPI::rank(infile.comm()) == 0)
+      std::cout << "Creating Mesh ..." << std::endl;
+
+        // Set graph partitioner (prefer ParMETIS)
+    #ifdef HAS_PARMETIS
+          auto graph_part = dolfinx::graph::parmetis::partitioner(1.01);
+    #elif HAS_PTSCOTCH
+          auto graph_part = dolfinx::graph::scotch::partitioner(
+              dolfinx::graph::scotch::strategy::scalability);
+    #elif HAS_KAHIP
+          auto graph_part = dolfinx::graph::kahip::partitioner();
+    #else
+    #error "No mesh partitioner has been selected"
+    #endif
+
+      // Create distributed mesh
+    auto cell_part = dolfinx::mesh::create_cell_partitioner(graph_part);
+    mesh = std::make_shared<mesh::Mesh>(mesh::create_mesh(
+        MPI_COMM_WORLD, cells, cmap, x, mesh::GhostMode::none, cell_part));
+    // auto mesh = std::make_shared<mesh::Mesh>(mesh::create_box(
+    //     comm, {{{0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}}}, {50, 50, 50}, mesh::CellType::tetrahedron,
+    //     mesh::GhostMode::none));
+    // auto mesh = std::make_shared<mesh::Mesh>();
+    // basix::FiniteElement el2 = basix::create_element(basix::element::family::P, basix::cell::type::tetrahedron, 3);
+    // xt::xtensor<double, 2> x({0, 3});
+    // xt::xtensor<std::int64_t, 2> cells(
+    //     {0, static_cast<std::size_t>(
+    //             mesh::num_cell_vertices(mesh::CellType::tetrahedron))});
+    // cells = infile.read_topology_data("Grid");
+    // x = infile.read_geometry_data("Grid");
+    // auto e = std::make_shared<basix::FiniteElement>(basix::create_element(
+    // basix::element::family::P, basix::cell::type::tetrahedron, 2,
+    // basix::element::lagrange_variant::equispaced, false));
+    // fem::CoordinateElement cmap(e);
+    // mesh = std::make_shared<infile.read_mesh(cmap, mesh::GhostMode::none, "Grid")>;
     auto V = std::make_shared<fem::FunctionSpace>(
         fem::create_functionspace(functionspace_form_conduction_M, "ui", mesh));
 
