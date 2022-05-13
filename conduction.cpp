@@ -98,8 +98,9 @@ int main(int argc, char* argv[])
   po::options_description desc("Options");
   desc.add_options()
   ("help", "how to pass arguments")
-  ("meshfile", po::value<std::string>()->required(), "input mesh filepath")
-  ("results_dir", po::value<std::string>()->required(), "output results directory");
+  ("meshfile", po::value<std::vector<std::string>>(), "input mesh filepath")
+  ("results_dir", po::value<std::vector<std::string>>(), "output results directory")
+  ;
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
   po::notify(vm);
