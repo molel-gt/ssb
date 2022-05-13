@@ -4,6 +4,7 @@
 #include "conduction.h"
 #include <dolfinx.h>
 #include <dolfinx/io/XDMFFile.h>
+#include <dolfinx/graph/partitioners.h>
 #include <xtensor/xarray.hpp>
 #include <xtensor/xtensor.hpp>
 
