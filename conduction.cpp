@@ -122,6 +122,7 @@ int main(int argc, char* argv[])
     std::shared_ptr<mesh::Mesh> mesh;
     fem::CoordinateElement cmap = fem::CoordinateElement(mesh::CellType::tetrahedron, 1);
     mesh = std::make_shared<mesh::Mesh>(infile.read_mesh(cmap, mesh::GhostMode::none, "Grid"));
+    // if partitioning
     // xt::xtensor<double, 2> x;
     // xt::xtensor<std::int64_t, 2> topology;
    
