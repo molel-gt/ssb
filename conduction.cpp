@@ -133,11 +133,13 @@ int main(int argc, char* argv[])
       std::cout << "Creating Mesh ..." << std::endl;
 
         // Set graph partitioner (prefer ParMETIS)
-    #ifdef HAS_PARMETIS
-          auto graph_part = dolfinx::graph::parmetis::partitioner(1.01);
-    #elif HAS_PTSCOTCH
+    // #ifdef HAS_PARMETIS
+    //       auto graph_part = dolfinx::graph::parmetis::partitioner(1.01);
+    #ifdef HAS_PTSCOTCH
           auto graph_part = dolfinx::graph::scotch::partitioner(
               dolfinx::graph::scotch::strategy::scalability);
+    #elif HAS_PARMETIS
+          auto graph_part = dolfinx::graph::parmetis::partitioner(1.01);
     #elif HAS_KAHIP
           auto graph_part = dolfinx::graph::kahip::partitioner();
     #else
