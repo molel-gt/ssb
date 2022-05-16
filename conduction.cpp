@@ -171,10 +171,11 @@ int main(int argc, char* argv[])
         fem::create_form<T>(*form_conduction_M, {V}, {{"ui", ui}}, {{}}, {}));
 
     // Create Dirichlet boundary conditions
+    // TODO: replace 50.0 with variable length in x1facet
     auto x0facet = mesh::locate_entities_boundary(*mesh, 0, [](auto&& x) -> xt::xtensor<bool, 1> {
                                          return xt::isclose(xt::row(x, 0), 0.0);});
     auto x1facet = mesh::locate_entities_boundary(*mesh, 0, [](auto&& x) -> xt::xtensor<bool, 1> {
-                                         return xt::isclose(xt::row(x, 0), 1.0);});
+                                         return xt::isclose(xt::row(x, 0), 50.0);});
     auto u0 = std::make_shared<fem::Function<T>>(V);
     u0->interpolate(
         [](auto&& x) {
