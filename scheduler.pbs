@@ -10,6 +10,5 @@
 
 
 cd $PBS_O_WORKDIR
-module load pace-community
-module load dolfinx
-singularity run $DOLFINX_SIF python3 transport.py --grid_info 51-51-51 --origin 0,0,0
+source /storage/home/hcoda1/0/emolel3/p-tf74-0/ssb/env.txt
+./conduction
