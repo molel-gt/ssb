@@ -172,19 +172,20 @@ int main(int argc, char* argv[])
 
     // Create Dirichlet boundary conditions
     // TODO: replace 50.0 with variable length in x1facet
+    // labelled as xfacet but in y-direction
     auto x0facet = mesh::locate_entities_boundary(*mesh, 0, [](auto&& x) -> xt::xtensor<bool, 1> {
-                                         return xt::isclose(xt::row(x, 0), 0.0);});
+                                         return xt::isclose(xt::row(x, 1), 0.0);});
     auto x1facet = mesh::locate_entities_boundary(*mesh, 0, [](auto&& x) -> xt::xtensor<bool, 1> {
-                                         return xt::isclose(xt::row(x, 0), 50.0);});
+                                         return xt::isclose(xt::row(x, 1), 50.0);});
     auto u0 = std::make_shared<fem::Function<T>>(V);
     u0->interpolate(
         [](auto&& x) {
-          return 1 + xt::square(xt::row(x, 0)) - xt::square(xt::row(x, 0));
+          return 1 + xt::square(xt::row(x, 1)) - xt::square(xt::row(x, 1));
         });
     auto u1 = std::make_shared<fem::Function<T>>(V);
     u1->interpolate(
         [](auto&& x) {
-          return xt::square(xt::row(x, 0)) - xt::square(xt::row(x, 0));
+          return xt::square(xt::row(x, 1)) - xt::square(xt::row(x, 1));
         });
     std::vector<std::int32_t> x0bdofs = fem::locate_dofs_topological({*V}, 0, x0facet);
     auto x0bc = std::make_shared<const fem::DirichletBC<T>>(u0, x0bdofs);
