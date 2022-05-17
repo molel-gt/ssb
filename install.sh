@@ -6,7 +6,7 @@ spack env create fenicsx-env
 spack env activate fenicsx-env
 spack add gcc@10.3.0
 spack install
-spack location -i gcc@10.3.0 | xargs spack load
-spack compiler add gcc@10.3.0
+spack load gcc@10.3.0
+spack location -i gcc@10.3.0 | xargs spack compiler add
 spack add py-fenics-dolfinx%gcc@10.3.0 cflags="-O3" fflags="-O3"
 spack install
