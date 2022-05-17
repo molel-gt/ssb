@@ -14,5 +14,7 @@ cd $PBS_O_WORKDIR
 spack env activate fenicsx-env
 spack load python@3.9.12
 spack load py-fenics-dolfinx
+spack load py-petsc4py@3.17.1
+spack load petsc@3.17.1
 
 python3 transport.py --grid_info 51-51-51 --origin 0,0,0
