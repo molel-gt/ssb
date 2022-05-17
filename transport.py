@@ -7,8 +7,8 @@ import dolfinx
 import numpy as np
 import ufl
 from dolfinx.fem import (Constant, dirichletbc as DirichletBC, Function, FunctionSpace, locate_dofs_topological)
-from dolfinx.fem import LinearProblem
-# from dolfinx.fem.petsc import LinearProblem
+# from dolfinx.fem import LinearProblem
+from dolfinx.fem.petsc import LinearProblem
 from dolfinx.io import XDMFFile
 from dolfinx.mesh import locate_entities_boundary
 from mpi4py import MPI
@@ -59,8 +59,8 @@ if __name__ == '__main__':
                                     lambda x: np.isclose(x[1], 0.0))
     x1facet = locate_entities_boundary(mesh, 0,
                                     lambda x: np.isclose(x[1], Ly))
-    x0bc = DirichletBC.DirichletBC(u0, locate_dofs_topological(V, 0, x0facet))
-    x1bc = DirichletBC.DirichletBC(u1, locate_dofs_topological(V, 0, x1facet))
+    x0bc = DirichletBC(u0, locate_dofs_topological(V, 0, x0facet))
+    x1bc = DirichletBC(u1, locate_dofs_topological(V, 0, x1facet))
 
     # Define variational problem
     u = ufl.TrialFunction(V)
@@ -70,7 +70,7 @@ if __name__ == '__main__':
     g = Constant(mesh, ScalarType(0))
 
     a = inner(grad(u), grad(v)) * dx
-    L = inner(f, v) * dx + inner(g, v) * ds
+    L = inner(f, v) * dx(x) + inner(g, v) * ds(mesh)
 
     problem = LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 
