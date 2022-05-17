@@ -13,5 +13,6 @@ cd $PBS_O_WORKDIR
 . /storage/home/hcoda1/0/emolel3/p-tf74-0/spack/share/spack/setup-env.sh
 spack env activate fenicsx-env
 spack load python@3.9.12
+spack load py-fenics-dolfinx
 
 python3 transport.py --grid_info 51-51-51 --origin 0,0,0
