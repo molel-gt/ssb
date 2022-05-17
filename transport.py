@@ -70,7 +70,7 @@ if __name__ == '__main__':
     g = Constant(mesh, ScalarType(0))
 
     a = inner(grad(u), grad(v)) * dx
-    L = inner(f, v) * dx(x) + inner(g, v) * ds(mesh)
+    L = inner(f, v) * dx + inner(g, v) * ds
 
     problem = LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 
