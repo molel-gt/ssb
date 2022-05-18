@@ -12,14 +12,6 @@
 cd $PBS_O_WORKDIR
 . /storage/home/hcoda1/0/emolel3/p-tf74-0/spack/share/spack/setup-env.sh
 spack env activate fenicsx-env
-spack load python@3.9.12
-spack load petsc@3.17.1
-spack load fenics-basix@main
-spack load fenics-dolfinx@main
-spack load py-petsc4py@3.17.1
-spack load py-fenics-basix@main
-spack load py-fenics-ffcx@main
-spack load py-fenics-ufl@main
 spack load py-fenics-dolfinx@main
 
 ./conduction
