@@ -22,4 +22,4 @@ spack load py-fenics-ffcx@main
 spack load py-fenics-ufl@main
 spack load py-fenics-dolfinx@main
 
-python3 transport.py --grid_info 51-51-51 --origin 0,0,0
+./conduction
