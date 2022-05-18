@@ -1,5 +1,5 @@
 #PBS -A GT-tf74
-#PBS -l walltime=2:30:00
+#PBS -l walltime=7:30:00
 #PBS -l nodes=2:ppn=8
 #PBS -l pmem=32gb
 #PBS -m abe
