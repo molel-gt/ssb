@@ -95,22 +95,22 @@ int cg(la::Vector<U>& x, const la::Vector<U>& b, ApplyFunction&& action,
 
 int main(int argc, char* argv[])
 {
-  // po::options_description desc("Options");
-  // desc.add_options()
-  // ("help", "how to pass arguments")
-  // ("meshfile", po::value<std::vector<std::string>>(), "input mesh filepath")
-  // ("results_dir", po::value<std::vector<std::string>>(), "output results directory")
-  // ;
-  // po::variables_map vm;
-  // po::store(po::parse_command_line(argc, argv, desc), vm);
-  // po::notify(vm);
-  // if (vm.count("help")){
-  //   std::cout << desc << endl;
-  //   return 1;
-  // }
+  po::options_description desc("Options");
+  desc.add_options()
+  ("help", "how to pass arguments")
+  ("meshfile", po::value<std::vector<std::string>>(), "input mesh filepath")
+  ("results_dir", po::value<std::vector<std::string>>(), "output results directory")
+  ;
+  po::variables_map vm;
+  po::store(po::parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);
+  if (vm.count("help")){
+    std::cout << desc << endl;
+    return 1;
+  }
 
-  // std::string meshfile(vm["meshfile"].as<std::string>());
-  // std::string results_dir(vm["results_dir"].as<std::string>());
+  std::string meshfile(vm["meshfile"].as<std::string>());
+  std::string results_dir(vm["results_dir"].as<std::string>());
   
   dolfinx::init_logging(argc, argv);
   MPI_Init(&argc, &argv);
@@ -121,7 +121,7 @@ int main(int argc, char* argv[])
     MPI_Comm comm = MPI_COMM_WORLD;
 
     // Create mesh and function space
-    io::XDMFFile infile(comm, "mesh/s51-51-51o0_0_0_tetr.xdmf", "r");
+    io::XDMFFile infile(comm, meshfile, "r");
     std::shared_ptr<mesh::Mesh> mesh;
     fem::CoordinateElement cmap = fem::CoordinateElement(mesh::CellType::tetrahedron, 1);
     mesh = std::make_shared<mesh::Mesh>(infile.read_mesh(cmap, mesh::GhostMode::none, "Grid"));
