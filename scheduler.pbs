@@ -14,4 +14,4 @@ cd $PBS_O_WORKDIR
 spack env activate fenicsx-env
 spack load py-fenics-dolfinx@main
 
-mpirun -np 16 ./conduction
+mpirun -np 8 ./conduction
