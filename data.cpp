@@ -2,7 +2,7 @@
 #include <tiffio.h>
 
 int main(int argc, char **argv){
-    TIFF* tif = TIFFOpen("/home/leshinka/dev/ssb/Archive/3.tif46.tif116.tif105.tif102.tif", "r");
+    TIFF* tif = TIFFOpen("Archive/3.tif46.tif116.tif105.tif102.tif", "r");
     // #define uint32 unsigned long
     uint32 width, height;
     size_t npixels;
