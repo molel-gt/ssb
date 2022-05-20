@@ -1,7 +1,7 @@
 #include <iostream>
 #include <set>
 #include <cstdlib>
-#include <gmsh.h>
+#include <api/gmsh.h>
 #include <algorithm>
 
 using namespace std;
