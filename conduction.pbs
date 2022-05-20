@@ -5,7 +5,7 @@
 #PBS -m abe
 #PBS -q inferno
 #PBS -j oe
-#PBS -o transport.out
+#PBS -o conduction.out
 #PBS -M emolel3@gatech.edu
 
 
