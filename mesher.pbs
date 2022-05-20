@@ -9,7 +9,8 @@
 #PBS -M emolel3@gatech.edu
 
 echo "Started on `/bin/hostname`"
-. ../spack/share/spack/setup-env.sh
+cd $PBS_O_WORKDIR
+. /storage/home/hcoda1/0/emolel3/p-tf74-0/spack/share/spack/setup-env.sh
 spack env activate fenicsx-env
 spack load py-fenics-dolfinx@main
 spack load gmsh
