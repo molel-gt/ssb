@@ -10,6 +10,7 @@
 
 
 cd $PBS_O_WORKDIR
+echo "Started on `/bin/hostname`"
 . /storage/home/hcoda1/0/emolel3/p-tf74-0/spack/share/spack/setup-env.sh
 spack env activate fenicsx-env
 spack load py-fenics-dolfinx@main
