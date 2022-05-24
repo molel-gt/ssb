@@ -14,4 +14,4 @@ cd $PBS_O_WORKDIR
 spack env activate fenicsx-env
 spack load py-fenics-dolfinx@main
 
-mpirun -n 2 ./transport.py --grid_info 51-51-51 --origin 0,0,0
+mpirun python3 transport.py --grid_info 51-51-51 --origin 0,0,0
