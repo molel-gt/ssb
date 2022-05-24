@@ -1,7 +1,7 @@
 #PBS -A GT-tf74
 #PBS -l walltime=24:00:00
 #PBS -l nodes=4:ppn=8
-#PBS -l pmem=128gb
+#PBS -l mem=192gb
 #PBS -m abe
 #PBS -q inferno
 #PBS -j oe
