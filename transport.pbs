@@ -16,4 +16,4 @@ spack env activate fenicsx-env
 spack load py-fenics-dolfinx@main
 spack load petsc@3.17.1
 
-mpirun python3 transport.py --grid_info 51-51-51 --origin 0,0,0
+mpiexec python3 transport.py --grid_info 51-51-51 --origin 0,0,0
