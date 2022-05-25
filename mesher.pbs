@@ -1,11 +1,10 @@
 #PBS -A GT-tf74
 #PBS -l walltime=24:00:00
-#PBS -l nodes=8:ppn=4
+#PBS -l nodes=2:ppn=4
 #PBS -l pmem=32gb
 #PBS -m abe
-#PBS -q inferno
-#PBS -j oe
 #PBS -o mesher.out
+#PBS -e mesher.error
 #PBS -M emolel3@gatech.edu
 
 echo "Started on `/bin/hostname`"
