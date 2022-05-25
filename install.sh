@@ -9,6 +9,7 @@ spack install
 spack load gcc@10.3.0
 spack location -i gcc@10.3.0 | xargs spack compiler add
 spack add py-fenics-dolfinx@main%gcc@10.3.0 cflags="-O3" fflags="-O3"
-spack add gmsh%gcc@10.3.0
+spack add gmsh@4.8.4%gcc@10.3.0
+spack add py-matplotlib
 spack add libtiff%gcc@10.3.0
 spack install
