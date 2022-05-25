@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 cd ./storage/home/hcoda1/0/emolel3/p-tf74-0/
 git clone https://github.com/spack/spack.git
+cp /storage/home/hcoda1/0/emolel3/p-tf74-0/config.yaml /storage/home/hcoda1/0/emolel3/p-tf74-0/spack/etc/spack
 . ../spack/share/spack/setup-env.sh
 spack env create fenicsx-env
 spack env activate fenicsx-env
