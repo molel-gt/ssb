@@ -41,7 +41,7 @@ if __name__ == '__main__':
     output_current_path = os.path.join(output_dir, f's{grid_info}o{origin_str}_current.xdmf')
     output_potential_path = os.path.join(output_dir, f's{grid_info}o{origin_str}_potential.xdmf')
 
-    with XDMFFile(MPI.COMM_SELF, tetr_mesh_path, "r") as infile3:
+    with XDMFFile(MPI.COMM_WORLD, tetr_mesh_path, "r") as infile3:
         mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
 
     mesh_dim = mesh.topology.dim
@@ -80,7 +80,7 @@ if __name__ == '__main__':
     uh = problem.solve()
 
     # Save solution in XDMF format
-    with XDMFFile(MPI.COMM_SELF, output_potential_path, "w") as outfile:
+    with XDMFFile(MPI.COMM_WORLD, output_potential_path, "w") as outfile:
         outfile.write_mesh(mesh)
         outfile.write_function(uh)
 
@@ -95,6 +95,6 @@ if __name__ == '__main__':
     current_h = Function(W)
     current_h.interpolate(current_expr)
 
-    with XDMFFile(MPI.COMM_SELF, output_current_path, "w") as file:
+    with XDMFFile(MPI.COMM_WORLD, output_current_path, "w") as file:
         file.write_mesh(mesh)
         file.write_function(current_h)
