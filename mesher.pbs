@@ -12,7 +12,7 @@ cd $PBS_O_WORKDIR
 . /storage/home/hcoda1/0/emolel3/p-tf74-0/spack/share/spack/setup-env.sh
 spack env activate fenicsx-env
 spack load py-fenics-dolfinx@main
-spack load gmsh
+spack load python@3.9.12%gcc@10.1.0/bhjmgwo
 spack load py-matplotlib
 spack load py-meshio
 
