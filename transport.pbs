@@ -13,5 +13,6 @@ echo "Started on `/bin/hostname`"
 . /storage/home/hcoda1/0/emolel3/p-tf74-0/spack/share/spack/setup-env.sh
 spack env activate fenicsx-env
 spack load py-fenics-dolfinx@main
+spack load python@3.9.12%gcc@10.1.0/bhjmgwo
 
 mpirun ./transport.py --grid_info 51-51-51 --origin 0,0,0
