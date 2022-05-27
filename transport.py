@@ -7,7 +7,6 @@ import dolfinx
 import numpy as np
 import ufl
 from dolfinx.fem import (Constant, dirichletbc as DirichletBC, Function, FunctionSpace, locate_dofs_topological)
-# from dolfinx.fem import LinearProblem
 from dolfinx.fem.petsc import LinearProblem
 from dolfinx.io import XDMFFile
 from dolfinx.mesh import locate_entities_boundary
