@@ -6,10 +6,6 @@ cp /storage/home/hcoda1/0/emolel3/p-tf74-0/config.yaml /storage/home/hcoda1/0/em
 spack env create fenicsx-env
 spack env activate fenicsx-env
 module load gcc/10.1.0
-spack compilers find
-spack add py-fenics-dolfinx@main%gcc@10.1.0 cflags="-O3" fflags="-O3"
-spack add gmsh@4.8.4%gcc@10.1.0
-spack add py-matplotlib%gcc@10.1.0
-spack add py-meshio%gcc@10.1.0
-spack add libtiff%gcc@10.1.0
+spack compiler find
+spack add py-fenics-dolfinx%gcc@10.1.0 cflags="-O3" fflags="-O3"
 spack install
