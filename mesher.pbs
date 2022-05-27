@@ -1,7 +1,7 @@
 #PBS -A GT-tf74
-#PBS -l walltime=24:00:00
+#PBS -l walltime=120:00:00
 #PBS -l nodes=1:ppn=4
-#PBS -l pmem=32gb
+#PBS -l pmem=128gb
 #PBS -m abe
 #PBS -o mesher.out
 #PBS -e mesher.error
@@ -11,9 +11,6 @@ echo "Started on `/bin/hostname`"
 cd $PBS_O_WORKDIR
 . /storage/home/hcoda1/0/emolel3/p-tf74-0/spack/share/spack/setup-env.sh
 spack env activate fenicsx-env
-spack load py-fenics-dolfinx@main
-spack load python@3.9.12%gcc@10.1.0/bhjmgwo
-spack load py-matplotlib
-spack load py-meshio
+spack load py-fenics-dolfinx
 
 python3 mesher.py --img_folder Archive/electrolyte --grid_info 101-101-101 --origin 0,0,0
