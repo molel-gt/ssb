@@ -84,7 +84,7 @@ if __name__ == '__main__':
         outfile.write_function(uh)
 
     # # Update ghost entries and plot
-    # uh.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    uh.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     # Post-processing: Compute derivatives
     grad_u = grad(uh)
