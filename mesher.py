@@ -59,7 +59,7 @@ def build_voxels_mesh(boxes, output_mshfile):
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
-    resolution = 0.025
+    resolution = 0.01
     channel = gmsh.model.occ.addBox(0, 0, 0, Lx, Ly, Lz)
     gmsh_boxes = []
     counter = 1
@@ -96,13 +96,13 @@ def build_voxels_mesh(boxes, output_mshfile):
     gmsh.model.mesh.field.add("Threshold", 2)
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
     gmsh.model.mesh.field.setNumber(2, "LcMin", resolution)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", 20 * resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.25)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 1)
+    #gmsh.model.mesh.field.setNumber(2, "LcMax", 20 * resolution)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", resolution)
+    #gmsh.model.mesh.field.setNumber(2, "DistMax", 1)
 
-    gmsh.model.mesh.field.add("Min", 5)
-    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    #gmsh.model.mesh.field.add("Min", 5)
+    #gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    #gmsh.model.mesh.field.setAsBackgroundMesh(5)
     # points = gmsh.model.getEntities(dim=0)
     # gmsh.model.mesh.setSize(points, resolution)
     gmsh.model.occ.synchronize()
@@ -147,6 +147,9 @@ if __name__ == '__main__':
     print("No. boxes        :", np.sum(boxes))
     output_mshfile = f"mesh/s{grid_info}o{origin_str}_porous.msh"
     gmsh.initialize()
+    #gmsh.option.setNumber("General.NumThreads", 4)
+    gmsh.option.setNumber("Mesh.MeshSizeMin", 0.1)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
     build_voxels_mesh(boxes, output_mshfile)
     gmsh.finalize()
     print("writing xmdf tetrahedral mesh..")
