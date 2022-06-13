@@ -14,7 +14,7 @@ import numpy as np
 from itertools import groupby
 from operator import itemgetter
 
-import geometry
+import geometry, particles
 
 FORMAT = '%(asctime)s: %(message)s'
 logging.basicConfig(format=FORMAT)
@@ -65,7 +65,7 @@ def build_voxels_mesh(boxes, output_mshfile):
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
-    resolution = 0.01
+    resolution = 0.0001
     channel = gmsh.model.occ.addBox(0, 0, 0, Lx, Ly, Lz)
     gmsh_boxes = []
     counter = 1
@@ -110,9 +110,9 @@ def build_voxels_mesh(boxes, output_mshfile):
     gmsh.model.mesh.field.add("Threshold", 2)
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
     gmsh.model.mesh.field.setNumber(2, "LcMin", resolution)
-    #gmsh.model.mesh.field.setNumber(2, "LcMax", 20 * resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", resolution)
-    #gmsh.model.mesh.field.setNumber(2, "DistMax", 1)
+    gmsh.model.mesh.field.setNumber(2, "LcMax", 20 * resolution)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 1)
 
     #gmsh.model.mesh.field.add("Min", 5)
     #gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
@@ -153,7 +153,21 @@ if __name__ == '__main__':
 
     data = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
                                          y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
-    occlusions = np.logical_not(data)
+
+    # pad data with extra row and column to allow +1 out-of-index access
+    data_padded = np.zeros((Nx + 1, Ny + 1, Nz + 1))
+    data_padded[0:Nx, 0:Ny, 0:Nz] = data
+    points, G = particles.build_graph(data_padded)
+    points_view = {v: k for k, v in points.items()}
+
+    print("Getting connected pieces..")
+    solid_pieces = [p for p in particles.get_connected_pieces(G) if particles.is_piece_solid(p, points_view)]
+    largest_piece = solid_pieces[0]
+    new_data = np.zeros((Nx, Ny, Nz), dtype=np.bool8)
+    for pk in largest_piece:
+        p = points_view[pk]
+        new_data[p] = 1
+    occlusions = np.logical_not(new_data)
     rectangles = make_rectangles(occlusions)
     boxes = make_boxes(rectangles)
     logger.info("No. voxels       : %s" % np.sum(occlusions))
@@ -163,8 +177,8 @@ if __name__ == '__main__':
     gmsh.initialize()
     # gmsh.option.setNumber("General.NumThreads", 8)
     # gmsh.option.setNumber("Mesh.Algorithm3D", 10)
-    # gmsh.option.setNumber("Mesh.MeshSizeMin", 0.1)
-    # gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
+    gmsh.option.setNumber("Mesh.MeshSizeMin", 0.1)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
     build_voxels_mesh(boxes, output_mshfile)
     gmsh.finalize()
     logger.info("writing xmdf tetrahedral mesh..")
