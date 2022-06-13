@@ -8,8 +8,8 @@
 #PBS -M emolel3@gatech.edu
 
 echo "Started on `/bin/hostname`"
-cd $PBS_O_WORKDIR
+cd /storage/coda1/p-tf74/0/shared/leshinka/ssb
 . /storage/home/hcoda1/0/emolel3/p-tf74-0/spack/share/spack/setup-env.sh
 spack env activate fenicsx-env
 
-python3 mesher.py --img_folder Archive/electrolyte --grid_info 101-101-101 --origin 0,0,0
+python3 /storage/coda1/p-tf74/0/shared/leshinka/ssb/mesher.py --img_folder Archive/electrolyte --grid_info 101-101-101 --origin 0,0,0
