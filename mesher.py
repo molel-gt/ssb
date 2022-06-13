@@ -77,21 +77,25 @@ def build_voxels_mesh(boxes, output_mshfile):
             for idz in range(Nz):
                 box_length = boxes[idx, idy, idz]
                 if box_length > 0:
-                    counter += 1
                     box = gmsh.model.occ.addBox(idx, idy, idz, 1, 1, box_length)
                     gmsh_boxes.append(box)
+    logger.info("Added volumes, in total %s boxes" % len(gmsh_boxes))
+    logger.info("Cutting occlusions..")
     channel = gmsh.model.occ.cut([(3, channel)], [(3, box) for box in gmsh_boxes])
     gmsh.model.occ.synchronize()
+    logger.info("Cut occlusions.")
     volumes = gmsh.model.getEntities(dim=3)
+    logger.info("Setting physical groups..")
 
     for i, volume in enumerate(volumes):
         marker = int(counter + i)
         gmsh.model.addPhysicalGroup(volume[0], [volume[1]], marker)
         gmsh.model.setPhysicalName(volume[0], marker, f"V{marker}")
+    logger.info("Set physical groups.")
     surfaces = gmsh.model.occ.getEntities(dim=2)
     wall_marker = 15
     walls = []
-    logger.info("Added volumes.")
+
     logger.info("Refining mesh..")
     for surface in surfaces:
         com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
@@ -157,7 +161,8 @@ if __name__ == '__main__':
     logger.info("No. boxes        : %s" % np.sum(boxes))
     output_mshfile = f"mesh/s{grid_info}o{origin_str}_porous.msh"
     gmsh.initialize()
-    # gmsh.option.setNumber("General.NumThreads", 4)
+    # gmsh.option.setNumber("General.NumThreads", 8)
+    # gmsh.option.setNumber("Mesh.Algorithm3D", 10)
     # gmsh.option.setNumber("Mesh.MeshSizeMin", 0.1)
     # gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
     build_voxels_mesh(boxes, output_mshfile)
