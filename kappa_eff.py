@@ -35,20 +35,20 @@ if __name__ == '__main__':
     data = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
                                          y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
 
-    surface_data = particles.filter_interior_points(data)
-    # pad data with extra row and column to allow +1 out-of-index access
-    data_padded = np.zeros((Nx + 1, Ny + 1, Nz + 1))
-    data_padded[0:Nx, 0:Ny, 0:Nz] = surface_data
-    points, G = particles.build_graph(data_padded)
-    points_view = {v: k for k, v in points.items()}
+    # surface_data = particles.filter_interior_points(data)
+    # # pad data with extra row and column to allow +1 out-of-index access
+    # data_padded = np.zeros((Nx + 1, Ny + 1, Nz + 1))
+    # data_padded[0:Nx, 0:Ny, 0:Nz] = surface_data
+    # points, G = particles.build_graph(data_padded)
+    # points_view = {v: k for k, v in points.items()}
 
-    print("Getting connected pieces..")
-    solid_pieces = [p for p in particles.get_connected_pieces(G) if particles.is_piece_solid(p, points_view)]
-    largest_piece = solid_pieces[0]
-    new_data = np.zeros((Nx, Ny, Nz), dtype=np.bool8)
-    for pk in largest_piece:
-        p = points_view[pk]
-        new_data[p] = 1
+    # print("Getting connected pieces..")
+    # solid_pieces = [p for p in particles.get_connected_pieces(G) if particles.is_piece_solid(p, points_view)]
+    # largest_piece = solid_pieces[0]
+    new_data = data # np.zeros((Nx, Ny, Nz), dtype=np.bool8)
+    # for pk in largest_piece:
+    #     p = points_view[pk]
+    #     new_data[p] = 1
     eps_left = np.around(np.average(new_data[:, 0, :]), 5)
     eps_right = np.around(np.average(new_data[:, 50, :]), 5)
     eps = np.around(np.average(new_data), 5)
