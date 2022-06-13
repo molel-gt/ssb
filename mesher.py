@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # coding: utf-8
 
+import logging
 import os
 import warnings
 warnings.filterwarnings("ignore")
@@ -14,6 +15,11 @@ from itertools import groupby
 from operator import itemgetter
 
 import geometry
+
+FORMAT = '%(asctime)s: %(message)s'
+logging.basicConfig(format=FORMAT)
+logger = logging.getLogger(__name__)
+logger.setLevel('INFO')
 
 
 def make_rectangles(voxels):
@@ -64,6 +70,8 @@ def build_voxels_mesh(boxes, output_mshfile):
     gmsh_boxes = []
     counter = 1
 
+    logger.info("Adding volumes..")
+
     for idx in range(Nx):
         for idy in range(Ny):
             for idz in range(Nz):
@@ -83,6 +91,8 @@ def build_voxels_mesh(boxes, output_mshfile):
     surfaces = gmsh.model.occ.getEntities(dim=2)
     wall_marker = 15
     walls = []
+    logger.info("Added volumes.")
+    logger.info("Refining mesh..")
     for surface in surfaces:
         com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
         if np.isclose(com[2], 0) or np.isclose(com[2], Lz) or np.isclose(com[1], 0) or np.isclose(com[1], Ly) or np.isclose(com[0], 0) or np.isclose(com[0], Lx):
@@ -142,17 +152,17 @@ if __name__ == '__main__':
     occlusions = np.logical_not(data)
     rectangles = make_rectangles(occlusions)
     boxes = make_boxes(rectangles)
-    print("No. voxels       :", np.sum(occlusions))
-    print("No. rectangles   :", np.sum(rectangles))
-    print("No. boxes        :", np.sum(boxes))
+    logger.info("No. voxels       : %s" % np.sum(occlusions))
+    logger.info("No. rectangles   : %s" % np.sum(rectangles))
+    logger.info("No. boxes        : %s" % np.sum(boxes))
     output_mshfile = f"mesh/s{grid_info}o{origin_str}_porous.msh"
     gmsh.initialize()
-    #gmsh.option.setNumber("General.NumThreads", 4)
-    gmsh.option.setNumber("Mesh.MeshSizeMin", 0.1)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
+    # gmsh.option.setNumber("General.NumThreads", 4)
+    # gmsh.option.setNumber("Mesh.MeshSizeMin", 0.1)
+    # gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
     build_voxels_mesh(boxes, output_mshfile)
     gmsh.finalize()
-    print("writing xmdf tetrahedral mesh..")
+    logger.info("writing xmdf tetrahedral mesh..")
     msh = meshio.read(output_mshfile)
     tetra_mesh = geometry.create_mesh(msh, "tetra")
     meshio.write(f"mesh/s{grid_info}o{origin_str}_tetr.xdmf", tetra_mesh)

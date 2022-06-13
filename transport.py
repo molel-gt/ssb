@@ -6,7 +6,7 @@ import argparse
 import dolfinx
 import numpy as np
 import ufl
-from dolfinx.fem import (Constant, dirichletbc as DirichletBC, Function, FunctionSpace, locate_dofs_topological)
+from dolfinx.fem import (Constant, dirichletbc as DirichletBC, Function, FunctionSpace, locate_dofs_topological, VectorFunctionSpace)
 from dolfinx.fem.petsc import LinearProblem
 from dolfinx.io import XDMFFile
 from dolfinx.mesh import locate_entities_boundary
@@ -71,7 +71,7 @@ if __name__ == '__main__':
     a = inner(grad(u), grad(v)) * dx
     L = inner(f, v) * dx(x) + inner(g, v) * ds(mesh)
 
-    problem = LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+    problem = LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "gmres"})
 
     # When we want to compute the solution to the problem, we can specify
     # what kind of solver we want to use.
@@ -89,8 +89,8 @@ if __name__ == '__main__':
     # Post-processing: Compute derivatives
     grad_u = grad(uh)
 
-    W = FunctionSpace(mesh, ("Lagrange", 1))
-    current_expr = dolfinx.fem.Expression(ufl.sqrt(inner(grad_u, grad_u)), W.element.interpolation_points)
+    W = VectorFunctionSpace(mesh, ("Lagrange", 1))
+    current_expr = dolfinx.fem.Expression(-grad_u, W.element.interpolation_points)
     current_h = Function(W)
     current_h.interpolate(current_expr)
 
