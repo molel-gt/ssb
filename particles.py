@@ -6,7 +6,7 @@ import os
 import subprocess
 
 import argparse
-import matlab.engine
+# import matlab.engine
 import matplotlib.pyplot as plt
 import meshio
 import networkx as nx
@@ -241,89 +241,89 @@ def particle_neighborhood(data, particle_surf_points, points_view, particle_phas
     return neighborhood
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='computes specific area')
-    parser.add_argument('--img_folder', help='bmp files directory',
-                        required=True)
-    parser.add_argument('--grid_info', help='Nx-Ny-Nz',
-                        required=True)
-    parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
+# if __name__ == "__main__":
+#     parser = argparse.ArgumentParser(description='computes specific area')
+#     parser.add_argument('--img_folder', help='bmp files directory',
+#                         required=True)
+#     parser.add_argument('--grid_info', help='Nx-Ny-Nz',
+#                         required=True)
+#     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
 
-    args = parser.parse_args()
-    if isinstance(args.origin, str):
-        origin = tuple(map(lambda v: int(v), args.origin.split(",")))
-    else:
-        origin = args.origin
-    origin_str = "_".join([str(v) for v in origin])
-    grid_info = args.grid_info
-    grid_size = int(args.grid_info.split("-")[0])
-    Nx, Ny, Nz = [int(v) for v in args.grid_info.split("-")]
-    img_dir = args.img_folder
-    im_files = sorted([os.path.join(img_dir, f) for
-                       f in os.listdir(img_dir) if f.endswith(".bmp")])
-    n_files = len(im_files)
+#     args = parser.parse_args()
+#     if isinstance(args.origin, str):
+#         origin = tuple(map(lambda v: int(v), args.origin.split(",")))
+#     else:
+#         origin = args.origin
+#     origin_str = "_".join([str(v) for v in origin])
+#     grid_info = args.grid_info
+#     grid_size = int(args.grid_info.split("-")[0])
+#     Nx, Ny, Nz = [int(v) for v in args.grid_info.split("-")]
+#     img_dir = args.img_folder
+#     im_files = sorted([os.path.join(img_dir, f) for
+#                        f in os.listdir(img_dir) if f.endswith(".bmp")])
+#     n_files = len(im_files)
 
-    data = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
-                                         y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
+#     data = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
+#                                          y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
 
-    surface_data = filter_interior_points(data)
-    # pad data with extra row and column to allow +1 out-of-index access
-    data_padded = np.zeros((Nx + 1, Ny + 1, Nz + 1))
-    data_padded[0:Nx, 0:Ny, 0:Nz] = surface_data
-    points, G = build_graph(data_padded)
-    points_view = {v: k for k, v in points.items()}
+#     surface_data = filter_interior_points(data)
+#     # pad data with extra row and column to allow +1 out-of-index access
+#     data_padded = np.zeros((Nx + 1, Ny + 1, Nz + 1))
+#     data_padded[0:Nx, 0:Ny, 0:Nz] = surface_data
+#     points, G = build_graph(data_padded)
+#     points_view = {v: k for k, v in points.items()}
 
-    print("Getting connected pieces..")
-    solid_pieces = [p for p in get_connected_pieces(G) if is_piece_solid(p, points_view)]
+#     print("Getting connected pieces..")
+#     solid_pieces = [p for p in get_connected_pieces(G) if is_piece_solid(p, points_view)]
 
-    # Summary
-    print("Grid: {}x{}x{}".format(*[int(v) for v in data.shape]))
-    print("Number of pieces:", len(solid_pieces))
-    tif_files = sorted([os.path.join(img_dir, '../', f) for
-                       f in os.listdir(os.path.join(img_dir, '../')) if f.endswith(".tif")])
-    tif_data = np.zeros((len(tif_files), 451, 801), dtype=np.uint8)
-    for idx, tif_file in enumerate(tif_files):
-        tif_data[idx, :, :] = np.array(Image.open(tif_file), dtype=np.uint8)
-    matlab_eng = matlab.engine.start_matlab()
-    voxels = matlab_eng.GetVoxels('activematerial')
-    volume = matlab_eng.sum(voxels, 'all')
-    am_surface_area = matlab_eng.SurfArea(voxels)
-    print("Nominal active material surface area:", int(am_surface_area))
-    print("Active material volume:", int(volume))
-    print("Nominal active material specific area:", np.around(am_surface_area / volume, 4))
-    areas = {}
-    for idx, piece in enumerate(solid_pieces):
-        neighborhood = particle_neighborhood(tif_data, piece, points_view, np.uint8(1))
-        neighborhood_ratios = {}
-        total = 0
-        for k, v in neighborhood.items():
-            total += v
-        for k, v in neighborhood.items():
-            neighborhood_ratios[k] = v / total
-        void_in_one_phase = False
-        for k, v in neighborhood_ratios.items():
-            if np.isclose(v, 1):
-                void_in_one_phase = True
-        # do not calculate area of voids that are wholly in electrolyte or active material
-        if void_in_one_phase:
-            continue
-        piece_data = np.zeros(data.shape, dtype=np.uint8)
-        for point_idx in piece:
-            piece_data[points_view[point_idx]] = 1
-        fname = os.path.join(args.img_folder, f"p{idx}.mat")
-        build_piece_matrix(piece_data, idx, fname)
-        var_name = f'p{idx}'
-        mat = matlab_eng.load(fname)
-        area = matlab_eng.SurfArea(mat[var_name])
-        areas[idx] = {"area": area, "ratio": neighborhood_ratios}
-        os.remove(fname)
-    am_void_area = 0
-    for k, v in areas.items():
-        am_void_area += v["area"] * v["ratio"][0]
+#     # Summary
+#     print("Grid: {}x{}x{}".format(*[int(v) for v in data.shape]))
+#     print("Number of pieces:", len(solid_pieces))
+#     tif_files = sorted([os.path.join(img_dir, '../', f) for
+#                        f in os.listdir(os.path.join(img_dir, '../')) if f.endswith(".tif")])
+#     tif_data = np.zeros((len(tif_files), 451, 801), dtype=np.uint8)
+#     for idx, tif_file in enumerate(tif_files):
+#         tif_data[idx, :, :] = np.array(Image.open(tif_file), dtype=np.uint8)
+#     matlab_eng = matlab.engine.start_matlab()
+#     voxels = matlab_eng.GetVoxels('activematerial')
+#     volume = matlab_eng.sum(voxels, 'all')
+#     am_surface_area = matlab_eng.SurfArea(voxels)
+#     print("Nominal active material surface area:", int(am_surface_area))
+#     print("Active material volume:", int(volume))
+#     print("Nominal active material specific area:", np.around(am_surface_area / volume, 4))
+#     areas = {}
+#     for idx, piece in enumerate(solid_pieces):
+#         neighborhood = particle_neighborhood(tif_data, piece, points_view, np.uint8(1))
+#         neighborhood_ratios = {}
+#         total = 0
+#         for k, v in neighborhood.items():
+#             total += v
+#         for k, v in neighborhood.items():
+#             neighborhood_ratios[k] = v / total
+#         void_in_one_phase = False
+#         for k, v in neighborhood_ratios.items():
+#             if np.isclose(v, 1):
+#                 void_in_one_phase = True
+#         # do not calculate area of voids that are wholly in electrolyte or active material
+#         if void_in_one_phase:
+#             continue
+#         piece_data = np.zeros(data.shape, dtype=np.uint8)
+#         for point_idx in piece:
+#             piece_data[points_view[point_idx]] = 1
+#         fname = os.path.join(args.img_folder, f"p{idx}.mat")
+#         build_piece_matrix(piece_data, idx, fname)
+#         var_name = f'p{idx}'
+#         mat = matlab_eng.load(fname)
+#         area = matlab_eng.SurfArea(mat[var_name])
+#         areas[idx] = {"area": area, "ratio": neighborhood_ratios}
+#         os.remove(fname)
+#     am_void_area = 0
+#     for k, v in areas.items():
+#         am_void_area += v["area"] * v["ratio"][0]
 
-    print("AM area fraction covered by voids:", np.around(am_void_area / am_surface_area, 4))
-    with open("void-areas.csv", "w") as fp:
-        writer = csv.DictWriter(fp, fieldnames=["piece_idx", "area", "am_ratio"])
-        writer.writeheader()
-        for k, v in areas.items():
-            writer.writerow({"piece_idx": k, "area": np.around(v["area"], 0), "am_ratio": np.around(v["ratio"][0], 4)})
+#     print("AM area fraction covered by voids:", np.around(am_void_area / am_surface_area, 4))
+#     with open("void-areas.csv", "w") as fp:
+#         writer = csv.DictWriter(fp, fieldnames=["piece_idx", "area", "am_ratio"])
+#         writer.writeheader()
+#         for k, v in areas.items():
+#             writer.writerow({"piece_idx": k, "area": np.around(v["area"], 0), "am_ratio": np.around(v["ratio"][0], 4)})
