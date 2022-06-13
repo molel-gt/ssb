@@ -5,9 +5,16 @@ import os
 
 import argparse
 import h5py
+import logging
 import numpy as np
 
 import geometry, particles
+
+
+FORMAT = '%(asctime)s: %(message)s'
+logging.basicConfig(format=FORMAT)
+logger = logging.getLogger(__name__)
+logger.setLevel('INFO')
 
 
 if __name__ == '__main__':
@@ -37,8 +44,8 @@ if __name__ == '__main__':
     eps_left = np.around(np.average(voxels[:, 0, :]), 4)
     eps_right = np.around(np.average(voxels[:, 50, :]), 4)
     eps = np.around(np.average(voxels), 4)
-    print("Porosity (y = 0)      :", eps_left)
-    print("Porosity (y = Ly)     :", eps_right)
+    logger.info("Porosity (y = 0)      : %s" % eps_left)
+    logger.info("Porosity (y = Ly)     : %s" % eps_right)
     fname = f'output/s{grid_info}o{origin_str}_current.h5'
     Lx = int(Nx - 1)
     Ly = int(Ny - 1)
@@ -60,7 +67,7 @@ if __name__ == '__main__':
     current_right = np.around(np.average(vals_right), 4)
     kappa_eff_left = np.around(eps_left * current_left * Ly, 4)
     kappa_eff_right = np.around(eps_right * current_right * Ly, 4)
-    print("kappa_eff (y = 0)     :", kappa_eff_left)
-    print("kappa_eff (y = Ly)    :", kappa_eff_right)
-    print("Porosity (avg)        :", eps)
-    print("kappa_eff (bruggeman) :", np.around(eps ** 1.5, 4))
+    logger.info("kappa_eff (y = 0)     : %s" % kappa_eff_left)
+    logger.info("kappa_eff (y = Ly)    : %s" % kappa_eff_right)
+    logger.info("Porosity (avg)        : %s" % eps)
+    logger.info("kappa_eff (bruggeman) : %s" % np.around(eps ** 1.5, 4))
