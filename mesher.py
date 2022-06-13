@@ -167,7 +167,7 @@ if __name__ == '__main__':
     for pk in largest_piece:
         p = points_view[pk]
         new_data[p] = 1
-    occlusions = np.logical_not(new_data)
+    occlusions = np.logical_not(data)
     rectangles = make_rectangles(occlusions)
     boxes = make_boxes(rectangles)
     logger.info("No. voxels       : %s" % np.sum(occlusions))
@@ -177,8 +177,8 @@ if __name__ == '__main__':
     gmsh.initialize()
     # gmsh.option.setNumber("General.NumThreads", 8)
     # gmsh.option.setNumber("Mesh.Algorithm3D", 10)
-    gmsh.option.setNumber("Mesh.MeshSizeMin", 0.1)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
+    # gmsh.option.setNumber("Mesh.MeshSizeMin", 0.1)
+    # gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
     build_voxels_mesh(boxes, output_mshfile)
     gmsh.finalize()
     logger.info("writing xmdf tetrahedral mesh..")
