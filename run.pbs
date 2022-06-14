@@ -9,6 +9,8 @@
 
 echo "Started on `/bin/hostname`"
 cd /storage/coda1/p-tf74/0/shared/leshinka/ssb
+. /storage/coda1/p-tf74/0/emolel3/spack/share/spack/setup-env.sh
+spack env activate fenicsx-env
 
 for xpart in 0; do
     for ypart in 0 50 100 150; do
