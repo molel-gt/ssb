@@ -71,7 +71,7 @@ if __name__ == '__main__':
     a = inner(grad(u), grad(v)) * dx
     L = inner(f, v) * dx(x) + inner(g, v) * ds(mesh)
 
-    problem = LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "gmres", "pc_type": "hypre", "ksp_atol": 1.0e-20, "ksp_rtol": 1.0e-20})
+    problem = LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "gmres", "pc_type": "hypre", "ksp_atol": 1.0e-12, "ksp_rtol": 1.0e-12})
 
     # When we want to compute the solution to the problem, we can specify
     # what kind of solver we want to use.
