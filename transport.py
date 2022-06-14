@@ -4,6 +4,7 @@ import os
 
 import argparse
 import dolfinx
+import logging
 import numpy as np
 import ufl
 from dolfinx.fem import (Constant, dirichletbc as DirichletBC, Function, FunctionSpace, locate_dofs_topological, VectorFunctionSpace)
@@ -16,6 +17,12 @@ from petsc4py.PETSc import ScalarType
 from ufl import ds, dx, grad, inner
 
 import utils
+
+
+FORMAT = '%(asctime)s: %(message)s'
+logging.basicConfig(format=FORMAT)
+logger = logging.getLogger('transport')
+logger.setLevel('INFO')
 
 
 if __name__ == '__main__':
@@ -40,9 +47,11 @@ if __name__ == '__main__':
     output_current_path = os.path.join(output_dir, f's{grid_info}o{origin_str}_current.xdmf')
     output_potential_path = os.path.join(output_dir, f's{grid_info}o{origin_str}_potential.xdmf')
 
+    logger.info("Loading mesh..")
+
     with XDMFFile(MPI.COMM_WORLD, tetr_mesh_path, "r") as infile3:
         mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
-
+    logger.info("Loaded mesh.")
     mesh_dim = mesh.topology.dim
     V = FunctionSpace(mesh, ("Lagrange", 2))
 
@@ -75,8 +84,10 @@ if __name__ == '__main__':
 
     # When we want to compute the solution to the problem, we can specify
     # what kind of solver we want to use.
-    print('solving problem..')
+    logger.info('Solving problem..')
     uh = problem.solve()
+    logger.info("Solved problem.")
+    logger.info("Writing results to file..")
 
     # Save solution in XDMF format
     with XDMFFile(MPI.COMM_WORLD, output_potential_path, "w") as outfile:
@@ -97,3 +108,4 @@ if __name__ == '__main__':
     with XDMFFile(MPI.COMM_WORLD, output_current_path, "w") as file:
         file.write_mesh(mesh)
         file.write_function(current_h)
+    logger.info("Wrote results to file.")
