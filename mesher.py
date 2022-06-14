@@ -65,7 +65,7 @@ def build_voxels_mesh(boxes, output_mshfile):
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
-    resolution = 0.0001
+    resolution = 0.000001
     channel = gmsh.model.occ.addBox(0, 0, 0, Lx, Ly, Lz)
     gmsh_boxes = []
     counter = 1
