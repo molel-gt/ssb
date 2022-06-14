@@ -60,8 +60,8 @@ if __name__ == '__main__':
                     vals_right.append(mag)
             current_left = np.around(np.average(vals_left), 4)
             current_right = np.around(np.average(vals_right), 4)
-            kappa_eff_left = np.around(eps_left * current_left * Ly, 4)
-            kappa_eff_right = np.around(eps_right * current_right * Ly, 4)
+            kappa_eff_left = np.around(eps_left * eps_left * current_left * Ly, 4)
+            kappa_eff_right = np.around(eps_right * eps_right * current_right * Ly, 4)
             row = {"filename": fname, "porosity (at 0)": eps_left, "porosity (at L)": eps_right,
                    "kappa_eff (at 0)": kappa_eff_left, "kappa_eff (at L)": kappa_eff_right,
                    "porosity (avg)": eps, "kappa_eff (avg)": np.around(0.5 * (kappa_eff_left + kappa_eff_right), 4), "bruggeman": np.around(eps ** 1.5, 4)
