@@ -8,6 +8,7 @@ import ufl
 from mpi4py import MPI
 from petsc4py import PETSc
 
+Ly = sys.argv[1]
 
 with dolfinx.io.XDMFFile(MPI.COMM_WORLD, "mesh.xdmf", "r") as infile3:
         msh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
@@ -25,7 +26,7 @@ with u1.vector.localForm() as u1_loc:
 x0facet = dolfinx.mesh.locate_entities_boundary(msh, 0,
                                 lambda x: np.isclose(x[1], 0.0))
 x1facet = dolfinx.mesh.locate_entities_boundary(msh, 0,
-                                lambda x: np.isclose(x[1], 10.0))
+                                lambda x: np.isclose(x[1], Ly))
 x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 0, x0facet))
 x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 0, x1facet))
 
