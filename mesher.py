@@ -14,7 +14,7 @@ import numpy as np
 from itertools import groupby
 from operator import itemgetter
 
-import geometry, particles
+import geometry
 
 FORMAT = '%(asctime)s: %(message)s'
 logging.basicConfig(format=FORMAT)
@@ -104,7 +104,6 @@ def build_voxels_mesh(boxes, output_mshfile):
 
     gmsh.model.mesh.field.add("Distance", 1)
     gmsh.model.mesh.field.setNumbers(1, "FacesList", walls)
-
     gmsh.model.mesh.field.add("Threshold", 2)
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
     gmsh.model.mesh.field.setNumber(2, "LcMin", resolution)
@@ -112,11 +111,6 @@ def build_voxels_mesh(boxes, output_mshfile):
     gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5)
     gmsh.model.mesh.field.setNumber(2, "DistMax", 1)
 
-    #gmsh.model.mesh.field.add("Min", 5)
-    #gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    #gmsh.model.mesh.field.setAsBackgroundMesh(5)
-    # points = gmsh.model.getEntities(dim=0)
-    # gmsh.model.mesh.setSize(points, resolution)
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
     
@@ -159,8 +153,6 @@ if __name__ == '__main__':
     logger.info("No. boxes        : %s" % np.sum(boxes))
     output_mshfile = f"mesh/s{grid_info}o{origin_str}_porous.msh"
     gmsh.initialize()
-    # gmsh.option.setNumber("General.NumThreads", 8)
-    # gmsh.option.setNumber("Mesh.Algorithm3D", 10)
     # gmsh.option.setNumber("Mesh.MeshSizeMin", 0.1)
     # gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
     build_voxels_mesh(boxes, output_mshfile)
