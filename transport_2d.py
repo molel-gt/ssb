@@ -55,23 +55,3 @@ current_h.interpolate(current_expr)
 with dolfinx.io.XDMFFile(MPI.COMM_WORLD, "current.xdmf", "w") as file:
     file.write_mesh(msh)
     file.write_function(current_h)
-# -
-
-# and displayed using [pyvista](https://docs.pyvista.org/).
-
-# +
-try:
-    import pyvista
-    cells, types, x = dolfinx.plot.create_vtk_mesh(V)
-    grid = pyvista.UnstructuredGrid(cells, types, x)
-    grid.point_data["u"] = uh.x.array.real
-    grid.set_active_scalars("u")
-    plotter = pyvista.Plotter()
-    plotter.add_mesh(grid, show_edges=True)
-    warped = grid.warp_by_scalar()
-    plotter.add_mesh(warped)
-    plotter.show()
-except ModuleNotFoundError:
-    print("'pyvista' is required to visualise the solution")
-    print("Install 'pyvista' with pip: 'python3 -m pip install pyvista'")
-# -
