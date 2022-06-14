@@ -19,24 +19,23 @@ from ufl import ds, dx, grad, inner
 import utils
 
 
-FORMAT = '%(asctime)s: %(message)s'
-logging.basicConfig(format=FORMAT)
-logger = logging.getLogger('transport')
-logger.setLevel('INFO')
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
     parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
 
     args = parser.parse_args()
+
     if isinstance(args.origin, str):
         origin = tuple(map(lambda v: int(v), args.origin.split(",")))
     else:
         origin = args.origin
     origin_str = "_".join([str(v) for v in origin])
     grid_info = args.grid_info
+    FORMAT = f'%(asctime)s: %(message)s'
+    logging.basicConfig(format=FORMAT)
+    logger = logging.getLogger(f'{grid_info} {origin_str}')
+    logger.setLevel('INFO')
     Ly = int(grid_info.split("-")[1]) - 1
     working_dir = os.path.abspath(os.path.dirname(__file__))
     meshes_dir = os.path.join(working_dir, 'mesh')
