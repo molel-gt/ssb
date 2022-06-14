@@ -98,9 +98,10 @@ def build_voxels_mesh(boxes, output_mshfile):
 
     logger.info("Refining mesh..")
     for surface in surfaces:
-        com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
-        if np.isclose(com[2], 0) or np.isclose(com[2], Lz) or np.isclose(com[1], 0) or np.isclose(com[1], Ly) or np.isclose(com[0], 0) or np.isclose(com[0], Lx):
-            walls.append(surface[1])
+        # com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
+        # if np.isclose(com[2], 0) or np.isclose(com[2], Lz) or np.isclose(com[1], 0) or np.isclose(com[1], Ly) or np.isclose(com[0], 0) or np.isclose(com[0], Lx):
+        #     walls.append(surface[1])
+        walls.append(surface[1])
     gmsh.model.addPhysicalGroup(2, walls, wall_marker)
     gmsh.model.setPhysicalName(2, wall_marker, "Walls")
 
@@ -153,6 +154,9 @@ if __name__ == '__main__':
 
     voxels = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
                                          y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
+    # pad 2 pixels thickness
+    voxels[:, 0:3, :] = 1
+    voxels[:, int(Ny - 2):int(Ny+1), :] = 1
     occlusions = np.logical_not(voxels)
     rectangles = make_rectangles(occlusions)
     boxes = make_boxes(rectangles)
