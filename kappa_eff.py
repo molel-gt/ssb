@@ -71,3 +71,4 @@ if __name__ == '__main__':
     logger.info("kappa_eff (y = Ly)    : %s" % kappa_eff_right)
     logger.info("Porosity (avg)        : %s" % eps)
     logger.info("kappa_eff (bruggeman) : %s" % np.around(eps ** 1.5, 4))
+    print(current_left, current_right)
