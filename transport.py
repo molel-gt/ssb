@@ -74,13 +74,17 @@ if __name__ == '__main__':
     a = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
     L = ufl.inner(f, v) * ufl.dx(x) + ufl.inner(g, v) * ufl.ds(mesh)
 
-    model = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "gmres", "pc_type": "hypre", "ksp_atol": 1.0e-12, "ksp_rtol": 1.0e-12})
+    options = {
+               "ksp_type": "gmres",
+               "pc_type": "hypre",
+               "ksp_atol": 1.0e-12,
+               "ksp_rtol": 1.0e-12
+               }
 
-    # When we want to compute the solution to the problem, we can specify
-    # what kind of solver we want to use.
+    model = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options=options)
+
     logger.info('Solving problem..')
     uh = model.solve()
-    logger.info("Solved problem.")
     logger.info("Writing results to file..")
 
     # Save solution in XDMF format
