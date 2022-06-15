@@ -8,7 +8,7 @@ import ufl
 from mpi4py import MPI
 from petsc4py import PETSc
 
-Ly = sys.argv[1]
+Ly = 10.0  # int(sys.argv[1])
 
 with dolfinx.io.XDMFFile(MPI.COMM_WORLD, "mesh.xdmf", "r") as infile3:
         msh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
@@ -47,8 +47,8 @@ with dolfinx.io.XDMFFile(msh.comm, "potential.xdmf", "w") as file:
     file.write_function(uh)
 grad_u = ufl.grad(uh)
 
-W = dolfinx.fem.VectorFunctionSpace(msh, ("Lagrange", 1))
-current_expr = dolfinx.fem.Expression(-grad_u, W.element.interpolation_points)
+W = dolfinx.fem.FunctionSpace(msh, ("Lagrange", 1))
+current_expr = dolfinx.fem.Expression(ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points)
 current_h = dolfinx.fem.Function(W)
 current_h.interpolate(current_expr)
 
