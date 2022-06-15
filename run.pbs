@@ -1,10 +1,10 @@
 #PBS -A GT-tf74
 #PBS -l walltime=24:00:00
-#PBS -l nodes=1:ppn=20
-#PBS -l mem=128gb
+#PBS -l nodes=1:ppn=2
+#PBS -l mem=64gb
 #PBS -m abe
-#PBS -o transport.out
-#PBS -e transport.error
+#PBS -o run.out
+#PBS -e run.error
 #PBS -M emolel3@gatech.edu
 
 echo "Started on `/bin/hostname`"
@@ -12,10 +12,4 @@ cd /storage/coda1/p-tf74/0/shared/leshinka/ssb
 . /storage/coda1/p-tf74/0/emolel3/spack/share/spack/setup-env.sh
 spack env activate fenicsx-env
 
-for xpart in 0; do
-    for ypart in 0 50 100 150; do
-        for zpart in 0 50 100 150; do
-            ./mesher.py --img_folder Archive/electrolyte --grid_info 51-51-51 --origin $xpart,$ypart,$zpart && mpirun -np 2 ./transport.py --grid_info 51-51-51 --origin $xpart,$ypart,$zpart
-        done
-    done
-done
+./mesher.py --img_folder Archive/electrolyte --grid_info 51-51-51 --origin $1,$2,$3 && mpirun -np 2 ./transport.py --grid_info 51-51-51 --origin $1,$2,$3
