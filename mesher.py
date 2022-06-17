@@ -18,7 +18,7 @@ import geometry
 
 FORMAT = '%(asctime)s: %(message)s'
 logging.basicConfig(format=FORMAT)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__file__)
 logger.setLevel('INFO')
 
 
