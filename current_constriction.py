@@ -18,7 +18,7 @@ if __name__ == '__main__':
     model = geometry.__enter__()
 
     resolution = 0.1
-    Lx = 100
+    Lx = 50
     Ly = 10
 
     point0 = (0, 0, 0)
@@ -30,7 +30,7 @@ if __name__ == '__main__':
             model.add_point(point1, mesh_size=resolution),
             ]
     sine_curve_x = [np.around(v, 1) for v in reversed(np.linspace(0, Lx, int((Lx / resolution) + 1)))]
-    sine_curve_y = list(Ly + np.sin(2 * np.pi * np.array(sine_curve_x) / 2))
+    sine_curve_y = list(Ly + np.sin(2 * np.pi * np.array(sine_curve_x) / 20))
     zeros = np.zeros(len(sine_curve_x))
     curve_positions = list(zip(sine_curve_x, sine_curve_y, zeros))
     for p in curve_positions:
