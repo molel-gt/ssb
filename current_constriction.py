@@ -1,4 +1,5 @@
-import enum
+#!/usr/bin/env python3
+# coding: utf-8
 import gmsh
 import meshio
 import numpy as np
