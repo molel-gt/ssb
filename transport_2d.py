@@ -8,7 +8,7 @@ import ufl
 from mpi4py import MPI
 from petsc4py import PETSc
 
-Ly = 10.0  # int(sys.argv[1])
+Ly = int(sys.argv[1])
 
 with dolfinx.io.XDMFFile(MPI.COMM_WORLD, "mesh.xdmf", "r") as infile3:
         msh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
