@@ -31,7 +31,6 @@ if __name__ == '__main__':
             ]
     sine_curve_x = [np.around(v, 1) for v in reversed(np.linspace(0, Lx, int((Lx / resolution) + 1)))]
     sine_curve_y = list(Ly + np.sin(2 * np.pi * np.array(sine_curve_x) / 2))
-    print(max(sine_curve_y))
     zeros = np.zeros(len(sine_curve_x))
     curve_positions = list(zip(sine_curve_x, sine_curve_y, zeros))
     for p in curve_positions:
