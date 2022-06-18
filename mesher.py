@@ -113,6 +113,7 @@ def build_voxels_mesh(boxes, output_mshfile):
 
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
+    gmsh.model.mesh.optimize("Netgen")
     
     gmsh.write(output_mshfile)
     
