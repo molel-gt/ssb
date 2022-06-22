@@ -31,6 +31,9 @@ if __name__ == '__main__':
         for fname in current_data_files:
             grid_info = fname.split("/")[-1].split("o")[0].strip("s")
             Nx, Ny, Nz = [int(v) for v in grid_info.split("-")]
+            Lx = int(Nx - 1)
+            Ly = int(Ny - 1)
+            Lz = int(Nz - 1)
             origin_str = '_'.join(fname.split("o")[-1].split("_current")[0].split(","))
             origin = [int(v) for v in origin_str.split("_")]
             im_files = sorted([os.path.join(img_dir, f) for
@@ -40,11 +43,9 @@ if __name__ == '__main__':
             voxels = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
                                                 y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
             eps_left = np.around(np.average(voxels[:, 0, :]), 4)
-            eps_right = np.around(np.average(voxels[:, 50, :]), 4)
+            eps_right = np.around(np.average(voxels[:, Ly, :]), 4)
             eps = np.around(np.average(voxels), 4)
-            Lx = int(Nx - 1)
-            Ly = int(Ny - 1)
-            Lz = int(Nz - 1)
+
             resultsdata = h5py.File(fname, "r")
             values = resultsdata['/Function/f/0']
             geom = resultsdata['/Mesh/Grid/geometry']
