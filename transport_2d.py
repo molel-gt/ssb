@@ -12,6 +12,18 @@ Ly = int(sys.argv[1])
 
 with dolfinx.io.XDMFFile(MPI.COMM_WORLD, "mesh.xdmf", "r") as infile3:
         msh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
+        ct = infile3.read_meshtags(msh, name="Grid")
+
+msh.topology.create_connectivity(msh.topology.dim, msh.topology.dim-1)
+def lithium_phase(x): return x[1] <= 1.0
+def electrolyte_phase(x): return x[1] >= 1.0
+
+Q = dolfinx.fem.FunctionSpace(msh, ("DG", 0))
+kappa = dolfinx.fem.Function(Q)
+lithium_cells = dolfinx.mesh.locate_entities(msh, msh.topology.dim, lithium_phase)
+electrolyte_cells = dolfinx.mesh.locate_entities(msh, msh.topology.dim, electrolyte_phase)
+kappa.x.array[lithium_cells] = np.full_like(lithium_cells, 1, dtype=PETSc.ScalarType)
+kappa.x.array[electrolyte_cells]  = np.full_like(electrolyte_cells, 1e-9, dtype=PETSc.ScalarType)
 
 V = dolfinx.fem.FunctionSpace(msh, ("Lagrange", 1))
 
@@ -36,7 +48,7 @@ x = ufl.SpatialCoordinate(msh)
 f = dolfinx.fem.Constant(msh, PETSc.ScalarType(0))
 g = dolfinx.fem.Constant(msh, PETSc.ScalarType(0))
 
-a = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
+a = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
 L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ufl.ds
 
 problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "gmres", "pc_type": "hypre"})
