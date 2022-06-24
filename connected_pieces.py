@@ -106,8 +106,8 @@ if __name__ == "__main__":
     logger.info("No. boxes        : %s" % np.sum(boxes))
     output_mshfile = f"mesh/s{grid_info}o{origin_str}_porous.msh"
     gmsh.initialize()
-    gmsh.option.setNumber("Mesh.MeshSizeMin", 0.5)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.5)
+    # gmsh.option.setNumber("Mesh.MeshSizeMin", 0.1)
+    # gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
     mesher.build_voxels_mesh(boxes, output_mshfile)
     gmsh.finalize()
     logger.info("writing xmdf tetrahedral mesh..")

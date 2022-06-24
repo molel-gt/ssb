@@ -3,6 +3,7 @@
 
 import logging
 import os
+import time
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -102,18 +103,18 @@ def build_voxels_mesh(boxes, output_mshfile):
     gmsh.model.addPhysicalGroup(2, walls, wall_marker)
     gmsh.model.setPhysicalName(2, wall_marker, "Walls")
 
-    gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "FacesList", walls)
-    gmsh.model.mesh.field.add("Threshold", 2)
-    gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "LcMin", resolution)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", 20 * resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 1)
+    # gmsh.model.mesh.field.add("Distance", 1)
+    # gmsh.model.mesh.field.setNumbers(1, "FacesList", walls)
+    # gmsh.model.mesh.field.add("Threshold", 2)
+    # gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    # gmsh.model.mesh.field.setNumber(2, "LcMin", 0.01)
+    # gmsh.model.mesh.field.setNumber(2, "LcMax", 0.1)
+    # gmsh.model.mesh.field.setNumber(2, "DistMin", 1)
+    # gmsh.model.mesh.field.setNumber(2, "DistMax", 20)
 
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
-    gmsh.model.mesh.optimize("Netgen")
+    # gmsh.model.mesh.optimize("Netgen")
     
     gmsh.write(output_mshfile)
     
@@ -130,6 +131,7 @@ if __name__ == '__main__':
     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
 
     args = parser.parse_args()
+    start = time.time()
     if isinstance(args.origin, str):
         origin = tuple(map(lambda v: int(v), args.origin.split(",")))
     elif isinstance(args.origin, tuple):
@@ -162,3 +164,5 @@ if __name__ == '__main__':
     msh = meshio.read(output_mshfile)
     tetra_mesh = geometry.create_mesh(msh, "tetra")
     meshio.write(f"mesh/s{grid_info}o{origin_str}_tetr.xdmf", tetra_mesh)
+    stop = time.time()
+    logger.info("Took {:,}s".format(int(stop - start)))
