@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 # coding: utf-8
-from bs4 import Tag
 import gmsh
 import meshio
 import numpy as np
-import pygmsh
 
 from mpi4py import MPI
 
@@ -15,6 +13,8 @@ Lx = 10
 Ly = 2
 resolution = 0.1
 gmsh.initialize()
+gmsh.option.setNumber("Mesh.MeshSizeMin", 0.01)
+gmsh.option.setNumber("Mesh.MeshSizeMax", 0.01)
 gmsh.model.add("li-sse")
 # lithium phase
 sine_curve_x = [np.around(v, 1) for v in reversed(np.linspace(0, Lx, int((Lx / resolution) + 1)))]
