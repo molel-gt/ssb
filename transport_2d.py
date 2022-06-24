@@ -39,7 +39,7 @@ g = dolfinx.fem.Constant(msh, PETSc.ScalarType(0))
 a = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
 L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ufl.ds
 
-problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "gmres", "pc_type": "hypre"})
 uh = problem.solve()
 
 with dolfinx.io.XDMFFile(msh.comm, "potential.xdmf", "w") as file:
@@ -48,6 +48,7 @@ with dolfinx.io.XDMFFile(msh.comm, "potential.xdmf", "w") as file:
 grad_u = ufl.grad(uh)
 
 W = dolfinx.fem.FunctionSpace(msh, ("Lagrange", 1))
+
 current_expr = dolfinx.fem.Expression(ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points)
 current_h = dolfinx.fem.Function(W)
 current_h.interpolate(current_expr)
