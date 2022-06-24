@@ -19,20 +19,10 @@ if __name__ == '__main__':
     model = geometry.__enter__()
 
     resolution = 0.1
-    Lx = 5
-    Ly = 10
-
-    point0 = (0, 0, 0)
-    point1 = (Lx, 0, 0)
-    point2 = (Lx, Ly, 0)
-    point3 = (0, Ly, 0)
-
-    # model.add_point(point0, mesh_size=resolution),
-    # model.add_point(point1, mesh_size=resolution),
-
+    Lx = 10
     points = []
     sine_curve_x = [np.around(v, 1) for v in reversed(np.linspace(0, Lx, int((Lx / resolution) + 1)))]
-    sine_curve_y = list(0 + np.sin(2 * np.pi * np.array(sine_curve_x) / (2 * Lx)))
+    sine_curve_y = list(0 + np.around(np.sin(2 * np.pi * np.array(sine_curve_x) / (2 * Lx)), 4))
     sine_curve_y = [1.0 if (1.0 - v) < 0.01 else v for v in sine_curve_y]
     zeros = np.zeros(len(sine_curve_x))
     curve_positions = list(zip(sine_curve_x, sine_curve_y, zeros))
@@ -41,6 +31,7 @@ if __name__ == '__main__':
             model.add_point(p, mesh_size=resolution)
         )
     channel_lines = [model.add_line(points[i], points[i+1]) for i in range(-1, len(points)-1)]
+
     channel_loop = model.add_curve_loop(channel_lines)
 
     plane_surface = model.add_plane_surface(channel_loop)
