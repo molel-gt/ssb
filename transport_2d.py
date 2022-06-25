@@ -15,14 +15,12 @@ with dolfinx.io.XDMFFile(MPI.COMM_WORLD, "mesh.xdmf", "r") as infile3:
         ct = infile3.read_meshtags(msh, name="Grid")
 
 msh.topology.create_connectivity(msh.topology.dim, msh.topology.dim-1)
-def lithium_phase(x): return x[1] <= 1.0
-def electrolyte_phase(x): return x[1] >= 1.0
 
 Q = dolfinx.fem.FunctionSpace(msh, ("DG", 0))
 kappa = dolfinx.fem.Function(Q)
-lithium_cells = dolfinx.mesh.locate_entities(msh, msh.topology.dim, lithium_phase)
-electrolyte_cells = dolfinx.mesh.locate_entities(msh, msh.topology.dim, electrolyte_phase)
+lithium_cells = ct.indices[np.argwhere(ct.values == 1)]
 kappa.x.array[lithium_cells] = np.full_like(lithium_cells, 1, dtype=PETSc.ScalarType)
+electrolyte_cells = ct.indices[np.argwhere(ct.values == 2)]
 kappa.x.array[electrolyte_cells]  = np.full_like(electrolyte_cells, 1e-9, dtype=PETSc.ScalarType)
 
 V = dolfinx.fem.FunctionSpace(msh, ("Lagrange", 1))
