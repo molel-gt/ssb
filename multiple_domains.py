@@ -17,11 +17,11 @@ gmsh.option.setNumber("Mesh.MeshSizeMin", 0.005)
 gmsh.option.setNumber("Mesh.MeshSizeMax", 0.005)
 gmsh.model.add("li-sse")
 # lithium phase
-sine_curve_x = [np.around(v, 1) for v in reversed(np.linspace(0, Lx, int((Lx / resolution) + 1)))]
-sine_curve_y = list(0 + np.around(np.sin(2 * np.pi * np.array(sine_curve_x) / (2 * Lx)), 4))
+x = np.array([np.around(v, 4) for v in reversed(np.linspace(0, Lx, int((Lx / resolution) + 1)))])
+sine_curve_y = list(0 + np.around(np.abs(np.sin(2 * np.pi * np.array(x) / (0.5 * 2 * Lx))), 4))
 sine_curve_y = [1.0 if (1.0 - v) < 0.01 else v for v in sine_curve_y]
-zeros = np.zeros(len(sine_curve_x))
-curve_positions = list(zip(sine_curve_x, sine_curve_y, zeros))
+zeros = np.zeros(len(x))
+curve_positions = list(zip(x, sine_curve_y, zeros))
 curve_positions = [gmsh.model.occ.add_point(*p) for p in curve_positions]
 arc_lines = [gmsh.model.occ.add_line(curve_positions[i], curve_positions[i+1]) for i in range(-1, len(curve_positions) - 1)]
 arc_loop = gmsh.model.occ.add_curve_loop(arc_lines)
