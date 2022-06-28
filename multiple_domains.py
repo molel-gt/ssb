@@ -28,7 +28,7 @@ def make_shape_2(lx, ly, resolution):
 
 Lx = 1000
 Ly = 1
-resolution = 0.01
+resolution = 0.1
 gmsh.initialize()
 # gmsh.option.setNumber("Mesh.MeshSizeMin", 0.01)
 # gmsh.option.setNumber("Mesh.MeshSizeMax", 0.01)
