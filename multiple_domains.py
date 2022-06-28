@@ -35,7 +35,9 @@ gmsh.option.setNumber("Mesh.MeshSizeMax", 0.005)
 gmsh.model.add("li-sse")
 # lithium phase
 x, sine_curve_y = make_shape_1(Lx, Ly)
-# x, sine_curve_y = make_shape_2(Lx, Ly, resolution)
+meshname = "serrated"
+x, sine_curve_y = make_shape_2(Lx, Ly, resolution)
+meshname = "sinecurve"
 zeros = np.zeros(len(x))
 curve_positions = list(zip(x, sine_curve_y, zeros))
 curve_positions = [gmsh.model.occ.add_point(*p) for p in curve_positions]
@@ -59,10 +61,10 @@ lithium_surface = gmsh.model.addPhysicalGroup(2, [surfaces[0][1]], 1)
 electrolyte_surface = gmsh.model.addPhysicalGroup(2, [surfaces[1][1]], 2)
 
 gmsh.model.mesh.generate(2)
-gmsh.write("mesh.msh")
+gmsh.write(f"{meshname}.msh")
 gmsh.finalize()
 
-mesh_from_file = meshio.read("mesh.msh")
+mesh_from_file = meshio.read(f"{meshname}.msh")
 
 triangle_mesh = geometry.create_mesh(mesh_from_file, "triangle")
-meshio.write("mesh.xdmf", triangle_mesh)
+meshio.write(f"{meshname}.xdmf", triangle_mesh)

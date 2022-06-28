@@ -9,8 +9,9 @@ from mpi4py import MPI
 from petsc4py import PETSc
 
 Ly = int(sys.argv[1])
+meshname = sys.argv[2]
 
-with dolfinx.io.XDMFFile(MPI.COMM_WORLD, "mesh.xdmf", "r") as infile3:
+with dolfinx.io.XDMFFile(MPI.COMM_WORLD, f"{meshname}.xdmf", "r") as infile3:
         msh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(msh, name="Grid")
 
@@ -21,7 +22,7 @@ kappa = dolfinx.fem.Function(Q)
 lithium_cells = ct.indices[np.argwhere(ct.values == 1)]
 kappa.x.array[lithium_cells] = np.full_like(lithium_cells, 1, dtype=PETSc.ScalarType)
 electrolyte_cells = ct.indices[np.argwhere(ct.values == 2)]
-kappa.x.array[electrolyte_cells]  = np.full_like(electrolyte_cells, 1e-9, dtype=PETSc.ScalarType)
+kappa.x.array[electrolyte_cells]  = np.full_like(electrolyte_cells, 1, dtype=PETSc.ScalarType)
 
 V = dolfinx.fem.FunctionSpace(msh, ("Lagrange", 1))
 
@@ -52,7 +53,7 @@ L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ufl.ds
 problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "gmres", "pc_type": "hypre"})
 uh = problem.solve()
 
-with dolfinx.io.XDMFFile(msh.comm, "potential.xdmf", "w") as file:
+with dolfinx.io.XDMFFile(msh.comm, f"{meshname}-potential.xdmf", "w") as file:
     file.write_mesh(msh)
     file.write_function(uh)
 grad_u = ufl.grad(uh)
@@ -63,6 +64,6 @@ current_expr = dolfinx.fem.Expression(ufl.sqrt(ufl.inner(grad_u, grad_u)), W.ele
 current_h = dolfinx.fem.Function(W)
 current_h.interpolate(current_expr)
 
-with dolfinx.io.XDMFFile(MPI.COMM_WORLD, "current.xdmf", "w") as file:
+with dolfinx.io.XDMFFile(MPI.COMM_WORLD, f"{meshname}-current.xdmf", "w") as file:
     file.write_mesh(msh)
     file.write_function(current_h)
