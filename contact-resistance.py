@@ -8,6 +8,7 @@ import numpy as np
 
 
 current_filename = sys.argv[1]
+Ly = float(sys.argv[2])
 data = h5py.File(current_filename, "r")
 geom = data['/Mesh/Grid/geometry']
 values = data['/Function/f/0']
@@ -16,11 +17,15 @@ current_0 = []
 current_1 = []
 
 for idx, v in enumerate(values):
-    x, y, z = geom[idx]
+    _, y, _ = geom[idx]
+    if len(v) == 3:
+        v0 = (v[0] ** 2 + v[1] ** 2 + v[2] ** 2) ** 0.5
+    else:
+        v0 = v
     if np.isclose(y, 0):
-        current_0.append(v)
-    elif np.isclose(y, 1):
-        current_1.append(v)
-print("Ly = 1")
-print("@ y = 0, current is", np.around(np.average(current_0), 4))
-print("@ y = 1, current is", np.around(np.average(current_1), 4))
+        current_0.append(v0)
+    elif np.isclose(y, Ly):
+        current_1.append(v0)
+i_avg_1 = np.around(np.nanmean(current_0), 6)
+i_avg_2 = np.around(np.nanmean(current_1), 6)
+print("%0.2f,%0.6f,%0.6f" % (np.around(float(current_filename.split("-")[-2]), 2), i_avg_1, i_avg_2))
