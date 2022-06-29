@@ -40,7 +40,7 @@ def read_spheres_position_file(spheres_position_path):
 def build_packed_spheres_mesh(output_mesh_file, spheres_locations_file):
     gmsh.model.add("3D")
     Lx, Ly, Lz = 1, 1, 1
-    resolution = 0.001
+    resolution = 0.01
     channel = gmsh.model.occ.addBox(0, 0, 0, Lx, Ly, Lz)
     spheres_ = []
     centers, r, n_spheres = read_spheres_position_file(spheres_locations_file)
@@ -78,7 +78,7 @@ def build_packed_spheres_mesh(output_mesh_file, spheres_locations_file):
     gmsh.model.setPhysicalName(2, sphere_marker, "sphere")
 
     gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "FacesList", spheres)
+    gmsh.model.mesh.field.setNumbers(1, "FacesList", spheres + walls)
 
     gmsh.model.mesh.field.add("Threshold", 2)
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
@@ -125,4 +125,4 @@ if __name__ == '__main__':
     tetrahedral_mesh = create_mesh(mesh_3d, "tetra")
     meshio.write(os.path.join(task_dir, f"mesh/s{grid_info}o{origin_str}_tetr.xdmf"), tetrahedral_mesh)
     transport_model_path = os.path.join(home_dir, 'dev/ssb', "transport.py")
-    val = subprocess.check_call(f'mpirun -n 4 python3 {transport_model_path} --grid_info={grid_info} --origin={origin}', shell=True)
+    val = subprocess.check_call(f'mpirun -n 2 python3 {transport_model_path} --grid_info={grid_info} --origin={origin}', shell=True)
