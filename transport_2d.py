@@ -39,9 +39,9 @@ with u0.vector.localForm() as u0_loc:
 u1 = dolfinx.fem.Function(V)
 with u1.vector.localForm() as u1_loc:
     u1_loc.set(0)
-# partially_insulated = lambda x: np.logical_and(np.isclose(x[1], 0.0), np.logical_and(lower_cov <= x[0],  x[0] <= upper_cov))
-# x0facet = dolfinx.mesh.locate_entities_boundary(msh, 0, partially_insulated)
-x0facet = dolfinx.mesh.locate_entities_boundary(msh, 0, lambda x: np.isclose(x[1], 0.0))
+partially_insulated = lambda x: np.logical_and(np.isclose(x[1], 0.0), np.logical_and(lower_cov <= x[0],  x[0] <= upper_cov))
+x0facet = dolfinx.mesh.locate_entities_boundary(msh, 0, partially_insulated)
+# x0facet = dolfinx.mesh.locate_entities_boundary(msh, 0, lambda x: np.isclose(x[1], 0.0))
 x1facet = dolfinx.mesh.locate_entities_boundary(msh, 0,
                                 lambda x: np.isclose(x[1], Ly))
 x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 0, x0facet))
