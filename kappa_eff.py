@@ -7,6 +7,7 @@ import os
 import argparse
 import h5py
 import logging
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
@@ -43,27 +44,35 @@ if __name__ == '__main__':
 
             voxels = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
                                                 y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
-            num_points = np.sum(voxels)
-            points = connected_pieces.build_points(voxels)
-            points_view = {v: k for k, v in points.items()}
-            G = connected_pieces.build_graph(points)
-            pieces = nx.connected_components(G)
-            pieces = [piece for piece in pieces]
-            logger.info("{:,} components".format(len(pieces)))
-            connected = np.zeros((Nx, Ny, Nz), dtype=np.uint8)
-            for idx, piece in enumerate(pieces):
-                largest_piece = np.zeros((Nx, Ny, Nz), dtype=np.uint8)
-                for p in piece:
-                    coord = points_view[p]
-                    largest_piece[coord] = 1
-                if np.all(largest_piece[:, 0, :] == 0) or np.all(largest_piece[:, Ny - 1, :] == 0):
-                    logger.debug(f"Piece {idx} does not span both ends")
-                    continue
-                logger.info(f"Piece {idx} spans both ends along y-axis")
-                connected += largest_piece
-            voxels = connected
+            # num_points = np.sum(voxels)
+            # points = connected_pieces.build_points(voxels)
+            # points_view = {v: k for k, v in points.items()}
+            # G = connected_pieces.build_graph(points)
+            # pieces = nx.connected_components(G)
+            # pieces = [piece for piece in pieces]
+            # logger.info("{:,} components".format(len(pieces)))
+            # connected = np.zeros((Nx, Ny, Nz), dtype=np.uint8)
+            # for idx, piece in enumerate(pieces):
+            #     largest_piece = np.zeros((Nx, Ny, Nz), dtype=np.uint8)
+            #     for p in piece:
+            #         coord = points_view[p]
+            #         largest_piece[coord] = 1
+            #     if np.all(largest_piece[:, 0, :] == 0) or np.all(largest_piece[:, Ny - 1, :] == 0):
+            #         logger.debug(f"Piece {idx} does not span both ends")
+            #         continue
+            #     logger.info(f"Piece {idx} spans both ends along y-axis")
+            #     connected += largest_piece
+            # voxels = connected
             eps_left = np.around(np.average(voxels[:, 0, :]), 4)
             eps_right = np.around(np.average(voxels[:, Ly, :]), 4)
+            # y_vals = range(50 + 1)
+            # eps_vals = []
+            # for y_val in y_vals:
+            #     eps_vals.append(
+            #         np.around(np.average(voxels[:, y_val, :]), 4)
+            #     )
+            # plt.plot(y_vals, eps_vals)
+            # plt.show()
             eps = np.around(np.average(voxels), 4)
 
             resultsdata = h5py.File(fname, "r")
@@ -73,18 +82,18 @@ if __name__ == '__main__':
             vals_right = []
             for idx, (vx, vy, vz) in enumerate(values):
                 coord = geom[idx, :]
-                if np.isclose(coord[1], 0):
+                if np.isclose(coord[1], 0.0):
                     mag = (vx ** 2 + vy ** 2 + vz ** 2) ** (0.5)
                     vals_left.append(mag)
-                if np.isclose(coord[1], Ly):
+                if np.isclose(coord[1], float(Ly)):
                     mag = (vx ** 2 + vy ** 2 + vz ** 2) ** (0.5)
                     vals_right.append(mag)
 
             # area-averaged local current
-            current_left = np.around(eps_left * np.average(vals_left), 4)
-            current_right = np.around(eps_right * np.average(vals_right), 4)
-            kappa_eff_left = np.around(eps_left * current_left * Ly, 4)
-            kappa_eff_right = np.around(eps_right * current_right * Ly, 4)
+            current_left = eps_left * np.nanmean(vals_left)
+            current_right = eps_right * np.nanmean(vals_right)
+            kappa_eff_left = np.around(current_left * Ly, 4)
+            kappa_eff_right = np.around(current_right * Ly, 4)
             row = {"filename": fname, "porosity (at 0)": eps_left, "porosity (at L)": eps_right,
                    "kappa_eff (at 0)": kappa_eff_left, "kappa_eff (at L)": kappa_eff_right,
                    "porosity (avg)": eps, "kappa_eff (avg)": np.around(0.5 * (kappa_eff_left + kappa_eff_right), 4), "bruggeman": np.around(eps ** 1.5, 4),
