@@ -129,6 +129,7 @@ if __name__ == '__main__':
     parser.add_argument('--grid_info', help='Nx-Ny-Nz',
                         required=True)
     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
+    parser.add_argument("--resolution", nargs='?', const=0.5, type=float)
 
     args = parser.parse_args()
     start = time.time()
@@ -156,8 +157,8 @@ if __name__ == '__main__':
     logger.info("No. boxes        : %s" % np.sum(boxes))
     output_mshfile = f"mesh/s{grid_info}o{origin_str}_porous.msh"
     gmsh.initialize()
-    gmsh.option.setNumber("Mesh.MeshSizeMin", 0.1)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
+    gmsh.option.setNumber("Mesh.MeshSizeMin", args.resolution)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
     build_voxels_mesh(boxes, output_mshfile)
     gmsh.finalize()
     logger.info("writing xmdf tetrahedral mesh..")
