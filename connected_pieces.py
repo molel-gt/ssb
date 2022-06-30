@@ -61,7 +61,7 @@ if __name__ == "__main__":
     parser.add_argument('--grid_info', help='Nx-Ny-Nz',
                         required=True)
     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
-    parser.add_argument("--resolution", nargs='?', const=0.5, type=float)
+    parser.add_argument("--resolution", nargs='?', const=1, default=0.5, type=float)
 
     args = parser.parse_args()
     if isinstance(args.origin, str):
