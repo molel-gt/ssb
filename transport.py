@@ -52,34 +52,41 @@ if __name__ == '__main__':
     # Dirichlet BCs
     u0 = dolfinx.fem.Function(V)
     with u0.vector.localForm() as u0_loc:
-        u0_loc.set(1)
+        u0_loc.set(1.0)
 
     u1 = dolfinx.fem.Function(V)
     with u1.vector.localForm() as u1_loc:
-        u1_loc.set(0)
-    x0facet = dolfinx.mesh.locate_entities_boundary(mesh, 0,
+        u1_loc.set(0.0)
+    x0facet = dolfinx.mesh.locate_entities_boundary(mesh, 2,
                                     lambda x: np.isclose(x[1], 0.0))
-    x1facet = dolfinx.mesh.locate_entities_boundary(mesh, 0,
+    x1facet = dolfinx.mesh.locate_entities_boundary(mesh, 2,
                                     lambda x: np.isclose(x[1], Ly))
-    x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 0, x0facet))
-    x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 0, x1facet))
+    x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 2, x0facet))
+    x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 2, x1facet))
 
     # Define variational problem
     u = ufl.TrialFunction(V)
     v = ufl.TestFunction(V)
     x = ufl.SpatialCoordinate(mesh)
-    f = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0))
-    g = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0))
+    f = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0.0))
+    g = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0.0))
 
     a = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
-    L = ufl.inner(f, v) * ufl.dx(x) + ufl.inner(g, v) * ufl.ds(mesh)
+    L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ufl.ds
 
     options = {
                "ksp_type": "gmres",
                "pc_type": "hypre",
-               "ksp_atol": 1.0e-12,
                "ksp_rtol": 1.0e-12
                }
+    options = {
+               "ksp_type": "cg",
+               "pc_type": "gamg",
+               "ksp_rtol": 1.0e-12,
+               "mg_levels_ksp_type": "chebyshev",
+               "mg_levels_pc_type": "jacobi",
+               "mg_levels_ksp_chebyshev_esteig_steps": 20,
+    }
 
     model = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options=options)
 
