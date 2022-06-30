@@ -75,6 +75,10 @@ if __name__ == '__main__':
     L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ufl.ds
 
     options = {
+        "ksp_type": "preonly",
+        "pc_type": "lu",
+    }
+    options = {
                "ksp_type": "gmres",
                "pc_type": "hypre",
                "ksp_rtol": 1.0e-12
@@ -83,9 +87,6 @@ if __name__ == '__main__':
                "ksp_type": "cg",
                "pc_type": "gamg",
                "ksp_rtol": 1.0e-12,
-               "mg_levels_ksp_type": "chebyshev",
-               "mg_levels_pc_type": "jacobi",
-               "mg_levels_ksp_chebyshev_esteig_steps": 20,
     }
 
     model = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options=options)
