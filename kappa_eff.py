@@ -97,6 +97,6 @@ if __name__ == '__main__':
             row = {"filename": fname, "porosity (at 0)": eps_left, "porosity (at L)": eps_right,
                    "kappa_eff (at 0)": kappa_eff_left, "kappa_eff (at L)": kappa_eff_right,
                    "porosity (avg)": eps, "kappa_eff (avg)": np.around(0.5 * (kappa_eff_left + kappa_eff_right), 4), "bruggeman": np.around(eps ** 1.5, 4),
-                   "deviation @cc": '-' if kappa_eff_left == 0 else 100 * abs(kappa_eff_right - kappa_eff_left) / (0.5 * (kappa_eff_right + kappa_eff_left)),
+                   "deviation @cc": '-' if kappa_eff_left == 0 else np.around(100 * abs(kappa_eff_right - kappa_eff_left) / (0.5 * (kappa_eff_right + kappa_eff_left)), 1),
                    }
             writer.writerow(row)
