@@ -62,11 +62,6 @@ def make_boxes(rectangles):
 
 def build_voxels_mesh(boxes, output_mshfile):
     gmsh.model.add("3D")
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 0)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.1)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
     Nx, Ny, Nz = boxes.shape
     Lx = Nx - 1
     Ly = Ny - 1
@@ -104,18 +99,8 @@ def build_voxels_mesh(boxes, output_mshfile):
     gmsh.model.addPhysicalGroup(2, walls, wall_marker)
     gmsh.model.setPhysicalName(2, wall_marker, "Walls")
 
-    gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "FacesList", walls)
-    gmsh.model.mesh.field.add("Threshold", 2)
-    gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "LcMin", 0.01)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", 0.1)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 1)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 20)
-
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
-    # gmsh.model.mesh.optimize("Netgen")
     
     gmsh.write(output_mshfile)
     
@@ -158,8 +143,11 @@ if __name__ == '__main__':
     logger.info("No. boxes        : %s" % np.sum(boxes))
     output_mshfile = f"mesh/s{grid_info}o{origin_str}_porous.msh"
     gmsh.initialize()
-    gmsh.option.setNumber("Mesh.MeshSizeMin", args.resolution)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 0)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
     build_voxels_mesh(boxes, output_mshfile)
     gmsh.finalize()
     logger.info("writing xmdf tetrahedral mesh..")
