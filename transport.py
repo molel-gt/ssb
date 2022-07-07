@@ -46,8 +46,8 @@ if __name__ == '__main__':
     with dolfinx.io.XDMFFile(MPI.COMM_WORLD, tetr_mesh_path, "r") as infile3:
         mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
     logger.info("Loaded mesh.")
-    mesh_dim = mesh.topology.dim
-    V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 2))
+    mesh.topology.create_connectivity(2, 3)
+    V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 3))
 
     # Dirichlet BCs
     u0 = dolfinx.fem.Function(V)
@@ -68,8 +68,8 @@ if __name__ == '__main__':
     u = ufl.TrialFunction(V)
     v = ufl.TestFunction(V)
     x = ufl.SpatialCoordinate(mesh)
-    f = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0.0))
-    g = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0.0))
+    f = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0))
+    g = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0))
 
     a = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
     L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ufl.ds
