@@ -47,7 +47,7 @@ if __name__ == '__main__':
         mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
     logger.info("Loaded mesh.")
     mesh.topology.create_connectivity(2, 3)
-    V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 3))
+    V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 2))
 
     # Dirichlet BCs
     u0 = dolfinx.fem.Function(V)
