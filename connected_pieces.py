@@ -107,12 +107,10 @@ if __name__ == "__main__":
     logger.info("No. boxes        : %s" % np.sum(boxes))
     output_mshfile = f"mesh/s{grid_info}o{origin_str}_porous.msh"
     gmsh.initialize()
-    # gmsh.option.setNumber("Mesh.MeshSizeMin", args.resolution)
-    # gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
     gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0)
     gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
     gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 0)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.01)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
     mesher.build_voxels_mesh(boxes, output_mshfile)
     gmsh.finalize()
