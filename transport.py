@@ -68,8 +68,8 @@ if __name__ == '__main__':
     u = ufl.TrialFunction(V)
     v = ufl.TestFunction(V)
     x = ufl.SpatialCoordinate(mesh)
-    f = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0))
-    g = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0))
+    f = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0.0))
+    g = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0.0))
 
     a = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
     L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ufl.ds
