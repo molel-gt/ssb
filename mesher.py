@@ -62,29 +62,30 @@ def make_boxes(rectangles):
 
 def build_voxels_mesh(boxes, output_mshfile):
     gmsh.model.add("3D")
+    gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 0)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.1)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
     Nx, Ny, Nz = boxes.shape
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
-    resolution = 1.0e-2
-    channel = gmsh.model.occ.addBox(0, 0, 0, Lx, Ly, Lz)
-    gmsh_boxes = []
     counter = 1
+    all_boxes = []
+    channel = [(3, gmsh.model.occ.addBox(0, 0, 0, Lx, Ly, Lz))]
 
     logger.info("Adding volumes..")
-
     for idx in range(Nx):
         for idy in range(Ny):
             for idz in range(Nz):
                 box_length = boxes[idx, idy, idz]
                 if box_length > 0:
+                    counter += 1
                     box = gmsh.model.occ.addBox(idx, idy, idz, 1, 1, box_length)
-                    gmsh_boxes.append(box)
-    logger.info("Added volumes, in total %s boxes" % len(gmsh_boxes))
-    logger.info("Cutting occlusions..")
-    channel = gmsh.model.occ.cut([(3, channel)], [(3, box) for box in gmsh_boxes])
+                    all_boxes.append((3, box))
+    gmsh.model.occ.cut(channel, all_boxes)
     gmsh.model.occ.synchronize()
-    logger.info("Cut occlusions.")
     volumes = gmsh.model.getEntities(dim=3)
     logger.info("Setting physical groups..")
 
