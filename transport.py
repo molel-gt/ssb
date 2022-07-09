@@ -72,6 +72,12 @@ if __name__ == '__main__':
     x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 2, x0facet))
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 2, x1facet))
 
+    # Neumann BC
+    insulated_marker = 1505
+    insulated_cells = facets_ct.indices[facets_ct.values == insulated_marker]
+    insulated_tags = dolfinx.mesh.meshtags(mesh, 2, insulated_cells, insulated_marker)
+    n = -ufl.FacetNormal(mesh)
+    ds = ufl.Measure("ds", domain=mesh, subdomain_data=insulated_tags, subdomain_id=insulated_marker)
     # Define variational problem
     u = ufl.TrialFunction(V)
     v = ufl.TestFunction(V)
@@ -80,7 +86,7 @@ if __name__ == '__main__':
     g = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0.0))
 
     a = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
-    L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ufl.ds
+    L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds
 
     options = {
         "ksp_type": "preonly",
@@ -123,11 +129,7 @@ if __name__ == '__main__':
         file.write_mesh(mesh)
         file.write_function(current_h)
     logger.info("Wrote results to file.")
-    insulated_marker = 1505
-    insulated_cells = facets_ct.indices[facets_ct.values == insulated_marker]
-    tags = dolfinx.mesh.meshtags(mesh, 2, insulated_cells, insulated_marker)
-    n = -ufl.FacetNormal(mesh)
-    dobs = ufl.Measure("ds", domain=mesh, subdomain_data=tags, subdomain_id=insulated_marker)
-    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * dobs)) ** 0.5
+
+    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
     logger.info(f"Homogeneous Neumann BC trace: {solution_trace_norm}")
     logger.info("Time elapsed: {:,} seconds".format(int(time.time() - start)))
