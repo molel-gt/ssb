@@ -19,6 +19,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
     parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
+    parser.add_argument("--insulated_marker", nargs='?', const=1, default=4228, type=int)
 
     args = parser.parse_args()
     start = time.time()
@@ -73,7 +74,7 @@ if __name__ == '__main__':
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 2, x1facet))
 
     # Neumann BC
-    insulated_marker = 1505
+    insulated_marker = args.insulated_marker
     insulated_cells = facets_ct.indices[facets_ct.values == insulated_marker]
     insulated_tags = dolfinx.mesh.meshtags(mesh, 2, insulated_cells, insulated_marker)
     n = -ufl.FacetNormal(mesh)
