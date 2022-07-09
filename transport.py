@@ -132,5 +132,7 @@ if __name__ == '__main__':
     logger.info("Wrote results to file.")
 
     solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
-    logger.info(f"Homogeneous Neumann BC trace: {solution_trace_norm}")
+    total_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds))
+    avg_solution_trace_norm = solution_trace_norm / total_area
+    logger.info(f"Homogeneous Neumann BC area-averaged trace: {avg_solution_trace_norm}")
     logger.info("Time elapsed: {:,} seconds".format(int(time.time() - start)))
