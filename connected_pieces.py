@@ -118,4 +118,6 @@ if __name__ == "__main__":
     msh = meshio.read(output_mshfile)
     tetra_mesh = geometry.create_mesh(msh, "tetra")
     meshio.write(f"mesh/s{grid_info}o{origin_str}_tetr.xdmf", tetra_mesh)
+    tria_mesh = geometry.create_mesh(msh, "triangle")
+    meshio.write(f"mesh/s{grid_info}o{origin_str}_tria.xdmf", tria_mesh)
     logger.info("Operation took {:,} seconds".format(int(time.time() - start_time)))
