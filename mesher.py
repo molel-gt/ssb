@@ -93,14 +93,12 @@ def build_voxels_mesh(boxes, output_mshfile):
     insulated = []
     left_cc = []
     right_cc = []
-    logger.info("Refining mesh..")
     for surface in surfaces:
         com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
         if np.isclose(com[1], 0):
             left_cc.append(surface[1])
-            print("left")
         elif np.isclose(com[1], Ly):
-            right_cc.append(surface)
+            right_cc.append(surface[1])
         else:
             insulated.append(surface[1])
     y0_tag = gmsh.model.addPhysicalGroup(2, left_cc)
