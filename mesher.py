@@ -90,18 +90,22 @@ def build_voxels_mesh(boxes, output_mshfile):
         gmsh.model.setPhysicalName(volume[0], marker, f"V{marker}")
     logger.info("Set physical groups.")
     surfaces = gmsh.model.occ.getEntities(dim=2)
-    wall_marker = 15
-    walls = []
-
+    insulated = []
     logger.info("Refining mesh..")
     for surface in surfaces:
-        walls.append(surface[1])
-    gmsh.model.addPhysicalGroup(2, walls, wall_marker)
-    gmsh.model.setPhysicalName(2, wall_marker, "Walls")
-
+        com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
+        if np.isclose(com[1], 0):
+            gmsh.model.addPhysicalGroup(surface[0], [surface[1]])
+            gmsh.model.setPhysicalName(surface[0], surface[1], "Y0")
+        elif np.allclose(com[1], Ly):
+            gmsh.model.addPhysicalGroup(surface[0], [surface[1]])
+            gmsh.model.setPhysicalName(surface[0], surface[1], "YL")
+        else:
+            insulated.append(surface[1])
+    gmsh.model.addPhysicalGroup(2, insulated, 1505)
+    gmsh.model.setPhysicalName(2, 1505, "insulated")
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
-    
     gmsh.write(output_mshfile)
     
     return
