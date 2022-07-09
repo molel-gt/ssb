@@ -66,25 +66,21 @@ def build_voxels_mesh(boxes, output_mshfile):
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
-    resolution = 1.0e-2
-    channel = gmsh.model.occ.addBox(0, 0, 0, Lx, Ly, Lz)
-    gmsh_boxes = []
     counter = 1
+    all_boxes = []
+    channel = [(3, gmsh.model.occ.addBox(0, 0, 0, Lx, Ly, Lz))]
 
     logger.info("Adding volumes..")
-
     for idx in range(Nx):
         for idy in range(Ny):
             for idz in range(Nz):
                 box_length = boxes[idx, idy, idz]
                 if box_length > 0:
+                    counter += 1
                     box = gmsh.model.occ.addBox(idx, idy, idz, 1, 1, box_length)
-                    gmsh_boxes.append(box)
-    logger.info("Added volumes, in total %s boxes" % len(gmsh_boxes))
-    logger.info("Cutting occlusions..")
-    channel = gmsh.model.occ.cut([(3, channel)], [(3, box) for box in gmsh_boxes])
+                    all_boxes.append((3, box))
+    gmsh.model.occ.cut(channel, all_boxes)
     gmsh.model.occ.synchronize()
-    logger.info("Cut occlusions.")
     volumes = gmsh.model.getEntities(dim=3)
     logger.info("Setting physical groups..")
 
@@ -94,28 +90,25 @@ def build_voxels_mesh(boxes, output_mshfile):
         gmsh.model.setPhysicalName(volume[0], marker, f"V{marker}")
     logger.info("Set physical groups.")
     surfaces = gmsh.model.occ.getEntities(dim=2)
-    wall_marker = 15
-    walls = []
-
-    logger.info("Refining mesh..")
+    insulated = []
+    left_cc = []
+    right_cc = []
     for surface in surfaces:
-        walls.append(surface[1])
-    gmsh.model.addPhysicalGroup(2, walls, wall_marker)
-    gmsh.model.setPhysicalName(2, wall_marker, "Walls")
-
-    gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "FacesList", walls)
-    gmsh.model.mesh.field.add("Threshold", 2)
-    gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "LcMin", 0.01)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", 0.1)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 1)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 20)
-
+        com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
+        if np.isclose(com[1], 0):
+            left_cc.append(surface[1])
+        elif np.isclose(com[1], Ly):
+            right_cc.append(surface[1])
+        else:
+            insulated.append(surface[1])
+    y0_tag = gmsh.model.addPhysicalGroup(2, left_cc)
+    gmsh.model.setPhysicalName(2, y0_tag, "left_cc")
+    yl_tag = gmsh.model.addPhysicalGroup(2, right_cc)
+    gmsh.model.setPhysicalName(2, yl_tag, "right_cc")
+    insulated = gmsh.model.addPhysicalGroup(2, insulated)
+    gmsh.model.setPhysicalName(2, insulated, "insulated")
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
-    # gmsh.model.mesh.optimize("Netgen")
-    
     gmsh.write(output_mshfile)
     
     return
@@ -157,8 +150,11 @@ if __name__ == '__main__':
     logger.info("No. boxes        : %s" % np.sum(boxes))
     output_mshfile = f"mesh/s{grid_info}o{origin_str}_porous.msh"
     gmsh.initialize()
-    gmsh.option.setNumber("Mesh.MeshSizeMin", args.resolution)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 0)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
     build_voxels_mesh(boxes, output_mshfile)
     gmsh.finalize()
     logger.info("writing xmdf tetrahedral mesh..")

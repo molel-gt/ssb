@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import time
 
 import argparse
 import dolfinx
@@ -18,8 +19,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
     parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
+    parser.add_argument("--insulated_marker", nargs='?', const=1, default=4228, type=int)
 
     args = parser.parse_args()
+    start = time.time()
 
     if isinstance(args.origin, str):
         origin = tuple(map(lambda v: int(v), args.origin.split(",")))
@@ -38,6 +41,7 @@ if __name__ == '__main__':
     utils.make_dir_if_missing(meshes_dir)
     utils.make_dir_if_missing(output_dir)
     tetr_mesh_path = os.path.join(meshes_dir, f's{grid_info}o{origin_str}_tetr.xdmf')
+    tria_mesh_path = os.path.join(meshes_dir, f's{grid_info}o{origin_str}_tria.xdmf')
     output_current_path = os.path.join(output_dir, f's{grid_info}o{origin_str}_current.xdmf')
     output_potential_path = os.path.join(output_dir, f's{grid_info}o{origin_str}_potential.xdmf')
 
@@ -45,8 +49,13 @@ if __name__ == '__main__':
 
     with dolfinx.io.XDMFFile(MPI.COMM_WORLD, tetr_mesh_path, "r") as infile3:
         mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
+        ct = infile3.read_meshtags(mesh, name="Grid")
+    mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim - 1)
+    with dolfinx.io.XDMFFile(MPI.COMM_WORLD, tria_mesh_path, "r") as infile3:
+        mesh_facets = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
+        facets_ct = infile3.read_meshtags(mesh, name="Grid")
+
     logger.info("Loaded mesh.")
-    mesh_dim = mesh.topology.dim
     V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 2))
 
     # Dirichlet BCs
@@ -64,6 +73,12 @@ if __name__ == '__main__':
     x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 2, x0facet))
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 2, x1facet))
 
+    # Neumann BC
+    insulated_marker = args.insulated_marker
+    insulated_cells = facets_ct.indices[facets_ct.values == insulated_marker]
+    insulated_tags = dolfinx.mesh.meshtags(mesh, 2, insulated_cells, insulated_marker)
+    n = -ufl.FacetNormal(mesh)
+    ds = ufl.Measure("ds", domain=mesh, subdomain_data=insulated_tags, subdomain_id=insulated_marker)
     # Define variational problem
     u = ufl.TrialFunction(V)
     v = ufl.TestFunction(V)
@@ -72,7 +87,7 @@ if __name__ == '__main__':
     g = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0.0))
 
     a = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
-    L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ufl.ds
+    L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds
 
     options = {
         "ksp_type": "preonly",
@@ -94,7 +109,7 @@ if __name__ == '__main__':
     logger.info('Solving problem..')
     uh = model.solve()
     logger.info("Writing results to file..")
-
+    
     # Save solution in XDMF format
     with dolfinx.io.XDMFFile(MPI.COMM_WORLD, output_potential_path, "w") as outfile:
         outfile.write_mesh(mesh)
@@ -102,7 +117,7 @@ if __name__ == '__main__':
 
     # # Update ghost entries and plot
     uh.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-
+    
     # Post-processing: Compute derivatives
     grad_u = ufl.grad(uh)
 
@@ -115,3 +130,7 @@ if __name__ == '__main__':
         file.write_mesh(mesh)
         file.write_function(current_h)
     logger.info("Wrote results to file.")
+
+    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
+    logger.info(f"Homogeneous Neumann BC trace: {solution_trace_norm}")
+    logger.info("Time elapsed: {:,} seconds".format(int(time.time() - start)))

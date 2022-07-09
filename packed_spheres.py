@@ -55,37 +55,29 @@ def build_packed_spheres_mesh(output_mesh_file, spheres_locations_file):
     gmsh.model.addPhysicalGroup(volumes[0][0], [volumes[0][1]], marker)
     gmsh.model.setPhysicalName(volumes[0][0], marker, "conductor")
     surfaces = gmsh.model.occ.getEntities(dim=2)
-    left_marker = 1
-    right_marker = 3
-    sphere_marker = 5
-    spheres = []
     walls = []
     for surface in surfaces:
         com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
-        if np.allclose(com, [0, Ly/2, Lz/2]):
-            gmsh.model.addPhysicalGroup(surface[0], [surface[1]], left_marker)
-            left = surface[1]
-            gmsh.model.setPhysicalName(surface[0], left_marker, "left")
-        elif np.allclose(com, [Lx, Ly/2, Lz/2]):
-            gmsh.model.addPhysicalGroup(surface[0], [surface[1]], right_marker)
-            gmsh.model.setPhysicalName(surface[0], right_marker, "right")
-            right = surface[1]
-        elif np.isclose(com[2], 0) or np.isclose(com[1], Ly) or np.isclose(com[2], Lz) or np.isclose(com[1], 0):
+        if np.isclose(com[1], 0):
+            left_cc = gmsh.model.addPhysicalGroup(2, [surface[1]])
+            gmsh.model.setPhysicalName(2, left_cc, "left_cc")
+        elif np.isclose(com[1], Ly):
+            right_cc = gmsh.model.addPhysicalGroup(2, [surface[1]])
+            gmsh.model.setPhysicalName(2, right_cc, "right_cc")
+        elif np.isclose(com[2], 0) or np.isclose(com[2], Lz) or np.isclose(com[0], 0) or np.isclose(com[0], Lx):
             walls.append(surface[1])
-        else:
-            spheres.append(surface[1])
-    gmsh.model.addPhysicalGroup(2, spheres, sphere_marker)
-    gmsh.model.setPhysicalName(2, sphere_marker, "sphere")
+    insulated = gmsh.model.addPhysicalGroup(2, walls)
+    gmsh.model.setPhysicalName(2, insulated, "insulated")
 
     gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "FacesList", spheres + walls)
+    gmsh.model.mesh.field.setNumbers(1, "FacesList", [insulated, left_cc, right_cc])
 
     gmsh.model.mesh.field.add("Threshold", 2)
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
     gmsh.model.mesh.field.setNumber(2, "LcMin", resolution)
     gmsh.model.mesh.field.setNumber(2, "LcMax", 20*resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5*r)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", r)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 0)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 0.1)
 
     gmsh.model.mesh.field.add("Min", 5)
     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
@@ -117,12 +109,14 @@ if __name__ == '__main__':
     spheres_locations_file = os.path.join(home_dir, f"spheres/{pf}.dat")
     task_dir = os.path.abspath(os.path.dirname(__file__))
     output_mesh_file = os.path.join(task_dir, "mesh/spheres.msh")
-    grid_info = '2-1-1'
+    grid_info = '2-2-2'
     origin_str = origin.replace(",", "_")
     
     build_packed_spheres_mesh(output_mesh_file, spheres_locations_file)
     mesh_3d = meshio.read(output_mesh_file)
     tetrahedral_mesh = create_mesh(mesh_3d, "tetra")
     meshio.write(os.path.join(task_dir, f"mesh/s{grid_info}o{origin_str}_tetr.xdmf"), tetrahedral_mesh)
+    tria_mesh = create_mesh(mesh_3d, "triangle")
+    meshio.write(os.path.join(task_dir, f"mesh/s{grid_info}o{origin_str}_tria.xdmf"), tria_mesh)
     transport_model_path = os.path.join(home_dir, 'dev/ssb', "transport.py")
     val = subprocess.check_call(f'mpirun -n 2 python3 {transport_model_path} --grid_info={grid_info} --origin={origin}', shell=True)

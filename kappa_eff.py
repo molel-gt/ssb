@@ -44,25 +44,25 @@ if __name__ == '__main__':
 
             voxels = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
                                                 y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
-            # num_points = np.sum(voxels)
-            # points = connected_pieces.build_points(voxels)
-            # points_view = {v: k for k, v in points.items()}
-            # G = connected_pieces.build_graph(points)
-            # pieces = nx.connected_components(G)
-            # pieces = [piece for piece in pieces]
-            # logger.info("{:,} components".format(len(pieces)))
-            # connected = np.zeros((Nx, Ny, Nz), dtype=np.uint8)
-            # for idx, piece in enumerate(pieces):
-            #     largest_piece = np.zeros((Nx, Ny, Nz), dtype=np.uint8)
-            #     for p in piece:
-            #         coord = points_view[p]
-            #         largest_piece[coord] = 1
-            #     if np.all(largest_piece[:, 0, :] == 0) or np.all(largest_piece[:, Ny - 1, :] == 0):
-            #         logger.debug(f"Piece {idx} does not span both ends")
-            #         continue
-            #     logger.info(f"Piece {idx} spans both ends along y-axis")
-            #     connected += largest_piece
-            # voxels = connected
+            num_points = np.sum(voxels)
+            points = connected_pieces.build_points(voxels)
+            points_view = {v: k for k, v in points.items()}
+            G = connected_pieces.build_graph(points)
+            pieces = nx.connected_components(G)
+            pieces = [piece for piece in pieces]
+            logger.info("{:,} components".format(len(pieces)))
+            connected = np.zeros((Nx, Ny, Nz), dtype=np.uint8)
+            for idx, piece in enumerate(pieces):
+                largest_piece = np.zeros((Nx, Ny, Nz), dtype=np.uint8)
+                for p in piece:
+                    coord = points_view[p]
+                    largest_piece[coord] = 1
+                if np.all(largest_piece[:, 0, :] == 0) or np.all(largest_piece[:, Ny - 1, :] == 0):
+                    logger.debug(f"Piece {idx} does not span both ends")
+                    continue
+                logger.info(f"Piece {idx} spans both ends along y-axis")
+                connected += largest_piece
+            voxels = connected
             eps_left = np.around(np.average(voxels[:, 0, :]), 4)
             eps_right = np.around(np.average(voxels[:, Ly, :]), 4)
             # y_vals = range(50 + 1)
@@ -97,6 +97,6 @@ if __name__ == '__main__':
             row = {"filename": fname, "porosity (at 0)": eps_left, "porosity (at L)": eps_right,
                    "kappa_eff (at 0)": kappa_eff_left, "kappa_eff (at L)": kappa_eff_right,
                    "porosity (avg)": eps, "kappa_eff (avg)": np.around(0.5 * (kappa_eff_left + kappa_eff_right), 4), "bruggeman": np.around(eps ** 1.5, 4),
-                   "deviation @cc": '-' if kappa_eff_left == 0 else 100 * abs(kappa_eff_right - kappa_eff_left) / (0.5 * (kappa_eff_right + kappa_eff_left)),
+                   "deviation @cc": '-' if kappa_eff_left == 0 else np.around(100 * abs(kappa_eff_right - kappa_eff_left) / (0.5 * (kappa_eff_right + kappa_eff_left)), 1),
                    }
             writer.writerow(row)
