@@ -123,10 +123,11 @@ if __name__ == '__main__':
         file.write_mesh(mesh)
         file.write_function(current_h)
     logger.info("Wrote results to file.")
-    insulated_cells = ct.indices[ct.values == 1505]
-    tags = dolfinx.mesh.meshtags(mesh, 2, ct.indices, 1505)
+    insulated_marker = 1505
+    insulated_cells = facets_ct.indices[facets_ct.values == insulated_marker]
+    tags = dolfinx.mesh.meshtags(mesh, 2, insulated_cells, insulated_marker)
     n = -ufl.FacetNormal(mesh)
-    dobs = ufl.Measure("ds", domain=mesh, subdomain_data=tags)
+    dobs = ufl.Measure("ds", domain=mesh, subdomain_data=tags, subdomain_id=insulated_marker)
     solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * dobs)) ** 0.5
     logger.info(f"Homogeneous Neumann BC trace: {solution_trace_norm}")
     logger.info("Time elapsed: {:,} seconds".format(int(time.time() - start)))
