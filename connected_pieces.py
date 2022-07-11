@@ -10,7 +10,7 @@ import meshio
 import networkx as nx
 import numpy as np
 
-import geometry, mesher
+import geometry, mesher, utils
 
 
 FORMAT = '%(asctime)s: %(message)s'
@@ -68,11 +68,12 @@ if __name__ == "__main__":
         origin = tuple(map(lambda v: int(v), args.origin.split(",")))
     else:
         origin = args.origin
-    origin_str = "_".join([str(v) for v in origin])
-    grid_info = args.grid_info
+    origin_str = "-".join([str(v).zfill(3) for v in origin])
+    grid_info = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
     grid_size = int(args.grid_info.split("-")[0])
     Nx, Ny, Nz = [int(v) for v in args.grid_info.split("-")]
     img_dir = args.img_folder
+    utils.make_dir_if_missing(f"mesh/{grid_info}_{origin_str}")
     im_files = sorted([os.path.join(img_dir, f) for
                        f in os.listdir(img_dir) if f.endswith(".bmp")])
     n_files = len(im_files)
@@ -88,7 +89,6 @@ if __name__ == "__main__":
     pieces = nx.connected_components(G)
     pieces = [piece for piece in pieces]
     logger.info("{:,} components".format(len(pieces)))
-    connected = np.zeros((Nx, Ny, Nz), dtype=np.uint8)
     for idx, piece in enumerate(pieces):
         largest_piece = np.zeros((Nx, Ny, Nz), dtype=np.uint8)
         for p in piece:
@@ -98,26 +98,27 @@ if __name__ == "__main__":
             logger.debug(f"Piece {idx} does not span both ends")
             continue
         logger.info(f"Piece {idx} spans both ends along y-axis")
-        connected += largest_piece
-    occlusions = np.logical_not(connected)
-    rectangles = mesher.make_rectangles(occlusions)
-    boxes = mesher.make_boxes(rectangles)
-    logger.info("No. voxels       : %s" % np.sum(occlusions))
-    logger.info("No. rectangles   : %s" % np.sum(rectangles))
-    logger.info("No. boxes        : %s" % np.sum(boxes))
-    output_mshfile = f"mesh/s{grid_info}o{origin_str}_porous.msh"
-    gmsh.initialize()
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 0)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
-    mesher.build_voxels_mesh(boxes, output_mshfile)
-    gmsh.finalize()
-    logger.info("writing xmdf tetrahedral mesh..")
-    msh = meshio.read(output_mshfile)
-    tetra_mesh = geometry.create_mesh(msh, "tetra")
-    meshio.write(f"mesh/s{grid_info}o{origin_str}_tetr.xdmf", tetra_mesh)
-    tria_mesh = geometry.create_mesh(msh, "triangle")
-    meshio.write(f"mesh/s{grid_info}o{origin_str}_tria.xdmf", tria_mesh)
-    logger.info("Operation took {:,} seconds".format(int(time.time() - start_time)))
+        occlusions = np.logical_not(largest_piece)
+        rectangles = mesher.make_rectangles(occlusions)
+        boxes = mesher.make_boxes(rectangles)
+        logger.info("No. voxels       : %s" % np.sum(occlusions))
+        logger.info("No. rectangles   : %s" % np.sum(rectangles))
+        logger.info("No. boxes        : %s" % np.sum(boxes))
+        output_mshfile = f"mesh/{grid_info}_{origin_str}/{idx}.msh"
+        gmsh.initialize()
+        gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0.5)
+        gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
+        gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 0.5)  # FIXME
+        gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
+        gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
+        gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
+        gmsh.option.setNumber("Mesh.Smoothing", 500)
+        mesher.build_voxels_mesh(boxes, output_mshfile)
+        gmsh.finalize()
+        logger.info("writing xmdf tetrahedral mesh..")
+        msh = meshio.read(output_mshfile)
+        tetra_mesh = geometry.create_mesh(msh, "tetra")
+        meshio.write(f"mesh/{grid_info}_{origin_str}/{idx}tetr.xdmf", tetra_mesh)
+        tria_mesh = geometry.create_mesh(msh, "triangle")
+        meshio.write(f"mesh/{grid_info}_{origin_str}/{idx}tria.xdmf", tria_mesh)
+        logger.info("Operation took {:,} seconds".format(int(time.time() - start_time)))

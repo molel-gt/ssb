@@ -20,16 +20,21 @@ if __name__ == '__main__':
     parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
     parser.add_argument("--insulated_marker", nargs='?', const=1, default=4228, type=int)
+    parser.add_argument("--piece_id", nargs='?', const=1, default=np.nan, type=float)
 
     args = parser.parse_args()
+    if np.isnan(args.piece_id):
+        piece_id = ""
+    else:
+        piece_id = "%d" % int(args.piece_id)
     start = time.time()
 
     if isinstance(args.origin, str):
         origin = tuple(map(lambda v: int(v), args.origin.split(",")))
     else:
         origin = args.origin
-    origin_str = "_".join([str(v) for v in origin])
-    grid_info = args.grid_info
+    origin_str = "-".join([str(v).zfill(3) for v in origin])
+    grid_info = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{grid_info} {origin_str}')
@@ -40,10 +45,10 @@ if __name__ == '__main__':
     output_dir = os.path.join(working_dir, 'output')
     utils.make_dir_if_missing(meshes_dir)
     utils.make_dir_if_missing(output_dir)
-    tetr_mesh_path = os.path.join(meshes_dir, f's{grid_info}o{origin_str}_tetr.xdmf')
-    tria_mesh_path = os.path.join(meshes_dir, f's{grid_info}o{origin_str}_tria.xdmf')
-    output_current_path = os.path.join(output_dir, f's{grid_info}o{origin_str}_current.xdmf')
-    output_potential_path = os.path.join(output_dir, f's{grid_info}o{origin_str}_potential.xdmf')
+    tetr_mesh_path = os.path.join(meshes_dir, f'{grid_info}_{origin_str}/{piece_id}tetr.xdmf')
+    tria_mesh_path = os.path.join(meshes_dir, f'{grid_info}_{origin_str}/{piece_id}tria.xdmf')
+    output_current_path = os.path.join(output_dir, f'{grid_info}_{origin_str}/{piece_id}current.xdmf')
+    output_potential_path = os.path.join(output_dir, f'{grid_info}_{origin_str}/{piece_id}potential.xdmf')
 
     logger.info("Loading mesh..")
 
@@ -134,5 +139,6 @@ if __name__ == '__main__':
     solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
     total_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds))
     avg_solution_trace_norm = solution_trace_norm / total_area
+    logger.info("Area: {:,}".format(int(total_area)))
     logger.info(f"Homogeneous Neumann BC area-averaged trace: {avg_solution_trace_norm}")
     logger.info("Time elapsed: {:,} seconds".format(int(time.time() - start)))
