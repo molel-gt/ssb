@@ -110,7 +110,7 @@ if __name__ == "__main__":
         gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
         gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 0.5)  # FIXME
         gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
-        gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
+        gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.25)
         gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
         gmsh.option.setNumber("Mesh.Smoothing", 500)
         mesher.build_voxels_mesh(boxes, output_mshfile)

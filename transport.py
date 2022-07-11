@@ -19,7 +19,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
     parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
-    parser.add_argument("--insulated_marker", nargs='?', const=1, default=4228, type=int)
+    parser.add_argument("--insulated_marker", nargs='?', const=1, default=np.nan, type=float)
     parser.add_argument("--piece_id", nargs='?', const=1, default=np.nan, type=float)
 
     args = parser.parse_args()
@@ -61,6 +61,8 @@ if __name__ == '__main__':
         facets_ct = infile3.read_meshtags(mesh, name="Grid")
 
     logger.info("Loaded mesh.")
+    tags = sorted([v for v in set(facets_ct.values)])
+    insulated_marker = int(max(tags)) if np.isnan(args.insulated_marker) else args.insulated_marker
     V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 2))
 
     # Dirichlet BCs
@@ -79,7 +81,6 @@ if __name__ == '__main__':
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 2, x1facet))
 
     # Neumann BC
-    insulated_marker = args.insulated_marker
     insulated_cells = facets_ct.indices[facets_ct.values == insulated_marker]
     insulated_tags = dolfinx.mesh.meshtags(mesh, 2, insulated_cells, insulated_marker)
     n = -ufl.FacetNormal(mesh)
@@ -138,7 +139,9 @@ if __name__ == '__main__':
 
     solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
     total_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds))
+    total_volume = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(mesh)))
     avg_solution_trace_norm = solution_trace_norm / total_area
-    logger.info("Area: {:,}".format(int(total_area)))
-    logger.info(f"Homogeneous Neumann BC area-averaged trace: {avg_solution_trace_norm}")
+    logger.info("Total Area: {:,}".format(int(total_area)))
+    logger.info("Total Volume: {:,}".format(int(total_volume)))
+    logger.info(f"Homogeneous Neumann BC trace: {solution_trace_norm}")
     logger.info("Time elapsed: {:,} seconds".format(int(time.time() - start)))
