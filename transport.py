@@ -136,10 +136,11 @@ if __name__ == '__main__':
     logger.info("Wrote results to file.")
 
     solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds(insulated_marker))) ** 0.5
-    surface_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds((left_cc_marker, right_cc_marker, insulated_marker))))
+    insulated_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(insulated_marker)))
     total_volume = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(mesh)))
     left_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(left_cc_marker)))
     right_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(right_cc_marker)))
+    surface_area = left_area + right_area + insulated_area
     i_left_cc = (1/left_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.sqrt(ufl.inner(ufl.grad(uh), ufl.grad(uh))) * ds(left_cc_marker)))
     i_right_cc = (1/right_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.sqrt(ufl.inner(ufl.grad(uh), ufl.grad(uh))) * ds(right_cc_marker)))
     logger.info("Current @ Left CC             : {}".format(i_left_cc))
