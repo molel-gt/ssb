@@ -19,7 +19,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
     parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
-    parser.add_argument("--insulated_marker", nargs='?', const=1, default=np.nan, type=float)
     parser.add_argument("--piece_id", nargs='?', const=1, default=np.nan, type=float)
 
     args = parser.parse_args()
@@ -61,8 +60,7 @@ if __name__ == '__main__':
         facets_ct = infile3.read_meshtags(mesh, name="Grid")
 
     logger.info("Loaded mesh.")
-    tags = sorted([v for v in set(facets_ct.values)])
-    insulated_marker = int(max(tags)) if np.isnan(args.insulated_marker) else args.insulated_marker
+    left_cc_marker, right_cc_marker, insulated_marker = sorted([v for v in set(facets_ct.values)])
     V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 2))
 
     # Dirichlet BCs
@@ -81,10 +79,10 @@ if __name__ == '__main__':
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 2, x1facet))
 
     # Neumann BC
-    insulated_cells = facets_ct.indices[facets_ct.values == insulated_marker]
-    insulated_tags = dolfinx.mesh.meshtags(mesh, 2, insulated_cells, insulated_marker)
+    surf_meshtags = dolfinx.mesh.meshtags(mesh, 2, facets_ct.indices, facets_ct.values)
     n = -ufl.FacetNormal(mesh)
-    ds = ufl.Measure("ds", domain=mesh, subdomain_data=insulated_tags, subdomain_id=insulated_marker)
+    ds = ufl.Measure("ds", domain=mesh, subdomain_data=surf_meshtags)
+
     # Define variational problem
     u = ufl.TrialFunction(V)
     v = ufl.TestFunction(V)
@@ -93,7 +91,7 @@ if __name__ == '__main__':
     g = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0.0))
 
     a = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
-    L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds
+    L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(insulated_marker)
 
     options = {
         "ksp_type": "preonly",
@@ -137,11 +135,18 @@ if __name__ == '__main__':
         file.write_function(current_h)
     logger.info("Wrote results to file.")
 
-    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
-    total_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds))
+    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds(insulated_marker))) ** 0.5
+    surface_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds((left_cc_marker, right_cc_marker, insulated_marker))))
     total_volume = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(mesh)))
-    avg_solution_trace_norm = solution_trace_norm / total_area
-    logger.info("Total Area: {:,}".format(int(total_area)))
-    logger.info("Total Volume: {:,}".format(int(total_volume)))
-    logger.info(f"Homogeneous Neumann BC trace: {solution_trace_norm}")
-    logger.info("Time elapsed: {:,} seconds".format(int(time.time() - start)))
+    left_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(left_cc_marker)))
+    right_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(right_cc_marker)))
+    i_left_cc = (1/left_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.sqrt(ufl.inner(ufl.grad(uh), ufl.grad(uh))) * ds(left_cc_marker)))
+    i_right_cc = (1/right_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.sqrt(ufl.inner(ufl.grad(uh), ufl.grad(uh))) * ds(right_cc_marker)))
+    logger.info("Current @ Left CC             : {}".format(i_left_cc))
+    logger.info("Current @ Right CC            : {}".format(i_right_cc))
+    logger.info("Left Area                     : {}".format(left_area))
+    logger.info("Right Area                    : {}".format(right_area))
+    logger.info("Surface Area                  : {:,}".format(int(surface_area)))
+    logger.info("Total Volume                  : {:,}".format(int(total_volume)))
+    logger.info(f"Homogeneous Neumann BC trace : {solution_trace_norm}")
+    logger.info("Time elapsed                  : {:,} seconds".format(int(time.time() - start)))
