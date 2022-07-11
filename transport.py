@@ -60,7 +60,7 @@ if __name__ == '__main__':
         facets_ct = infile3.read_meshtags(mesh, name="Grid")
 
     logger.info("Loaded mesh.")
-    left_cc_marker, right_cc_marker, insulated_marker = sorted([v for v in set(facets_ct.values)])
+    _, _, insulated_marker = sorted([v for v in set(facets_ct.values)])
     V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 2))
 
     # Dirichlet BCs
@@ -81,9 +81,7 @@ if __name__ == '__main__':
     # Neumann BC
     surf_meshtags = dolfinx.mesh.meshtags(mesh, 2, facets_ct.indices, facets_ct.values)
     n = -ufl.FacetNormal(mesh)
-    ds = ufl.Measure("ds", domain=mesh, subdomain_data=surf_meshtags)
-    dsl = ufl.Measure("ds", domain=mesh, subdomain_data=surf_meshtags, subdomain_id=left_cc_marker)
-    dsr = ufl.Measure("ds", domain=mesh, subdomain_data=surf_meshtags, subdomain_id=right_cc_marker)
+    ds = ufl.Measure("ds", domain=mesh, subdomain_data=surf_meshtags, subdomain_id=insulated_marker)
 
     # Define variational problem
     u = ufl.TrialFunction(V)
@@ -140,16 +138,7 @@ if __name__ == '__main__':
     solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
     insulated_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds))
     total_volume = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(mesh)))
-    left_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * dsl))
-    right_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * dsr))
-    surface_area = left_area + right_area + insulated_area
-    i_left_cc = (1/left_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.sqrt(ufl.inner(ufl.grad(uh), ufl.grad(uh))) * dsl))
-    i_right_cc = (1/right_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.sqrt(ufl.inner(ufl.grad(uh), ufl.grad(uh))) * dsr))
-    logger.info("Current @ Left CC             : {}".format(i_left_cc))
-    logger.info("Current @ Right CC            : {}".format(i_right_cc))
-    logger.info("Left Area                     : {}".format(left_area))
-    logger.info("Right Area                    : {}".format(right_area))
-    logger.info("Surface Area                  : {:,}".format(int(surface_area)))
+    logger.info("Insulated Area                : {:,}".format(int(insulated_area)))
     logger.info("Total Volume                  : {:,}".format(int(total_volume)))
     logger.info(f"Homogeneous Neumann BC trace : {solution_trace_norm}")
     logger.info("Time elapsed                  : {:,} seconds".format(int(time.time() - start)))
