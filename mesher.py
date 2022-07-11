@@ -15,7 +15,7 @@ import numpy as np
 from itertools import groupby
 from operator import itemgetter
 
-import geometry
+import geometry, utils
 
 FORMAT = '%(asctime)s: %(message)s'
 logging.basicConfig(format=FORMAT)
@@ -130,12 +130,12 @@ if __name__ == '__main__':
         origin = tuple(map(lambda v: int(v), args.origin.split(",")))
     elif isinstance(args.origin, tuple):
         origin = args.origin
-    origin_str = "_".join([str(v) for v in origin])
-
-    grid_info = args.grid_info
+    origin_str = "-".join([str(v).zfill(3) for v in origin])
+    grid_info = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
     grid_size = int(args.grid_info.split("-")[0])
     Nx, Ny, Nz = [int(v) for v in args.grid_info.split("-")]
     img_dir = args.img_folder
+    utils.make_dir_if_missing(f"mesh/{grid_info}_{origin_str}")
     im_files = sorted([os.path.join(img_dir, f) for
                        f in os.listdir(img_dir) if f.endswith(".bmp")])
     n_files = len(im_files)
@@ -148,7 +148,7 @@ if __name__ == '__main__':
     logger.info("No. voxels       : %s" % np.sum(occlusions))
     logger.info("No. rectangles   : %s" % np.sum(rectangles))
     logger.info("No. boxes        : %s" % np.sum(boxes))
-    output_mshfile = f"mesh/s{grid_info}o{origin_str}_porous.msh"
+    output_mshfile = f"mesh/{grid_info}_{origin_str}/porous.msh"
     gmsh.initialize()
     gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0)
     gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
@@ -160,6 +160,8 @@ if __name__ == '__main__':
     logger.info("writing xmdf tetrahedral mesh..")
     msh = meshio.read(output_mshfile)
     tetra_mesh = geometry.create_mesh(msh, "tetra")
-    meshio.write(f"mesh/s{grid_info}o{origin_str}_tetr.xdmf", tetra_mesh)
+    meshio.write(f"mesh/{grid_info}_{origin_str}/tetr.xdmf", tetra_mesh)
+    tria_mesh = geometry.create_mesh(msh, "triangle")
+    meshio.write(f"mesh/{grid_info}_{origin_str}/tria.xdmf", tria_mesh)
     stop = time.time()
     logger.info("Took {:,}s".format(int(stop - start)))
