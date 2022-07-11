@@ -82,6 +82,8 @@ if __name__ == '__main__':
     surf_meshtags = dolfinx.mesh.meshtags(mesh, 2, facets_ct.indices, facets_ct.values)
     n = -ufl.FacetNormal(mesh)
     ds = ufl.Measure("ds", domain=mesh, subdomain_data=surf_meshtags)
+    dsl = ufl.Measure("ds", domain=mesh, subdomain_data=surf_meshtags, subdomain_id=left_cc_marker)
+    dsr = ufl.Measure("ds", domain=mesh, subdomain_data=surf_meshtags, subdomain_id=right_cc_marker)
 
     # Define variational problem
     u = ufl.TrialFunction(V)
@@ -91,7 +93,7 @@ if __name__ == '__main__':
     g = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0.0))
 
     a = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
-    L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(insulated_marker)
+    L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds
 
     options = {
         "ksp_type": "preonly",
@@ -135,14 +137,14 @@ if __name__ == '__main__':
         file.write_function(current_h)
     logger.info("Wrote results to file.")
 
-    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds(insulated_marker))) ** 0.5
-    insulated_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(insulated_marker)))
+    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
+    insulated_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds))
     total_volume = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(mesh)))
-    left_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(left_cc_marker)))
-    right_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(right_cc_marker)))
+    left_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * dsl))
+    right_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * dsr))
     surface_area = left_area + right_area + insulated_area
-    i_left_cc = (1/left_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.sqrt(ufl.inner(ufl.grad(uh), ufl.grad(uh))) * ds(left_cc_marker)))
-    i_right_cc = (1/right_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.sqrt(ufl.inner(ufl.grad(uh), ufl.grad(uh))) * ds(right_cc_marker)))
+    i_left_cc = (1/left_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.sqrt(ufl.inner(ufl.grad(uh), ufl.grad(uh))) * dsl))
+    i_right_cc = (1/right_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.sqrt(ufl.inner(ufl.grad(uh), ufl.grad(uh))) * dsr))
     logger.info("Current @ Left CC             : {}".format(i_left_cc))
     logger.info("Current @ Right CC            : {}".format(i_right_cc))
     logger.info("Left Area                     : {}".format(left_area))
