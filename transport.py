@@ -140,5 +140,5 @@ if __name__ == '__main__':
     total_volume = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(mesh)))
     logger.info("Insulated Area                : {:,}".format(int(insulated_area)))
     logger.info("Total Volume                  : {:,}".format(int(total_volume)))
-    logger.info(f"Homogeneous Neumann BC trace : {solution_trace_norm}")
+    logger.info(f"Homogeneous Neumann BC trace  : {solution_trace_norm}")
     logger.info("Time elapsed                  : {:,} seconds".format(int(time.time() - start)))
