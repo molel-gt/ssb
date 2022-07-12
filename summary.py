@@ -4,14 +4,9 @@ import csv
 import sys
 
 import argparse
-import dolfinx
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
-import ufl
-
-from mpi4py import MPI
-from petsc4py import PETSc
 
 import utils
 
@@ -19,7 +14,7 @@ import utils
 # current constriction
 def compute_resistance(coverage, w, h, voltages=(1, 2), Lx=100, Ly=1):
     currents = []
-    for idx_v, v in enumerate(voltages):
+    for v in voltages:
         f = results_filename(coverage, w, h, v)
         data = h5py.File(f, "r")
         geom = data['/Mesh/Grid/geometry']
@@ -28,7 +23,7 @@ def compute_resistance(coverage, w, h, voltages=(1, 2), Lx=100, Ly=1):
         current_1 = []
 
         for idx, v in enumerate(values):
-            x, y, z = geom[idx]
+            x, y, _ = geom[idx]
             if len(v) == 3:
                 v0 = (v[0] ** 2 + v[1] ** 2 + v[2] ** 2) ** 0.5
             else:
@@ -40,11 +35,11 @@ def compute_resistance(coverage, w, h, voltages=(1, 2), Lx=100, Ly=1):
                 current_1.append(v0)
         i_avg_1 = np.around(np.nanmean(current_0), 6)
         i_avg_2 = np.around(np.nanmean(current_1), 6)
-        currents[idx_v] = (i_avg_1, i_avg_2)
+        currents.append((i_avg_1, i_avg_2))
     return (voltages[1] - voltages[0]) / (currents[1][1] - currents[0][1]), currents
 
 
-def results_filename(coverage, w, h, voltage):
+def results_filename(coverage, w, h, voltage: int):
     return f'current_constriction/{h:.3}_{w:.3}_{coverage:.2}_{voltage}_current.h5'
 
 
@@ -66,6 +61,7 @@ if __name__ == '__main__':
                     except Exception as e:
                         print(e)
                         continue
+                    print("processing coverage %0.2f, with slice width %d  at y = %0.2f" % (cov, int(w * 100), h))
                     writer.writerow(
                         {
                             'coverage': cov, 'voltage': "-", 'Lx': 100, 'Ly': 1, 'slice_width': w * 100,
