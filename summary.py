@@ -24,15 +24,11 @@ def compute_resistance(coverage, w, h, voltages=(1, 2), Lx=100, Ly=1):
 
         for idx, v in enumerate(values):
             x, y, _ = geom[idx]
-            if len(v) == 3:
-                v0 = (v[0] ** 2 + v[1] ** 2 + v[2] ** 2) ** 0.5
-            else:
-                v0 = v
             if np.isclose(y, 0):
                 if 0.5 * (1 - coverage) * Lx <= x <= (0.5 + 0.5 * coverage) * Lx:
-                    current_0.append(v0)
+                    current_0.append(v)
             elif np.isclose(y, Ly):
-                current_1.append(v0)
+                current_1.append(v)
         i_avg_1 = np.around(np.nanmean(current_0), 6)
         i_avg_2 = np.around(np.nanmean(current_1), 6)
         currents.append((i_avg_1, i_avg_2))
