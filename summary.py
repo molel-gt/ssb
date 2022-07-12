@@ -73,7 +73,7 @@ if __name__ == '__main__':
                         writer.writerow(
                         {
                             'coverage': cov, 'voltage': voltages[idx], 'Lx': 100, 'Ly': 1, 'slice_width': w * 100,
-                            'slice_y_position': h, 'current (y = 0)': currents[0], 'current (y = Ly)': currents[1],
+                            'slice_y_position': h, 'current (y = 0)': currents[idx][0], 'current (y = Ly)': currents[idx][1],
                             'resistance': "-"
                         }
                     )
