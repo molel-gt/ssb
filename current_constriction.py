@@ -12,21 +12,26 @@ from petsc4py import PETSc
 
 import utils
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='computes specific area')
-    parser.add_argument('--coverage', help='fraction of lower current collector that is conductive', required=True)
-    parser.add_argument('--Lx', help='length', required=True)
-    parser.add_argument('--Ly', help='width', required=True)
+    parser.add_argument('--coverage', type=float, help='fraction of lower current collector that is conductive', required=True)
+    parser.add_argument('--Lx', help='length', required=True, type=int)
+    parser.add_argument('--Ly', help='width', required=True, type=int)
     parser.add_argument("--w", help='slice width along x', nargs='?', const=1, default=10, type=float)
     parser.add_argument("--h", help='slice position along y', nargs='?', const=1, default=0.5, type=float)
+    parser.add_argument("--voltage", help='voltage drop (one end held at potential of 0)', nargs='?', const=1, default=1, type=int)
 
     args = parser.parse_args()
-    coverage = args.coverage
+    coverage = np.around(args.coverage, 2)
     Lx = args.Lx
     Ly = args.Ly
+    w = args.w / Lx
+    h = args.h / Ly
+    voltage = args.voltage
     lower_cov = 0.5 * (1 - coverage) * Lx
     upper_cov = Lx - 0.5 * (1 - coverage) * Lx
-    meshname = '{%0.3fh}-{%0.3fw}'
+    meshname = f'current_constriction/{h:.3}_{w:.3}'
     utils.make_dir_if_missing('current_constriction')
     with dolfinx.io.XDMFFile(MPI.COMM_WORLD, f"{meshname}.xdmf", "r") as infile3:
             msh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
@@ -42,7 +47,7 @@ if __name__ == '__main__':
     # Dirichlet BCs
     u0 = dolfinx.fem.Function(V)
     with u0.vector.localForm() as u0_loc:
-        u0_loc.set(2)
+        u0_loc.set(voltage)
 
     u1 = dolfinx.fem.Function(V)
     with u1.vector.localForm() as u1_loc:
@@ -71,7 +76,7 @@ if __name__ == '__main__':
     problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options=options)
     uh = problem.solve()
 
-    with dolfinx.io.XDMFFile(msh.comm, f"current_constriction/{meshname}_{coverage}_potential.xdmf", "w") as file:
+    with dolfinx.io.XDMFFile(msh.comm, f"current_constriction/{h:.3}_{w:.3}_{coverage:.2}_{voltage}_potential.xdmf", "w") as file:
         file.write_mesh(msh)
         file.write_function(uh)
     grad_u = ufl.grad(uh)
@@ -82,7 +87,7 @@ if __name__ == '__main__':
     current_h = dolfinx.fem.Function(W)
     current_h.interpolate(current_expr)
 
-    with dolfinx.io.XDMFFile(MPI.COMM_WORLD, f"current_constriction/{meshname}_{coverage}_current.xdmf", "w") as file:
+    with dolfinx.io.XDMFFile(MPI.COMM_WORLD, f"current_constriction/{h:.3}_{w:.3}_{coverage:.2}_{voltage}_current.xdmf", "w") as file:
         file.write_mesh(msh)
         file.write_function(current_h)
 
