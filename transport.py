@@ -38,7 +38,7 @@ if __name__ == '__main__':
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{grid_info} {origin_str}')
     logger.setLevel('INFO')
-    Ly = int(grid_info.split("-")[1]) - 1
+    Lx, Ly, Lz = [int(v) - 1 for v in grid_info.split("-")]
     working_dir = os.path.abspath(os.path.dirname(__file__))
     meshes_dir = os.path.join(working_dir, 'mesh')
     output_dir = os.path.join(working_dir, 'output')
@@ -60,7 +60,7 @@ if __name__ == '__main__':
         facets_ct = infile3.read_meshtags(mesh, name="Grid")
 
     logger.info("Loaded mesh.")
-    _, _, insulated_marker = sorted([v for v in set(facets_ct.values)])
+    left_cc_marker, right_cc_marker, insulated_marker = sorted([int(v) for v in set(facets_ct.values)])
     V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 2))
 
     # Dirichlet BCs
@@ -82,15 +82,20 @@ if __name__ == '__main__':
     surf_meshtags = dolfinx.mesh.meshtags(mesh, 2, facets_ct.indices, facets_ct.values)
     n = -ufl.FacetNormal(mesh)
     ds = ufl.Measure("ds", domain=mesh, subdomain_data=surf_meshtags, subdomain_id=insulated_marker)
+    ds_left_cc = ufl.Measure('ds', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=left_cc_marker)
+    ds_right_cc = ufl.Measure('ds', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=right_cc_marker)
 
     # Define variational problem
     u = ufl.TrialFunction(V)
     v = ufl.TestFunction(V)
     x = ufl.SpatialCoordinate(mesh)
+
+    # bulk conductivity [S.m-1]
+    kappa_0 = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0.1))
     f = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0.0))
     g = dolfinx.fem.Constant(mesh, PETSc.ScalarType(0.0))
 
-    a = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
+    a = ufl.inner(kappa_0 * ufl.grad(u), ufl.grad(v)) * ufl.dx
     L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds
 
     options = {
@@ -112,7 +117,6 @@ if __name__ == '__main__':
 
     logger.info('Solving problem..')
     uh = model.solve()
-    logger.info("Writing results to file..")
     
     # Save solution in XDMF format
     with dolfinx.io.XDMFFile(MPI.COMM_WORLD, output_potential_path, "w") as outfile:
@@ -125,8 +129,8 @@ if __name__ == '__main__':
     # Post-processing: Compute derivatives
     grad_u = ufl.grad(uh)
 
-    W = dolfinx.fem.VectorFunctionSpace(mesh, ("Lagrange", 1))
-    current_expr = dolfinx.fem.Expression(-grad_u, W.element.interpolation_points)
+    W = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 1))
+    current_expr = dolfinx.fem.Expression(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points)
     current_h = dolfinx.fem.Function(W)
     current_h.interpolate(current_expr)
 
@@ -135,10 +139,24 @@ if __name__ == '__main__':
         file.write_function(current_h)
     logger.info("Wrote results to file.")
 
-    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
     insulated_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds))
+    area_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_left_cc))
+    area_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_right_cc))
+    i_left_cc = (1/area_left_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds_left_cc))
+    i_right_cc = (1/area_right_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds_right_cc))
+    i_insulated = (1/insulated_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds))
     total_volume = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(mesh)))
-    logger.info("Insulated Area                : {:,}".format(int(insulated_area)))
-    logger.info("Total Volume                  : {:,}".format(int(total_volume)))
-    logger.info(f"Homogeneous Neumann BC trace  : {solution_trace_norm}")
-    logger.info("Time elapsed                  : {:,} seconds".format(int(time.time() - start)))
+    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
+    avg_solution_trace_norm = solution_trace_norm / insulated_area
+    logger.info("Area left cc                                 : {:.0f}".format(area_left_cc))
+    logger.info("Area right cc                                : {:.0f}".format(area_right_cc))
+    logger.info("Current density left cc                      : {:.6f}".format(i_left_cc))
+    logger.info("Current density right cc                     : {:.6f}".format(i_right_cc))
+    logger.info("Insulated Area                               : {:,}".format(int(insulated_area)))
+    logger.info("Total Area                                   : {:,}".format(int(area_left_cc + area_right_cc + insulated_area)))
+    logger.info("Total Volume                                 : {:,}".format(int(total_volume)))
+    logger.info("Bulk conductivity [S.m-1]                    : {:.4f}".format(0.1))
+    logger.info("Effective conductivity [S.m-1]               : {:.4f}".format(Ly * area_left_cc * i_left_cc / (Lx * Lz)))
+    logger.info(f"Homogeneous Neumann BC trace                 : {solution_trace_norm:.2e}")
+    logger.info(f"Area-averaged Homogeneous Neumann BC trace   : {avg_solution_trace_norm:.2e}")
+    logger.info("Time elapsed                                 : {:,} seconds".format(int(time.time() - start)))
