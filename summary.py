@@ -41,8 +41,8 @@ def results_filename(coverage, w, h, voltage: int):
 
 if __name__ == '__main__':
     heights = [0.25, 0.50, 0.75]
-    widths = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-    coverages = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    widths = [0.1, 0.5, 0.9]
+    coverages = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     voltages = (1, 2)
     columns = ['coverage', 'voltage', 'Lx', 'Ly', 'slice_width', 'slice_y_position', 'current (y = 0)', 'current (y = Ly)', 'resistance']
     utils.make_dir_if_missing("current_constriction")
@@ -58,18 +58,17 @@ if __name__ == '__main__':
                         print(e)
                         continue
                     print("processing coverage %0.2f, with slice width %d  at y = %0.2f" % (cov, int(w * 100), h))
-                    writer.writerow(
-                        {
-                            'coverage': cov, 'voltage': "-", 'Lx': 100, 'Ly': 1, 'slice_width': w * 100,
-                            'slice_y_position': h, 'current (y = 0)': "-", 'current (y = Ly)': "-",
-                            'resistance': np.around(resistance, 2)
-                        }
-                    )
                     for idx, current in enumerate(currents):
                         writer.writerow(
                         {
                             'coverage': cov, 'voltage': voltages[idx], 'Lx': 100, 'Ly': 1, 'slice_width': w * 100,
                             'slice_y_position': h, 'current (y = 0)': currents[idx][0], 'current (y = Ly)': currents[idx][1],
                             'resistance': "-"
+                        })
+                    writer.writerow(
+                        {
+                            'coverage': cov, 'voltage': "-", 'Lx': 100, 'Ly': 1, 'slice_width': w * 100,
+                            'slice_y_position': h, 'current (y = 0)': "-", 'current (y = Ly)': "-",
+                            'resistance': np.around(resistance, 2)
                         }
                     )
