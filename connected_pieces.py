@@ -106,13 +106,14 @@ if __name__ == "__main__":
         logger.info("No. boxes        : %s" % np.sum(boxes))
         output_mshfile = f"mesh/{grid_info}_{origin_str}/{idx}.msh"
         gmsh.initialize()
-        gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0.5)
-        gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
-        gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 0.5)  # FIXME
+        # gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0.5)
+        # gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
+        # gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 0.5)  # FIXME
         gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
-        gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.25)
+        gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
         gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
         gmsh.option.setNumber("Mesh.Smoothing", 500)
+        gmsh.option.setNumber("Mesh.AllowSwapAngle", 90)
         mesher.build_voxels_mesh(boxes, output_mshfile)
         gmsh.finalize()
         logger.info("writing xmdf tetrahedral mesh..")

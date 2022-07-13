@@ -49,7 +49,7 @@ if __name__ == '__main__':
     output_current_path = os.path.join(output_dir, f'{grid_info}_{origin_str}/{piece_id}current.xdmf')
     output_potential_path = os.path.join(output_dir, f'{grid_info}_{origin_str}/{piece_id}potential.xdmf')
 
-    logger.info("Loading mesh..")
+    logger.debug("Loading mesh..")
 
     with dolfinx.io.XDMFFile(MPI.COMM_WORLD, tetr_mesh_path, "r") as infile3:
         mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
@@ -59,7 +59,6 @@ if __name__ == '__main__':
         mesh_facets = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         facets_ct = infile3.read_meshtags(mesh, name="Grid")
 
-    logger.info("Loaded mesh.")
     left_cc_marker, right_cc_marker, insulated_marker = sorted([int(v) for v in set(facets_ct.values)])
     V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 2))
 
@@ -115,7 +114,7 @@ if __name__ == '__main__':
 
     model = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options=options)
 
-    logger.info('Solving problem..')
+    logger.debug('Solving problem..')
     uh = model.solve()
     
     # Save solution in XDMF format
@@ -137,7 +136,6 @@ if __name__ == '__main__':
     with dolfinx.io.XDMFFile(MPI.COMM_WORLD, output_current_path, "w") as file:
         file.write_mesh(mesh)
         file.write_function(current_h)
-    logger.info("Wrote results to file.")
 
     insulated_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds))
     area_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_left_cc))
@@ -148,15 +146,19 @@ if __name__ == '__main__':
     total_volume = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(mesh)))
     solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
     avg_solution_trace_norm = solution_trace_norm / insulated_area
-    logger.info("Area left cc                                 : {:.0f}".format(area_left_cc))
-    logger.info("Area right cc                                : {:.0f}".format(area_right_cc))
-    logger.info("Current density left cc                      : {:.6f}".format(i_left_cc))
-    logger.info("Current density right cc                     : {:.6f}".format(i_right_cc))
-    logger.info("Insulated Area                               : {:,}".format(int(insulated_area)))
-    logger.info("Total Area                                   : {:,}".format(int(area_left_cc + area_right_cc + insulated_area)))
-    logger.info("Total Volume                                 : {:,}".format(int(total_volume)))
-    logger.info("Bulk conductivity [S.m-1]                    : {:.4f}".format(0.1))
-    logger.info("Effective conductivity [S.m-1]               : {:.4f}".format(Ly * area_left_cc * i_left_cc / (Lx * Lz)))
-    logger.info(f"Homogeneous Neumann BC trace                 : {solution_trace_norm:.2e}")
-    logger.info(f"Area-averaged Homogeneous Neumann BC trace   : {avg_solution_trace_norm:.2e}")
-    logger.info("Time elapsed                                 : {:,} seconds".format(int(time.time() - start)))
+    deviation_in_current = np.around(100 * 2 * np.abs(area_left_cc * i_left_cc - area_right_cc * i_right_cc) / (area_left_cc * i_left_cc + area_right_cc * i_right_cc), 1)
+    logger.info("**************************RESULTS-SUMMARY******************************************")
+    logger.info("Contact Area @ left cc                          : {:.0f}".format(area_left_cc))
+    logger.info("Contact Area @ right cc                         : {:.0f}".format(area_right_cc))
+    logger.info("Current density @ left cc                       : {:.6f}".format(i_left_cc))
+    logger.info("Current density @ right cc                      : {:.6f}".format(i_right_cc))
+    logger.info("Insulated Area                                  : {:,}".format(int(insulated_area)))
+    logger.info("Total Area                                      : {:,}".format(int(area_left_cc + area_right_cc + insulated_area)))
+    logger.info("Total Volume                                    : {:,}".format(int(total_volume)))
+    logger.info("Bulk conductivity [S.m-1]                       : {:.4f}".format(0.1))
+    logger.info("Effective conductivity [S.m-1]                  : {:.4f}".format(Ly * area_left_cc * i_left_cc / (Lx * Lz)))
+    logger.info(f"Homogeneous Neumann BC trace                    : {solution_trace_norm:.2e}")
+    logger.info(f"Area-averaged Homogeneous Neumann BC trace      : {avg_solution_trace_norm:.2e}")
+    logger.info("Deviation in current at two current collectors  : {:.2f}%".format(deviation_in_current))
+    logger.info("Time elapsed                                    : {:,} seconds".format(int(time.time() - start)))
+    logger.info("*************************END-OF-SUMMARY*******************************************")
