@@ -146,7 +146,7 @@ if __name__ == '__main__':
     total_volume = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(mesh)))
     solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
     avg_solution_trace_norm = solution_trace_norm / insulated_area
-    deviation_in_current = np.around(100 * 2 * np.abs(area_left_cc * i_left_cc - area_right_cc * i_right_cc) / (area_left_cc * i_left_cc + area_right_cc * i_right_cc), 1)
+    deviation_in_current = np.around(100 * 2 * np.abs(area_left_cc * i_left_cc - area_right_cc * i_right_cc) / (area_left_cc * i_left_cc + area_right_cc * i_right_cc), 2)
     logger.info("**************************RESULTS-SUMMARY******************************************")
     logger.info("Contact Area @ left cc                          : {:.0f}".format(area_left_cc))
     logger.info("Contact Area @ right cc                         : {:.0f}".format(area_right_cc))
