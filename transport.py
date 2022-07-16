@@ -106,11 +106,11 @@ if __name__ == '__main__':
                "pc_type": "hypre",
                "ksp_rtol": 1.0e-12
                }
-    options = {
-               "ksp_type": "cg",
-               "pc_type": "gamg",
-               "ksp_rtol": 1.0e-12,
-    }
+    # options = {
+    #            "ksp_type": "cg",
+    #            "pc_type": "gamg",
+    #            "ksp_rtol": 1.0e-12,
+    # }
 
     model = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options=options)
 
