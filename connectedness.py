@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
-import random
 import os
 
 import numpy as np
 import matplotlib.pyplot as plt
-import open3d as o3d
-import pyvista as pv
-from sklearn import neighbors
 
-from stl import mesh
 
-import geometry, mesher, utils
+import geometry
 
 
 Nx = 203
