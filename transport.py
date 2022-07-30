@@ -19,13 +19,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
     parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
-    parser.add_argument("--piece_id", nargs='?', const=1, default=np.nan, type=float)
+    parser.add_argument("--piece_id", nargs='?', const=1, default="")
 
     args = parser.parse_args()
-    if np.isnan(args.piece_id):
-        piece_id = ""
-    else:
-        piece_id = "%d" % int(args.piece_id)
+    piece_id = args.piece_id
     start = time.time()
 
     if isinstance(args.origin, str):
@@ -98,19 +95,10 @@ if __name__ == '__main__':
     L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds
 
     options = {
-        "ksp_type": "preonly",
-        "pc_type": "lu",
-    }
-    options = {
                "ksp_type": "gmres",
                "pc_type": "hypre",
                "ksp_rtol": 1.0e-12
                }
-    # options = {
-    #            "ksp_type": "cg",
-    #            "pc_type": "gamg",
-    #            "ksp_rtol": 1.0e-12,
-    # }
 
     model = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options=options)
 
