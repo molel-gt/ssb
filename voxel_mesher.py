@@ -51,6 +51,10 @@ def build_tetrahedra(cube):
     return tetrahedra
 
 
+def build_triangles(cube):
+    return
+
+
 def build_cubes(voxels, points):
     """
     Filter out vertices that are malformed/ not part of solid inside or solid surface.
@@ -111,27 +115,50 @@ if __name__ == "__main__":
     points = connected_pieces.build_points(voxels)
     points_view = {v: k for k, v in points.items()}
     n_tetrahedra = 0
+    n_triangles = 0
     tetrahedra = {}
-    for cube in build_cubes(voxels, points):
+    triangles = {}
+    cubes = build_cubes(voxels, points)
+    new_voxels = np.zeros(voxels.shape)
+    for cube in cubes:
+        for face in cube:
+            for p in face:
+                coord = points_view[p]
+                new_voxels[coord] = 1
+    voxels = np.logical_not(new_voxels)
+    points = connected_pieces.build_points(voxels)
+    points_view = {v: k for k, v in points.items()}
+    cubes = build_cubes(voxels, points)
+    for cube in cubes:
         _tetrahedra = build_tetrahedra(cube)
         for tet in _tetrahedra:
             tetrahedra[tet] = n_tetrahedra
             n_tetrahedra += 1
-    with open(f"mesh/{grid_info}_{origin_str}/porous.node", "w") as fp:
+    nodefile = f"mesh/{grid_info}_{origin_str}/porous.node"
+    tetfile = f"mesh/{grid_info}_{origin_str}/porous.ele"
+    triafile = f"mesh/{grid_info}_{origin_str}/porous.face"
+    vtkfile = f"mesh/{grid_info}_{origin_str}/porous.vtk"
+    mshfile = f"mesh/{grid_info}_{origin_str}/porous.msh"
+    with open(nodefile, "w") as fp:
         fp.write("# node count, 3 dim, no attribute, no boundary marker\n")
         fp.write("%d 3 0 0\n" % int(np.sum(voxels)))
         fp.write("# Node index, node coordinates\n")
         for point_id in range(np.sum(voxels)):
             x, y, z = points_view[point_id]
             fp.write(f"{point_id} {x} {y} {z}\n")
-    tetfile = f"mesh/{grid_info}_{origin_str}/porous.ele"
-    vtkfile = f"mesh/{grid_info}_{origin_str}/porous.vtk"
-    mshfile = f"mesh/{grid_info}_{origin_str}/porous.msh"
+
     with open(tetfile, "w") as fp:
         fp.write(f"{n_tetrahedra} 4 0\n")
         for tetrahedron, tet_id in tetrahedra.items():
             p1, p2, p3, p4 = tetrahedron
             fp.write(f"{tet_id} {p1} {p2} {p3} {p4}\n")
+
+    with open(triafile, "w") as fp:
+        fp.write(f"{n_triangles} 3 0\n")
+        for triangle, tria_id in triangles.items():
+            p1, p2, p3 = triangle
+            fp.write(f"{tet_id} {p1} {p2} {p3}\n")
+
     retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -akENQIRBr", shell=True)
     gmsh.initialize()
     gmsh.model.add("porous")
@@ -168,7 +195,7 @@ if __name__ == "__main__":
     msh = meshio.read(mshfile)
     tetra_mesh = geometry.create_mesh(msh, "tetra")
     meshio.write(f"mesh/{grid_info}_{origin_str}/tetr.xdmf", tetra_mesh)
-    tria_mesh = geometry.create_mesh(msh, "triangle")
-    meshio.write(f"mesh/{grid_info}_{origin_str}/tria.xdmf", tria_mesh)
+    # tria_mesh = geometry.create_mesh(msh, "triangle")
+    # meshio.write(f"mesh/{grid_info}_{origin_str}/tria.xdmf", tria_mesh)
 
     logger.info("Took {:,} seconds".format(int(time.time() - start_time)))
