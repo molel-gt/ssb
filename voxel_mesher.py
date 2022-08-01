@@ -8,16 +8,40 @@ import argparse
 import gmsh
 import logging
 import meshio
-import networkx as nx
 import numpy as np
 
-import connected_pieces, geometry, mesher, utils
+import connected_pieces, geometry, utils
 
 
 FORMAT = '%(asctime)s: %(message)s'
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__file__)
 logger.setLevel('INFO')
+
+
+def build_cubes(voxels, points):
+    """
+    Filter out vertices that are malformed/ not part of solid inside or solid surface.
+    """
+    cubes = []
+    for idx in np.argwhere(voxels == 1):
+        x0, y0, z0 = idx
+        face_1 = [(x0, y0, z0), (x0 + 1, y0, z0), (x0 + 1, y0 + 1, z0), (x0, y0 + 1, z0)]
+        face_2 = [(x0, y0, z0 + 1), (x0 + 1, y0, z0 + 1), (x0 + 1, y0 + 1, z0 + 1), (x0, y0 + 1, z0 + 1)]
+        faces = [[], []]
+        n_points = 0
+        for i in range(4):
+            if points.get(face_1[i]) is None:
+                break
+            faces[0].append(points.get(face_1[i]))
+            n_points += 1
+            if points.get(face_2[i]) is None:
+                break
+            n_points += 1
+            faces[1].append(points.get(face_2[i]))
+        if n_points == 8:
+            cubes.append((tuple(faces[0]), (faces[1])))
+    return cubes
 
 
 def build_tetrahedra(cube):
@@ -51,33 +75,24 @@ def build_tetrahedra(cube):
     return tetrahedra
 
 
-def build_triangles(cube):
+def build_triangles(cubes, points_view):
+    for cube in cubes:
+        x0, y0, z0 = points_view[cube[0][0]]
+        faces = {
+            "xy": [
+                [(x0, y0, z0), (x0 + 1, y0, z0), (x0 + 1, y0 + 1, z0), (x0, y0 + 1, z0)],
+                [(x0, y0, z0 + 1), (x0 + 1, y0, z0 + 1), (x0 + 1, y0 + 1, z0 + 1), (x0, y0 + 1, z0 + 1)]
+                 ],
+            "yz": [
+                [(x0 + 1, y0, z0), (x0 + 1, y0, z0 + 1), (x0 + 1, y0 + 1, z0 + 1), (x0 + 1, y0 + 1, z0)],
+                [(x0, y0, z0), (x0, y0, z0 + 1), (x0, y0 + 1, z0 + 1), (x0, y0 + 1, z0)]
+                ],
+            "xz": [
+                [(x0, y0, z0), (x0 + 1, y0, z0), (x0 + 1, y0, z0 + 1), (x0, y0, z0 + 1)],
+                [(x0, y0 + 1, z0), (x0 + 1, y0 + 1, z0), (x0 + 1, y0 + 1, z0 + 1), (x0, y0 + 1, z0 + 1)]
+            ]
+        }
     return
-
-
-def build_cubes(voxels, points):
-    """
-    Filter out vertices that are malformed/ not part of solid inside or solid surface.
-    """
-    cubes = []
-    for idx in np.argwhere(voxels == 1):
-        x0, y0, z0 = idx
-        face_1 = [(x0, y0, z0), (x0 + 1, y0, z0), (x0 + 1, y0 + 1, z0), (x0, y0 + 1, z0)]
-        face_2 = [(x0, y0, z0 + 1), (x0 + 1, y0, z0 + 1), (x0 + 1, y0 + 1, z0 + 1), (x0, y0 + 1, z0 + 1)]
-        faces = [[], []]
-        n_points = 0
-        for i in range(4):
-            if points.get(face_1[i]) is None:
-                break
-            faces[0].append(points.get(face_1[i]))
-            n_points += 1
-            if points.get(face_2[i]) is None:
-                break
-            n_points += 1
-            faces[1].append(points.get(face_2[i]))
-        if n_points == 8:
-            cubes.append((tuple(faces[0]), (faces[1])))
-    return cubes
 
 
 if __name__ == "__main__":
