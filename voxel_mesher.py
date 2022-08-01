@@ -126,13 +126,11 @@ if __name__ == "__main__":
 
     voxels = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
                                          y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
+    logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Lx * Ly * Lz)))
     # voxels = np.ones((2, 2, 2), dtype=np.int8)
+    voxels = np.logical_not(voxels)
     points = connected_pieces.build_points(voxels)
     points_view = {v: k for k, v in points.items()}
-    n_tetrahedra = 0
-    n_triangles = 0
-    tetrahedra = {}
-    triangles = {}
     cubes = build_cubes(voxels, points)
     new_voxels = np.zeros(voxels.shape)
     for cube in cubes:
@@ -141,6 +139,10 @@ if __name__ == "__main__":
                 coord = points_view[p]
                 new_voxels[coord] = 1
     voxels = np.logical_not(new_voxels)
+    n_tetrahedra = 0
+    n_triangles = 0
+    tetrahedra = {}
+    triangles = {}
     points = connected_pieces.build_points(voxels)
     points_view = {v: k for k, v in points.items()}
     cubes = build_cubes(voxels, points)
@@ -174,7 +176,8 @@ if __name__ == "__main__":
             p1, p2, p3 = triangle
             fp.write(f"{tet_id} {p1} {p2} {p3}\n")
 
-    retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -akENQIRBr", shell=True)
+    retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -akEFNQIRBOr", shell=True)
+    os.remove(triafile)
     gmsh.initialize()
     gmsh.model.add("porous")
     gmsh.merge(vtkfile)
@@ -185,12 +188,12 @@ if __name__ == "__main__":
         gmsh.model.addPhysicalGroup(volume[0], [volume[1]], marker)
         gmsh.model.setPhysicalName(volume[0], marker, f"V{marker}")
     
-    surfaces = gmsh.model.occ.getEntities(dim=2)
+    surfaces = gmsh.model.getEntities(dim=2)
     insulated = []
     left_cc = []
     right_cc = []
     for surface in surfaces:
-        com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
+        com = gmsh.model.getCenterOfMass(surface[0], surface[1])
         if np.isclose(com[1], 0):
             left_cc.append(surface[1])
         elif np.isclose(com[1], Ly):
