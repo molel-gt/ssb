@@ -103,8 +103,10 @@ if __name__ == "__main__":
                         required=True)
     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
     parser.add_argument("--resolution", nargs='?', const=1, default=0.5, type=float)
+    parser.add_argument("--phase", nargs='?', const=1, default="electrolyte")
     start_time = time.time()
     args = parser.parse_args()
+    phase = args.phase
     if isinstance(args.origin, str):
         origin = tuple(map(lambda v: int(v), args.origin.split(",")))
     else:
@@ -117,7 +119,7 @@ if __name__ == "__main__":
     Ly = Ny - 1
     Lz = Nz - 1
     img_dir = args.img_folder
-    utils.make_dir_if_missing(f"mesh/{grid_info}_{origin_str}")
+    utils.make_dir_if_missing(f"mesh/{phase}/{grid_info}_{origin_str}")
     im_files = sorted([os.path.join(img_dir, f) for
                        f in os.listdir(img_dir) if f.endswith(".bmp")])
     n_files = len(im_files)
@@ -151,11 +153,11 @@ if __name__ == "__main__":
         for tet in _tetrahedra:
             tetrahedra[tet] = n_tetrahedra
             n_tetrahedra += 1
-    nodefile = f"mesh/{grid_info}_{origin_str}/porous.node"
-    tetfile = f"mesh/{grid_info}_{origin_str}/porous.ele"
-    triafile = f"mesh/{grid_info}_{origin_str}/porous.face"
-    vtkfile = f"mesh/{grid_info}_{origin_str}/porous.vtk"
-    mshfile = f"mesh/{grid_info}_{origin_str}/porous.msh"
+    nodefile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.node"
+    tetfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.ele"
+    triafile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.face"
+    vtkfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.vtk"
+    mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.msh"
     with open(nodefile, "w") as fp:
         fp.write("# node count, 3 dim, no attribute, no boundary marker\n")
         fp.write("%d 3 0 0\n" % int(np.sum(voxels)))
@@ -212,8 +214,8 @@ if __name__ == "__main__":
 
     msh = meshio.read(mshfile)
     tetra_mesh = geometry.create_mesh(msh, "tetra")
-    meshio.write(f"mesh/{grid_info}_{origin_str}/tetr.xdmf", tetra_mesh)
+    meshio.write(f"mesh/{phase}/{grid_info}_{origin_str}/tetr.xdmf", tetra_mesh)
     # tria_mesh = geometry.create_mesh(msh, "triangle")
-    # meshio.write(f"mesh/{grid_info}_{origin_str}/tria.xdmf", tria_mesh)
+    # meshio.write(f"mesh/{phase}/{grid_info}_{origin_str}/tria.xdmf", tria_mesh)
 
     logger.info("Took {:,} seconds".format(int(time.time() - start_time)))

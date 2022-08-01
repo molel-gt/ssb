@@ -79,6 +79,7 @@ def build_voxels_mesh(boxes, output_mshfile):
                     counter += 1
                     box = gmsh.model.occ.addBox(idx, idy, idz, 1, 1, box_length)
                     all_boxes.append((3, box))
+    logger.info("Cutting occlusions..")
     gmsh.model.occ.cut(channel, all_boxes)
     gmsh.model.occ.synchronize()
     volumes = gmsh.model.getEntities(dim=3)
@@ -123,8 +124,10 @@ if __name__ == '__main__':
                         required=True)
     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
     parser.add_argument("--resolution", nargs='?', const=1, default=0.5, type=float)
+    parser.add_argument("--phase", nargs='?', const=1, default="electrolyte")
 
     args = parser.parse_args()
+    phase = args.phase
     start = time.time()
     if isinstance(args.origin, str):
         origin = tuple(map(lambda v: int(v), args.origin.split(",")))
@@ -135,7 +138,7 @@ if __name__ == '__main__':
     grid_size = int(args.grid_info.split("-")[0])
     Nx, Ny, Nz = [int(v) for v in args.grid_info.split("-")]
     img_dir = args.img_folder
-    utils.make_dir_if_missing(f"mesh/{grid_info}_{origin_str}")
+    utils.make_dir_if_missing(f"mesh/{phase}/{grid_info}_{origin_str}")
     im_files = sorted([os.path.join(img_dir, f) for
                        f in os.listdir(img_dir) if f.endswith(".bmp")])
     n_files = len(im_files)
@@ -148,7 +151,7 @@ if __name__ == '__main__':
     logger.info("No. voxels       : %s" % np.sum(occlusions))
     logger.info("No. rectangles   : %s" % np.sum(rectangles))
     logger.info("No. boxes        : %s" % np.sum(boxes))
-    output_mshfile = f"mesh/{grid_info}_{origin_str}/porous.msh"
+    output_mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.msh"
     gmsh.initialize()
     # gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 0)
@@ -163,8 +166,8 @@ if __name__ == '__main__':
     logger.info("writing xmdf tetrahedral mesh..")
     msh = meshio.read(output_mshfile)
     tetra_mesh = geometry.create_mesh(msh, "tetra")
-    meshio.write(f"mesh/{grid_info}_{origin_str}/tetr.xdmf", tetra_mesh)
+    meshio.write(f"mesh/{phase}/{grid_info}_{origin_str}/tetr.xdmf", tetra_mesh)
     tria_mesh = geometry.create_mesh(msh, "triangle")
-    meshio.write(f"mesh/{grid_info}_{origin_str}/tria.xdmf", tria_mesh)
+    meshio.write(f"mesh/{phase}/{grid_info}_{origin_str}/tria.xdmf", tria_mesh)
     stop = time.time()
     logger.info("Took {:,}s".format(int(stop - start)))
