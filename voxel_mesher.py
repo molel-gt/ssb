@@ -132,7 +132,7 @@ if __name__ == "__main__":
         for tetrahedron, tet_id in tetrahedra.items():
             p1, p2, p3, p4 = tetrahedron
             fp.write(f"{tet_id} {p1} {p2} {p3} {p4}\n")
-    retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -akEFNQIRBr", shell=True)
+    retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -akENQIRBr", shell=True)
     gmsh.initialize()
     gmsh.model.add("porous")
     gmsh.merge(vtkfile)
