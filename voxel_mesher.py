@@ -19,6 +19,21 @@ logger = logging.getLogger(__file__)
 logger.setLevel('INFO')
 
 
+def filter_voxels(voxels, threshold=1):
+    new_voxels = voxels
+    for coord, v in np.ndenumerate(voxels):
+        if v == 0:
+            x0, y0, z0 = coord
+            try:
+                section = voxels[x0 - threshold:x0 + threshold + 1, y0 - threshold : y0 + threshold + 1, z0 - threshold : z0 + threshold + 1]
+                total = np.sum(section)
+                if total >= (2 * threshold + 1) ** 3 - 2:
+                    new_voxels[coord] = 1
+            except IndexError:
+                continue
+    return new_voxels
+
+
 def build_cubes(voxels, points):
     """
     Filter out vertices that are malformed/ not part of solid inside or solid surface.
@@ -95,7 +110,7 @@ def build_triangles(cubes, points_view):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='computes specific area')
-    parser.add_argument('--img_folder', help='bmp files directory',
+    parser.add_argument('--img_folder', help='bmp files parent directory',
                         required=True)
     parser.add_argument('--grid_info', help='Nx-Ny-Nz',
                         required=True)
@@ -116,7 +131,7 @@ if __name__ == "__main__":
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
-    img_dir = args.img_folder
+    img_dir = os.path.join(args.img_folder, phase)
     utils.make_dir_if_missing(f"mesh/{phase}/{grid_info}_{origin_str}")
     im_files = sorted([os.path.join(img_dir, f) for
                        f in os.listdir(img_dir) if f.endswith(".bmp")])
@@ -127,6 +142,8 @@ if __name__ == "__main__":
     voxels = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
                                          y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
     logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Lx * Ly * Lz)))
+    voxels = filter_voxels(voxels)
+    logger.info("Filtered porosity : {:0.4f}".format(np.sum(voxels) / (Lx * Ly * Lz)))
     # voxels = np.ones((2, 2, 2), dtype=np.int8)
     n_tetrahedra = 0
     n_triangles = 0
