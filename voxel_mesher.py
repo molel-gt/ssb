@@ -39,12 +39,11 @@ def build_cubes(voxels, points):
                 break
             n_points += 1
             faces[1].append(points.get(face_2[i]))
-        if n_points == 8:
-            cubes.append((tuple(faces[0]), (faces[1])))
+        cubes.append((face_1, face_2))
     return cubes
 
 
-def build_tetrahedra(cube):
+def build_tetrahedra(cube, points):
     """
     Build the 6 tetrahedra in a cube
     """
@@ -53,25 +52,24 @@ def build_tetrahedra(cube):
     p4, p5, p6, p7 = cube[1]
     for i in range(5):
         if i == 0:
-            tetrahedra.append(
-                (p0, p1, p3, p4)
-            )
+            tet = (p0, p1, p3, p4)
         if i == 1:
-            tetrahedra.append(
-                (p1, p2, p3, p6)
-            )
+            tet = (p1, p2, p3, p6)
         if i == 2:
-            tetrahedra.append(
-                (p4, p5, p6, p1)
-            )
+            tet = (p4, p5, p6, p1)
         if i == 3:
-            tetrahedra.append(
-                (p4, p7, p6, p3)
-            )
+            tet = (p4, p7, p6, p3)
         if i == 4:
-            tetrahedra.append(
-                (p4, p6, p1, p3)
-            )
+            tet = (p4, p6, p1, p3)
+        tet_ok = True
+        new_tet = []
+        for p in tet:
+            new_p = points.get(p)
+            new_tet.append(new_p)
+            if new_p is None:
+                tet_ok = False
+        if tet_ok:
+            tetrahedra.append(tuple(new_tet))
     return tetrahedra
 
 
@@ -130,17 +128,6 @@ if __name__ == "__main__":
                                          y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
     logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Lx * Ly * Lz)))
     # voxels = np.ones((2, 2, 2), dtype=np.int8)
-    voxels = np.logical_not(voxels)
-    points = connected_pieces.build_points(voxels)
-    points_view = {v: k for k, v in points.items()}
-    cubes = build_cubes(voxels, points)
-    new_voxels = np.zeros(voxels.shape)
-    for cube in cubes:
-        for face in cube:
-            for p in face:
-                coord = points_view[p]
-                new_voxels[coord] = 1
-    voxels = np.logical_not(new_voxels)
     n_tetrahedra = 0
     n_triangles = 0
     tetrahedra = {}
@@ -149,7 +136,7 @@ if __name__ == "__main__":
     points_view = {v: k for k, v in points.items()}
     cubes = build_cubes(voxels, points)
     for cube in cubes:
-        _tetrahedra = build_tetrahedra(cube)
+        _tetrahedra = build_tetrahedra(cube, points)
         for tet in _tetrahedra:
             tetrahedra[tet] = n_tetrahedra
             n_tetrahedra += 1
@@ -181,6 +168,12 @@ if __name__ == "__main__":
     retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -akEFNQIRBOr", shell=True)
     os.remove(triafile)
     gmsh.initialize()
+    gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
+    gmsh.option.setNumber("Mesh.Smoothing", 500)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
+    gmsh.option.setNumber("Mesh.AllowSwapAngle", 90)
     gmsh.model.add("porous")
     gmsh.merge(vtkfile)
     counter = 0
@@ -211,6 +204,7 @@ if __name__ == "__main__":
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
     gmsh.write(mshfile)
+    gmsh.finalize()
 
     msh = meshio.read(mshfile)
     tetra_mesh = geometry.create_mesh(msh, "tetra")
