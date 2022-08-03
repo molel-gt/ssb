@@ -12,37 +12,94 @@ from petsc4py import PETSc
 
 import utils
 
+positions = ['left', 'mid', 'right']
+
+
+def insulator_moved_around(x, coverage, Lx, Ly, pos='mid', xlim=[0.125, 0.875], n_pieces=0):
+        if n_pieces > 1 and pos != 'mid':
+            raise ValueError("Multiple pieces not implemented for piece not centered in the middle")
+        if pos == "left":
+            lower_cov = 0.5 * (1 - coverage) * Lx - xlim[0] * Lx
+            upper_cov = Lx - 0.5 * (1 - coverage) * Lx - xlim[0] * Lx
+        if pos == 'mid':
+            lower_cov = 0.5 * (1 - coverage) * Lx
+            upper_cov = Lx - 0.5 * (1 - coverage) * Lx
+        if pos == 'right':
+            lower_cov = 0.5 * (1 - coverage) * Lx + xlim[0] * Lx
+            upper_cov = Lx - 0.5 * (1 - coverage) * Lx + xlim[0] * Lx
+        if n_pieces == 1:
+            return lambda x: np.logical_and(np.isclose(x[1], 0.0), np.logical_and(
+                np.greater_equal(x[0], lower_cov),  np.greater_equal(upper_cov, x[0])
+                )
+            )
+        else:
+            dx = Lx * (coverage / n_pieces)
+            space = Lx * ((xlim[1] - xlim[0]) - coverage) / (n_pieces - 1)
+            intervals = []
+            for i in range(n_pieces + 1):
+                if i == 0:
+                    intervals.append((xlim[0] * Lx, dx + xlim[0] * Lx))
+                else:
+                    intervals.append(((dx + space) * (i - 1) + xlim[0] * Lx, dx * i + space * (i -1) + xlim[0] * Lx))
+            def fun(x, intervals):
+                n = len(intervals)
+                if n == 1:
+                    return np.logical_and(np.greater_equal(x[0], intervals[0][0]),  np.greater_equal(intervals[0][1], x[0]))
+                else:
+                    return np.logical_or(
+                        np.logical_and(np.greater_equal(x[0], intervals[0][0]),  np.greater_equal(intervals[0][1], x[0])),
+                        fun(x, intervals[1:])
+                        )
+            return lambda x: np.logical_and(np.isclose(x[1], 0.0), fun(x, intervals))
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='computes specific area')
-    parser.add_argument('--coverage', type=float, help='fraction of lower current collector that is conductive', required=True)
+    parser.add_argument('--eps', type=float, help='fraction of lower current collector that is conductive', required=True)
     parser.add_argument('--Lx', help='length', required=True, type=int)
     parser.add_argument('--Ly', help='width', required=True, type=int)
-    parser.add_argument("--w", help='slice width along x', nargs='?', const=1, default=10, type=float)
-    parser.add_argument("--h", help='slice position along y', nargs='?', const=1, default=0.5, type=float)
+    parser.add_argument("--w", help='slice width along x', nargs='?', const=1, default=0, type=float)
+    parser.add_argument("--h", help='slice position along y', nargs='?', const=1, default=0, type=float)
     parser.add_argument("--voltage", help='voltage drop (one end held at potential of 0)', nargs='?', const=1, default=1, type=int)
+    parser.add_argument("--pos", help='insulator position along x', nargs='?', const=1, default='mid')
+    parser.add_argument("--n_pieces", help='insulator position along x', nargs='?', const=1, default=1, type=int)
 
     args = parser.parse_args()
-    coverage = np.around(args.coverage, 2)
+    pos = args.pos
+    n_pieces = int(args.n_pieces)
+    eps = np.around(args.eps, 4)
     Lx = args.Lx
     Ly = args.Ly
     w = args.w / Lx
     h = args.h / Ly
     voltage = args.voltage
-    lower_cov = 0.5 * (1 - coverage) * Lx
-    upper_cov = Lx - 0.5 * (1 - coverage) * Lx
-    meshname = f'current_constriction/{h:.3}_{w:.3}'
+    lower_cov = 0.5 * Lx - 0.5 * eps * Lx
+    upper_cov = 0.5 * Lx + 0.5 * eps * Lx
+    tria_meshname = f'current_constriction/{h:.3}_{w:.3}_pos-{pos}_pieces-{n_pieces}_tria'
+    line_meshname = f'current_constriction/{h:.3}_{w:.3}_pos-{pos}_pieces-{n_pieces}_line'
     utils.make_dir_if_missing('current_constriction')
-    with dolfinx.io.XDMFFile(MPI.COMM_WORLD, f"{meshname}.xdmf", "r") as infile3:
+    with dolfinx.io.XDMFFile(MPI.COMM_WORLD, f"{tria_meshname}.xdmf", "r") as infile3:
             msh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
             ct = infile3.read_meshtags(msh, name="Grid")
+    msh.topology.create_connectivity(msh.topology.dim, msh.topology.dim - 1)
+    with dolfinx.io.XDMFFile(MPI.COMM_WORLD, f"{line_meshname}.xdmf", "r") as infile3:
+        mesh_facets = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
+        facets_ct = infile3.read_meshtags(msh, name="Grid")
 
-    msh.topology.create_connectivity(msh.topology.dim, msh.topology.dim-1)
+    left_cc_marker, right_cc_marker, insulated_marker = sorted([int(v) for v in set(facets_ct.values)])
 
     Q = dolfinx.fem.FunctionSpace(msh, ("DG", 0))
     kappa = 1.0
 
     V = dolfinx.fem.FunctionSpace(msh, ("Lagrange", 1))
+    line_meshtags = dolfinx.mesh.meshtags(msh, 1, facets_ct.indices, facets_ct.values)
+    n = -ufl.FacetNormal(msh)
+    ds = ufl.Measure("ds", domain=msh, subdomain_data=line_meshtags, subdomain_id=insulated_marker)
+    u = ufl.TrialFunction(V)
+    v = ufl.TestFunction(V)
+    x = ufl.SpatialCoordinate(msh)
+    f = dolfinx.fem.Constant(msh, PETSc.ScalarType(0))
+    g = dolfinx.fem.Constant(msh, PETSc.ScalarType(0))
 
     # Dirichlet BCs
     u0 = dolfinx.fem.Function(V)
@@ -52,17 +109,25 @@ if __name__ == '__main__':
     u1 = dolfinx.fem.Function(V)
     with u1.vector.localForm() as u1_loc:
         u1_loc.set(0)
-    partially_insulated = lambda x: np.logical_and(np.isclose(x[1], 0.0), np.logical_and(lower_cov <= x[0],  x[0] <= upper_cov))
+
+
+    # if n_pieces == 1:
+    #     partially_insulated = lambda x: np.logical_and(np.isclose(x[1], 0.0),
+    #     np.logical_and(np.greater_equal(x[0], lower_cov), np.greater_equal(upper_cov, x[0]))
+    #     )
+    # elif n_pieces == 2:
+    #     partially_insulated = lambda x: np.logical_and(
+    #         np.isclose(x[1], 0.0),
+    #         np.logical_or(
+    #             np.logical_and(np.greater_equal(x[0], 0.125 * Lx),  np.greater_equal((0.125  + 0.5 * eps) * Lx, x[0])),
+    #             np.logical_and(np.greater_equal(x[0], (0.875 - 0.5 * eps) * Lx),  np.greater_equal(0.875 * Lx, x[0]))
+    #             )
+    #         )
+    partially_insulated = insulator_moved_around(x, eps, Lx, Ly, n_pieces=n_pieces, pos=pos)
     x0facet = dolfinx.mesh.locate_entities_boundary(msh, 1, partially_insulated)
     x1facet = dolfinx.mesh.locate_entities_boundary(msh, 1, lambda x: np.isclose(x[1], Ly))
     x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 1, x0facet))
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 1, x1facet))
-
-    u = ufl.TrialFunction(V)
-    v = ufl.TestFunction(V)
-    x = ufl.SpatialCoordinate(msh)
-    f = dolfinx.fem.Constant(msh, PETSc.ScalarType(0))
-    g = dolfinx.fem.Constant(msh, PETSc.ScalarType(0))
 
     a = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
     L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ufl.ds
@@ -76,7 +141,7 @@ if __name__ == '__main__':
     problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options=options)
     uh = problem.solve()
 
-    with dolfinx.io.XDMFFile(msh.comm, f"current_constriction/{h:.3}_{w:.3}_{coverage:.2}_{voltage}_potential.xdmf", "w") as file:
+    with dolfinx.io.XDMFFile(msh.comm, f"current_constriction/{h:.3}_{w:.3}_{eps:.4}_{voltage}_pos-{pos}_pieces-{n_pieces}_potential.xdmf", "w") as file:
         file.write_mesh(msh)
         file.write_function(uh)
     grad_u = ufl.grad(uh)
@@ -87,13 +152,10 @@ if __name__ == '__main__':
     current_h = dolfinx.fem.Function(W)
     current_h.interpolate(current_expr)
 
-    with dolfinx.io.XDMFFile(MPI.COMM_WORLD, f"current_constriction/{h:.3}_{w:.3}_{coverage:.2}_{voltage}_current.xdmf", "w") as file:
+    with dolfinx.io.XDMFFile(MPI.COMM_WORLD, f"current_constriction/{h:.3}_{w:.3}_{eps:.4}_{voltage}_pos-{pos}_pieces-{n_pieces}_current.xdmf", "w") as file:
         file.write_mesh(msh)
         file.write_function(current_h)
 
-    left_facets = dolfinx.mesh.locate_entities_boundary(msh, msh.topology.dim - 1, lambda x: np.logical_or(np.isclose(x[1], 0.0), np.isclose(x[1], Ly)))
-    left_dofs = dolfinx.fem.locate_dofs_topological(V, msh.topology.dim - 1, left_facets)
-    n = -ufl.FacetNormal(msh)  # outward pointing
     dobs = ufl.Measure("ds", domain=msh)
-    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * dobs))
-    print(f"Homogeneous Neumann BC trace: {solution_trace_norm}")
+    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ufl.ds))
+    # print(f"Homogeneous Neumann BC trace: {solution_trace_norm}")
