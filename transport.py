@@ -69,10 +69,7 @@ if __name__ == '__main__':
     u1 = dolfinx.fem.Function(V)
     with u1.vector.localForm() as u1_loc:
         u1_loc.set(0.0)
-    # x0facet = dolfinx.mesh.locate_entities_boundary(mesh, 2,
-    #                                 lambda x: np.isclose(x[1], 0.0))
-    # x1facet = dolfinx.mesh.locate_entities_boundary(mesh, 2,
-    #                                 lambda x: np.isclose(x[1], Ly))
+
     x0facet = np.array(facets_ct.indices[facets_ct.values == left_cc_marker])
     x1facet = np.array(facets_ct.indices[facets_ct.values == right_cc_marker])
     x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 2, x0facet))
