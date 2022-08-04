@@ -38,13 +38,16 @@ if __name__ == '__main__':
     gmsh.option.setNumber("Mesh.MeshSizeMin", 0.05)
     gmsh.option.setNumber("Mesh.MeshSizeMax", 0.05)
     dx = Lx * (eps / n_pieces)
-    space = Lx * ((0.875 - 0.125) - eps) / (n_pieces + 1e-23 - 1)
     intervals = []
-    for i in range(n_pieces + 1):
-        if i == 0:
-            intervals.append((0.125 * Lx, dx + 0.125 * Lx))
-        else:
-            intervals.append(((dx + space) * (i - 1) + 0.125 * Lx, dx * i + space * (i -1) + 0.125 * Lx))
+    if n_pieces == 1:
+        intervals.append((0.5 * Lx - 0.5 * eps * Lx, 0.5 * Lx + 0.5 * eps * Lx))
+    else:
+        space = Lx * ((0.875 - 0.125) - eps) / (n_pieces - 1)
+        for i in range(n_pieces + 1):
+            if i == 0:
+                intervals.append((0.125 * Lx, dx + 0.125 * Lx))
+            else:
+                intervals.append(((dx + space) * (i - 1) + 0.125 * Lx, dx * i + space * (i -1) + 0.125 * Lx))
     bottom_pts = sorted([v for v in set(itertools.chain(*intervals))])
     points = [
         (0, 0, 0),
@@ -74,9 +77,6 @@ if __name__ == '__main__':
     channel_loop = gmsh.model.occ.addCurveLoop(channel_lines)
     channel = gmsh.model.occ.addPlaneSurface((1, channel_loop))
 
-    # if h > 0 and w > 0:
-    #     slit_1 = gmsh.model.occ.add_rectangle(0.5 * (1 - w) * Lx, (h - 0.5 * w) * Ly, 0, w * Lx, 0.1 * Ly)
-    #     gmsh.model.occ.cut([(2, channel)], [(2, slit_1)])
     gmsh.model.occ.synchronize()
     surfaces = gmsh.model.getEntities(dim=2)
     gmsh.model.addPhysicalGroup(2, [surfaces[0][1]], 1)

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 # coding: utf-8
 import sys
+import time
 
 import argparse
 import dolfinx
+import logging
 import numpy as np
 import ufl
 
@@ -13,6 +15,7 @@ from petsc4py import PETSc
 import utils
 
 positions = ['left', 'mid', 'right']
+KAPPA = 0.1 # 0.1 S/m == mS/cm
 
 
 def insulator_moved_around(x, coverage, Lx, Ly, pos='mid', xlim=[0.125, 0.875], n_pieces=0):
@@ -65,6 +68,11 @@ if __name__ == '__main__':
     parser.add_argument("--n_pieces", help='insulator position along x', nargs='?', const=1, default=1, type=int)
 
     args = parser.parse_args()
+    start = time.time()
+    FORMAT = f'%(asctime)s: %(message)s'
+    logging.basicConfig(format=FORMAT)
+    logger = logging.getLogger('current_constriction')
+    logger.setLevel('INFO')
     pos = args.pos
     n_pieces = int(args.n_pieces)
     eps = np.around(args.eps, 4)
@@ -142,7 +150,33 @@ if __name__ == '__main__':
     with dolfinx.io.XDMFFile(MPI.COMM_WORLD, f"current_constriction/{h:.3}_{w:.3}_{eps:.4}_{voltage}_pos-{pos}_pieces-{n_pieces}_current.xdmf", "w") as file:
         file.write_mesh(msh)
         file.write_function(current_h)
+    
+    ds_left_cc = ufl.Measure('ds', domain=msh, subdomain_data=line_meshtags, subdomain_id=left_cc_marker)
+    ds_right_cc = ufl.Measure('ds', domain=msh, subdomain_data=line_meshtags, subdomain_id=right_cc_marker)
 
-    dobs = ufl.Measure("ds", domain=msh)
-    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds))
-    print(f"Homogeneous Neumann BC trace: {solution_trace_norm}")
+    insulated_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds))
+    area_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_left_cc))
+    area_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_right_cc))
+    i_left_cc = (1/area_left_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(KAPPA * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds_left_cc))
+    i_right_cc = (1/area_right_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(KAPPA * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds_right_cc))
+    i_insulated = (1/insulated_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(KAPPA * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds))
+    total_volume = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(msh)))
+    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
+    avg_solution_trace_norm = solution_trace_norm / insulated_area
+    deviation_in_current = np.around(100 * 2 * np.abs(area_left_cc * i_left_cc - area_right_cc * i_right_cc) / (area_left_cc * i_left_cc + area_right_cc * i_right_cc), 2)
+    logger.info("**************************RESULTS-SUMMARY******************************************")
+    logger.info("Contact Area @ left cc                          : {:.0f}".format(area_left_cc))
+    logger.info("Contact Area @ right cc                         : {:.0f}".format(area_right_cc))
+    logger.info("Current density @ left cc                       : {:.6f}".format(i_left_cc))
+    logger.info("Current density @ right cc                      : {:.6f}".format(i_right_cc))
+    logger.info("Insulated Area                                  : {:,}".format(int(insulated_area)))
+    logger.info("Total Area                                      : {:,}".format(int(area_left_cc + area_right_cc + insulated_area)))
+    logger.info("Total Volume                                    : {:,}".format(int(total_volume)))
+    logger.info("Electrolyte Volume Fraction                     : {:0.4f}".format(total_volume/(Lx * Ly * 1)))
+    logger.info("Bulk conductivity [S.m-1]                       : {:.4f}".format(0.1))
+    logger.info("Effective conductivity [S.m-1]                  : {:.4f}".format(Ly * area_left_cc * i_left_cc / (Lx * 1)))
+    logger.info(f"Homogeneous Neumann BC trace                    : {solution_trace_norm:.2e}")
+    logger.info(f"Area-averaged Homogeneous Neumann BC trace      : {avg_solution_trace_norm:.2e}")
+    logger.info("Deviation in current at two current collectors  : {:.2f}%".format(deviation_in_current))
+    logger.info("Time elapsed                                    : {:,} seconds".format(int(time.time() - start)))
+    logger.info("*************************END-OF-SUMMARY*******************************************")
