@@ -110,22 +110,9 @@ if __name__ == '__main__':
     with u1.vector.localForm() as u1_loc:
         u1_loc.set(0)
 
-
-    # if n_pieces == 1:
-    #     partially_insulated = lambda x: np.logical_and(np.isclose(x[1], 0.0),
-    #     np.logical_and(np.greater_equal(x[0], lower_cov), np.greater_equal(upper_cov, x[0]))
-    #     )
-    # elif n_pieces == 2:
-    #     partially_insulated = lambda x: np.logical_and(
-    #         np.isclose(x[1], 0.0),
-    #         np.logical_or(
-    #             np.logical_and(np.greater_equal(x[0], 0.125 * Lx),  np.greater_equal((0.125  + 0.5 * eps) * Lx, x[0])),
-    #             np.logical_and(np.greater_equal(x[0], (0.875 - 0.5 * eps) * Lx),  np.greater_equal(0.875 * Lx, x[0]))
-    #             )
-    #         )
-    partially_insulated = insulator_moved_around(x, eps, Lx, Ly, n_pieces=n_pieces, pos=pos)
-    x0facet = dolfinx.mesh.locate_entities_boundary(msh, 1, partially_insulated)
-    x1facet = dolfinx.mesh.locate_entities_boundary(msh, 1, lambda x: np.isclose(x[1], Ly))
+    # partially_insulated = insulator_moved_around(x, eps, Lx, Ly, n_pieces=n_pieces, pos=pos)
+    x0facet = np.array(facets_ct.indices[facets_ct.values == left_cc_marker])
+    x1facet = np.array(facets_ct.indices[facets_ct.values == right_cc_marker])
     x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 1, x0facet))
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 1, x1facet))
 
@@ -157,5 +144,5 @@ if __name__ == '__main__':
         file.write_function(current_h)
 
     dobs = ufl.Measure("ds", domain=msh)
-    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ufl.ds))
-    # print(f"Homogeneous Neumann BC trace: {solution_trace_norm}")
+    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds))
+    print(f"Homogeneous Neumann BC trace: {solution_trace_norm}")

@@ -2,6 +2,7 @@
 # coding: utf-8
 import argparse
 import gmsh
+import itertools
 import meshio
 import numpy as np
 
@@ -36,28 +37,60 @@ if __name__ == '__main__':
     gmsh.model.add("constriction")
     gmsh.option.setNumber("Mesh.MeshSizeMin", 0.05)
     gmsh.option.setNumber("Mesh.MeshSizeMax", 0.05)
-
-    channel = gmsh.model.occ.add_rectangle(0, 0, 0, Lx, Ly)
-    if h > 0 and w > 0:
-        slit_1 = gmsh.model.occ.add_rectangle(0.5 * (1 - w) * Lx, (h - 0.5 * w) * Ly, 0, w * Lx, 0.1 * Ly)
-        gmsh.model.occ.cut([(2, channel)], [(2, slit_1)])
-    gmsh.model.occ.synchronize()
-    surfaces = gmsh.model.getEntities(dim=2)
-    gmsh.model.addPhysicalGroup(2, [surfaces[0][1]], 1)
-    lines = gmsh.model.getEntities(dim=1)
+    dx = Lx * (eps / n_pieces)
+    space = Lx * ((0.875 - 0.125) - eps) / (n_pieces + 1e-23 - 1)
+    intervals = []
+    for i in range(n_pieces + 1):
+        if i == 0:
+            intervals.append((0.125 * Lx, dx + 0.125 * Lx))
+        else:
+            intervals.append(((dx + space) * (i - 1) + 0.125 * Lx, dx * i + space * (i -1) + 0.125 * Lx))
+    bottom_pts = sorted([v for v in set(itertools.chain(*intervals))])
+    points = [
+        (0, 0, 0),
+        (0, Ly, 0),
+        (Lx, Ly, 0),
+        (Lx, 0, 0),
+        *reversed([(v, 0, 0) for v in bottom_pts])
+    ]
+    g_points = []
+    for p in points:
+        g_points.append(
+            gmsh.model.occ.addPoint(*p)
+        )
+    channel_lines = []
     top_cc = []
     bottom_cc = []
     insulated = []
-
-    for line in lines:
-        com = gmsh.model.occ.getCenterOfMass(line[0], line[1])
-        if np.isclose(com[1], 0):
-            if np.logical_and(com[0] >= (0.5 * Lx - 0.5 * eps), com[0] <= (0.5 * Lx + 0.5 * eps)):
-                bottom_cc.append(line[1])
-        elif np.isclose(com[1], Ly):
-            top_cc.append(line[1])
+    for i in range(-1, len(g_points)-1):
+        line = gmsh.model.occ.addLine(g_points[i], g_points[i + 1])
+        channel_lines.append(line)
+        if i == 1:
+            top_cc.append(line)
+        elif i in list(range(4, len(g_points), 2)):
+            bottom_cc.append(line)
         else:
-            insulated.append(line[1])
+            insulated.append(line)
+    channel_loop = gmsh.model.occ.addCurveLoop(channel_lines)
+    channel = gmsh.model.occ.addPlaneSurface((1, channel_loop))
+
+    # if h > 0 and w > 0:
+    #     slit_1 = gmsh.model.occ.add_rectangle(0.5 * (1 - w) * Lx, (h - 0.5 * w) * Ly, 0, w * Lx, 0.1 * Ly)
+    #     gmsh.model.occ.cut([(2, channel)], [(2, slit_1)])
+    gmsh.model.occ.synchronize()
+    surfaces = gmsh.model.getEntities(dim=2)
+    gmsh.model.addPhysicalGroup(2, [surfaces[0][1]], 1)
+
+    # lines = gmsh.model.getEntities(dim=1)
+    # for line in lines:
+    #     com = gmsh.model.occ.getCenterOfMass(line[0], line[1])
+    #     if np.isclose(com[1], 0):
+    #         if np.logical_and(com[0] >= (0.5 * Lx - 0.5 * eps), com[0] <= (0.5 * Lx + 0.5 * eps)):
+    #             bottom_cc.append(line[1])
+    #     elif np.isclose(com[1], Ly):
+    #         top_cc.append(line[1])
+    #     else:
+    #         insulated.append(line[1])
     y0_tag = gmsh.model.addPhysicalGroup(1, bottom_cc)
     gmsh.model.setPhysicalName(1, y0_tag, "bottom_cc")
     yl_tag = gmsh.model.addPhysicalGroup(1, top_cc)
