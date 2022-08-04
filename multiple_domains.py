@@ -80,17 +80,6 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
     surfaces = gmsh.model.getEntities(dim=2)
     gmsh.model.addPhysicalGroup(2, [surfaces[0][1]], 1)
-
-    # lines = gmsh.model.getEntities(dim=1)
-    # for line in lines:
-    #     com = gmsh.model.occ.getCenterOfMass(line[0], line[1])
-    #     if np.isclose(com[1], 0):
-    #         if np.logical_and(com[0] >= (0.5 * Lx - 0.5 * eps), com[0] <= (0.5 * Lx + 0.5 * eps)):
-    #             bottom_cc.append(line[1])
-    #     elif np.isclose(com[1], Ly):
-    #         top_cc.append(line[1])
-    #     else:
-    #         insulated.append(line[1])
     y0_tag = gmsh.model.addPhysicalGroup(1, bottom_cc)
     gmsh.model.setPhysicalName(1, y0_tag, "bottom_cc")
     yl_tag = gmsh.model.addPhysicalGroup(1, top_cc)
