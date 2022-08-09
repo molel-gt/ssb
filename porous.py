@@ -24,10 +24,10 @@ logger = logging.getLogger(__file__)
 logger.setLevel('INFO')
 
 
-img_dir = "/home/emolel3/dev/ssb/mesh/electrolyte/101-101-101_000-000-000"
+img_dir = "/home/emolel3/dev/ssb/mesh/electrolyte/051-051-051_000-000-000"
 nodefile = os.path.join(img_dir, "porous.1.node")
 facefile = os.path.join(img_dir, "porous.1.face")
-stlfile = os.path.join(img_dir, "porous.1.stl")
+stlfile = os.path.join(img_dir, "porous.stl")
 Nx = 101
 Ny = 101
 Nz = 101
