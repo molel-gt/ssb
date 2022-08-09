@@ -15,7 +15,7 @@ import numpy as np
 from itertools import groupby
 from operator import itemgetter
 
-import geometry, utils
+import connected_pieces, geometry, utils
 
 FORMAT = '%(asctime)s: %(message)s'
 logging.basicConfig(format=FORMAT)
@@ -23,7 +23,7 @@ logger = logging.getLogger(__file__)
 logger.setLevel('INFO')
 
 
-def make_rectangles(voxels):
+def make_rectangles(voxels, points_view):
     Nx, Ny, Nz = voxels.shape
     rectangles = np.zeros(voxels.shape, dtype=np.uint8)
     for idx in range(Nx - 1):
@@ -34,13 +34,13 @@ def make_rectangles(voxels):
                 p2 = (idx, idy + 1, idz)
                 p3 = (idx + 1, idy + 1, idz)
 
-                if (voxels[p0] and voxels[p1] and voxels[p2] and voxels[p3]):
+                if (points_view.get(p0) is not None and points_view.get(p1) is not None and points_view.get(p2) is not None and points_view.get(p3) is not None):
                     rectangles[p0] = 1
 
     return rectangles
 
 
-def make_boxes(rectangles):
+def make_boxes(rectangles, voxels=None):
     Nx, Ny, _ = rectangles.shape
     boxes = np.zeros(rectangles.shape, dtype=np.uint16)
     for idx in range(Nx - 1):
@@ -53,6 +53,10 @@ def make_boxes(rectangles):
                 continue
             for _, g in groupby(enumerate(rect_positions), lambda ix: ix[0] - ix[1]):
                 pieces.append(list(map(itemgetter(1), g)))
+            if not np.isclose(np.sum(rectangles[idx, idy, :]) - np.sum(voxels[idx, idy, :]), 0):
+                print(np.sum(rectangles[idx, idy, :]) - np.sum(voxels[idx, idy, :]))
+            else:
+                print("iko")
             for p in pieces:
                 box_length = p[len(p) - 1] - p[0]
                 start_pos = p[0]
@@ -76,6 +80,8 @@ def build_voxels_mesh(boxes, output_mshfile):
             for idz in range(Nz):
                 box_length = boxes[idx, idy, idz]
                 if box_length > 0:
+                    if box_length < 50:
+                        print(box_length < 50)
                     counter += 1
                     box = gmsh.model.occ.addBox(idx, idy, idz, 1, 1, box_length)
                     all_boxes.append((3, box))
@@ -137,17 +143,24 @@ if __name__ == '__main__':
     grid_info = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
     grid_size = int(args.grid_info.split("-")[0])
     Nx, Ny, Nz = [int(v) for v in args.grid_info.split("-")]
-    img_dir = args.img_folder
+    img_dir = os.path.join(args.img_folder, f'{phase}')
     utils.make_dir_if_missing(f"mesh/{phase}/{grid_info}_{origin_str}")
-    im_files = sorted([os.path.join(img_dir, f) for
+    old_im_files = sorted([os.path.join(img_dir, f) for
                        f in os.listdir(img_dir) if f.endswith(".bmp")])
+    im_files = [""] * len(old_im_files)
+    for i, f in enumerate(old_im_files):
+        fdir = os.path.dirname(f)
+        idx = int(f.split("/")[-1].split(".")[0].strip("SegIm"))
+        im_files[idx - 3] = f
     n_files = len(im_files)
 
     voxels = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
                                          y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
     occlusions = np.logical_not(voxels)
-    rectangles = make_rectangles(occlusions)
-    boxes = make_boxes(rectangles)
+    points = connected_pieces.build_points(occlusions)
+    points_view = {v: k for k, v in points.items()}
+    rectangles = make_rectangles(occlusions, points)
+    boxes = make_boxes(rectangles, occlusions)
     logger.info("No. voxels       : %s" % np.sum(occlusions))
     logger.info("No. rectangles   : %s" % np.sum(rectangles))
     logger.info("No. boxes        : %s" % np.sum(boxes))
@@ -155,12 +168,13 @@ if __name__ == '__main__':
     gmsh.initialize()
     # gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 0)
-    gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
-    gmsh.option.setNumber("Mesh.Smoothing", 500)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
+    # gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
+    # gmsh.option.setNumber("Mesh.Smoothing", 500)
+    # gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
+    # gmsh.option.setNumber("Mesh.AllowSwapAngle", 90)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
-    gmsh.option.setNumber("Mesh.AllowSwapAngle", 90)
+   
     build_voxels_mesh(boxes, output_mshfile)
     gmsh.finalize()
     logger.info("writing xmdf tetrahedral mesh..")
