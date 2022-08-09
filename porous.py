@@ -72,8 +72,7 @@ cube = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
 
 for face_idx in range(num_faces):
     local_faces = faces[face_idx]
-    p0, p1, p2 = [vertices[p] for p in local_faces]
-    for point_id in local_faces:
-        vertex = vertices[point_id]
-        cube.vectors[face_idx] = point_id
+    for point_idx in local_faces:
+        vertex = vertices[point_idx]
+        cube.vectors[face_idx] = point_idx
 cube.save(stlfile)
