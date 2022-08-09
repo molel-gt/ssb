@@ -23,23 +23,6 @@ logger = logging.getLogger(__file__)
 logger.setLevel('INFO')
 
 
-def make_rectangles(voxels, points_view):
-    Nx, Ny, Nz = voxels.shape
-    rectangles = np.zeros(voxels.shape, dtype=np.uint8)
-    for idx in range(Nx - 1):
-        for idy in range(Ny - 1):
-            for idz in range(Nz):
-                p0 = (idx, idy, idz)
-                p1 = (idx + 1, idy, idz)
-                p2 = (idx, idy + 1, idz)
-                p3 = (idx + 1, idy + 1, idz)
-
-                if (points_view.get(p0) is not None and points_view.get(p1) is not None and points_view.get(p2) is not None and points_view.get(p3) is not None):
-                    rectangles[p0] = 1
-
-    return rectangles
-
-
 def make_boxes(rectangles, voxels=None):
     Nx, Ny, _ = rectangles.shape
     boxes = np.zeros(rectangles.shape, dtype=np.uint16)
@@ -53,10 +36,6 @@ def make_boxes(rectangles, voxels=None):
                 continue
             for _, g in groupby(enumerate(rect_positions), lambda ix: ix[0] - ix[1]):
                 pieces.append(list(map(itemgetter(1), g)))
-            if not np.isclose(np.sum(rectangles[idx, idy, :]) - np.sum(voxels[idx, idy, :]), 0):
-                print(np.sum(rectangles[idx, idy, :]) - np.sum(voxels[idx, idy, :]))
-            else:
-                print("iko")
             for p in pieces:
                 box_length = p[len(p) - 1] - p[0]
                 start_pos = p[0]
@@ -64,37 +43,64 @@ def make_boxes(rectangles, voxels=None):
     return boxes
 
 
-def build_voxels_mesh(boxes, output_mshfile):
+def build_voxels_mesh(output_mshfile, voxels=None, points_view=None):
     gmsh.model.add("3D")
-    Nx, Ny, Nz = boxes.shape
+    Nx, Ny, Nz = voxels.shape
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
     counter = 1
-    all_boxes = []
+    gmsh_boxes = []
     channel = [(3, gmsh.model.occ.addBox(0, 0, 0, Lx, Ly, Lz))]
+    dummy_boxes = np.zeros(voxels.shape, dtype=np.uint8)
+    boxes = np.zeros(voxels.shape, dtype=np.uint8)
 
     logger.info("Adding volumes..")
+    for coord, v in np.ndenumerate(voxels):
+        x0, y0, z0 = coord
+        makes_box = True
+        cube_points = [
+            (x0, y0, z0), (x0 + 1, y0, z0), (x0, y0 + 1, z0), (x0, y0, z0 + 1),
+            (x0 + 1, y0 + 1, z0), (x0 + 1, y0, z0 + 1), (x0, y0 + 1, z0 + 1), (x0 + 1, y0 + 1, z0 + 1),
+        ]
+        for p in cube_points:
+            if points_view.get(p) is None:
+                makes_box = False
+        if makes_box:
+            dummy_boxes[coord] = 1
+    for idx in range(Nx - 1):
+        for idy in range(Ny - 1):
+            l_box = 0
+            start_pos = 0
+            pieces = []
+            rect_positions = [v[0] for v in np.argwhere(dummy_boxes[idx, idy, :] != 0 )]
+            if len(rect_positions) < 1:
+                continue
+            for _, g in groupby(enumerate(rect_positions), lambda ix: ix[0] - ix[1]):
+                pieces.append(list(map(itemgetter(1), g)))
+            for p in pieces:
+                l_box = p[len(p) - 1] - p[0]
+                start_pos = p[0]
+                boxes[idx, idy, start_pos] = l_box
+
     for idx in range(Nx):
         for idy in range(Ny):
             for idz in range(Nz):
                 box_length = boxes[idx, idy, idz]
                 if box_length > 0:
-                    if box_length < 50:
-                        print(box_length < 50)
                     counter += 1
                     box = gmsh.model.occ.addBox(idx, idy, idz, 1, 1, box_length)
-                    all_boxes.append((3, box))
+                    gmsh_boxes.append((3, box))
     logger.info("Cutting occlusions..")
-    gmsh.model.occ.cut(channel, all_boxes)
+    gmsh.model.occ.cut(channel, gmsh_boxes)
     gmsh.model.occ.synchronize()
     volumes = gmsh.model.getEntities(dim=3)
     logger.info("Setting physical groups..")
 
     for i, volume in enumerate(volumes):
         marker = int(counter + i)
-        gmsh.model.addPhysicalGroup(volume[0], [volume[1]], marker)
-        gmsh.model.setPhysicalName(volume[0], marker, f"VOLUME-{marker}")
+        vol_tag = gmsh.model.addPhysicalGroup(volume[0], [volume[1]])
+        gmsh.model.setPhysicalName(3, vol_tag, f"VOLUME-{marker}")
     logger.info("Set physical groups.")
     surfaces = gmsh.model.occ.getEntities(dim=2)
     insulated = []
@@ -156,14 +162,12 @@ if __name__ == '__main__':
 
     voxels = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
                                          y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
+    eps = np.average(voxels)
+    logger.info(f"Rough porosity: {eps:.4f}")
     occlusions = np.logical_not(voxels)
     points = connected_pieces.build_points(occlusions)
     points_view = {v: k for k, v in points.items()}
-    rectangles = make_rectangles(occlusions, points)
-    boxes = make_boxes(rectangles, occlusions)
     logger.info("No. voxels       : %s" % np.sum(occlusions))
-    logger.info("No. rectangles   : %s" % np.sum(rectangles))
-    logger.info("No. boxes        : %s" % np.sum(boxes))
     output_mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.msh"
     gmsh.initialize()
     # gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0)
@@ -172,10 +176,10 @@ if __name__ == '__main__':
     # gmsh.option.setNumber("Mesh.Smoothing", 500)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
     # gmsh.option.setNumber("Mesh.AllowSwapAngle", 90)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
+    # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
+    # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
    
-    build_voxels_mesh(boxes, output_mshfile)
+    build_voxels_mesh(output_mshfile, occlusions, points)
     gmsh.finalize()
     logger.info("writing xmdf tetrahedral mesh..")
     msh = meshio.read(output_mshfile)
