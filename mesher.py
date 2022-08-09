@@ -15,7 +15,7 @@ import numpy as np
 from itertools import groupby
 from operator import itemgetter
 
-import geometry, utils
+import connected_pieces, geometry, utils
 
 FORMAT = '%(asctime)s: %(message)s'
 logging.basicConfig(format=FORMAT)
@@ -60,27 +60,33 @@ def make_boxes(rectangles):
     return boxes
 
 
-def build_voxels_mesh(boxes, output_mshfile):
+def build_voxels_mesh(output_mshfile, voxels, points_view={}):
     gmsh.model.add("3D")
-    Nx, Ny, Nz = boxes.shape
+    Nx, Ny, Nz = voxels.shape
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
     counter = 1
-    all_boxes = []
+    gmsh_boxes = []
     channel = [(3, gmsh.model.occ.addBox(0, 0, 0, Lx, Ly, Lz))]
 
     logger.info("Adding volumes..")
     for idx in range(Nx):
         for idy in range(Ny):
             for idz in range(Nz):
-                box_length = boxes[idx, idy, idz]
-                if box_length > 0:
-                    counter += 1
-                    box = gmsh.model.occ.addBox(idx, idy, idz, 1, 1, box_length)
-                    all_boxes.append((3, box))
+                points = [
+                    (idx, idy, idz), (idx + 1, idy, idz), (idx, idy + 1, idz), (idx, idy, idz + 1),
+                    (idx + 1, idy + 1, idz), (idx + 1, idy, idz + 1), (idx, idy + 1, idz + 1), (idx + 1, idy + 1, idz + 1),
+                ]
+                makes_box = True
+                for p in points:
+                    if points_view.get(p) is None:
+                        makes_box = False
+                if makes_box:
+                    box = (3, gmsh.model.occ.addBox(idx, idy, idz, 1, 1, 1))
+                    gmsh_boxes.append(box)
     logger.info("Cutting occlusions..")
-    gmsh.model.occ.cut(channel, all_boxes)
+    gmsh.model.occ.cut(channel, gmsh_boxes)
     gmsh.model.occ.synchronize()
     volumes = gmsh.model.getEntities(dim=3)
     logger.info("Setting physical groups..")
@@ -146,22 +152,24 @@ if __name__ == '__main__':
     voxels = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
                                          y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
     occlusions = np.logical_not(voxels)
-    rectangles = make_rectangles(occlusions)
-    boxes = make_boxes(rectangles)
-    logger.info("No. voxels       : %s" % np.sum(occlusions))
-    logger.info("No. rectangles   : %s" % np.sum(rectangles))
-    logger.info("No. boxes        : %s" % np.sum(boxes))
+    # rectangles = make_rectangles(occlusions)
+    # boxes = make_boxes(rectangles)
+    # logger.info("No. voxels       : %s" % np.sum(occlusions))
+    # logger.info("No. rectangles   : %s" % np.sum(rectangles))
+    # logger.info("No. boxes        : %s" % np.sum(boxes))
+    points = connected_pieces.build_points(occlusions)
+    points_view = {v: k for k, v in points.items()}
     output_mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.msh"
     gmsh.initialize()
     # gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 0)
-    gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
-    gmsh.option.setNumber("Mesh.Smoothing", 500)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
+    # gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
+    # gmsh.option.setNumber("Mesh.Smoothing", 500)
+    # gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
-    gmsh.option.setNumber("Mesh.AllowSwapAngle", 90)
-    build_voxels_mesh(boxes, output_mshfile)
+    # gmsh.option.setNumber("Mesh.AllowSwapAngle", 90)
+    build_voxels_mesh(output_mshfile, occlusions, points_view)
     gmsh.finalize()
     logger.info("writing xmdf tetrahedral mesh..")
     msh = meshio.read(output_mshfile)
