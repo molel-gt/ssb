@@ -88,7 +88,7 @@ def build_voxels_mesh(boxes, output_mshfile):
     for i, volume in enumerate(volumes):
         marker = int(counter + i)
         gmsh.model.addPhysicalGroup(volume[0], [volume[1]], marker)
-        gmsh.model.setPhysicalName(volume[0], marker, f"V{marker}")
+        gmsh.model.setPhysicalName(volume[0], marker, f"VOLUME-{marker}")
     logger.info("Set physical groups.")
     surfaces = gmsh.model.occ.getEntities(dim=2)
     insulated = []
