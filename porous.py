@@ -53,11 +53,8 @@ with open(nodefile, 'r') as fp:
             num_vertices = int(row.split()[0])
             vertices = np.zeros((num_vertices, 3), dtype=int)
             continue
-        try:
-            point_id, x, y, z = [int(v) for v in row.split()]
-        except ValueError:
-            continue
-        vertices[point_id] = [x, y, z]
+        point_id, x, y, z = [float(v) for v in row.split()]
+        vertices[int(point_id)] = [x, y, z]
 with open(facefile, "r") as fp:
     line = 0
     for row in fp.readlines():
