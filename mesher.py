@@ -91,7 +91,7 @@ def build_voxels_mesh(output_mshfile, voxels=None, points_view=None):
                     counter += 1
                     box = gmsh.model.occ.addBox(idx, idy, idz, 1, 1, box_length)
                     gmsh_boxes.append((3, box))
-    logger.info("Cutting occlusions..")
+    logger.info("Cutting out {:,} occlusions corresponding to insulator..".format(len(gmsh_boxes)))
     gmsh.model.occ.cut(channel, gmsh_boxes)
     gmsh.model.occ.synchronize()
     volumes = gmsh.model.getEntities(dim=3)
@@ -167,7 +167,7 @@ if __name__ == '__main__':
     occlusions = np.logical_not(voxels)
     points = connected_pieces.build_points(occlusions)
     points_view = {v: k for k, v in points.items()}
-    logger.info("No. voxels       : %s" % np.sum(occlusions))
+    logger.info("No. voxels       : {:,}".format(np.sum(occlusions)))
     output_mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.msh"
     gmsh.initialize()
     # gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0)
