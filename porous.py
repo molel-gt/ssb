@@ -3,6 +3,7 @@
 
 import logging
 import os
+import sys
 import time
 import warnings
 warnings.filterwarnings("ignore")
@@ -18,61 +19,59 @@ from stl import mesh
 
 import geometry, utils
 
+
 FORMAT = '%(asctime)s: %(message)s'
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__file__)
 logger.setLevel('INFO')
 
+if __name__ == '__main__':
+    img_dir = sys.argv[1]
+    nodefile = os.path.join(img_dir, "porous.1.node")
+    facefile = os.path.join(img_dir, "porous.1.face")
+    stlfile = os.path.join(img_dir, "porous.stl")
 
-img_dir = "/home/emolel3/dev/ssb/mesh/electrolyte/051-051-051_000-000-000"
-nodefile = os.path.join(img_dir, "porous.1.node")
-facefile = os.path.join(img_dir, "porous.1.face")
-stlfile = os.path.join(img_dir, "porous.stl")
-Nx = 101
-Ny = 101
-Nz = 101
+    with open(nodefile, 'r') as fp:
+        line = 0
+        for row in fp.readlines():
+            line += 1
+            if row.startswith("#"):
+                continue
+            if line == 1:
+                num_vertices = int(row.split()[0])
+                vertices = np.zeros((num_vertices, 3), dtype=int)
+                continue
+            point_id, x, y, z = [float(v) for v in row.split()]
+            vertices[int(point_id)] = [x, y, z]
+    with open(facefile, "r") as fp:
+        line = 0
+        for row in fp.readlines():
+            line += 1
+            if row.startswith("#"):
+                continue
+            if line == 1:
+                num_faces = int(row.split()[0])
+                faces = np.zeros((num_faces, 3), dtype=int)
+                continue
+            face_id, p1, p2, p3 = [int(v) for v in row.split()]
+            faces[face_id] = [p1, p2, p3]
 
-
-def collinear(p0, p1, p2):
-    v1 = p0 - p1
-    v1_unit = v1 / np.linalg.norm(v1)
-    v2 = p2 - p1
-    v2_unit = v2 / np.linalg.norm(v2)
-    angle = np.arccos(np.dot(v1_unit, v2_unit))
-
-    return np.isclose(angle, 2 * np.pi)
-
-
-with open(nodefile, 'r') as fp:
-    line = 0
-    for row in fp.readlines():
-        line += 1
-        if row.startswith("#"):
-            continue
-        if line == 1:
-            num_vertices = int(row.split()[0])
-            vertices = np.zeros((num_vertices, 3), dtype=int)
-            continue
-        point_id, x, y, z = [float(v) for v in row.split()]
-        vertices[int(point_id)] = [x, y, z]
-with open(facefile, "r") as fp:
-    line = 0
-    for row in fp.readlines():
-        line += 1
-        if row.startswith("#"):
-            continue
-        if line == 1:
-            num_faces = int(row.split()[0])
-            faces = np.zeros((num_faces, 3), dtype=int)
-            continue
-        face_id, p1, p2, p3 = [int(v) for v in row.split()]
-        faces[face_id] = [p1, p2, p3]
-
-cube = mesh.Mesh(np.zeros(faces.shape[0], dtype=mesh.Mesh.dtype))
-
-for face_idx in range(num_faces):
-    local_faces = faces[face_idx]
-    for point_idx in local_faces:
-        vertex = vertices[point_idx]
-        cube.vectors[face_idx] = point_idx
-cube.save(stlfile)
+    with open(stlfile, "w") as fp:
+        fp.write("solid \n")
+        for face_idx in range(num_faces):
+            points = faces[face_idx]
+            triangles = []
+            for point in points:
+                coord = vertices[point]
+                triangles.append(np.array(coord))
+            p1, p2, p3 = triangles
+            n = np.cross(p2 - p1, p3 - p1)
+            n = n / n.sum()
+            fp.write("facet normal %f %f %f\n" % tuple(n.tolist()))
+            fp.write("\touter loop\n")
+            fp.write("\t\tvertex %f %f %f\n" % tuple(p1.tolist()))
+            fp.write("\t\tvertex %f %f %f\n" % tuple(p2.tolist()))
+            fp.write("\t\tvertex %f %f %f\n" % tuple(p3.tolist()))
+            fp.write("\tendloop\n")
+            fp.write("endfacet\n")
+        fp.write("endsolid \n")
