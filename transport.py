@@ -60,8 +60,9 @@ if __name__ == '__main__':
     with dolfinx.io.XDMFFile(MPI.COMM_WORLD, tria_mesh_path, "r") as infile3:
         mesh_facets = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         facets_ct = infile3.read_meshtags(mesh, name="Grid")
+    print(set(facets_ct.values))
 
-    left_cc_marker, right_cc_marker, insulated_marker = sorted([int(v) for v in set(facets_ct.values)])
+    # left_cc_marker, right_cc_marker, insulated_marker = sorted([int(v) for v in set(facets_ct.values)])
     V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 2))
 
     # Dirichlet BCs
@@ -72,14 +73,28 @@ if __name__ == '__main__':
     u1 = dolfinx.fem.Function(V)
     with u1.vector.localForm() as u1_loc:
         u1_loc.set(0.0)
-
-    x0facet = np.array(facets_ct.indices[facets_ct.values == left_cc_marker])
-    x1facet = np.array(facets_ct.indices[facets_ct.values == right_cc_marker])
+    # NOTE: Uncomment section when the surface mesh is available 
+    # and has current collectors and insulators labeled
+    # x0facet = np.array(facets_ct.indices[facets_ct.values == left_cc_marker])
+    # x1facet = np.array(facets_ct.indices[facets_ct.values == right_cc_marker])
+    x0facet = dolfinx.mesh.locate_entities_boundary(mesh, 2,
+                                    lambda x: np.isclose(x[1], 0.0))
+    x1facet = dolfinx.mesh.locate_entities_boundary(mesh, 2,
+                                    lambda x: np.isclose(x[1], Ly))
+    insulated_facet = dolfinx.mesh.locate_entities_boundary(mesh, 2, lambda x: np.logical_and(np.logical_not(np.isclose(x[1], 0)), np.logical_not(np.isclose(x[1], Ly))))
     x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 2, x0facet))
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 2, x1facet))
 
     # # Neumann BC
-    surf_meshtags = dolfinx.mesh.meshtags(mesh, 2, facets_ct.indices, facets_ct.values)
+    left_cc_marker = 1
+    right_cc_marker = 2
+    insulated_marker = 3
+    print(len(dolfinx.fem.locate_dofs_topological(V, 2, x1facet)))
+    print(facets_ct.indices.shape, facets_ct.values.shape)
+    print(x0facet.shape, x1facet.shape, insulated_facet.shape)
+    facets_ct_indices = np.hstack((x0facet, x1facet, insulated_facet))
+    facets_ct_values = np.hstack((np.ones(x0facet.shape[0], dtype=np.int32), 2 * np.ones(x1facet.shape[0], dtype=np.int32), 3 * np.ones(insulated_facet.shape[0], dtype=np.int32)))
+    surf_meshtags = dolfinx.mesh.meshtags(mesh, 2, facets_ct_indices, facets_ct_values)
     n = -ufl.FacetNormal(mesh)
     ds = ufl.Measure("ds", domain=mesh, subdomain_data=surf_meshtags, subdomain_id=insulated_marker)
     ds_left_cc = ufl.Measure('ds', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=left_cc_marker)
