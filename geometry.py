@@ -21,14 +21,14 @@ def load_images_to_voxel(files_list, x_lims=(0, 201), y_lims=(0, 201), z_lims=(0
     Lx = x1 - x0
     Ly = y1 - y0
     Lz = z1 - z0
-    x_shift, y_shift, z_shift = origin
+    dx, dy, dz = origin
     data = np.zeros([int(Lx), int(Ly), int(Lz)], dtype=bool)
     for i_x, img_file in enumerate(files_list):
-        if not (x0 + x_shift <= i_x <= x1 + x_shift):
+        if not (x0 + dx <= i_x <= x1 + dx):
             continue
         img_data = plt.imread(img_file)
         img_data = img_data / 255
-        data[i_x - x0 - x_shift - 1, :, :] = img_data[int(y_shift + y0):int(y1 + y_shift), int(z_shift + z0):int(z_shift + z1)]
+        data[i_x - x0 - dx - 1, :, :] = img_data[int(dy + y0):int(y1 + dy), int(dz + z0):int(dz + z1)]
     return data
 
 
@@ -111,7 +111,7 @@ if __name__ == '__main__':
     
     files_list = sorted([os.path.join(args.img_folder, f) for f in os.listdir(args.img_folder)
                   if f.endswith(".bmp")])
-    
+
     meshes_dir = 'mesh'
     utils.make_dir_if_missing(meshes_dir)
     node_file_path = os.path.join(meshes_dir, f's{grid_info}o{origin_str}.node')
