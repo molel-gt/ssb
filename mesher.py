@@ -170,14 +170,9 @@ if __name__ == '__main__':
     points_view = {v: k for k, v in points.items()}
     output_mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.msh"
     gmsh.initialize()
-    # gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0)
-    # gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 0)
-    # gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
-    # gmsh.option.setNumber("Mesh.Smoothing", 500)
-    # gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
-    # gmsh.option.setNumber("Mesh.AllowSwapAngle", 90)
-    # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
-    # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
+    gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
    
     build_voxels_mesh(output_mshfile, occlusions, points)
     gmsh.finalize()
