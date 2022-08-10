@@ -60,20 +60,8 @@ if __name__ == '__main__':
     with dolfinx.io.XDMFFile(MPI.COMM_WORLD, tria_mesh_path, "r") as infile3:
         mesh_facets = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         facets_ct = infile3.read_meshtags(mesh, name="Grid")
-    print(set(facets_ct.values))
-
-    # left_cc_marker, right_cc_marker, insulated_marker = sorted([int(v) for v in set(facets_ct.values)])
-    V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 2))
-
-    # Dirichlet BCs
-    u0 = dolfinx.fem.Function(V)
-    with u0.vector.localForm() as u0_loc:
-        u0_loc.set(voltage)
-
-    u1 = dolfinx.fem.Function(V)
-    with u1.vector.localForm() as u1_loc:
-        u1_loc.set(0.0)
     # NOTE: Uncomment section when the surface mesh is available 
+    # left_cc_marker, right_cc_marker, insulated_marker = sorted([int(v) for v in set(facets_ct.values)])
     # and has current collectors and insulators labeled
     # x0facet = np.array(facets_ct.indices[facets_ct.values == left_cc_marker])
     # x1facet = np.array(facets_ct.indices[facets_ct.values == right_cc_marker])
@@ -82,6 +70,16 @@ if __name__ == '__main__':
     x1facet = dolfinx.mesh.locate_entities_boundary(mesh, 2,
                                     lambda x: np.isclose(x[1], Ly))
     insulated_facet = dolfinx.mesh.locate_entities_boundary(mesh, 2, lambda x: np.logical_and(np.logical_not(np.isclose(x[1], 0)), np.logical_not(np.isclose(x[1], Ly))))
+
+    # Dirichlet BCs
+    V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 2))
+    u0 = dolfinx.fem.Function(V)
+    with u0.vector.localForm() as u0_loc:
+        u0_loc.set(voltage)
+
+    u1 = dolfinx.fem.Function(V)
+    with u1.vector.localForm() as u1_loc:
+        u1_loc.set(0.0)
     x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 2, x0facet))
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 2, x1facet))
 
