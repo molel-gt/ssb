@@ -110,7 +110,7 @@ if __name__ == '__main__':
     left_cc = []
     right_cc = []
     for surface in surfaces:
-        surf = model.addPhysicalGroup(2, [surface[1]], int(time.time()))
+        surf = model.addPhysicalGroup(2, [surface[1]])
         model.setPhysicalName(2, surf, f"S{surf}")
     model.geo.synchronize()
     model.mesh.generate(2)
