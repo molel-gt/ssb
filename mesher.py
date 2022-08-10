@@ -92,17 +92,17 @@ def build_voxels_mesh(output_mshfile, voxels=None, points_view=None):
                     gmsh_boxes.append((3, box))
     logger.info("Lower limit porosity : {:.4f}".format(np.average(other_boxes)))
     logger.info("Upper limit porosity : {:.4f}".format(1 - np.average(boxes)))
-    logger.info("Cutting out {:,} occlusions corresponding to insulator vol {:,}..".format(len(gmsh_boxes), np.sum(boxes)))
+    logger.debug("Cutting out {:,} occlusions corresponding to insulator vol {:,}..".format(len(gmsh_boxes), np.sum(boxes)))
     gmsh.model.occ.cut(channel, gmsh_boxes)
     gmsh.model.occ.synchronize()
     volumes = gmsh.model.getEntities(dim=3)
-    logger.info("Setting physical groups..")
+    logger.debug("Setting physical groups..")
 
     for i, volume in enumerate(volumes):
         marker = int(counter + i)
         vol_tag = gmsh.model.addPhysicalGroup(volume[0], [volume[1]])
         gmsh.model.setPhysicalName(3, vol_tag, f"VOLUME-{marker}")
-    logger.info("Set physical groups.")
+    logger.debug("Done setting physical groups.")
     surfaces = gmsh.model.occ.getEntities(dim=2)
     insulated = []
     left_cc = []
@@ -176,7 +176,7 @@ if __name__ == '__main__':
    
     build_voxels_mesh(output_mshfile, occlusions, points)
     gmsh.finalize()
-    logger.info("writing xmdf tetrahedral mesh..")
+    logger.debug("Writing xmdf tetrahedral mesh..")
     msh = meshio.read(output_mshfile)
     tetra_mesh = geometry.create_mesh(msh, "tetra")
     meshio.write(f"mesh/{phase}/{grid_info}_{origin_str}/tetr.xdmf", tetra_mesh)
