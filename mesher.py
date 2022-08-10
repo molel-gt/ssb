@@ -23,39 +23,19 @@ logger = logging.getLogger(__file__)
 logger.setLevel('INFO')
 
 
-def make_boxes(rectangles, voxels=None):
-    Nx, Ny, _ = rectangles.shape
-    boxes = np.zeros(rectangles.shape, dtype=np.uint16)
-    for idx in range(Nx - 1):
-        for idy in range(Ny - 1):
-            box_length = 0
-            start_pos = 0
-            pieces = []
-            rect_positions = [v[0] for v in np.argwhere(rectangles[idx, idy, :] != 0 )]
-            if len(rect_positions) < 2:
-                continue
-            for _, g in groupby(enumerate(rect_positions), lambda ix: ix[0] - ix[1]):
-                pieces.append(list(map(itemgetter(1), g)))
-            for p in pieces:
-                box_length = p[len(p) - 1] - p[0]
-                start_pos = p[0]
-                boxes[idx, idy, start_pos] = box_length
-    return boxes
+class Box:
+    def __init__(self, origin, dx, dy, dz):
+        x, y, z = origin
+        self.origin = (x, y, z)
+        self.dx = dx
+        self.dy = dy
+        self.dz = dz
 
 
-def build_voxels_mesh(output_mshfile, voxels=None, points_view=None):
-    gmsh.model.add("3D")
-    Nx, Ny, Nz = voxels.shape
-    Lx = Nx - 1
-    Ly = Ny - 1
-    Lz = Nz - 1
-    counter = 1
-    gmsh_boxes = []
-    channel = [(3, gmsh.model.occ.addBox(0, 0, 0, Lx, Ly, Lz))]
+def create_boxes(voxels, points_view):
     dummy_boxes = np.zeros(voxels.shape, dtype=np.uint8)
     boxes = np.zeros(voxels.shape, dtype=np.uint8)
 
-    logger.info("Adding volumes..")
     for coord, v in np.ndenumerate(voxels):
         x0, y0, z0 = coord
         makes_box = True
@@ -68,6 +48,7 @@ def build_voxels_mesh(output_mshfile, voxels=None, points_view=None):
                 makes_box = False
         if makes_box:
             dummy_boxes[coord] = 1
+
     for idx in range(Nx - 1):
         for idy in range(Ny - 1):
             l_box = 0
@@ -76,12 +57,30 @@ def build_voxels_mesh(output_mshfile, voxels=None, points_view=None):
             rect_positions = [v[0] for v in np.argwhere(dummy_boxes[idx, idy, :] != 0 )]
             if len(rect_positions) < 1:
                 continue
-            for _, g in groupby(enumerate(rect_positions), lambda ix: ix[0] - ix[1]):
+            for _, g in groupby(enumerate(rect_positions), lambda ix: ix[0] - ix[1] + 1):
                 pieces.append(list(map(itemgetter(1), g)))
             for p in pieces:
-                l_box = p[len(p) - 1] - p[0]
+                l_box = p[-1] - p[0] + 1
+                if l_box <= 0:
+                    continue
                 start_pos = p[0]
                 boxes[idx, idy, start_pos] = l_box
+    return boxes
+
+
+def build_voxels_mesh(output_mshfile, voxels=None, points_view=None):
+    gmsh.model.add("3D")
+    Nx, Ny, Nz = voxels.shape
+    Lx = Nx - 1
+    Ly = Ny - 1
+    Lz = Nz - 1
+    counter = 1
+    gmsh_boxes = []
+    channel = [(3, gmsh.model.occ.addBox(0, 0, 0, Lx, Ly, Lz))]
+    boxes = np.zeros(voxels.shape, dtype=np.uint8)
+    boxes = create_boxes(voxels, points)
+    other_points = connected_pieces.build_points(np.logical_not(voxels))
+    other_boxes = create_boxes(np.logical_not(voxels), other_points)
 
     for idx in range(Nx):
         for idy in range(Ny):
@@ -91,7 +90,9 @@ def build_voxels_mesh(output_mshfile, voxels=None, points_view=None):
                     counter += 1
                     box = gmsh.model.occ.addBox(idx, idy, idz, 1, 1, box_length)
                     gmsh_boxes.append((3, box))
-    logger.info("Cutting out {:,} occlusions corresponding to insulator..".format(len(gmsh_boxes)))
+    logger.info("Lower limit porosity : {:.4f}".format(np.average(other_boxes)))
+    logger.info("Upper limit porosity : {:.4f}".format(1 - np.average(boxes)))
+    logger.info("Cutting out {:,} occlusions corresponding to insulator vol {:,}..".format(len(gmsh_boxes), np.sum(boxes)))
     gmsh.model.occ.cut(channel, gmsh_boxes)
     gmsh.model.occ.synchronize()
     volumes = gmsh.model.getEntities(dim=3)
@@ -163,11 +164,10 @@ if __name__ == '__main__':
     voxels = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
                                          y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
     eps = np.average(voxels)
-    logger.info(f"Rough porosity: {eps:.4f}")
+    logger.info(f"Rough porosity       : {eps:.4f}")
     occlusions = np.logical_not(voxels)
     points = connected_pieces.build_points(occlusions)
     points_view = {v: k for k, v in points.items()}
-    logger.info("No. voxels       : {:,}".format(np.sum(occlusions)))
     output_mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.msh"
     gmsh.initialize()
     # gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0)
