@@ -187,7 +187,6 @@ if __name__ == "__main__":
         gmsh.model.setPhysicalName(2, surf, f"S{surf}")
     gmsh.model.geo.synchronize()
     gmsh.model.mesh.generate(3)
-    gmsh.model.mesh.generate(2)
     gmsh.write(mshfile)
     gmsh.finalize()
 
