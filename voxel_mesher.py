@@ -163,8 +163,6 @@ if __name__ == "__main__":
             fp.write(f"{tet_id} {p1} {p2} {p3} {p4}\n")
 
     retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -BdkQr", shell=True)
-    # generate stl file
-    cmd_output = subprocess.check_call(f"./porous.py {mesh_dir} {grid_info}", shell=True)
     gmsh.initialize()
     gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
