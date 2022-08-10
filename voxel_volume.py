@@ -185,7 +185,7 @@ if __name__ == "__main__":
     for surface in surfaces:
         surf = gmsh.model.addPhysicalGroup(2, [surface[1]])
         gmsh.model.setPhysicalName(2, surf, f"S{surf}")
-    gmsh.model.geo.synchronize()
+    gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
     gmsh.write(mshfile)
     gmsh.finalize()
@@ -193,7 +193,5 @@ if __name__ == "__main__":
     vol_msh = meshio.read(mshfile)
     tetra_mesh = geometry.create_mesh(vol_msh, "tetra")
     meshio.write(f"mesh/{phase}/{grid_info}_{origin_str}/tetr.xdmf", tetra_mesh)
-    tria_mesh = geometry.create_mesh(vol_msh, "triangle")
-    meshio.write(f"mesh/{phase}/{grid_info}_{origin_str}/tria.xdmf", tria_mesh)
 
     logger.info("Took {:,} seconds".format(int(time.time() - start_time)))
