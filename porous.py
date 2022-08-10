@@ -65,7 +65,7 @@ if __name__ == '__main__':
                 coord = vertices[point]
                 triangles.append(np.array(coord))
             p1, p2, p3 = triangles
-            n = np.cross(p2 - p1, p3 - p1)
+            n = np.cross(p3 - p2, p2 - p1)
             n = n / n.sum()
             fp.write("facet normal %f %f %f\n" % tuple(n.tolist()))
             fp.write("\touter loop\n")

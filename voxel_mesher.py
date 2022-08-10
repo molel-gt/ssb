@@ -90,26 +90,6 @@ def build_tetrahedra(cube, points):
     return tetrahedra
 
 
-def build_triangles(cubes, points_view):
-    for cube in cubes:
-        x0, y0, z0 = points_view[cube[0][0]]
-        faces = {
-            "xy": [
-                [(x0, y0, z0), (x0 + 1, y0, z0), (x0 + 1, y0 + 1, z0), (x0, y0 + 1, z0)],
-                [(x0, y0, z0 + 1), (x0 + 1, y0, z0 + 1), (x0 + 1, y0 + 1, z0 + 1), (x0, y0 + 1, z0 + 1)]
-                 ],
-            "yz": [
-                [(x0 + 1, y0, z0), (x0 + 1, y0, z0 + 1), (x0 + 1, y0 + 1, z0 + 1), (x0 + 1, y0 + 1, z0)],
-                [(x0, y0, z0), (x0, y0, z0 + 1), (x0, y0 + 1, z0 + 1), (x0, y0 + 1, z0)]
-                ],
-            "xz": [
-                [(x0, y0, z0), (x0 + 1, y0, z0), (x0 + 1, y0, z0 + 1), (x0, y0, z0 + 1)],
-                [(x0, y0 + 1, z0), (x0 + 1, y0 + 1, z0), (x0 + 1, y0 + 1, z0 + 1), (x0, y0 + 1, z0 + 1)]
-            ]
-        }
-    return
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='computes specific area')
     parser.add_argument('--img_folder', help='bmp files parent directory',
@@ -134,7 +114,8 @@ if __name__ == "__main__":
     Ly = Ny - 1
     Lz = Nz - 1
     img_dir = os.path.join(args.img_folder, phase)
-    utils.make_dir_if_missing(f"mesh/{phase}/{grid_info}_{origin_str}")
+    mesh_dir = f"mesh/{phase}/{grid_info}_{origin_str}"
+    utils.make_dir_if_missing(mesh_dir)
     old_im_files = sorted([os.path.join(img_dir, f) for
                        f in os.listdir(img_dir) if f.endswith(".bmp")])
     im_files = [""] * len(old_im_files)
@@ -152,7 +133,6 @@ if __name__ == "__main__":
     n_tetrahedra = 0
     n_triangles = 0
     tetrahedra = {}
-    triangles = {}
     points = connected_pieces.build_points(voxels)
     points_view = {v: k for k, v in points.items()}
     cubes = build_cubes(voxels, points)
@@ -163,7 +143,7 @@ if __name__ == "__main__":
             n_tetrahedra += 1
     nodefile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.node"
     tetfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.ele"
-    triafile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.face"
+    facesfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.face"
     vtkfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.1.vtk"
     stlfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.stl"
     mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.msh"
@@ -181,21 +161,16 @@ if __name__ == "__main__":
             p1, p2, p3, p4 = tetrahedron
             fp.write(f"{tet_id} {p1} {p2} {p3} {p4}\n")
 
-    # with open(triafile, "w") as fp:
-    #     fp.write(f"{n_triangles} 3 0\n")
-    #     for triangle, tria_id in triangles.items():
-    #         p1, p2, p3 = triangle
-    #         fp.write(f"{tria_id} {p1} {p2} {p3}\n")
-
     retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -BkQr", shell=True)
-    # if os.path.exists(triafile):
-    #     os.remove(triafile)
+    # generate stl file
+    cmd_output = subprocess.check_call(f"./porous.py {mesh_dir}", shell=True)
     gmsh.initialize()
     gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
     gmsh.model.add("porous")
     gmsh.merge(vtkfile)
+    gmsh.merge(stlfile)
     counter = 0
     volumes = gmsh.model.getEntities(dim=3)
     for i, volume in enumerate(volumes):
@@ -207,8 +182,12 @@ if __name__ == "__main__":
     insulated = []
     left_cc = []
     right_cc = []
+    for i, surface in enumerate(surfaces):
+        marker = int(counter + i)
+        surf = gmsh.model.addPhysicalGroup(surface[0], [surface[1]], marker)
+        gmsh.model.setPhysicalName(surface[0], surf, f"SURFACE-{marker}")
     for surface in surfaces:
-        com = gmsh.model.getCenterOfMass(surface[0], surface[1])
+        com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
         if np.isclose(com[1], 0):
             left_cc.append(surface[1])
         elif np.isclose(com[1], Ly):
