@@ -89,9 +89,6 @@ if __name__ == '__main__':
     left_cc_marker = 1
     right_cc_marker = 2
     insulated_marker = 3
-    print(len(dolfinx.fem.locate_dofs_topological(V, 2, x1facet)))
-    print(facets_ct.indices.shape, facets_ct.values.shape)
-    print(x0facet.shape, x1facet.shape, insulated_facet.shape)
     facets_ct_indices = np.hstack((x0facet, x1facet, insulated_facet))
     facets_ct_values = np.hstack((np.ones(x0facet.shape[0], dtype=np.int32), 2 * np.ones(x1facet.shape[0], dtype=np.int32), 3 * np.ones(insulated_facet.shape[0], dtype=np.int32)))
     surf_meshtags = dolfinx.mesh.meshtags(mesh, 2, facets_ct_indices, facets_ct_values)
