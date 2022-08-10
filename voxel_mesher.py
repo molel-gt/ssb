@@ -10,6 +10,8 @@ import logging
 import meshio
 import numpy as np
 
+from stl import mesh
+
 import connected_pieces, geometry, utils
 
 
@@ -133,8 +135,13 @@ if __name__ == "__main__":
     Lz = Nz - 1
     img_dir = os.path.join(args.img_folder, phase)
     utils.make_dir_if_missing(f"mesh/{phase}/{grid_info}_{origin_str}")
-    im_files = sorted([os.path.join(img_dir, f) for
+    old_im_files = sorted([os.path.join(img_dir, f) for
                        f in os.listdir(img_dir) if f.endswith(".bmp")])
+    im_files = [""] * len(old_im_files)
+    for i, f in enumerate(old_im_files):
+        fdir = os.path.dirname(f)
+        idx = int(f.split("/")[-1].split(".")[0].strip("SegIm"))
+        im_files[idx - 3] = f
     n_files = len(im_files)
 
     start_time = time.time()
@@ -142,9 +149,6 @@ if __name__ == "__main__":
     voxels = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
                                          y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
     logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Lx * Ly * Lz)))
-    voxels = filter_voxels(voxels)
-    logger.info("Filtered porosity : {:0.4f}".format(np.sum(voxels) / (Lx * Ly * Lz)))
-    # voxels = np.ones((2, 2, 2), dtype=np.int8)
     n_tetrahedra = 0
     n_triangles = 0
     tetrahedra = {}
@@ -160,7 +164,8 @@ if __name__ == "__main__":
     nodefile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.node"
     tetfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.ele"
     triafile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.face"
-    vtkfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.vtk"
+    vtkfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.1.vtk"
+    stlfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.stl"
     mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.msh"
     with open(nodefile, "w") as fp:
         fp.write("# node count, 3 dim, no attribute, no boundary marker\n")
@@ -176,21 +181,19 @@ if __name__ == "__main__":
             p1, p2, p3, p4 = tetrahedron
             fp.write(f"{tet_id} {p1} {p2} {p3} {p4}\n")
 
-    with open(triafile, "w") as fp:
-        fp.write(f"{n_triangles} 3 0\n")
-        for triangle, tria_id in triangles.items():
-            p1, p2, p3 = triangle
-            fp.write(f"{tet_id} {p1} {p2} {p3}\n")
+    # with open(triafile, "w") as fp:
+    #     fp.write(f"{n_triangles} 3 0\n")
+    #     for triangle, tria_id in triangles.items():
+    #         p1, p2, p3 = triangle
+    #         fp.write(f"{tria_id} {p1} {p2} {p3}\n")
 
-    retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -akEFNQIRBOr", shell=True)
-    os.remove(triafile)
+    retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -BkQr", shell=True)
+    # if os.path.exists(triafile):
+    #     os.remove(triafile)
     gmsh.initialize()
     gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
-    gmsh.option.setNumber("Mesh.Smoothing", 500)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
-    gmsh.option.setNumber("Mesh.AllowSwapAngle", 90)
     gmsh.model.add("porous")
     gmsh.merge(vtkfile)
     counter = 0
@@ -198,7 +201,7 @@ if __name__ == "__main__":
     for i, volume in enumerate(volumes):
         marker = int(counter + i)
         gmsh.model.addPhysicalGroup(volume[0], [volume[1]], marker)
-        gmsh.model.setPhysicalName(volume[0], marker, f"V{marker}")
+        gmsh.model.setPhysicalName(volume[0], marker, f"VOLUME-{marker}")
     
     surfaces = gmsh.model.getEntities(dim=2)
     insulated = []
@@ -226,7 +229,7 @@ if __name__ == "__main__":
     msh = meshio.read(mshfile)
     tetra_mesh = geometry.create_mesh(msh, "tetra")
     meshio.write(f"mesh/{phase}/{grid_info}_{origin_str}/tetr.xdmf", tetra_mesh)
-    # tria_mesh = geometry.create_mesh(msh, "triangle")
-    # meshio.write(f"mesh/{phase}/{grid_info}_{origin_str}/tria.xdmf", tria_mesh)
+    tria_mesh = geometry.create_mesh(msh, "triangle")
+    meshio.write(f"mesh/{phase}/{grid_info}_{origin_str}/tria.xdmf", tria_mesh)
 
     logger.info("Took {:,} seconds".format(int(time.time() - start_time)))
