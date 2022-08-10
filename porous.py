@@ -27,6 +27,8 @@ logger.setLevel('INFO')
 
 if __name__ == '__main__':
     img_dir = sys.argv[1]
+    grid_info = sys.argv[2]
+    Nx, Ny, Nz = [int(v) for v in grid_info.split("-")]
     nodefile = os.path.join(img_dir, "porous.1.node")
     facefile = os.path.join(img_dir, "porous.1.face")
     stlfile = os.path.join(img_dir, "porous.stl")
@@ -56,7 +58,7 @@ if __name__ == '__main__':
             face_id, p1, p2, p3 = [int(v) for v in row.split()]
             faces[face_id] = [p1, p2, p3]
 
-    with open(stlfile, "w") as fp:
+    with open(stlfile.strip(".stl") + "_left_cc.stl", "w") as fp:
         fp.write("solid \n")
         for face_idx in range(num_faces):
             points = faces[face_idx]
@@ -67,11 +69,52 @@ if __name__ == '__main__':
             p1, p2, p3 = triangles
             n = np.cross(p3 - p2, p2 - p1)
             n = n / n.sum()
-            fp.write("facet normal %f %f %f\n" % tuple(n.tolist()))
-            fp.write("\touter loop\n")
-            fp.write("\t\tvertex %f %f %f\n" % tuple(p1.tolist()))
-            fp.write("\t\tvertex %f %f %f\n" % tuple(p2.tolist()))
-            fp.write("\t\tvertex %f %f %f\n" % tuple(p3.tolist()))
-            fp.write("\tendloop\n")
-            fp.write("endfacet\n")
+            if p1[1] == 0 and p2[1] == 0 and p2[1] == 0:
+                fp.write("facet normal %f %f %f\n" % tuple(n.tolist()))
+                fp.write("\touter loop\n")
+                fp.write("\t\tvertex %f %f %f\n" % tuple(p1.tolist()))
+                fp.write("\t\tvertex %f %f %f\n" % tuple(p2.tolist()))
+                fp.write("\t\tvertex %f %f %f\n" % tuple(p3.tolist()))
+                fp.write("\tendloop\n")
+                fp.write("endfacet\n")
+        fp.write("endsolid \n")
+    with open(stlfile.strip(".stl") + "_right_cc.stl", "w") as fp:
+        fp.write("solid \n")
+        for face_idx in range(num_faces):
+            points = faces[face_idx]
+            triangles = []
+            for point in points:
+                coord = vertices[point]
+                triangles.append(np.array(coord))
+            p1, p2, p3 = triangles
+            n = np.cross(p3 - p2, p2 - p1)
+            n = n / n.sum()
+            if np.isclose(p1[1], Ny - 1) and np.isclose(p2[1], Ny - 1) and np.isclose(p2[1], Ny - 1):
+                fp.write("facet normal %f %f %f\n" % tuple(n.tolist()))
+                fp.write("\touter loop\n")
+                fp.write("\t\tvertex %f %f %f\n" % tuple(p1.tolist()))
+                fp.write("\t\tvertex %f %f %f\n" % tuple(p2.tolist()))
+                fp.write("\t\tvertex %f %f %f\n" % tuple(p3.tolist()))
+                fp.write("\tendloop\n")
+                fp.write("endfacet\n")
+        fp.write("endsolid \n")
+    with open(stlfile.replace(".stl", "_insulated.stl"), "w") as fp:
+        fp.write("solid \n")
+        for face_idx in range(num_faces):
+            points = faces[face_idx]
+            triangles = []
+            for point in points:
+                coord = vertices[point]
+                triangles.append(np.array(coord))
+            p1, p2, p3 = triangles
+            n = np.cross(p3 - p2, p2 - p1)
+            n = n / n.sum()
+            if not (np.isclose(p1[1], 0) and np.isclose(p2[1], 0) and np.isclose(p2[1], 0)) or not (np.isclose(p1[1], Ny - 1) and np.isclose(p2[1], Ny - 1) and np.isclose(p2[1], Ny - 1)):
+                fp.write("facet normal %f %f %f\n" % tuple(n.tolist()))
+                fp.write("\touter loop\n")
+                fp.write("\t\tvertex %f %f %f\n" % tuple(p1.tolist()))
+                fp.write("\t\tvertex %f %f %f\n" % tuple(p2.tolist()))
+                fp.write("\t\tvertex %f %f %f\n" % tuple(p3.tolist()))
+                fp.write("\tendloop\n")
+                fp.write("endfacet\n")
         fp.write("endsolid \n")

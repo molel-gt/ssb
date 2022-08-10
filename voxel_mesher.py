@@ -163,14 +163,17 @@ if __name__ == "__main__":
 
     retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -BkQr", shell=True)
     # generate stl file
-    cmd_output = subprocess.check_call(f"./porous.py {mesh_dir}", shell=True)
+    cmd_output = subprocess.check_call(f"./porous.py {mesh_dir} {grid_info}", shell=True)
     gmsh.initialize()
     gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
     gmsh.model.add("porous")
     gmsh.merge(vtkfile)
-    gmsh.merge(stlfile)
+    gmsh.merge(stlfile.strip(".stl") + "_left_cc.stl")
+    gmsh.merge(stlfile.strip(".stl") + "_right_cc.stl")
+    gmsh.merge(stlfile.strip(".stl") + "_insulated.stl")
+    gmsh.model.geo.synchronize()
     counter = 0
     volumes = gmsh.model.getEntities(dim=3)
     for i, volume in enumerate(volumes):
@@ -179,6 +182,7 @@ if __name__ == "__main__":
         gmsh.model.setPhysicalName(volume[0], marker, f"VOLUME-{marker}")
     
     surfaces = gmsh.model.getEntities(dim=2)
+    print(surfaces)
     insulated = []
     left_cc = []
     right_cc = []
@@ -186,20 +190,20 @@ if __name__ == "__main__":
         marker = int(counter + i)
         surf = gmsh.model.addPhysicalGroup(surface[0], [surface[1]], marker)
         gmsh.model.setPhysicalName(surface[0], surf, f"SURFACE-{marker}")
-    for surface in surfaces:
-        com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
-        if np.isclose(com[1], 0):
-            left_cc.append(surface[1])
-        elif np.isclose(com[1], Ly):
-            right_cc.append(surface[1])
-        else:
-            insulated.append(surface[1])
-    y0_tag = gmsh.model.addPhysicalGroup(2, left_cc)
-    gmsh.model.setPhysicalName(2, y0_tag, "left_cc")
-    yl_tag = gmsh.model.addPhysicalGroup(2, right_cc)
-    gmsh.model.setPhysicalName(2, yl_tag, "right_cc")
-    insulated = gmsh.model.addPhysicalGroup(2, insulated)
-    gmsh.model.setPhysicalName(2, insulated, "insulated")
+    # for surface in surfaces:
+    #     com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
+    #     if np.isclose(com[1], 0):
+    #         left_cc.append(surface[1])
+    #     elif np.isclose(com[1], Ly):
+    #         right_cc.append(surface[1])
+    #     else:
+    #         insulated.append(surface[1])
+    # y0_tag = gmsh.model.addPhysicalGroup(2, left_cc)
+    # gmsh.model.setPhysicalName(2, y0_tag, "left_cc")
+    # yl_tag = gmsh.model.addPhysicalGroup(2, right_cc)
+    # gmsh.model.setPhysicalName(2, yl_tag, "right_cc")
+    # insulated = gmsh.model.addPhysicalGroup(2, insulated)
+    # gmsh.model.setPhysicalName(2, insulated, "insulated")
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
     gmsh.write(mshfile)

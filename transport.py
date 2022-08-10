@@ -21,11 +21,13 @@ if __name__ == '__main__':
     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
     parser.add_argument("--piece_id", nargs='?', const=1, default="")
     parser.add_argument("--phase", nargs='?', const=1, default="electrolyte")
+    parser.add_argument("--voltage", nargs='?', const=1, default=1)
 
     args = parser.parse_args()
     phase = args.phase
     piece_id = args.piece_id
     start = time.time()
+    voltage = args.voltage
 
     if isinstance(args.origin, str):
         origin = tuple(map(lambda v: int(v), args.origin.split(",")))
@@ -36,7 +38,7 @@ if __name__ == '__main__':
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{grid_info} {origin_str}')
-    logger.setLevel('INFO')
+    logger.setLevel('DEBUG')
     Lx, Ly, Lz = [int(v) - 1 for v in grid_info.split("-")]
     working_dir = os.path.abspath(os.path.dirname(__file__))
     meshes_dir = os.path.join(working_dir, 'mesh')
@@ -48,12 +50,13 @@ if __name__ == '__main__':
     output_current_path = os.path.join(output_dir, f'{phase}/{grid_info}_{origin_str}/{piece_id}current.xdmf')
     output_potential_path = os.path.join(output_dir, f'{phase}/{grid_info}_{origin_str}/{piece_id}potential.xdmf')
 
-    logger.debug("Loading mesh..")
+    logger.debug("Loading mesh tetrahedra mesh..")
 
     with dolfinx.io.XDMFFile(MPI.COMM_WORLD, tetr_mesh_path, "r") as infile3:
         mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(mesh, name="Grid")
     mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim - 1)
+    logger.debug("Loading mesh triangles mesh..")
     with dolfinx.io.XDMFFile(MPI.COMM_WORLD, tria_mesh_path, "r") as infile3:
         mesh_facets = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         facets_ct = infile3.read_meshtags(mesh, name="Grid")
@@ -64,7 +67,7 @@ if __name__ == '__main__':
     # Dirichlet BCs
     u0 = dolfinx.fem.Function(V)
     with u0.vector.localForm() as u0_loc:
-        u0_loc.set(1.0)
+        u0_loc.set(voltage)
 
     u1 = dolfinx.fem.Function(V)
     with u1.vector.localForm() as u1_loc:
@@ -75,7 +78,7 @@ if __name__ == '__main__':
     x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 2, x0facet))
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 2, x1facet))
 
-    # Neumann BC
+    # # Neumann BC
     surf_meshtags = dolfinx.mesh.meshtags(mesh, 2, facets_ct.indices, facets_ct.values)
     n = -ufl.FacetNormal(mesh)
     ds = ufl.Measure("ds", domain=mesh, subdomain_data=surf_meshtags, subdomain_id=insulated_marker)
@@ -146,7 +149,7 @@ if __name__ == '__main__':
     logger.info("Total Volume                                    : {:,}".format(int(total_volume)))
     logger.info("Electrolyte Volume Fraction                     : {:0.4f}".format(total_volume/(Lx * Ly * Lz)))
     logger.info("Bulk conductivity [S.m-1]                       : {:.4f}".format(0.1))
-    logger.info("Effective conductivity [S.m-1]                  : {:.4f}".format(Ly * area_left_cc * i_left_cc / (Lx * Lz)))
+    logger.info("Effective conductivity [S.m-1]                  : {:.4f}".format(Ly * area_left_cc * i_left_cc / (voltage * (Lx * Lz))))
     logger.info(f"Homogeneous Neumann BC trace                    : {solution_trace_norm:.2e}")
     logger.info(f"Area-averaged Homogeneous Neumann BC trace      : {avg_solution_trace_norm:.2e}")
     logger.info("Deviation in current at two current collectors  : {:.2f}%".format(deviation_in_current))
