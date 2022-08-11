@@ -83,8 +83,8 @@ if __name__ == '__main__':
     voltage = args.voltage
     lower_cov = 0.5 * Lx - 0.5 * eps * Lx
     upper_cov = 0.5 * Lx + 0.5 * eps * Lx
-    tria_meshname = f'current_constriction/{h:.3}_{w:.3}_pos-{pos}_pieces-{n_pieces}_tria'
-    line_meshname = f'current_constriction/{h:.3}_{w:.3}_pos-{pos}_pieces-{n_pieces}_line'
+    tria_meshname = f'current_constriction/{h:.3}_{w:.3}_pos-{pos}_pieces-{n_pieces}_{eps}_tria'
+    line_meshname = f'current_constriction/{h:.3}_{w:.3}_pos-{pos}_pieces-{n_pieces}_{eps}_line'
     utils.make_dir_if_missing('current_constriction')
     with dolfinx.io.XDMFFile(MPI.COMM_WORLD, f"{tria_meshname}.xdmf", "r") as infile3:
             msh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
@@ -174,7 +174,7 @@ if __name__ == '__main__':
     logger.info("Total Volume                                    : {:,}".format(int(total_volume)))
     logger.info("Electrolyte Volume Fraction                     : {:0.4f}".format(total_volume/(Lx * Ly * 1)))
     logger.info("Bulk conductivity [S.m-1]                       : {:.4f}".format(0.1))
-    logger.info("Effective conductivity [S.m-1]                  : {:.4f}".format(Ly * area_left_cc * i_left_cc / (Lx * 1)))
+    logger.info("Effective conductivity [S.m-1]                  : {:.4f}".format(Ly * area_left_cc * i_left_cc / (voltage * (Lx * 1))))
     logger.info(f"Homogeneous Neumann BC trace                    : {solution_trace_norm:.2e}")
     logger.info(f"Area-averaged Homogeneous Neumann BC trace      : {avg_solution_trace_norm:.2e}")
     logger.info("Deviation in current at two current collectors  : {:.2f}%".format(deviation_in_current))
