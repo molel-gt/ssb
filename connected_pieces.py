@@ -10,7 +10,7 @@ import meshio
 import networkx as nx
 import numpy as np
 
-import geometry, mesher, utils
+import geometry, utils
 
 
 FORMAT = '%(asctime)s: %(message)s'
@@ -20,7 +20,10 @@ logger.setLevel('INFO')
 
 
 def build_points(data):
-    """"""
+    """
+    key: (x,y,z) coordinate
+    value: point_id
+    """
     points = {}
     count = 0
     for idx, v in np.ndenumerate(data):
@@ -98,28 +101,28 @@ if __name__ == "__main__":
             logger.debug(f"Piece {idx} does not span both ends")
             continue
         logger.info(f"Piece {idx} spans both ends along y-axis")
-        occlusions = np.logical_not(largest_piece)
-        rectangles = mesher.make_rectangles(occlusions)
-        boxes = mesher.make_boxes(rectangles)
-        logger.info("No. voxels       : %s" % np.sum(occlusions))
-        logger.info("No. rectangles   : %s" % np.sum(rectangles))
-        logger.info("No. boxes        : %s" % np.sum(boxes))
-        output_mshfile = f"mesh/{grid_info}_{origin_str}/{idx}.msh"
-        gmsh.initialize()
+        # occlusions = np.logical_not(largest_piece)
+        # rectangles = mesher.make_rectangles(occlusions)
+        # boxes = mesher.make_boxes(rectangles)
+        # logger.info("No. voxels       : %s" % np.sum(occlusions))
+        # logger.info("No. rectangles   : %s" % np.sum(rectangles))
+        # logger.info("No. boxes        : %s" % np.sum(boxes))
+        # output_mshfile = f"mesh/{grid_info}_{origin_str}/{idx}.msh"
+        # gmsh.initialize()
         # gmsh.option.setNumber("Mesh.CharacteristicLengthFromPoints", 0.5)
         # gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
         # gmsh.option.setNumber("Mesh.CharacteristicLengthFromCurvature", 0.5)  # FIXME
-        gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
-        gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
-        gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
-        gmsh.option.setNumber("Mesh.Smoothing", 500)
-        gmsh.option.setNumber("Mesh.AllowSwapAngle", 90)
-        mesher.build_voxels_mesh(boxes, output_mshfile)
-        gmsh.finalize()
-        logger.info("writing xmdf tetrahedral mesh..")
-        msh = meshio.read(output_mshfile)
-        tetra_mesh = geometry.create_mesh(msh, "tetra")
-        meshio.write(f"mesh/{grid_info}_{origin_str}/{idx}tetr.xdmf", tetra_mesh)
-        tria_mesh = geometry.create_mesh(msh, "triangle")
-        meshio.write(f"mesh/{grid_info}_{origin_str}/{idx}tria.xdmf", tria_mesh)
-        logger.info("Operation took {:,} seconds".format(int(time.time() - start_time)))
+        # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
+        # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
+        # gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
+        # gmsh.option.setNumber("Mesh.Smoothing", 500)
+        # gmsh.option.setNumber("Mesh.AllowSwapAngle", 90)
+        # mesher.build_voxels_mesh(boxes, output_mshfile)
+        # gmsh.finalize()
+        # logger.info("writing xmdf tetrahedral mesh..")
+        # msh = meshio.read(output_mshfile)
+        # tetra_mesh = geometry.create_mesh(msh, "tetra")
+        # meshio.write(f"mesh/{grid_info}_{origin_str}/{idx}tetr.xdmf", tetra_mesh)
+        # tria_mesh = geometry.create_mesh(msh, "triangle")
+        # meshio.write(f"mesh/{grid_info}_{origin_str}/{idx}tria.xdmf", tria_mesh)
+        # logger.info("Operation took {:,} seconds".format(int(time.time() - start_time)))

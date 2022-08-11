@@ -10,7 +10,7 @@ import numpy as np
 
 import utils
 
-
+KAPPA = 0.1  # 0.1 S/m == mS/cm
 # current constriction
 def compute_resistance(coverage, w, h, voltages=(1, 2), Lx=100, Ly=1, pos='mid', n_pieces=0):
     currents = []
@@ -30,10 +30,10 @@ def compute_resistance(coverage, w, h, voltages=(1, 2), Lx=100, Ly=1, pos='mid',
                 pass
             if np.isclose(y, Ly):
                 current_1.append(v)
-        i_avg_1 = np.nan # np.around(np.nanmean(current_0), 6)
-        i_avg_2 = np.around(np.nanmean(current_1), 6)
+        i_avg_1 = KAPPA * np.around(np.nanmean(current_0), 6)
+        i_avg_2 = KAPPA * np.around(np.nanmean(current_1), 6)
         currents.append((i_avg_1, i_avg_2))
-    return (voltages[1] - voltages[0]) / (currents[1][1] - currents[0][1]), currents
+    return (voltages[1] - voltages[0]) / (Lx * (currents[1][1] - currents[0][1])), currents
 
 
 def results_filename(coverage, w, h, voltage: int, pos, n_pieces):
@@ -43,11 +43,11 @@ def results_filename(coverage, w, h, voltage: int, pos, n_pieces):
 if __name__ == '__main__':
     heights = [0.0]
     widths = [0.0]
-    coverages = [0.25]
+    coverages = [0.05, 0.1, 0.2, 0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95]
     voltages = (1, 2)
-    n_pieces = [1, 2, 5, 10, 15, 50, 75, 100, 250, 350, 500]
+    n_pieces = [1]  #, 2, 5, 10, 50, 100, 200, 225, 250, 275, 300, 400, 500]
     pos = ['mid']
-    columns = ['coverage', 'voltage', 'Lx', 'Ly', 'slice_width', 'slice_y_position', 'current (y = 0)', 'current (y = Ly)', 'resistance', 'pos', 'n_pieces']
+    columns = ['coverage', 'voltage', 'Lx', 'Ly', 'slice_width', 'slice_y_position', 'current (y = 0)', 'current (y = Ly)', 'kappa [S/m]', 'resistance [Ohm]', 'pos', 'n_pieces']
     utils.make_dir_if_missing("current_constriction")
     with open("current_constriction/current-constriction.csv", "w") as f:
         writer = csv.DictWriter(f, fieldnames=columns)
@@ -67,13 +67,13 @@ if __name__ == '__main__':
                                 writer.writerow(
                                 {
                                     'coverage': cov, 'voltage': voltages[idx], 'Lx': 100, 'Ly': 1, 'slice_width': w * 100,
-                                    'slice_y_position': h, 'current (y = 0)': currents[idx][0], 'current (y = Ly)': currents[idx][1],
-                                    'resistance': "-", "pos": p, "n_pieces": num_piece,
+                                    'slice_y_position': h, 'current (y = 0)': currents[idx][0], 'current (y = Ly)': currents[idx][1], "kappa [S/m]": KAPPA,
+                                    'resistance [Ohm]': "-", "pos": p, "n_pieces": num_piece,
                                 })
                             writer.writerow(
                                 {
                                     'coverage': cov, 'voltage': "-", 'Lx': 100, 'Ly': 1, 'slice_width': w * 100,
-                                    'slice_y_position': h, 'current (y = 0)': "-", 'current (y = Ly)': "-",
-                                    'resistance': np.around(resistance, 2), "pos": p, "n_pieces": num_piece,
+                                    'slice_y_position': h, 'current (y = 0)': "-", 'current (y = Ly)': "-", "kappa [S/m]": KAPPA,
+                                    'resistance [Ohm]': np.around(resistance, 6), "pos": p, "n_pieces": num_piece,
                                 }
                             )

@@ -10,6 +10,8 @@ import logging
 import meshio
 import numpy as np
 
+from stl import mesh
+
 import connected_pieces, geometry, utils
 
 
@@ -88,26 +90,6 @@ def build_tetrahedra(cube, points):
     return tetrahedra
 
 
-def build_triangles(cubes, points_view):
-    for cube in cubes:
-        x0, y0, z0 = points_view[cube[0][0]]
-        faces = {
-            "xy": [
-                [(x0, y0, z0), (x0 + 1, y0, z0), (x0 + 1, y0 + 1, z0), (x0, y0 + 1, z0)],
-                [(x0, y0, z0 + 1), (x0 + 1, y0, z0 + 1), (x0 + 1, y0 + 1, z0 + 1), (x0, y0 + 1, z0 + 1)]
-                 ],
-            "yz": [
-                [(x0 + 1, y0, z0), (x0 + 1, y0, z0 + 1), (x0 + 1, y0 + 1, z0 + 1), (x0 + 1, y0 + 1, z0)],
-                [(x0, y0, z0), (x0, y0, z0 + 1), (x0, y0 + 1, z0 + 1), (x0, y0 + 1, z0)]
-                ],
-            "xz": [
-                [(x0, y0, z0), (x0 + 1, y0, z0), (x0 + 1, y0, z0 + 1), (x0, y0, z0 + 1)],
-                [(x0, y0 + 1, z0), (x0 + 1, y0 + 1, z0), (x0 + 1, y0 + 1, z0 + 1), (x0, y0 + 1, z0 + 1)]
-            ]
-        }
-    return
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='computes specific area')
     parser.add_argument('--img_folder', help='bmp files parent directory',
@@ -132,9 +114,15 @@ if __name__ == "__main__":
     Ly = Ny - 1
     Lz = Nz - 1
     img_dir = os.path.join(args.img_folder, phase)
-    utils.make_dir_if_missing(f"mesh/{phase}/{grid_info}_{origin_str}")
-    im_files = sorted([os.path.join(img_dir, f) for
+    mesh_dir = f"mesh/{phase}/{grid_info}_{origin_str}"
+    utils.make_dir_if_missing(mesh_dir)
+    old_im_files = sorted([os.path.join(img_dir, f) for
                        f in os.listdir(img_dir) if f.endswith(".bmp")])
+    im_files = [""] * len(old_im_files)
+    for i, f in enumerate(old_im_files):
+        fdir = os.path.dirname(f)
+        idx = int(f.split("/")[-1].split(".")[0].strip("SegIm"))
+        im_files[idx - 3] = f
     n_files = len(im_files)
 
     start_time = time.time()
@@ -142,13 +130,10 @@ if __name__ == "__main__":
     voxels = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
                                          y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
     logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Lx * Ly * Lz)))
-    voxels = filter_voxels(voxels)
-    logger.info("Filtered porosity : {:0.4f}".format(np.sum(voxels) / (Lx * Ly * Lz)))
-    # voxels = np.ones((2, 2, 2), dtype=np.int8)
     n_tetrahedra = 0
     n_triangles = 0
+    counter = 0
     tetrahedra = {}
-    triangles = {}
     points = connected_pieces.build_points(voxels)
     points_view = {v: k for k, v in points.items()}
     cubes = build_cubes(voxels, points)
@@ -159,9 +144,10 @@ if __name__ == "__main__":
             n_tetrahedra += 1
     nodefile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.node"
     tetfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.ele"
-    triafile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.face"
-    vtkfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.vtk"
-    mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.msh"
+    facesfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.face"
+    vtkfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.1.vtk"
+    stlfile = f"mesh/{phase}/{grid_info}_{origin_str}/new-porous.stl"
+    mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous_tetr.msh"
     with open(nodefile, "w") as fp:
         fp.write("# node count, 3 dim, no attribute, no boundary marker\n")
         fp.write("%d 3 0 0\n" % int(np.sum(voxels)))
@@ -176,57 +162,36 @@ if __name__ == "__main__":
             p1, p2, p3, p4 = tetrahedron
             fp.write(f"{tet_id} {p1} {p2} {p3} {p4}\n")
 
-    with open(triafile, "w") as fp:
-        fp.write(f"{n_triangles} 3 0\n")
-        for triangle, tria_id in triangles.items():
-            p1, p2, p3 = triangle
-            fp.write(f"{tet_id} {p1} {p2} {p3}\n")
-
-    retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -akEFNQIRBOr", shell=True)
-    os.remove(triafile)
+    retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -BdkQr", shell=True)
     gmsh.initialize()
     gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
-    gmsh.option.setNumber("Mesh.Smoothing", 500)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
-    gmsh.option.setNumber("Mesh.AllowSwapAngle", 90)
     gmsh.model.add("porous")
     gmsh.merge(vtkfile)
-    counter = 0
+    gmsh.model.occ.synchronize()
+
     volumes = gmsh.model.getEntities(dim=3)
     for i, volume in enumerate(volumes):
         marker = int(counter + i)
-        gmsh.model.addPhysicalGroup(volume[0], [volume[1]], marker)
-        gmsh.model.setPhysicalName(volume[0], marker, f"V{marker}")
+        gmsh.model.addPhysicalGroup(3, [volume[1]], marker)
+        gmsh.model.setPhysicalName(3, marker, f"V{marker}")
+    gmsh.model.occ.synchronize()
     
-    surfaces = gmsh.model.getEntities(dim=2)
     insulated = []
     left_cc = []
     right_cc = []
+    surfaces = gmsh.model.getEntities(dim=2)
     for surface in surfaces:
-        com = gmsh.model.getCenterOfMass(surface[0], surface[1])
-        if np.isclose(com[1], 0):
-            left_cc.append(surface[1])
-        elif np.isclose(com[1], Ly):
-            right_cc.append(surface[1])
-        else:
-            insulated.append(surface[1])
-    y0_tag = gmsh.model.addPhysicalGroup(2, left_cc)
-    gmsh.model.setPhysicalName(2, y0_tag, "left_cc")
-    yl_tag = gmsh.model.addPhysicalGroup(2, right_cc)
-    gmsh.model.setPhysicalName(2, yl_tag, "right_cc")
-    insulated = gmsh.model.addPhysicalGroup(2, insulated)
-    gmsh.model.setPhysicalName(2, insulated, "insulated")
+        surf = gmsh.model.addPhysicalGroup(2, [surface[1]])
+        gmsh.model.setPhysicalName(2, surf, f"S{surf}")
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
     gmsh.write(mshfile)
     gmsh.finalize()
 
-    msh = meshio.read(mshfile)
-    tetra_mesh = geometry.create_mesh(msh, "tetra")
+    vol_msh = meshio.read(mshfile)
+    tetra_mesh = geometry.create_mesh(vol_msh, "tetra")
     meshio.write(f"mesh/{phase}/{grid_info}_{origin_str}/tetr.xdmf", tetra_mesh)
-    # tria_mesh = geometry.create_mesh(msh, "triangle")
-    # meshio.write(f"mesh/{phase}/{grid_info}_{origin_str}/tria.xdmf", tria_mesh)
 
     logger.info("Took {:,} seconds".format(int(time.time() - start_time)))

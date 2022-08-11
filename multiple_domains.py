@@ -29,25 +29,25 @@ if __name__ == '__main__':
     Ly = args.Ly
     w = args.w / Lx
     h = args.h / Ly
-    resolution = 0.1
-    meshname = f'current_constriction/{h:.3}_{w:.3}_pos-{pos}_pieces-{n_pieces}'
+    resolution = 0.005
+    meshname = f'current_constriction/{h:.3}_{w:.3}_pos-{pos}_pieces-{n_pieces}_{eps}'
     utils.make_dir_if_missing('current_constriction')
 
     gmsh.initialize()
     gmsh.model.add("constriction")
-    gmsh.option.setNumber("Mesh.MeshSizeMin", 0.05)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.05)
+    gmsh.option.setNumber("General.ExpertMode", 1)
+    gmsh.option.setNumber("Mesh.MeshSizeMin", 0.005)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.005)
     dx = Lx * (eps / n_pieces)
     intervals = []
     if n_pieces == 1:
         intervals.append((0.5 * Lx - 0.5 * eps * Lx, 0.5 * Lx + 0.5 * eps * Lx))
     else:
         space = Lx * ((0.875 - 0.125) - eps) / (n_pieces - 1)
-        for i in range(n_pieces + 1):
-            if i == 0:
-                intervals.append((0.125 * Lx, dx + 0.125 * Lx))
-            else:
-                intervals.append(((dx + space) * (i - 1) + 0.125 * Lx, dx * i + space * (i -1) + 0.125 * Lx))
+        for i in range(1, n_pieces + 1):
+            intervals.append(
+                (0.125 * Lx + (dx + space) * (i - 1),  0.125 * Lx + dx * i + space * (i -1))
+                )
     bottom_pts = sorted([v for v in set(itertools.chain(*intervals))])
     points = [
         (0, 0, 0),
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     g_points = []
     for p in points:
         g_points.append(
-            gmsh.model.occ.addPoint(*p)
+            gmsh.model.occ.addPoint(*p, meshSize=resolution)
         )
     channel_lines = []
     top_cc = []
