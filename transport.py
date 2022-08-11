@@ -56,11 +56,11 @@ if __name__ == '__main__':
         mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(mesh, name="Grid")
     mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim - 1)
-    logger.debug("Loading mesh triangles mesh..")
-    with dolfinx.io.XDMFFile(MPI.COMM_WORLD, tria_mesh_path, "r") as infile3:
-        mesh_facets = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
-        facets_ct = infile3.read_meshtags(mesh, name="Grid")
     # NOTE: Uncomment section when the surface mesh is available 
+    # logger.debug("Loading mesh triangles mesh..")
+    # with dolfinx.io.XDMFFile(MPI.COMM_WORLD, tria_mesh_path, "r") as infile3:
+    #     mesh_facets = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
+    #     facets_ct = infile3.read_meshtags(mesh, name="Grid")
     # left_cc_marker, right_cc_marker, insulated_marker = sorted([int(v) for v in set(facets_ct.values)])
     # and has current collectors and insulators labeled
     # x0facet = np.array(facets_ct.indices[facets_ct.values == left_cc_marker])
