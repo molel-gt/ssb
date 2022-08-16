@@ -20,6 +20,10 @@ logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__file__)
 logger.setLevel('INFO')
 
+scale_x = np.around(39 / 202, 8)
+scale_y = np.around(50 / 450, 8)
+scale_z = np.around(200 / 800, 8)
+
 
 def filter_voxels(voxels, threshold=1):
     new_voxels = voxels
@@ -153,7 +157,10 @@ if __name__ == "__main__":
         fp.write("%d 3 0 0\n" % int(np.sum(voxels)))
         fp.write("# Node index, node coordinates\n")
         for point_id in range(np.sum(voxels)):
-            x, y, z = points_view[point_id]
+            x0, y0, z0 = points_view[point_id]
+            x = np.around(scale_x * x0, 8)
+            y = np.around(scale_y * y0, 8)
+            z = np.around(scale_x * z0, 8)
             fp.write(f"{point_id} {x} {y} {z}\n")
 
     with open(tetfile, "w") as fp:
