@@ -15,6 +15,11 @@ from petsc4py import PETSc
 import utils
 
 
+scale_x = np.around(39 / 202, 8)
+scale_y = np.around(50 / 450, 8)
+scale_z = np.around(200 / 800, 8)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
     parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
@@ -38,8 +43,11 @@ if __name__ == '__main__':
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{grid_info} {origin_str}')
-    logger.setLevel('DEBUG')
-    Lx, Ly, Lz = [int(v) - 1 for v in grid_info.split("-")]
+    logger.setLevel('INFO')
+    Nx, Ny, Nz = [int(v) for v in grid_info.split("-")]
+    Lx = (Nx - 1) * scale_x
+    Ly = (Ny - 1) * scale_y
+    Lz = (Nz - 1) * scale_z
     working_dir = os.path.abspath(os.path.dirname(__file__))
     meshes_dir = os.path.join(working_dir, 'mesh')
     output_dir = os.path.join(working_dir, 'output')
@@ -50,7 +58,7 @@ if __name__ == '__main__':
     output_current_path = os.path.join(output_dir, f'{phase}/{grid_info}_{origin_str}/{piece_id}current.xdmf')
     output_potential_path = os.path.join(output_dir, f'{phase}/{grid_info}_{origin_str}/{piece_id}potential.xdmf')
 
-    logger.debug("Loading mesh tetrahedra mesh..")
+    logger.debug("Loading tetrahedra mesh..")
 
     with dolfinx.io.XDMFFile(MPI.COMM_WORLD, tetr_mesh_path, "r") as infile3:
         mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
@@ -150,13 +158,13 @@ if __name__ == '__main__':
     avg_solution_trace_norm = solution_trace_norm / insulated_area
     deviation_in_current = np.around(100 * 2 * np.abs(area_left_cc * i_left_cc - area_right_cc * i_right_cc) / (area_left_cc * i_left_cc + area_right_cc * i_right_cc), 2)
     logger.info("**************************RESULTS-SUMMARY******************************************")
-    logger.info("Contact Area @ left cc                          : {:.0f}".format(area_left_cc))
-    logger.info("Contact Area @ right cc                         : {:.0f}".format(area_right_cc))
+    logger.info("Contact Area @ left cc [sq. um]                 : {:.0f}".format(area_left_cc))
+    logger.info("Contact Area @ right cc [sq. um]                : {:.0f}".format(area_right_cc))
     logger.info("Current density @ left cc                       : {:.6f}".format(i_left_cc))
     logger.info("Current density @ right cc                      : {:.6f}".format(i_right_cc))
-    logger.info("Insulated Area                                  : {:,}".format(int(insulated_area)))
-    logger.info("Total Area                                      : {:,}".format(int(area_left_cc + area_right_cc + insulated_area)))
-    logger.info("Total Volume                                    : {:,}".format(int(total_volume)))
+    logger.info("Insulated Area [sq. um]                         : {:,}".format(int(insulated_area)))
+    logger.info("Total Area [sq. um]                             : {:,}".format(int(area_left_cc + area_right_cc + insulated_area)))
+    logger.info("Total Volume [cu. um]                           : {:,}".format(int(total_volume)))
     logger.info("Electrolyte Volume Fraction                     : {:0.4f}".format(total_volume/(Lx * Ly * Lz)))
     logger.info("Bulk conductivity [S.m-1]                       : {:.4f}".format(0.1))
     logger.info("Effective conductivity [S.m-1]                  : {:.4f}".format(Ly * area_left_cc * i_left_cc / (voltage * (Lx * Lz))))
