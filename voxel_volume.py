@@ -20,10 +20,6 @@ logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__file__)
 logger.setLevel('INFO')
 
-scale_x = np.around(39 / 202, 8)
-scale_y = np.around(50 / 450, 8)
-scale_z = np.around(200 / 800, 8)
-
 
 def filter_voxels(voxels, threshold=1):
     new_voxels = voxels
@@ -102,10 +98,16 @@ if __name__ == "__main__":
                         required=True)
     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
     parser.add_argument("--resolution", nargs='?', const=1, default=0.5, type=float)
-    parser.add_argument("--phase", nargs='?', const=1, default="electrolyte")
+    parser.add_argument("--phase", nargs='?', const=1, default=0, type=int)
+    parser.add_argument("--scale_x", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
+    parser.add_argument("--scale_y", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
+    parser.add_argument("--scale_z", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
     start_time = time.time()
     args = parser.parse_args()
     phase = args.phase
+    scale_x = args.scale_x
+    scale_y = args.scale_y
+    scale_z = args.scale_z
     if isinstance(args.origin, str):
         origin = tuple(map(lambda v: int(v), args.origin.split(",")))
     else:
@@ -117,22 +119,22 @@ if __name__ == "__main__":
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
-    img_dir = os.path.join(args.img_folder, phase)
+    img_dir = os.path.join(args.img_folder, str(phase))
     mesh_dir = f"mesh/{phase}/{grid_info}_{origin_str}"
     utils.make_dir_if_missing(mesh_dir)
-    old_im_files = sorted([os.path.join(img_dir, f) for
-                       f in os.listdir(img_dir) if f.endswith(".bmp")])
+    old_im_files = sorted([os.path.join(args.img_folder, f) for
+                       f in os.listdir(args.img_folder) if f.endswith(".tif")])
     im_files = [""] * len(old_im_files)
     for i, f in enumerate(old_im_files):
         fdir = os.path.dirname(f)
-        idx = int(f.split("/")[-1].split(".")[0].strip("SegIm"))
-        im_files[idx - 3] = f
+        idx = int(f.split("/")[-1].split(".")[0])
+        im_files[idx] = f
     n_files = len(im_files)
 
     start_time = time.time()
 
     voxels = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
-                                         y_lims=(0, Ny), z_lims=(0, Nz), origin=origin)
+                                         y_lims=(0, Ny), z_lims=(0, Nz), origin=origin, phase=phase)
     logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Lx * Ly * Lz)))
     n_tetrahedra = 0
     n_triangles = 0

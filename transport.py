@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import os
-import time
+import timeit
 
 import argparse
 import dolfinx
@@ -15,24 +15,27 @@ from petsc4py import PETSc
 import utils
 
 
-scale_x = np.around(39 / 202, 8)
-scale_y = np.around(50 / 450, 8)
-scale_z = np.around(200 / 800, 8)
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
     parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
     parser.add_argument("--piece_id", nargs='?', const=1, default="")
-    parser.add_argument("--phase", nargs='?', const=1, default="electrolyte")
+    parser.add_argument("--phase", nargs='?', const=1, default=0, type=int)
     parser.add_argument("--voltage", nargs='?', const=1, default=1)
+    parser.add_argument("--scale_x", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
+    parser.add_argument("--scale_y", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
+    parser.add_argument("--scale_z", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
 
     args = parser.parse_args()
     phase = args.phase
     piece_id = args.piece_id
-    start = time.time()
     voltage = args.voltage
+    scale_x = args.scale_x
+    scale_y = args.scale_y
+    scale_z = args.scale_z
+    comm = MPI.COMM_WORLD
+    rank = comm.rank
+    start_time = timeit.default_timer()
 
     if isinstance(args.origin, str):
         origin = tuple(map(lambda v: int(v), args.origin.split(",")))
@@ -60,13 +63,13 @@ if __name__ == '__main__':
 
     logger.debug("Loading tetrahedra mesh..")
 
-    with dolfinx.io.XDMFFile(MPI.COMM_WORLD, tetr_mesh_path, "r") as infile3:
+    with dolfinx.io.XDMFFile(comm, tetr_mesh_path, "r") as infile3:
         mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(mesh, name="Grid")
     mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim - 1)
     # NOTE: Uncomment section when the surface mesh is available 
     # logger.debug("Loading mesh triangles mesh..")
-    # with dolfinx.io.XDMFFile(MPI.COMM_WORLD, tria_mesh_path, "r") as infile3:
+    # with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile3:
     #     mesh_facets = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
     #     facets_ct = infile3.read_meshtags(mesh, name="Grid")
     # left_cc_marker, right_cc_marker, insulated_marker = sorted([int(v) for v in set(facets_ct.values)])
@@ -128,7 +131,7 @@ if __name__ == '__main__':
     uh = model.solve()
     
     # Save solution in XDMF format
-    with dolfinx.io.XDMFFile(MPI.COMM_WORLD, output_potential_path, "w") as outfile:
+    with dolfinx.io.XDMFFile(comm, output_potential_path, "w") as outfile:
         outfile.write_mesh(mesh)
         outfile.write_function(uh)
 
@@ -143,7 +146,7 @@ if __name__ == '__main__':
     current_h = dolfinx.fem.Function(W)
     current_h.interpolate(current_expr)
 
-    with dolfinx.io.XDMFFile(MPI.COMM_WORLD, output_current_path, "w") as file:
+    with dolfinx.io.XDMFFile(comm, output_current_path, "w") as file:
         file.write_mesh(mesh)
         file.write_function(current_h)
 
@@ -171,5 +174,5 @@ if __name__ == '__main__':
     logger.info(f"Homogeneous Neumann BC trace                    : {solution_trace_norm:.2e}")
     logger.info(f"Area-averaged Homogeneous Neumann BC trace      : {avg_solution_trace_norm:.2e}")
     logger.info("Deviation in current at two current collectors  : {:.2f}%".format(deviation_in_current))
-    logger.info("Time elapsed                                    : {:,} seconds".format(int(time.time() - start)))
+    logger.info(f"Time elapsed                                    : {timeit.default_timer() - start_time:3.5f}s")
     logger.info("*************************END-OF-SUMMARY*******************************************")
