@@ -22,11 +22,14 @@ img_dir = "SEM Image/"
 image_files = sorted([os.path.join(img_dir, f) for f in os.listdir(img_dir) if f.endswith(".tif")])
 
 thresholds = [35, 65]
+thresholds2 = [35, 85]
 sigma = 1.5
 
 data = np.zeros((501, 501, 202))
 
 for idx, img_file in enumerate(image_files):
+    if idx == 0:
+        continue
     fname = str(idx).zfill(3) + ".tif"
     image = plt.imread(img_file)[1000-idx:1501-idx, 750:1251]
     img = np.zeros((501, 501))
@@ -42,20 +45,22 @@ for idx, img_file in enumerate(image_files):
     img_sato = filters.sato(img)
     img_gauss_diff = filters.difference_of_gaussians(img, 0.5, 2.5)
     img_segmented = np.digitize(img, bins=thresholds)
-
-    fig, ax = plt.subplots(1, 4)
+    img_segmented2 = np.digitize(img, bins=thresholds2)
+    fig, ax = plt.subplots(1, 5)
     ax[0].imshow(img, cmap='gray')
     ax[0].set_title("Original")
 
-    ax[1].imshow(img_laplace, cmap='gray')
-    ax[1].set_title("Laplace Filter")
+    ax[1].hist(img.ravel(), bins=255, density=True)
+    ax[1].set_title('Image Histogram')
 
-    ax[2].imshow(img_gauss_diff, cmap='magma')
+    ax[2].imshow(img_gauss_diff, cmap='gray')
     ax[2].set_title("Gaussian Blur")
 
     ax[3].imshow(img_segmented, cmap='gray')
-    ax[3].set_title("Segmented Gaussian Blur")
-    # # ax[3].hist(img_meijering.ravel(), bins=255)
-    # # ax[3].set_title('Sato Filter Histogram')
+    ax[3].set_title(f"Segmented Gaussian Blur {thresholds.__repr__()}")
+
+    ax[4].imshow(img_segmented2, cmap='gray')
+    ax[4].set_title(f"Segmented Gaussian Blur {thresholds2.__repr__()}")
+
     plt.show()
     break
