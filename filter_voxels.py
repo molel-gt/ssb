@@ -16,7 +16,7 @@ def load_images(files_list, shape):
     """"""
     Nx, Ny, Nz = shape
     data = np.zeros([int(Nx), int(Ny), int(Nz)], dtype=bool)
-    for i, img_file in enumerate(files_list):
+    for i, img_file in enumerate(sorted(files_list)):
         img = io.imread(img_file)
         data[:, :, i] = img
 
