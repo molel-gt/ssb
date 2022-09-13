@@ -31,6 +31,7 @@ phase_key = {
     "electrolyte": 2,
 }
 
+
 def marching_cubes_filter(voxel_cube):
     """"""
     nx, ny, nz = voxel_cube.shape
