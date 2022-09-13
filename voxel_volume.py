@@ -7,12 +7,14 @@ import time
 import argparse
 import gmsh
 import logging
+import matplotlib.pyplot as plt
 import meshio
 import numpy as np
+import vtk
 
-from stl import mesh
+from skimage import io
 
-import connected_pieces, geometry, utils
+import connected_pieces, filter_voxels, geometry, utils
 
 
 FORMAT = '%(asctime)s: %(message)s'
@@ -20,20 +22,94 @@ logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__file__)
 logger.setLevel('INFO')
 
+upper_threshold = 0.95
+lower_threshold = 0.05
 
-def filter_voxels(voxels, threshold=1):
-    new_voxels = voxels
-    for coord, v in np.ndenumerate(voxels):
-        if v == 0:
-            x0, y0, z0 = coord
+phase_key = {
+    "void": 0,
+    "activematerial": 1,
+    "electrolyte": 2,
+}
+
+def marching_cubes_filter(voxel_cube):
+    """"""
+    nx, ny, nz = voxel_cube.shape
+    max_volume = nx ** 3
+    max_area = nx ** 2
+    total = np.sum(voxel_cube)
+    if np.isclose(total, max_volume):
+        return voxel_cube
+    if total < 3: #lower_threshold * max_volume:
+        return np.zeros(voxel_cube.shape, dtype=voxel_cube.dtype)
+    if total >= upper_threshold * max_volume:
+        avg_x0 = np.sum(voxel_cube[0, :, :])
+        avg_xL = np.sum(voxel_cube[-1, :, :])
+        avg_y0 = np.sum(voxel_cube[:, 0, :])
+        avg_yL = np.sum(voxel_cube[:, -1, :])
+        avg_z0 = np.sum(voxel_cube[:, :, 0])
+        avg_zL = np.sum(voxel_cube[:, :, -1])
+        if np.isclose(np.array([avg_x0, avg_xL, avg_y0, avg_yL, avg_z0, avg_zL]), max_area).all():
+            return np.ones(voxel_cube.shape, voxel_cube.dtype)
+
+    return voxel_cube
+
+
+def apply_filter_to_3d_array(array, size):
+    nx, ny, nz = array.shape
+    filtered_array = np.zeros(array.shape, array.dtype)
+    x_indices = range(0, nx, size)
+    y_indices = range(0, ny, size)
+    z_indices = range(0, nz, size)
+    for idx in x_indices[:-1]:
+        for idy in y_indices[:-1]:
+            for idz in z_indices[:-1]:
+                upper_x = idx + size if (idx + size) < nx else -1
+                upper_y = idy + size if (idy + size) < ny else -1
+                upper_z = idz + size if (idz + size) < nz else -1
+                chunk = array[idx:upper_x, idy:upper_y, idz:upper_z]
+                filtered_array[idx:upper_x, idy:upper_y, idz:upper_z] = marching_cubes_filter(chunk)
+
+    return filtered_array
+
+
+def read_vtk_surface(file_path):
+    """"""
+    reader = vtk.vtkPolyDataReader()
+    reader.SetFileName(file_path)
+    reader.Update()
+
+    polydata = reader.GetOutput()
+    triangles = []
+
+    for i in range(polydata.GetNumberOfCells()):
+        pts = polydata.GetCell(i).GetPoints()    
+        np_pts = np.array([pts.GetPoint(i) for i in range(pts.GetNumberOfPoints())])
+        triangles.append(np_pts)
+    
+    return triangles
+
+
+def electrolyte_bordering_active_material(voxels):
+    effective_electrolyte = set()
+    for idx in np.argwhere(voxels == phase_key["electrolyte"]):
+        x, y, z = idx
+        neighbors = [
+            (x, y + 1, z),
+            (x, y - 1, z),
+            (x + 1, y, z),
+            (x - 1, y, z),
+            (x, y, z + 1),
+            (x, y, z - 1),
+        ]
+        for p in neighbors:
             try:
-                section = voxels[x0 - threshold:x0 + threshold + 1, y0 - threshold : y0 + threshold + 1, z0 - threshold : z0 + threshold + 1]
-                total = np.sum(section)
-                if total >= (2 * threshold + 1) ** 3 - 2:
-                    new_voxels[coord] = 1
+                value = voxels[p]
             except IndexError:
                 continue
-    return new_voxels
+            if value == phase_key["activematerial"]:
+                effective_electrolyte.add(p)
+    
+    return effective_electrolyte
 
 
 def build_cubes(voxels, points):
@@ -119,22 +195,21 @@ if __name__ == "__main__":
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
-    img_dir = os.path.join(args.img_folder, str(phase))
+    img_dir = os.path.join(args.img_folder) #, str(phase))
     mesh_dir = f"mesh/{phase}/{grid_info}_{origin_str}"
     utils.make_dir_if_missing(mesh_dir)
-    old_im_files = sorted([os.path.join(args.img_folder, f) for
+    im_files = sorted([os.path.join(args.img_folder, f) for
                        f in os.listdir(args.img_folder) if f.endswith(".tif")])
-    im_files = [""] * len(old_im_files)
-    for i, f in enumerate(old_im_files):
-        fdir = os.path.dirname(f)
-        idx = int(f.split("/")[-1].split(".")[0])
-        im_files[idx] = f
     n_files = len(im_files)
 
     start_time = time.time()
 
-    voxels = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
-                                         y_lims=(0, Ny), z_lims=(0, Nz), origin=origin, phase=phase)
+    # voxels = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
+    #                                      y_lims=(0, Ny), z_lims=(0, Nz), origin=origin, phase=phase)
+    shape = [*io.imread(im_files[0]).shape, n_files]
+    voxels_all = filter_voxels.load_images(im_files, shape)[:Nx, :Ny, :Nz] - 2
+    filtered = filter_voxels.get_filtered_voxels(voxels_all)
+    voxels = np.isclose(filtered, phase)
     logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Lx * Ly * Lz)))
     n_tetrahedra = 0
     n_triangles = 0
