@@ -18,17 +18,14 @@ import utils
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
     parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
-    parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
-    parser.add_argument("--piece_id", nargs='?', const=1, default="")
-    parser.add_argument("--phase", nargs='?', const=1, default=0, type=int)
+    parser.add_argument('--data_dir', help='directory with mesh files. output will be saved here', required=True, type=str)
     parser.add_argument("--voltage", nargs='?', const=1, default=1)
     parser.add_argument("--scale_x", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
     parser.add_argument("--scale_y", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
     parser.add_argument("--scale_z", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
 
     args = parser.parse_args()
-    phase = args.phase
-    piece_id = args.piece_id
+    data_dir = args.data_dir
     voltage = args.voltage
     scale_x = args.scale_x
     scale_y = args.scale_y
@@ -37,29 +34,19 @@ if __name__ == '__main__':
     rank = comm.rank
     start_time = timeit.default_timer()
 
-    if isinstance(args.origin, str):
-        origin = tuple(map(lambda v: int(v), args.origin.split(",")))
-    else:
-        origin = args.origin
-    origin_str = "-".join([str(v).zfill(3) for v in origin])
     grid_info = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
-    logger = logging.getLogger(f'{grid_info} {origin_str}')
+    logger = logging.getLogger(f'{grid_info}')
     logger.setLevel('INFO')
     Nx, Ny, Nz = [int(v) for v in grid_info.split("-")]
     Lx = (Nx - 1) * scale_x
     Ly = (Ny - 1) * scale_y
     Lz = (Nz - 1) * scale_z
-    working_dir = os.path.abspath(os.path.dirname(__file__))
-    meshes_dir = os.path.join(working_dir, 'mesh')
-    output_dir = os.path.join(working_dir, 'output')
-    utils.make_dir_if_missing(meshes_dir)
-    utils.make_dir_if_missing(output_dir)
-    tetr_mesh_path = os.path.join(meshes_dir, f'{phase}/{grid_info}_{origin_str}/{piece_id}tetr.xdmf')
-    tria_mesh_path = os.path.join(meshes_dir, f'{phase}/{grid_info}_{origin_str}/{piece_id}tria.xdmf')
-    output_current_path = os.path.join(output_dir, f'{phase}/{grid_info}_{origin_str}/{piece_id}current.xdmf')
-    output_potential_path = os.path.join(output_dir, f'{phase}/{grid_info}_{origin_str}/{piece_id}potential.xdmf')
+    tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
+    tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
+    output_current_path = os.path.join(data_dir, 'current.xdmf')
+    output_potential_path = os.path.join(data_dir, 'potential.xdmf')
 
     logger.debug("Loading tetrahedra mesh..")
 
@@ -69,18 +56,21 @@ if __name__ == '__main__':
     mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim - 1)
     # NOTE: Uncomment section when the surface mesh is available 
     # logger.debug("Loading mesh triangles mesh..")
-    # with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile3:
-    #     mesh_facets = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
-    #     facets_ct = infile3.read_meshtags(mesh, name="Grid")
-    # left_cc_marker, right_cc_marker, insulated_marker = sorted([int(v) for v in set(facets_ct.values)])
+    with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile3:
+        mesh_facets = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
+        facets_ct = infile3.read_meshtags(mesh, name="Grid")
+    left_cc_marker, right_cc_marker, insulated_marker, active_marker, inactive_marker = sorted([int(v) for v in set(facets_ct.values)])
     # and has current collectors and insulators labeled
-    # x0facet = np.array(facets_ct.indices[facets_ct.values == left_cc_marker])
-    # x1facet = np.array(facets_ct.indices[facets_ct.values == right_cc_marker])
-    x0facet = dolfinx.mesh.locate_entities_boundary(mesh, 2,
-                                    lambda x: np.isclose(x[1], 0.0))
-    x1facet = dolfinx.mesh.locate_entities_boundary(mesh, 2,
-                                    lambda x: np.isclose(x[1], Ly))
-    insulated_facet = dolfinx.mesh.locate_entities_boundary(mesh, 2, lambda x: np.logical_and(np.logical_not(np.isclose(x[1], 0)), np.logical_not(np.isclose(x[1], Ly))))
+    x0facet = np.array(facets_ct.indices[facets_ct.values == left_cc_marker])
+    x1facet = np.array(facets_ct.indices[facets_ct.values == right_cc_marker])
+    insulated_facet = np.array(facets_ct.indices[facets_ct.values == insulated_marker])
+    active_facet = np.array(facets_ct.indices[facets_ct.values == active_marker])
+    inactive_facet = np.array(facets_ct.indices[facets_ct.values == inactive_marker])
+    # x0facet = dolfinx.mesh.locate_entities_boundary(mesh, 2,
+    #                                 lambda x: np.isclose(x[1], 0.0))
+    # x1facet = dolfinx.mesh.locate_entities_boundary(mesh, 2,
+    #                                 lambda x: np.isclose(x[1], Ly))
+    # insulated_facet = dolfinx.mesh.locate_entities_boundary(mesh, 2, lambda x: np.logical_and(np.logical_not(np.isclose(x[1], 0)), np.logical_not(np.isclose(x[1], Ly))))
 
     # Dirichlet BCs
     V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 2))
@@ -95,12 +85,12 @@ if __name__ == '__main__':
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 2, x1facet))
 
     # # Neumann BC
-    left_cc_marker = 1
-    right_cc_marker = 2
-    insulated_marker = 3
-    facets_ct_indices = np.hstack((x0facet, x1facet, insulated_facet))
-    facets_ct_values = np.hstack((np.ones(x0facet.shape[0], dtype=np.int32), 2 * np.ones(x1facet.shape[0], dtype=np.int32), 3 * np.ones(insulated_facet.shape[0], dtype=np.int32)))
-    surf_meshtags = dolfinx.mesh.meshtags(mesh, 2, facets_ct_indices, facets_ct_values)
+    # left_cc_marker = 1
+    # right_cc_marker = 2
+    # insulated_marker = 3
+    # facets_ct_indices = np.hstack((x0facet, x1facet, insulated_facet))
+    # facets_ct_values = np.hstack((np.ones(x0facet.shape[0], dtype=np.int32), 2 * np.ones(x1facet.shape[0], dtype=np.int32), 3 * np.ones(insulated_facet.shape[0], dtype=np.int32)))
+    surf_meshtags = dolfinx.mesh.meshtags(mesh, 2, facets_ct.indices, facets_ct.values)
     n = -ufl.FacetNormal(mesh)
     ds = ufl.Measure("ds", domain=mesh, subdomain_data=surf_meshtags, subdomain_id=insulated_marker)
     ds_left_cc = ufl.Measure('ds', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=left_cc_marker)
@@ -174,5 +164,5 @@ if __name__ == '__main__':
     logger.info(f"Homogeneous Neumann BC trace                    : {solution_trace_norm:.2e}")
     logger.info(f"Area-averaged Homogeneous Neumann BC trace      : {avg_solution_trace_norm:.2e}")
     logger.info("Deviation in current at two current collectors  : {:.2f}%".format(deviation_in_current))
-    logger.info(f"Time elapsed                                    : {timeit.default_timer() - start_time:3.5f}s")
+    logger.info(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
     logger.info("*************************END-OF-SUMMARY*******************************************")
