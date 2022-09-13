@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+from bdb import effective
 import os
 import subprocess
 import time
@@ -31,6 +32,13 @@ phase_key = {
     "electrolyte": 2,
 }
 
+surface_tags = {
+    "left_cc": 0,
+    "right_cc": 1,
+    "insulated": 2,
+    "inactive_area": 3,
+    "active_area": 4,
+}
 
 def marching_cubes_filter(voxel_cube):
     """"""
@@ -108,9 +116,50 @@ def electrolyte_bordering_active_material(voxels):
             except IndexError:
                 continue
             if value == phase_key["activematerial"]:
-                effective_electrolyte.add(p)
+                effective_electrolyte.add(set(p))
     
     return effective_electrolyte
+
+
+def generate_surface_mesh(triangles, effective_electrolyte, points, shape):
+    """"""
+    _, Ny, _ = shape
+    cells = np.zeros((len(triangles), 3))
+    cell_data = []
+    point_ids = set()
+    new_points = np.zeros((max(points.values()) + 1, 3))
+    for k, v in points.items():
+        new_points[v, :] = k
+    counter = 0
+    for triangle in triangles:
+        coord0, coord1, coord2 = [tuple(v) for v in triangle]
+        try:
+            p0 = points[coord0]
+            p1 = points[coord1]
+            p2 = points[coord2]
+        except KeyError:
+            continue
+        cells[counter, :] = [p0, p1, p2]
+        counter += 1
+        point_ids |= {p0, p1, p2}
+        tags = []
+        y_vals = [v[1] for v in triangle]
+        if np.isclose(y_vals, 0).all():
+            tags.append(surface_tags["left_cc"])
+        elif np.isclose(y_vals, Ny - 1).all():
+            tags.append(surface_tags["right_cc"])
+        else:
+            tags.append(surface_tags["insulated"])
+        if {p0, p1, p2}.issubset(effective_electrolyte):
+            tags.append(surface_tags["active_area"])
+        else:
+            tags.append(surface_tags["inactive_area"])
+        cell_data.append(tags)
+    out_mesh = meshio.Mesh(points=new_points,
+                           cells={"triangle": cells},
+                           cell_data={"name_to_read": [cell_data]}
+                           )
+    return out_mesh
 
 
 def build_cubes(voxels, points):
@@ -205,10 +254,8 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    # voxels = geometry.load_images_to_voxel(im_files, x_lims=(0, Nx),
-    #                                      y_lims=(0, Ny), z_lims=(0, Nz), origin=origin, phase=phase)
     shape = [*io.imread(im_files[0]).shape, n_files]
-    voxels_all = filter_voxels.load_images(im_files, shape)[:Nx, :Ny, :Nz] - 2
+    voxels_all = filter_voxels.load_images(im_files, shape)[:Nx, :Ny, :Nz]
     filtered = filter_voxels.get_filtered_voxels(voxels_all)
     voxels = np.isclose(filtered, phase)
     logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Lx * Ly * Lz)))
@@ -228,8 +275,11 @@ if __name__ == "__main__":
     tetfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.ele"
     facesfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.face"
     vtkfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.1.vtk"
+    surface_vtk = f"mesh/{phase}/{grid_info}_{origin_str}/surface.vtk"
     stlfile = f"mesh/{phase}/{grid_info}_{origin_str}/new-porous.stl"
     mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous_tetr.msh"
+    tetr_xdmf = f"mesh/{phase}/{grid_info}_{origin_str}/tetr.xdmf"
+    tria_xdmf = f"mesh/{phase}/{grid_info}_{origin_str}/tria.xdmf"
     with open(nodefile, "w") as fp:
         fp.write("# node count, 3 dim, no attribute, no boundary marker\n")
         fp.write("%d 3 0 0\n" % int(np.sum(voxels)))
@@ -248,6 +298,12 @@ if __name__ == "__main__":
             fp.write(f"{tet_id} {p1} {p2} {p3} {p4}\n")
 
     retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -BdkQr", shell=True)
+    retcode_paraview = subprocess.check_call("pvpython extractSurf.py {}".format(os.path.dirname(surface_vtk)), shell=True)
+    triangles = read_vtk_surface(surface_vtk)
+    effective_electrolyte = electrolyte_bordering_active_material(voxels)
+    tria_mesh = generate_surface_mesh(triangles, effective_electrolyte, points, shape)
+    meshio.write(tria_xdmf, tria_mesh)
+
     gmsh.initialize()
     gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
@@ -277,6 +333,6 @@ if __name__ == "__main__":
 
     vol_msh = meshio.read(mshfile)
     tetra_mesh = geometry.create_mesh(vol_msh, "tetra")
-    meshio.write(f"mesh/{phase}/{grid_info}_{origin_str}/tetr.xdmf", tetra_mesh)
+    meshio.write(tetr_xdmf, tetra_mesh)
 
     logger.info("Took {:,} seconds".format(int(time.time() - start_time)))
