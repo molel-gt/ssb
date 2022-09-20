@@ -250,7 +250,7 @@ if __name__ == "__main__":
                         required=True)
     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
     parser.add_argument("--resolution", nargs='?', const=1, default=0.5, type=float)
-    parser.add_argument("--phase", nargs='?', const=1, default=0, type=int)
+    parser.add_argument("--phase", nargs='?', const=1, default=1, type=int)
     parser.add_argument("--scale_x", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
     parser.add_argument("--scale_y", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
     parser.add_argument("--scale_z", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
