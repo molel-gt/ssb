@@ -54,19 +54,19 @@ if __name__ == '__main__':
         mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(mesh, name="Grid")
     mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim - 1)
-    # NOTE: Uncomment section when the surface mesh is available 
+
     logger.debug("Loading mesh triangles mesh..")
     with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile3:
         mesh_facets = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         facets_ct = infile3.read_meshtags(mesh, name="Grid")
-    print(np.unique(facets_ct.values))
+
     # left_cc_marker, right_cc_marker, insulated_marker, active_marker, inactive_marker = sorted([int(v) for v in set(facets_ct.values)])
     left_cc_marker = constants.surface_tags["left_cc"]
     right_cc_marker = constants.surface_tags["right_cc"]
     insulated_marker = constants.surface_tags["insulated"]
     active_marker = constants.surface_tags["active_area"]
     inactive_marker = constants.surface_tags["inactive_area"]
-    # and has current collectors and insulators labeled
+
     x0facet = np.array(facets_ct.indices[facets_ct.values == left_cc_marker])
     x1facet = np.array(facets_ct.indices[facets_ct.values == right_cc_marker])
     insulated_facet = np.array(facets_ct.indices[facets_ct.values == insulated_marker])
@@ -101,6 +101,7 @@ if __name__ == '__main__':
     ds = ufl.Measure("ds", domain=mesh, subdomain_data=surf_meshtags, subdomain_id=insulated_marker)
     ds_left_cc = ufl.Measure('ds', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=left_cc_marker)
     ds_right_cc = ufl.Measure('ds', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=right_cc_marker)
+    ds_active = ufl.Measure('ds', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=active_marker)
 
     # Define variational problem
     u = ufl.TrialFunction(V)
@@ -147,6 +148,7 @@ if __name__ == '__main__':
         file.write_function(current_h)
 
     insulated_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds))
+    active_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_active))
     area_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_left_cc))
     area_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_right_cc))
     i_left_cc = (1/area_left_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds_left_cc))
@@ -165,6 +167,7 @@ if __name__ == '__main__':
     logger.info("Total Area [sq. um]                             : {:,}".format(int(area_left_cc + area_right_cc + insulated_area)))
     logger.info("Total Volume [cu. um]                           : {:,}".format(int(total_volume)))
     logger.info("Electrolyte Volume Fraction                     : {:0.4f}".format(total_volume/(Lx * Ly * Lz)))
+    logger.info("Effective Active Material Specific Area         : {}".format(active_area/(Lx * Ly * Lz)))
     logger.info("Bulk conductivity [S.m-1]                       : {:.4f}".format(0.1))
     logger.info("Effective conductivity [S.m-1]                  : {:.4f}".format(Ly * area_left_cc * i_left_cc / (voltage * (Lx * Lz))))
     logger.info(f"Homogeneous Neumann BC trace                    : {solution_trace_norm:.2e}")

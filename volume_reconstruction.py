@@ -30,10 +30,10 @@ phase_key = constants.phase_key
 surface_tags = constants.surface_tags
 
 
-def number_of_neighbors(voxels, phase_name):
+def number_of_neighbors(voxels):
     """"""
     num_neighbors = np.zeros(voxels.shape, dtype=np.uint8)
-    for idx in np.argwhere(voxels == phase_key[phase_name]):
+    for idx in np.argwhere(np.isclose(voxels, 1)):
         x, y, z = idx
         neighbors = [
             (x, y + 1, z),
@@ -47,7 +47,7 @@ def number_of_neighbors(voxels, phase_name):
         for p in neighbors:
             try:
                 phase_value = voxels[p]
-                sum_neighbors += (phase_value == phase_key[phase_name])
+                sum_neighbors += phase_value
             except IndexError:
                 continue
         num_neighbors[idx] = sum_neighbors
@@ -285,9 +285,11 @@ if __name__ == "__main__":
     voxels_filtered = filter_voxels.get_filtered_voxels(voxels_raw)
     voxels = np.isclose(voxels_filtered, phase)
 
-    neighbors = number_of_neighbors(voxels_raw, "electrolyte")
+    neighbors = number_of_neighbors(voxels)
+    print(len(np.argwhere(neighbors < 6)), np.unique(neighbors))
     effective_electrolyte = electrolyte_bordering_active_material(voxels_filtered)
-    logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Lx * Ly * Lz)))
+    logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Nx * Ny * Nz)))
+    # Only label points that will be used for meshing
     n_tetrahedra = 0
     n_triangles = 0
     counter = 0
@@ -300,6 +302,33 @@ if __name__ == "__main__":
         for tet in _tetrahedra:
             tetrahedra[tet] = n_tetrahedra
             n_tetrahedra += 1
+    tetrahedra_np = np.zeros((n_tetrahedra, 12))
+    points_set = set()
+    for i, tet in enumerate(list(tetrahedra.keys())):
+        for j, vertex in enumerate(tet):
+            coord = points_view[vertex]
+            tetrahedra_np[i, 3*j:3*j+3] = coord
+            points_set.add(tuple(coord))
+    dummy_voxels = np.zeros(voxels.shape, dtype=voxels.dtype)
+    for coord in points_set:
+        dummy_voxels[coord] = 1
+    new_neighbors = number_of_neighbors(dummy_voxels)
+    points = {}
+    points_view = {}
+    points_id = 0
+    for idx in np.argwhere(new_neighbors < 6):
+        points[tuple(idx)] = points_id
+        points_id += 1
+    for point in points_set:
+        if points.get(point) is None:
+            points[point] = points_id
+            points_id += 1
+    points_view = {v: k for k, v in points.items()}
+    tetrahedra = np.zeros((n_tetrahedra, 4))
+    for i in range(n_tetrahedra):
+        for j, k in enumerate(range(0, 12, 3)):
+            tetrahedra[i, j] = int(points[tuple(tetrahedra_np[i, k:k+3])])
+
     nodefile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.node"
     tetfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.ele"
     facesfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.face"
@@ -312,13 +341,13 @@ if __name__ == "__main__":
     tria_xdmf = f"mesh/{phase}/{grid_info}_{origin_str}/tria.xdmf"
 
     with open(nodefile, "w") as fp:
-        fp.write("%d 3 0 1\n" % int(np.sum(voxels)))
-        for point_id in range(np.sum(voxels)):
-            x0, y0, z0 = points_view[point_id]
+        fp.write("%d 3 0 1\n" % int(len(points.values())))
+        for coord, point_id in points.items():
+            x0, y0, z0 = coord
             # set tags
-            tag1 = None
+            tag1 = 0
             tag2 = None
-            if neighbors[(x0, y0, z0)] < 8:
+            if neighbors[(x0, y0, z0)] < 6:
                 if np.isclose(y0, 0):
                     tag1 = surface_tags["left_cc"]
                 elif np.isclose(y0, Ny - 1):
@@ -338,12 +367,13 @@ if __name__ == "__main__":
 
     with open(tetfile, "w") as fp:
         fp.write(f"{n_tetrahedra} 4 0\n")
-        for tetrahedron, tet_id in tetrahedra.items():
-            p1, p2, p3, p4 = tetrahedron
+        for tet_id, tetrahedron in enumerate(tetrahedra):
+            p1, p2, p3, p4 = [int(v) for v in tetrahedron]
             fp.write(f"{tet_id} {p1} {p2} {p3} {p4}\n")
 
     # Free up memory of objects we won't use
     tetrahedra = None
+    tetrahedra_np = None
     cubes = None
     voxels = None
     gc.collect()
@@ -372,7 +402,8 @@ if __name__ == "__main__":
 
     vol_msh = meshio.read(mshfile)
     tetra_mesh = geometry.create_mesh(vol_msh, "tetra")
-    meshio.write(tetr_xdmf, vol_msh)
+    tetra_mesh.write(tetr_xdmf)
+    # meshio.write(tetr_xdmf, vol_msh)
 
     # Surface Mesh
     triangles = read_vtk_surface(surface_vtk)
