@@ -13,3 +13,5 @@ surface_tags = {
     "active_area": 4,
     "inactive_area": 5,
 }
+
+HFW = 80.4/1768  # micrometers for FIB-SEM per pixel width

@@ -107,14 +107,15 @@ def read_vtk_surface(file_path):
 
     for i in range(polydata.GetNumberOfCells()):
         pts = polydata.GetCell(i).GetPoints()    
-        np_pts = np.array([pts.GetPoint(i) for i in range(pts.GetNumberOfPoints())])
+        np_pts = np.array([np.around(pts.GetPoint(i), 8) for i in range(pts.GetNumberOfPoints())])
         triangles.append(np_pts)
     
     return triangles
 
 
-def electrolyte_bordering_active_material(voxels):
+def electrolyte_bordering_active_material(voxels, scaling=(1, 1, 1)):
     effective_electrolyte = set()
+    scale_x, scale_y, scale_z = scaling
     for idx in np.argwhere(voxels == phase_key["electrolyte"]):
         x, y, z = [int(v) for v in idx]
         neighbors = [
@@ -129,19 +130,19 @@ def electrolyte_bordering_active_material(voxels):
             try:
                 value = voxels[p]
                 if value == phase_key["activematerial"]:
-                    effective_electrolyte.add(tuple(idx))
+                    effective_electrolyte.add(tuple([np.around(idx[0] * scale_x, 8), np.around(idx[1] * scale_y, 8), np.around(idx[2] * scale_z, 8)]))
             except IndexError:
                 continue
 
     return effective_electrolyte
 
 
-def generate_surface_mesh(triangles, effective_electrolyte, points, shape):
+def generate_surface_mesh(triangles, effective_electrolyte, points, shape, scaling=(1, 1, 1)):
     """"""
     _, Ny, _ = shape
     cells = np.zeros((len(triangles), 3), dtype=np.int32)
     cell_data = []
-    point_ids = set()
+    scale_y = scaling[1]
     
     counter = 0
     points_counter = 0
@@ -159,19 +160,19 @@ def generate_surface_mesh(triangles, effective_electrolyte, points, shape):
         new_points[v, :] = k
 
     for triangle in triangles:
-        coord0, coord1, coord2 = [tuple([int(xv) for xv in v]) for v in triangle]
+        coord0, coord1, coord2 = [tuple([xv for xv in v]) for v in triangle]
 
         p0 = points[coord0]
         p1 = points[coord1]
         p2 = points[coord2]
         cells[counter, :] = [p0, p1, p2]
         counter += 1
-        point_ids |= {p0, p1, p2}
+        # point_ids |= {p0, p1, p2}
         tags = []
         y_vals = [v[1] for v in triangle]
         if np.isclose(y_vals, 0).all():
             tags.append(surface_tags["left_cc"])
-        elif np.isclose(y_vals, Ny - 1).all():
+        elif np.isclose(y_vals, np.around(scale_y * (Ny - 1), 8)).all():
             tags.append(surface_tags["right_cc"])
         else:
             tags.append(surface_tags["insulated"])
@@ -285,7 +286,7 @@ if __name__ == "__main__":
     voxels = np.isclose(voxels_filtered, phase)
 
     neighbors = number_of_neighbors(voxels)
-    effective_electrolyte = electrolyte_bordering_active_material(voxels_filtered)
+    effective_electrolyte = electrolyte_bordering_active_material(voxels_filtered, scaling=(scale_x, scale_y, scale_z))
     logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Nx * Ny * Nz)))
     # Only label points that will be used for meshing
     n_tetrahedra = 0
@@ -315,7 +316,7 @@ if __name__ == "__main__":
     points_view = {}
     points_id = 0
     for idx in np.argwhere(new_neighbors < 6):
-        points[tuple(idx)] = points_id
+        points[tuple([np.around(v, 8) for v in idx])] = points_id
         points_id += 1
     for point in points_set:
         if points.get(point) is None:
@@ -348,7 +349,7 @@ if __name__ == "__main__":
             if neighbors[(x0, y0, z0)] < 6:
                 if np.isclose(y0, 0):
                     tag1 = surface_tags["left_cc"]
-                elif np.isclose(y0, Ny - 1):
+                elif np.isclose(y0, scale_y * (Ny - 1)):
                     tag1 = surface_tags["right_cc"]
                 else:
                     tag1 = surface_tags["insulated"]
@@ -404,7 +405,7 @@ if __name__ == "__main__":
 
     # Surface Mesh
     triangles = read_vtk_surface(surface_vtk)
-    new_points, tria_mesh = generate_surface_mesh(triangles, effective_electrolyte, points, (Nx, Ny, Nz))
+    new_points, tria_mesh = generate_surface_mesh(triangles, effective_electrolyte, points, (Nx, Ny, Nz), scaling=(scale_x, scale_y, scale_z))
     tria_mesh.write(tria_xdmf)
 
     logger.info("Took {:,} seconds".format(int(time.time() - start_time)))
