@@ -107,7 +107,7 @@ def read_vtk_surface(file_path):
 
     for i in range(polydata.GetNumberOfCells()):
         pts = polydata.GetCell(i).GetPoints()    
-        np_pts = np.array([np.around(pts.GetPoint(i), 8) for i in range(pts.GetNumberOfPoints())])
+        np_pts = np.array([np.around(pts.GetPoint(j), 8) for j in range(pts.GetNumberOfPoints())])
         triangles.append(np_pts)
     
     return triangles
@@ -167,7 +167,6 @@ def generate_surface_mesh(triangles, effective_electrolyte, points, shape, scali
         p2 = points[coord2]
         cells[counter, :] = [p0, p1, p2]
         counter += 1
-        # point_ids |= {p0, p1, p2}
         tags = []
         y_vals = [v[1] for v in triangle]
         if np.isclose(y_vals, 0).all():
@@ -316,11 +315,12 @@ if __name__ == "__main__":
     points_view = {}
     points_id = 0
     for idx in np.argwhere(new_neighbors < 6):
-        points[tuple([np.around(v, 8) for v in idx])] = points_id
+        points[tuple([np.around(idx[0] * scale_x, 8), np.around(idx[1] * scale_y, 8), np.around(idx[2] * scale_y, 8)])] = points_id
         points_id += 1
     for point in points_set:
-        if points.get(point) is None:
-            points[point] = points_id
+        coord = (np.around(point[0] * scale_x, 8), np.around(point[1] * scale_y, 8), np.around(point[1] * scale_z, 8))
+        if points.get(coord) is None:
+            points[coord] = points_id
             points_id += 1
     points_view = {v: k for k, v in points.items()}
     tetrahedra = np.zeros((n_tetrahedra, 4))
