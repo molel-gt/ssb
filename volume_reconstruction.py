@@ -1,6 +1,5 @@
 #! /usr/bin/env python3
 
-from cmath import isclose
 import gc
 import os
 import subprocess
@@ -16,7 +15,7 @@ import vtk
 
 from skimage import io
 
-import connected_pieces, filter_voxels, geometry, utils
+import connected_pieces, constants, filter_voxels, geometry, utils
 
 
 FORMAT = '%(asctime)s: %(message)s'
@@ -27,19 +26,9 @@ logger.setLevel('INFO')
 upper_threshold = 0.95
 lower_threshold = 0.05
 
-phase_key = {
-    "void": 0,
-    "activematerial": 1,
-    "electrolyte": 2,
-}
+phase_key = constants.phase_key
+surface_tags = constants.surface_tags
 
-surface_tags = {
-    "left_cc": 1,
-    "right_cc": 2,
-    "insulated": 3,
-    "inactive_area": 4,
-    "active_area": 5,
-}
 
 def number_of_neighbors(voxels, phase_name):
     """"""
@@ -153,18 +142,29 @@ def generate_surface_mesh(triangles, effective_electrolyte, points, shape):
     cells = np.zeros((len(triangles), 3), dtype=np.int32)
     cell_data = []
     point_ids = set()
+    points0 = {}
+    
+    counter = 0
+    points_counter = 0
+    for triangle in triangles:
+        coord0, coord1, coord2 = [tuple(v) for v in triangle]
+        for coord in triangle:
+            if points0.get(tuple(coord)) is None:
+                points0[tuple(coord)] = points_counter
+                points_counter += 1
+    points = points0
+    effective_electrolyte2 = set()
+    for p in effective_electrolyte:
+        effective_electrolyte2.add(points[tuple(p)])
     new_points = np.zeros((max(points.values()) + 1, 3))
     for k, v in points.items():
         new_points[v, :] = k
-    counter = 0
     for triangle in triangles:
         coord0, coord1, coord2 = [tuple(v) for v in triangle]
-        try:
-            p0 = points[coord0]
-            p1 = points[coord1]
-            p2 = points[coord2]
-        except KeyError:
-            continue
+
+        p0 = points[coord0]
+        p1 = points[coord1]
+        p2 = points[coord2]
         cells[counter, :] = [p0, p1, p2]
         counter += 1
         point_ids |= {p0, p1, p2}
@@ -176,16 +176,16 @@ def generate_surface_mesh(triangles, effective_electrolyte, points, shape):
             tags.append(surface_tags["right_cc"])
         else:
             tags.append(surface_tags["insulated"])
-        if {p0, p1, p2}.issubset(effective_electrolyte):
+        if {p0, p1, p2}.issubset(effective_electrolyte2):
             tags.append(surface_tags["active_area"])
         else:
             tags.append(surface_tags["inactive_area"])
         cell_data.append(tags)
     out_mesh = meshio.Mesh(points=new_points,
                            cells={"triangle": cells},
-                           cell_data={"name_to_read": [np.array(cell_data)]}
+                           cell_data={"name_to_read": [np.array([v for v in cell_data])]}
                            )
-    return out_mesh
+    return points, out_mesh
 
 
 def build_cubes(voxels, points):
@@ -281,12 +281,12 @@ if __name__ == "__main__":
     start_time = time.time()
 
     shape = [*io.imread(im_files[0]).shape, n_files]
-    voxels_all = filter_voxels.load_images(im_files, shape)[:Nx, :Ny, :Nz]
-    filtered = filter_voxels.get_filtered_voxels(voxels_all)
-    voxels = np.isclose(filtered, phase)
+    voxels_raw = filter_voxels.load_images(im_files, shape)[:Nx, :Ny, :Nz]
+    voxels_filtered = filter_voxels.get_filtered_voxels(voxels_raw)
+    voxels = np.isclose(voxels_filtered, phase)
 
-    neighbors = number_of_neighbors(voxels, "electrolyte")
-    effective_electrolyte = electrolyte_bordering_active_material(voxels)
+    neighbors = number_of_neighbors(voxels_raw, "electrolyte")
+    effective_electrolyte = electrolyte_bordering_active_material(voxels_filtered)
     logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Lx * Ly * Lz)))
     n_tetrahedra = 0
     n_triangles = 0
@@ -376,29 +376,7 @@ if __name__ == "__main__":
 
     # Surface Mesh
     triangles = read_vtk_surface(surface_vtk)
-    tria_mesh = generate_surface_mesh(triangles, effective_electrolyte, points, shape)
-    tria_mesh.write(surf_mshfile)
-    # meshio.write(tria_xdmf, tria_mesh)
-    gmsh.initialize()
-    gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
-    gmsh.model.add("surface")
-    gmsh.merge(surf_mshfile)
-    gmsh.model.occ.synchronize()
-    insulated = []
-    left_cc = []
-    right_cc = []
-    surfaces = gmsh.model.getEntities(dim=2)
-    for surface in surfaces:
-        surf = gmsh.model.addPhysicalGroup(2, [surface[1]])
-        gmsh.model.setPhysicalName(2, surf, f"S{surf}")
-    gmsh.model.occ.synchronize()
-    gmsh.model.mesh.generate(3)
-    gmsh.write(surf_mshfile)
-    gmsh.finalize()
-    surf_msh = meshio.read(surf_mshfile)
-    tria_mesh = geometry.create_mesh(surf_msh, "triangle")
-    meshio.write(tria_xdmf, tria_mesh)
+    new_points, tria_mesh = generate_surface_mesh(triangles, effective_electrolyte, points, shape)
+    tria_mesh.write(tria_xdmf)
 
     logger.info("Took {:,} seconds".format(int(time.time() - start_time)))

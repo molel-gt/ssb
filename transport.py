@@ -12,7 +12,7 @@ import ufl
 from mpi4py import MPI
 from petsc4py import PETSc
 
-import utils
+import constants, utils
 
 
 if __name__ == '__main__':
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{grid_info}')
-    logger.setLevel('INFO')
+    logger.setLevel('DEBUG')
     Nx, Ny, Nz = [int(v) for v in grid_info.split("-")]
     Lx = (Nx - 1) * scale_x
     Ly = (Ny - 1) * scale_y
@@ -55,11 +55,17 @@ if __name__ == '__main__':
         ct = infile3.read_meshtags(mesh, name="Grid")
     mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim - 1)
     # NOTE: Uncomment section when the surface mesh is available 
-    # logger.debug("Loading mesh triangles mesh..")
+    logger.debug("Loading mesh triangles mesh..")
     with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile3:
         mesh_facets = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         facets_ct = infile3.read_meshtags(mesh, name="Grid")
-    left_cc_marker, right_cc_marker, insulated_marker, active_marker, inactive_marker = sorted([int(v) for v in set(facets_ct.values)])
+    print(np.unique(facets_ct.values))
+    # left_cc_marker, right_cc_marker, insulated_marker, active_marker, inactive_marker = sorted([int(v) for v in set(facets_ct.values)])
+    left_cc_marker = constants.surface_tags["left_cc"]
+    right_cc_marker = constants.surface_tags["right_cc"]
+    insulated_marker = constants.surface_tags["insulated"]
+    active_marker = constants.surface_tags["active_area"]
+    inactive_marker = constants.surface_tags["inactive_area"]
     # and has current collectors and insulators labeled
     x0facet = np.array(facets_ct.indices[facets_ct.values == left_cc_marker])
     x1facet = np.array(facets_ct.indices[facets_ct.values == right_cc_marker])
