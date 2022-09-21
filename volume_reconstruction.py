@@ -113,9 +113,8 @@ def read_vtk_surface(file_path):
     return triangles
 
 
-def electrolyte_bordering_active_material(voxels, scaling=(1, 1, 1)):
+def electrolyte_bordering_active_material(voxels):
     effective_electrolyte = set()
-    scale_x, scale_y, scale_z = scaling
     for idx in np.argwhere(voxels == phase_key["electrolyte"]):
         x, y, z = [int(v) for v in idx]
         neighbors = [
@@ -130,7 +129,7 @@ def electrolyte_bordering_active_material(voxels, scaling=(1, 1, 1)):
             try:
                 value = voxels[p]
                 if value == phase_key["activematerial"]:
-                    effective_electrolyte.add(tuple([np.around(idx[0] * scale_x, 8), np.around(idx[1] * scale_y, 8), np.around(idx[2] * scale_z, 8)]))
+                    effective_electrolyte.add(tuple(idx))
             except IndexError:
                 continue
 
@@ -175,6 +174,9 @@ def generate_surface_mesh(triangles, effective_electrolyte, points, shape, scali
             tags.append(surface_tags["right_cc"])
         else:
             tags.append(surface_tags["insulated"])
+        coord0 = (int(np.rint(coord0[0]/scale_x)), int(np.rint(coord0[1]/scale_y)), int(np.rint(coord0[2]/scale_z)))
+        coord1 = (int(np.rint(coord1[0]/scale_x)), int(np.rint(coord1[1]/scale_y)), int(np.rint(coord1[2]/scale_z)))
+        coord2 = (int(np.rint(coord2[0]/scale_x)), int(np.rint(coord2[1]/scale_y)), int(np.rint(coord2[2]/scale_z)))
         if {coord0, coord1, coord2}.issubset(effective_electrolyte):
             tags.append(surface_tags["active_area"])
         else:
@@ -285,7 +287,7 @@ if __name__ == "__main__":
     voxels = np.isclose(voxels_filtered, phase)
 
     neighbors = number_of_neighbors(voxels)
-    effective_electrolyte = electrolyte_bordering_active_material(voxels_filtered, scaling=(scale_x, scale_y, scale_z))
+    effective_electrolyte = electrolyte_bordering_active_material(voxels_filtered)
     logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Nx * Ny * Nz)))
     # Only label points that will be used for meshing
     n_tetrahedra = 0
@@ -315,10 +317,10 @@ if __name__ == "__main__":
     points_view = {}
     points_id = 0
     for idx in np.argwhere(new_neighbors < 6):
-        points[tuple([np.around(idx[0] * scale_x, 8), np.around(idx[1] * scale_y, 8), np.around(idx[2] * scale_y, 8)])] = points_id
+        points[tuple(idx)] = points_id
         points_id += 1
     for point in points_set:
-        coord = (np.around(point[0] * scale_x, 8), np.around(point[1] * scale_y, 8), np.around(point[1] * scale_z, 8))
+        coord = point
         if points.get(coord) is None:
             points[coord] = points_id
             points_id += 1
