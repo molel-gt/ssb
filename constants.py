@@ -15,3 +15,8 @@ surface_tags = {
 }
 
 HFW = 80.4/1768  # micrometers for FIB-SEM per pixel width
+
+# Decimal places in scientific notation
+EXP_DIGITS = 4
+
+KAPPA0 = 0.1  # bulk ionic conductivity Siemens/meter
