@@ -64,8 +64,8 @@ if __name__ == '__main__':
     left_cc_marker = constants.surface_tags["left_cc"]
     right_cc_marker = constants.surface_tags["right_cc"]
     insulated_marker = constants.surface_tags["insulated"]
-    active_marker = constants.surface_tags["active_area"]
-    inactive_marker = constants.surface_tags["inactive_area"]
+    # active_marker = constants.surface_tags["active_area"]
+    # inactive_marker = constants.surface_tags["inactive_area"]
 
     # x0facet = np.array(facets_ct.indices[facets_ct.values == left_cc_marker])
     # x1facet = np.array(facets_ct.indices[facets_ct.values == right_cc_marker])
@@ -83,13 +83,6 @@ if __name__ == '__main__':
     with u1.vector.localForm() as u1_loc:
         u1_loc.set(0.0)
     
-    # surface_2d = dolfinx.mesh.locate_entities_boundary(mesh, 2, lambda x: np.isfinite(x[1]))
-    # surface_0d = dolfinx.mesh.locate_entities_boundary(mesh, 0, lambda x: np.isfinite(x[1]))
-    # mesh2d = dolfinx.mesh.create_mesh(comm, surface_2d)
-    # with dolfinx.io.XDMFFile(comm, tria_mesh_path, "w") as fp:
-    #     fp.write_mesh(d2_mesh)
-    # print(surface_2d.shape, surface_0d.shape)
-    
     x0facet = dolfinx.mesh.locate_entities_boundary(mesh, 2,
                                     lambda x: np.isclose(x[1], 0.0))
     x1facet = dolfinx.mesh.locate_entities_boundary(mesh, 2,
@@ -102,11 +95,12 @@ if __name__ == '__main__':
     facets_ct_values = np.hstack((np.ones(x0facet.shape[0], dtype=np.int32), 2 * np.ones(x1facet.shape[0], dtype=np.int32), 3 * np.ones(insulated_facet.shape[0], dtype=np.int32)))
 
     surf_meshtags = dolfinx.mesh.meshtags(mesh, 2, facets_ct_indices, facets_ct_values)
+    surf_meshtags2 = dolfinx.mesh.meshtags(mesh, 2, facets_ct.indices, facets_ct.values)
     n = -ufl.FacetNormal(mesh)
     ds = ufl.Measure("ds", domain=mesh, subdomain_data=surf_meshtags, subdomain_id=insulated_marker)
     ds_left_cc = ufl.Measure('ds', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=left_cc_marker)
     ds_right_cc = ufl.Measure('ds', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=right_cc_marker)
-    # ds_active = ufl.Measure('ds', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=active_marker)
+    # ds_active = ufl.Measure('ds', domain=mesh, subdomain_data=surf_meshtags2, subdomain_id=active_marker)
 
     # Define variational problem
     u = ufl.TrialFunction(V)
@@ -168,6 +162,7 @@ if __name__ == '__main__':
     logger.info("Contact Area @ right cc [sq. um]                : {:.4e}".format(area_right_cc))
     logger.info("Current density @ left cc                       : {:.4e}".format(i_left_cc))
     logger.info("Current density @ right cc                      : {:.4e}".format(i_right_cc))
+    # logger.info("Effective Active Material Area [sq. um]         : {:.4e}".format(active_area))
     logger.info("Insulated Area [sq. um]                         : {:.4e}".format(insulated_area))
     logger.info("Total Area [sq. um]                             : {:.4e}".format(area_left_cc + area_right_cc + insulated_area))
     logger.info("Total Volume [cu. um]                           : {:.4e}".format(total_volume))
