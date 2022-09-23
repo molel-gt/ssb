@@ -60,7 +60,6 @@ if __name__ == '__main__':
         mesh_facets = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         facets_ct = infile3.read_meshtags(mesh, name="Grid")
 
-    # left_cc_marker, right_cc_marker, insulated_marker, active_marker, inactive_marker = sorted([int(v) for v in set(facets_ct.values)])
     left_cc_marker = constants.surface_tags["left_cc"]
     right_cc_marker = constants.surface_tags["right_cc"]
     insulated_marker = constants.surface_tags["insulated"]
@@ -72,11 +71,6 @@ if __name__ == '__main__':
     insulated_facet = np.array(facets_ct.indices[facets_ct.values == insulated_marker])
     active_facet = np.array(facets_ct.indices[facets_ct.values == active_marker])
     inactive_facet = np.array(facets_ct.indices[facets_ct.values == inactive_marker])
-    # x0facet = dolfinx.mesh.locate_entities_boundary(mesh, 2,
-    #                                 lambda x: np.isclose(x[1], 0.0))
-    # x1facet = dolfinx.mesh.locate_entities_boundary(mesh, 2,
-    #                                 lambda x: np.isclose(x[1], Ly))
-    # insulated_facet = dolfinx.mesh.locate_entities_boundary(mesh, 2, lambda x: np.logical_and(np.logical_not(np.isclose(x[1], 0)), np.logical_not(np.isclose(x[1], Ly))))
 
     # Dirichlet BCs
     V = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 2))
@@ -90,12 +84,7 @@ if __name__ == '__main__':
     x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 2, x0facet))
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 2, x1facet))
 
-    # # Neumann BC
-    # left_cc_marker = 1
-    # right_cc_marker = 2
-    # insulated_marker = 3
-    # facets_ct_indices = np.hstack((x0facet, x1facet, insulated_facet))
-    # facets_ct_values = np.hstack((np.ones(x0facet.shape[0], dtype=np.int32), 2 * np.ones(x1facet.shape[0], dtype=np.int32), 3 * np.ones(insulated_facet.shape[0], dtype=np.int32)))
+    # Neumann BC
     surf_meshtags = dolfinx.mesh.meshtags(mesh, 2, facets_ct.indices, facets_ct.values)
     n = -ufl.FacetNormal(mesh)
     ds = ufl.Measure("ds", domain=mesh, subdomain_data=surf_meshtags, subdomain_id=insulated_marker)
