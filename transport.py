@@ -95,7 +95,7 @@ if __name__ == '__main__':
     facets_ct_values = np.hstack((np.ones(x0facet.shape[0], dtype=np.int32), 2 * np.ones(x1facet.shape[0], dtype=np.int32), 3 * np.ones(insulated_facet.shape[0], dtype=np.int32)))
 
     surf_meshtags = dolfinx.mesh.meshtags(mesh, 2, facets_ct_indices, facets_ct_values)
-    surf_meshtags2 = dolfinx.mesh.meshtags(mesh, 2, facets_ct.indices, facets_ct.values)
+    # surf_meshtags2 = dolfinx.mesh.meshtags(mesh, 2, facets_ct.indices, facets_ct.values)
     n = -ufl.FacetNormal(mesh)
     ds = ufl.Measure("ds", domain=mesh, subdomain_data=surf_meshtags, subdomain_id=insulated_marker)
     ds_left_cc = ufl.Measure('ds', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=left_cc_marker)
