@@ -48,14 +48,14 @@ if __name__ == '__main__':
     output_current_path = os.path.join(data_dir, 'current.xdmf')
     output_potential_path = os.path.join(data_dir, 'potential.xdmf')
 
-    logger.debug("Loading tetrahedra mesh..")
+    logger.debug("Loading volume (dim = 3) mesh..")
 
     with dolfinx.io.XDMFFile(comm, tetr_mesh_path, "r") as infile3:
         mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(mesh, name="Grid")
     mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim - 1)
 
-    logger.debug("Loading mesh triangles mesh..")
+    logger.debug("Loading surface (dim = 2) mesh..")
     with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile3:
         mesh_facets = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         facets_ct = infile3.read_meshtags(mesh, name="Grid")
