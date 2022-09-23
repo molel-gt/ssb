@@ -33,7 +33,7 @@ surface_tags = constants.surface_tags
 def number_of_neighbors(voxels):
     """"""
     num_neighbors = np.zeros(voxels.shape, dtype=np.uint8)
-    for idx in np.argwhere(np.isclose(voxels, 1)):
+    for idx in np.argwhere(voxels == True):
         x, y, z = idx
         neighbors = [
             (x, y + 1, z),
@@ -50,7 +50,7 @@ def number_of_neighbors(voxels):
                 sum_neighbors += phase_value
             except IndexError:
                 continue
-        num_neighbors[idx] = sum_neighbors
+        num_neighbors[(x, y, z)] = sum_neighbors
     
     return num_neighbors
 
@@ -107,7 +107,7 @@ def read_vtk_surface(file_path):
 
     for i in range(polydata.GetNumberOfCells()):
         pts = polydata.GetCell(i).GetPoints()    
-        np_pts = np.array([np.around(pts.GetPoint(j), 8) for j in range(pts.GetNumberOfPoints())])
+        np_pts = np.array([pts.GetPoint(j) for j in range(pts.GetNumberOfPoints())], dtype=np.int32)
         triangles.append(np_pts)
     
     return triangles
@@ -243,6 +243,22 @@ def build_tetrahedra(cube, points):
     return tetrahedra
 
 
+def scale_mesh(mesh, cell_type, scale_factor=(1, 1, 1)):
+    """"""
+    scaled_points = np.zeros(mesh.points.shape, dtype=np.double)
+
+    cells = mesh.get_cells_type(cell_type)
+    cell_data = mesh.get_cell_data("name_to_read", cell_type)
+    for idx, point in enumerate(mesh.points):
+        point_scaled = tuple(np.format_float_scientific(v, exp_digits=constants.EXP_DIGITS) for v in np.array(point) * np.array(scale_factor))
+        scaled_points[idx, :] = point_scaled
+    out_mesh = meshio.Mesh(points=scaled_points,
+                           cells={cell_type: cells},
+                           cell_data={"name_to_read": [cell_data]}
+                           )
+    return out_mesh
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='computes specific area')
     parser.add_argument('--img_folder', help='bmp files parent directory',
@@ -261,6 +277,7 @@ if __name__ == "__main__":
     scale_x = args.scale_x
     scale_y = args.scale_y
     scale_z = args.scale_z
+    scale_factor = (scale_x, scale_y, scale_z)
     if isinstance(args.origin, str):
         origin = tuple(map(lambda v: int(v), args.origin.split(",")))
     else:
@@ -272,7 +289,7 @@ if __name__ == "__main__":
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
-    img_dir = os.path.join(args.img_folder) #, str(phase))
+    img_dir = os.path.join(args.img_folder)
     mesh_dir = f"mesh/{phase}/{grid_info}_{origin_str}"
     utils.make_dir_if_missing(mesh_dir)
     im_files = sorted([os.path.join(args.img_folder, f) for
@@ -338,20 +355,23 @@ if __name__ == "__main__":
     stlfile = f"mesh/{phase}/{grid_info}_{origin_str}/new-porous.stl"
     mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous_tetr.msh"
     surf_mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous_tria.msh"
-    tetr_xdmf = f"mesh/{phase}/{grid_info}_{origin_str}/tetr.xdmf"
-    tria_xdmf = f"mesh/{phase}/{grid_info}_{origin_str}/tria.xdmf"
+    tetr_xdmf_scaled = f"mesh/{phase}/{grid_info}_{origin_str}/tetr.xdmf"
+    tetr_xdmf_unscaled = f"mesh/{phase}/{grid_info}_{origin_str}/tetr_unscaled.xdmf"
+    tria_xdmf_scaled = f"mesh/{phase}/{grid_info}_{origin_str}/tria.xdmf"
+    tria_xdmf_unscaled = f"mesh/{phase}/{grid_info}_{origin_str}/tria_unscaled.xdmf"
 
     with open(nodefile, "w") as fp:
         fp.write("%d 3 0 1\n" % int(len(points.values())))
         for coord, point_id in points.items():
             x0, y0, z0 = coord
+
             # set tags
             tag1 = 0
             tag2 = None
             if neighbors[(x0, y0, z0)] < 6:
                 if np.isclose(y0, 0):
                     tag1 = surface_tags["left_cc"]
-                elif np.isclose(y0, scale_y * (Ny - 1)):
+                elif np.isclose(y0, Ny - 1):
                     tag1 = surface_tags["right_cc"]
                 else:
                     tag1 = surface_tags["insulated"]
@@ -361,10 +381,7 @@ if __name__ == "__main__":
                 # else:
                 #     tag2 = surface_tags["inactive_area"]
 
-            x = np.around(scale_x * x0, 8)
-            y = np.around(scale_y * y0, 8)
-            z = np.around(scale_x * z0, 8)
-            fp.write(f"{point_id} {x} {y} {z} {tag1}\n")
+            fp.write(f"{point_id} {x0} {y0} {z0} {tag1}\n")
 
     with open(tetfile, "w") as fp:
         fp.write(f"{n_tetrahedra} 4 0\n")
@@ -382,32 +399,25 @@ if __name__ == "__main__":
     retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -rkQF", shell=True)
     retcode_paraview = subprocess.check_call("pvpython extractSurf.py {}".format(os.path.dirname(surface_vtk)), shell=True)
 
-    # Volume Mesh
-    gmsh.initialize()
-    gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
-    gmsh.model.add("volume")
-    gmsh.merge(vtkfile)
-    gmsh.model.occ.synchronize()
-
-    volumes = gmsh.model.getEntities(dim=3)
-    for i, volume in enumerate(volumes):
-        marker = int(counter + i)
-        gmsh.model.addPhysicalGroup(3, [volume[1]], marker)
-        gmsh.model.setPhysicalName(3, marker, f"V{marker}")
-    gmsh.model.occ.synchronize()
-    gmsh.model.mesh.generate(3)
-    gmsh.write(mshfile)
-    gmsh.finalize()
-
-    vol_msh = meshio.read(mshfile)
-    tetra_mesh = geometry.create_mesh(vol_msh, "tetra")
-    tetra_mesh.write(tetr_xdmf)
-
     # Surface Mesh
     triangles = read_vtk_surface(surface_vtk)
-    new_points, tria_mesh = generate_surface_mesh(triangles, effective_electrolyte, points, (Nx, Ny, Nz), scaling=(scale_x, scale_y, scale_z))
-    tria_mesh.write(tria_xdmf)
+    new_points, tria_mesh_unscaled = generate_surface_mesh(triangles, effective_electrolyte, (Nx, Ny, Nz), points)
+    tria_mesh_unscaled.write(tria_xdmf_unscaled)
+
+    vol_msh = meshio.read(vtkfile)
+    # msh_points = vol_msh.points
+    # old_points = np.zeros(msh_points.shape)
+    # points.update(new_points)
+    # for k, v in points.items():
+    #     old_points[v, :] = k
+    # vol_msh.points = old_points
+    tetra_mesh_unscaled = geometry.create_mesh(vol_msh, "tetra")
+    tetra_mesh_unscaled.write(tetr_xdmf_unscaled)
+
+    # Geometry Scaling
+    tetra_mesh_scaled = scale_mesh(tetra_mesh_unscaled, "tetra", scale_factor=scale_factor)
+    tetra_mesh_scaled.write(tetr_xdmf_scaled)
+    tria_mesh_scaled = scale_mesh(tria_mesh_unscaled, "triangle", scale_factor=scale_factor)
+    tria_mesh_scaled.write(tria_xdmf_scaled)
 
     logger.info("Took {:,} seconds".format(int(time.time() - start_time)))
