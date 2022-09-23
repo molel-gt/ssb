@@ -265,7 +265,7 @@ def label_surface_mesh(mesh, effective_electrolyte, transport_length, axis=1):
     """"""
     cells = mesh.get_cells_type("triangle")
     points = mesh.points
-    cell_data = np.zeros((cells.shape[0],), dtype=np.int32)
+    cell_data = np.zeros((cells.shape[0], 2), dtype=np.int32)
     for i, cell in enumerate(cells):
         coords = [tuple(points[j, :]) for j in cell]
         if np.isclose([v[axis] for v in coords], 0).all():
