@@ -136,12 +136,12 @@ def electrolyte_bordering_active_material(voxels):
     return effective_electrolyte
 
 
-def generate_surface_mesh(triangles, effective_electrolyte, points, shape, scaling=(1, 1, 1)):
+def generate_surface_mesh(triangles, effective_electrolyte, shape, points):
     """"""
     _, Ny, _ = shape
+    prev_points = points
     cells = np.zeros((len(triangles), 3), dtype=np.int32)
-    cell_data = []
-    scale_y = scaling[1]
+    cell_data = np.zeros((cells.shape[0], 2))
     
     counter = 0
     points_counter = 0
@@ -154,37 +154,39 @@ def generate_surface_mesh(triangles, effective_electrolyte, points, shape, scali
                 points_counter += 1
     points = points0
 
-    new_points = np.zeros((max(points.values()) + 1, 3))
+    new_points = np.zeros((len(points.values()) + 1, 3))
     for k, v in points.items():
         new_points[v, :] = k
-
+    points = {}
+    points_counter = 0
     for triangle in triangles:
         coord0, coord1, coord2 = [tuple([xv for xv in v]) for v in triangle]
+        for coord in triangle:
+            if points.get(tuple(coord)) is None:
+                points[tuple(coord)] = points_counter
+                points_counter += 1
 
         p0 = points[coord0]
         p1 = points[coord1]
         p2 = points[coord2]
         cells[counter, :] = [p0, p1, p2]
-        counter += 1
         tags = []
         y_vals = [v[1] for v in triangle]
         if np.isclose(y_vals, 0).all():
             tags.append(surface_tags["left_cc"])
-        elif np.isclose(y_vals, np.around(scale_y * (Ny - 1), 8)).all():
+        elif np.isclose(y_vals, Ny - 1).all():
             tags.append(surface_tags["right_cc"])
         else:
             tags.append(surface_tags["insulated"])
-        coord0 = (int(np.rint(coord0[0]/scale_x)), int(np.rint(coord0[1]/scale_y)), int(np.rint(coord0[2]/scale_z)))
-        coord1 = (int(np.rint(coord1[0]/scale_x)), int(np.rint(coord1[1]/scale_y)), int(np.rint(coord1[2]/scale_z)))
-        coord2 = (int(np.rint(coord2[0]/scale_x)), int(np.rint(coord2[1]/scale_y)), int(np.rint(coord2[2]/scale_z)))
         if {coord0, coord1, coord2}.issubset(effective_electrolyte):
             tags.append(surface_tags["active_area"])
         else:
             tags.append(surface_tags["inactive_area"])
-        cell_data.append(tags)
+        cell_data[counter, :] = tags
+        counter += 1
     out_mesh = meshio.Mesh(points=new_points,
                            cells={"triangle": cells},
-                           cell_data={"name_to_read": [np.array([v for v in cell_data])]}
+                           cell_data={"name_to_read": [cell_data]}
                            )
     return points, out_mesh
 
@@ -257,6 +259,27 @@ def scale_mesh(mesh, cell_type, scale_factor=(1, 1, 1)):
                            cell_data={"name_to_read": [cell_data]}
                            )
     return out_mesh
+
+
+def label_surface_mesh(mesh, effective_electrolyte, transport_length, axis=1):
+    """"""
+    cells = mesh.get_cells_type("triangle")
+    points = mesh.points
+    cell_data = np.zeros((cells.shape[0],), dtype=np.int32)
+    for i, cell in enumerate(cells):
+        coords = [tuple(points[j, :]) for j in cell]
+        if np.isclose([v[axis] for v in coords], 0).all():
+            cell_data[i, 0] = surface_tags["left_cc"]
+        elif np.isclose([v[axis] for v in coords], transport_length).all():
+            cell_data[i, 0] = surface_tags["right_cc"]
+        else:
+            cell_data[i, 0] = surface_tags["insulated"]
+        if set(coords).issubset(effective_electrolyte):
+            cell_data[i, 1] = surface_tags["active_area"]
+        else:
+            cell_data[i, 1] = surface_tags["inactive_area"]
+        
+    return meshio.Mesh(points=points, cells={"triangle": cells}, cell_data={"name_to_read": [cell_data]})
 
 
 if __name__ == "__main__":
@@ -352,41 +375,25 @@ if __name__ == "__main__":
     facesfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.face"
     vtkfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.1.vtk"
     surface_vtk = f"mesh/{phase}/{grid_info}_{origin_str}/surface.vtk"
-    stlfile = f"mesh/{phase}/{grid_info}_{origin_str}/new-porous.stl"
-    mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous_tetr.msh"
+    tetr_mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous_tetr.msh"
     surf_mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous_tria.msh"
     tetr_xdmf_scaled = f"mesh/{phase}/{grid_info}_{origin_str}/tetr.xdmf"
     tetr_xdmf_unscaled = f"mesh/{phase}/{grid_info}_{origin_str}/tetr_unscaled.xdmf"
     tria_xdmf_scaled = f"mesh/{phase}/{grid_info}_{origin_str}/tria.xdmf"
     tria_xdmf_unscaled = f"mesh/{phase}/{grid_info}_{origin_str}/tria_unscaled.xdmf"
+    tria_xmf_unscaled = f"mesh/{phase}/{grid_info}_{origin_str}/tria_unscaled.xmf"
 
     with open(nodefile, "w") as fp:
-        fp.write("%d 3 0 1\n" % int(len(points.values())))
+        fp.write("%d 3 0 0\n" % int(len(points.values())))
         for coord, point_id in points.items():
             x0, y0, z0 = coord
-
-            # set tags
-            tag1 = 0
-            tag2 = None
-            if neighbors[(x0, y0, z0)] < 6:
-                if np.isclose(y0, 0):
-                    tag1 = surface_tags["left_cc"]
-                elif np.isclose(y0, Ny - 1):
-                    tag1 = surface_tags["right_cc"]
-                else:
-                    tag1 = surface_tags["insulated"]
-                # if {x0, y0, z0} in effective_electrolyte:
-                #     print("IN")
-                #     tag2 = surface_tags["active_area"]
-                # else:
-                #     tag2 = surface_tags["inactive_area"]
-
-            fp.write(f"{point_id} {x0} {y0} {z0} {tag1}\n")
-
+            fp.write(f"{point_id} {x0} {y0} {z0}\n")
+    tet_points = set()
     with open(tetfile, "w") as fp:
         fp.write(f"{n_tetrahedra} 4 0\n")
         for tet_id, tetrahedron in enumerate(tetrahedra):
             p1, p2, p3, p4 = [int(v) for v in tetrahedron]
+            tet_points |= {p1, p2, p3, p4}
             fp.write(f"{tet_id} {p1} {p2} {p3} {p4}\n")
 
     # Free up memory of objects we won't use
@@ -397,26 +404,48 @@ if __name__ == "__main__":
     gc.collect()
 
     retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -rkQF", shell=True)
-    retcode_paraview = subprocess.check_call("pvpython extractSurf.py {}".format(os.path.dirname(surface_vtk)), shell=True)
+    # retcode_paraview = subprocess.check_call("pvpython extractSurf.py {}".format(os.path.dirname(surface_vtk)), shell=True)
 
-    # Surface Mesh
-    triangles = read_vtk_surface(surface_vtk)
-    new_points, tria_mesh_unscaled = generate_surface_mesh(triangles, effective_electrolyte, (Nx, Ny, Nz), points)
+    # GMSH
+    gmsh.initialize()
+    # gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
+    # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
+    # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
+    gmsh.model.add("porous")
+    gmsh.merge(vtkfile)
+    gmsh.model.occ.synchronize()
+
+    volumes = gmsh.model.getEntities(dim=3)
+    for i, volume in enumerate(volumes):
+        marker = int(counter + i)
+        gmsh.model.addPhysicalGroup(3, [volume[1]], marker)
+        gmsh.model.setPhysicalName(3, marker, f"V{marker}")
+    gmsh.model.occ.synchronize()
+
+    insulated = []
+    left_cc = []
+    right_cc = []
+    surfaces = gmsh.model.getEntities(dim=2)
+    for surface in surfaces:
+        surf = gmsh.model.addPhysicalGroup(2, [surface[1]])
+        gmsh.model.setPhysicalName(2, surf, f"S{surf}")
+    gmsh.model.occ.synchronize()
+    gmsh.model.mesh.generate(3)
+    gmsh.write(tetr_mshfile)
+    gmsh.finalize()
+
+    tet_msh = meshio.read(tetr_mshfile)
+    tetr_mesh_unscaled = geometry.create_mesh(tet_msh, "tetra")
+    tetr_mesh_unscaled.write(tetr_xdmf_unscaled)
+
+    retcode_paraview = subprocess.check_call("pvpython extract_surface_from_volume.py {}".format(os.path.dirname(tetr_xdmf_unscaled)), shell=True)
+    surf_msh = meshio.read(tria_xmf_unscaled)
+    tria_mesh_unscaled = label_surface_mesh(surf_msh, effective_electrolyte, Ny - 1)
     tria_mesh_unscaled.write(tria_xdmf_unscaled)
 
-    vol_msh = meshio.read(vtkfile)
-    # msh_points = vol_msh.points
-    # old_points = np.zeros(msh_points.shape)
-    # points.update(new_points)
-    # for k, v in points.items():
-    #     old_points[v, :] = k
-    # vol_msh.points = old_points
-    tetra_mesh_unscaled = geometry.create_mesh(vol_msh, "tetra")
-    tetra_mesh_unscaled.write(tetr_xdmf_unscaled)
-
     # Geometry Scaling
-    tetra_mesh_scaled = scale_mesh(tetra_mesh_unscaled, "tetra", scale_factor=scale_factor)
-    tetra_mesh_scaled.write(tetr_xdmf_scaled)
+    tetr_mesh_scaled = scale_mesh(tetr_mesh_unscaled, "tetra", scale_factor=scale_factor)
+    tetr_mesh_scaled.write(tetr_xdmf_scaled)
     tria_mesh_scaled = scale_mesh(tria_mesh_unscaled, "triangle", scale_factor=scale_factor)
     tria_mesh_scaled.write(tria_xdmf_scaled)
 
