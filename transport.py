@@ -26,6 +26,7 @@ if __name__ == '__main__':
     parser.add_argument("--scale_x", nargs='?', const=1, default=1, type=np.double)
     parser.add_argument("--scale_y", nargs='?', const=1, default=1, type=np.double)
     parser.add_argument("--scale_z", nargs='?', const=1, default=1, type=np.double)
+    parser.add_argument("--loglevel", nargs='?', const=1, default="INFO")
 
     args = parser.parse_args()
     data_dir = args.data_dir
@@ -40,8 +41,8 @@ if __name__ == '__main__':
     grid_info = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
-    logger = logging.getLogger(f'{grid_info}')
-    logger.setLevel('DEBUG')
+    logger = logging.getLogger(f'{grid_info}' + '_' + __file__)
+    logger.setLevel(args.loglevel)
     Nx, Ny, Nz = [int(v) for v in grid_info.split("-")]
     Lx = (Nx - 1) * scale_x
     Ly = (Ny - 1) * scale_y
