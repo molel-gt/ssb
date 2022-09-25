@@ -41,7 +41,7 @@ if __name__ == '__main__':
     grid_info = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
-    logger = logging.getLogger(f'{grid_info}' + '_' + __file__)
+    logger = logging.getLogger(f'{data_dir}')
     logger.setLevel(args.loglevel)
     Nx, Ny, Nz = [int(v) for v in grid_info.split("-")]
     Lx = (Nx - 1) * scale_x
