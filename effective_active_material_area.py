@@ -38,7 +38,7 @@ if __name__ == '__main__':
     grid_info = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
-    logger = logging.getLogger(f'{grid_info}')
+    logger = logging.getLogger(f'{grid_info}' + '_' + __file__)
     logger.setLevel('DEBUG')
     Nx, Ny, Nz = [int(v) for v in grid_info.split("-")]
     Lx = (Nx - 1) * scale_x
@@ -52,13 +52,20 @@ if __name__ == '__main__':
         mesh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         facets_ct = infile3.read_meshtags(mesh, name="Grid")
 
+    left_cc_marker = constants.surface_tags["left_cc"]
+    right_cc_marker = constants.surface_tags["right_cc"]
     active_marker = constants.surface_tags["active_area"]
     inactive_marker = constants.surface_tags["inactive_area"]
-    active_facet = np.array(facets_ct.indices[facets_ct.values == active_marker])
-    inactive_facet = np.array(facets_ct.indices[facets_ct.values == inactive_marker])
+
+    # x0facet = np.array(facets_ct.indices[facets_ct.values == left_cc_marker])
+    # x1facet = np.array(facets_ct.indices[facets_ct.values == right_cc_marker])
+    # active_facet = np.array(facets_ct.indices[facets_ct.values == active_marker])
+    # inactive_facet = np.array(facets_ct.indices[facets_ct.values == inactive_marker])
 
     surf_meshtags = dolfinx.mesh.meshtags(mesh, 2, facets_ct.indices, facets_ct.values)
     n = -ufl.FacetNormal(mesh)
+    ds_left_cc = ufl.Measure('dx', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=left_cc_marker)
+    ds_right_cc = ufl.Measure('dx', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=right_cc_marker)
     ds_active = ufl.Measure('dx', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=active_marker)
     ds_inactive = ufl.Measure('dx', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=inactive_marker)
 
@@ -69,12 +76,16 @@ if __name__ == '__main__':
 
     active_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_active))
     inactive_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_inactive))
+    area_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_left_cc))
+    area_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_right_cc))
     logger.info("**************************RESULTS-SUMMARY******************************************")
+    logger.info("Contact Area @ left cc [sq. um]                          : {:.4e}".format(area_left_cc))
+    logger.info("Contact Area @ right cc [sq. um]                         : {:.4e}".format(area_right_cc))
     logger.info("Effective Active Material Area [sq. um]                  : {:.4e}".format(active_area))
     logger.info("Ineffective Active Material Area [sq. um]                : {:.4e}".format(inactive_area))
     logger.info("Total Area [sq. um]                                      : {:.4e}".format(active_area + inactive_area))
     logger.info("Total Volume [cu. um]                                    : {:.4e}".format(Lx * Ly * Lz))
     logger.info("Specific Effective Active Material Area [sq. um]         : {:.4e}".format(active_area/(Lx * Ly * Lz)))
     logger.info("Specific Ineffective Active Material Area [sq. um]       : {:.4e}".format(inactive_area/(Lx * Ly * Lz)))
-    logger.info(f"Time elapsed                                            : {int(timeit.default_timer() - start_time):3.5f}s")
+    logger.info(f"Time elapsed                                             : {int(timeit.default_timer() - start_time):3.5f}s")
     logger.info("*************************END-OF-SUMMARY*******************************************")
