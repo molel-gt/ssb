@@ -3,11 +3,13 @@ import pickle
 import subprocess
 import sys
 
+import cv2
 import gmsh
 import matplotlib.pyplot as plt
 import meshio
 import numpy as np
 
+from skimage import io
 
 import connected_pieces, geometry, utils, volume_reconstruction
 
@@ -32,10 +34,10 @@ tria_xdmf_scaled = f"mesh/{phase}/{grid_info}_{origin_str}/tria.xdmf"
 tria_xdmf_unscaled = f"mesh/{phase}/{grid_info}_{origin_str}/tria_unscaled.xdmf"
 tria_xmf_unscaled = f"mesh/{phase}/{grid_info}_{origin_str}/tria_unscaled.xmf"
 
-img = plt.imread(contact_img_file)
+img = io.imread(contact_img_file)
 contact_points = set()
 for idx in np.argwhere(np.isclose(img, phase)):
-    contact_points.add(tuple(idx))
+    contact_points.add(tuple(idx + [0]))
 
 contact_points_filepath = f"mesh/{phase}/{grid_info}_{origin_str}/contact_points.pickle"
 with open(contact_points_filepath, "wb") as fp:
