@@ -426,14 +426,6 @@ if __name__ == "__main__":
         gmsh.model.setPhysicalName(3, marker, f"V{marker}")
     gmsh.model.occ.synchronize()
 
-    insulated = []
-    left_cc = []
-    right_cc = []
-    surfaces = gmsh.model.getEntities(dim=2)
-    for surface in surfaces:
-        surf = gmsh.model.addPhysicalGroup(2, [surface[1]])
-        gmsh.model.setPhysicalName(2, surf, f"S{surf}")
-    gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
     gmsh.write(tetr_mshfile)
     gmsh.finalize()

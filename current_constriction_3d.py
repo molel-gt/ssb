@@ -60,6 +60,15 @@ if __name__ == '__main__':
     logger.debug("Loading contact points..")
     with open(os.path.join(data_dir, 'contact_points.pickle'), 'rb') as handle:
         contact_points = list(pickle.load(handle))
+    
+    def is_contact_area(x, area):
+        ret_val = np.zeros(x.shape[1])
+        for idx in range(x.shape[1]):
+            c = tuple(x[:, idx])
+            coord = (int(np.rint(c[0]/scale_x)), int(np.rint(c[1]/scale_y)), int(np.rint(c[2]/scale_z)))
+            ret_val[idx] = coord in area
+        ret_val.reshape(-1, 1)
+        return ret_val
 
     left_cc_marker = constants.surface_tags["left_cc"]
     right_cc_marker = constants.surface_tags["right_cc"]
@@ -81,14 +90,7 @@ if __name__ == '__main__':
                                     lambda x: np.isclose(x[1], Ly))
     insulated_facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.logical_and(np.logical_not(is_contact_area(x, contact_points)), np.logical_not(np.isclose(x[1], Ly))))
 
-    def is_contact_area(x, effective_electrolyte):
-        ret_val = np.zeros(x.shape[1])
-        for idx in range(x.shape[1]):
-            c = tuple(x[:, idx])
-            coord = (int(np.rint(c[0]/scale_x)), int(np.rint(c[1]/scale_y)), int(np.rint(c[2]/scale_z)))
-            ret_val[idx] = coord in effective_electrolyte
-        ret_val.reshape(-1, 1)
-        return ret_val
+    
 
     x0facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: is_contact_area(x, contact_points))
 
