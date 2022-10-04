@@ -60,7 +60,7 @@ if __name__ == '__main__':
     logger.debug("Loading contact points..")
     with open(os.path.join(data_dir, 'contact_points.pickle'), 'rb') as handle:
         contact_points = list(pickle.load(handle))
-    print(len(contact_points))
+
     def is_contact_area(x, area):
         ret_val = np.zeros(x.shape[1])
         for idx in range(x.shape[1]):
@@ -84,16 +84,11 @@ if __name__ == '__main__':
     with u1.vector.localForm() as u1_loc:
         u1_loc.set(0.0)
     
-    x0facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2,
-                                    lambda x: np.isclose(x[1], 0.0))
-    x1facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2,
-                                    lambda x: np.isclose(x[1], Ly))
-    insulated_facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.logical_and(np.logical_not(is_contact_area(x, contact_points)), np.logical_not(np.isclose(x[1], Ly))))
-
-    
-
     x0facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: is_contact_area(x, contact_points))
-    print(x0facet.shape)
+    x1facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2,
+                                    lambda x: np.isclose(x[2], Lz))
+    insulated_facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.logical_and(np.logical_not(is_contact_area(x, contact_points)), np.logical_not(np.isclose(x[2], Lz))))
+
     facets_ct_indices = np.hstack((x0facet, x1facet, insulated_facet))
     facets_ct_values = np.hstack((np.ones(x0facet.shape[0], dtype=np.int32), right_cc_marker * np.ones(x1facet.shape[0], dtype=np.int32),
                                 insulated_marker * np.ones(insulated_facet.shape[0], dtype=np.int32)))
