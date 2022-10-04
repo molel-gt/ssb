@@ -441,16 +441,15 @@ if __name__ == "__main__":
     tet_msh = meshio.read(tetr_mshfile)
     tetr_mesh_unscaled = geometry.create_mesh(tet_msh, "tetra")
     tetr_mesh_unscaled.write(tetr_xdmf_unscaled)
+    tetr_mesh_scaled = scale_mesh(tetr_mesh_unscaled, "tetra", scale_factor=scale_factor)
+    tetr_mesh_scaled.write(tetr_xdmf_scaled)
 
     retcode_paraview = subprocess.check_call("pvpython extract_surface_from_volume.py {}".format(os.path.dirname(tetr_xdmf_unscaled)), shell=True)
     surf_msh = meshio.read(tria_xmf_unscaled)
     tria_mesh_unscaled = label_surface_mesh(surf_msh, effective_electrolyte, Ny - 1)
     tria_mesh_unscaled.write(tria_xdmf_unscaled)
 
-    # Geometry Scaling
-    tetr_mesh_scaled = scale_mesh(tetr_mesh_unscaled, "tetra", scale_factor=scale_factor)
-    tetr_mesh_scaled.write(tetr_xdmf_scaled)
     tria_mesh_scaled = scale_mesh(tria_mesh_unscaled, "triangle", scale_factor=scale_factor)
     tria_mesh_scaled.write(tria_xdmf_scaled)
-
+    
     logger.info("Took {:,} seconds".format(int(time.time() - start_time)))
