@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 
-from bdb import effective
 import os
 import pickle
 import timeit
 
 import argparse
-from typing import Mapping
 import dolfinx
 import logging
 import numpy as np
