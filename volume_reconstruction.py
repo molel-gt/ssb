@@ -270,11 +270,14 @@ def label_surface_mesh(mesh, effective_electrolyte, transport_length, axis=1):
     for i, cell in enumerate(cells):
         coords = [tuple(points[j, :]) for j in cell]
         if np.isclose([v[axis] for v in coords], 0).all():
-            cell_data[i, 0] = surface_tags["left_cc"]
+            pass
+            # cell_data[i, 0] = surface_tags["left_cc"]
         elif np.isclose([v[axis] for v in coords], transport_length).all():
-            cell_data[i, 0] = surface_tags["right_cc"]
+            pass
+            # cell_data[i, 0] = surface_tags["right_cc"]
         else:
-            cell_data[i, 0] = surface_tags["insulated"]
+            pass
+            # cell_data[i, 0] = surface_tags["insulated"]
         if set(coords).issubset(effective_electrolyte):
             cell_data[i, 1] = surface_tags["active_area"]
         else:
@@ -412,9 +415,6 @@ if __name__ == "__main__":
 
     # GMSH
     gmsh.initialize()
-    # gmsh.option.setNumber("Mesh.OptimizeNetgen", 1)
-    # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", args.resolution)
-    # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5)
     gmsh.model.add("porous")
     gmsh.merge(vtkfile)
     gmsh.model.occ.synchronize()
