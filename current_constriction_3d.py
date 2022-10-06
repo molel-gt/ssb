@@ -75,7 +75,7 @@ if __name__ == '__main__':
     def contact_area(x, eps=args.eps, Lx=Lx, Ly=Ly, z=0):
         center = (Lx/2, Ly/2, z)
         radius = (Lx*Ly*eps/np.pi) ** (1/2)
-        vals = np.zeros((x.shape[1], ))
+        vals = np.zeros((x.shape[1], ), dtype=bool)
         for i in range(x.shape[1]):
             coord = x[:, i]
             vals[i] = np.linalg.norm(coord - center) <= radius and np.isclose(coord[2], 0)
