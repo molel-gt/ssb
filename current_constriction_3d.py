@@ -58,6 +58,9 @@ if __name__ == '__main__':
         mesh3d = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(mesh3d, name="Grid")
     mesh3d.topology.create_connectivity(mesh3d.topology.dim, mesh3d.topology.dim - 1)
+    mesh3d.topology.create_connectivity(mesh3d.topology.dim, mesh3d.topology.dim - 2)
+    mesh3d.topology.create_connectivity(mesh3d.topology.dim, mesh3d.topology.dim - 3)
+    mesh3d = dolfinx.mesh.refine(mesh3d)
 
     logger.debug("Loading contact points..")
     with open(os.path.join(data_dir, 'contact_points.pickle'), 'rb') as handle:
