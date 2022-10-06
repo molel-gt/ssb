@@ -25,6 +25,8 @@ if __name__ == '__main__':
     parser.add_argument("--scale_y", nargs='?', const=1, default=1, type=np.double)
     parser.add_argument("--scale_z", nargs='?', const=1, default=1, type=np.double)
     parser.add_argument("--loglevel", nargs='?', const=1, default="INFO")
+    parser.add_argument("--eps", help='fraction of area at left current collector that is in contact',
+                        nargs='?', const=1, default=0.3, type=np.double)
 
     args = parser.parse_args()
     data_dir = args.data_dir
@@ -70,6 +72,16 @@ if __name__ == '__main__':
         ret_val.reshape(-1, 1)
         return ret_val
 
+    def contact_area(x, eps=args.eps, Lx=Lx, Ly=Ly, z=0):
+        center = (Lx/2, Ly/2, z)
+        radius = (Lx*Ly*eps/np.pi) ** (1/2)
+        vals = np.zeros((x.shape[1], ))
+        for i in range(x.shape[1]):
+            coord = x[:, i]
+            vals[i] = np.linalg.norm(coord - center) <= radius and np.isclose(coord[2], 0)
+
+        return vals
+
     left_cc_marker = constants.surface_tags["left_cc"]
     right_cc_marker = constants.surface_tags["right_cc"]
     insulated_marker = constants.surface_tags["insulated"]
@@ -84,10 +96,10 @@ if __name__ == '__main__':
     with u1.vector.localForm() as u1_loc:
         u1_loc.set(0.0)
     
-    x0facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: is_contact_area(x, contact_points))
+    x0facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: contact_area(x))
     x1facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2,
                                     lambda x: np.isclose(x[2], Lz))
-    insulated_facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.logical_and(np.logical_not(is_contact_area(x, contact_points)), np.logical_not(np.isclose(x[2], Lz))))
+    insulated_facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.logical_and(np.logical_not(contact_area(x)), np.logical_not(np.isclose(x[2], Lz))))
 
     facets_ct_indices = np.hstack((x0facet, x1facet, insulated_facet))
     facets_ct_values = np.hstack((np.ones(x0facet.shape[0], dtype=np.int32), right_cc_marker * np.ones(x1facet.shape[0], dtype=np.int32),
