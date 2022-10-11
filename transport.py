@@ -17,14 +17,14 @@ import constants, utils
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='run simulation..')
-    parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
-    parser.add_argument('--data_dir', help='directory with mesh files. output will be saved here', required=True, type=str)
-    parser.add_argument("--voltage", nargs='?', const=1, default=1)
-    parser.add_argument("--scale_x", nargs='?', const=1, default=1, type=np.double)
-    parser.add_argument("--scale_y", nargs='?', const=1, default=1, type=np.double)
-    parser.add_argument("--scale_z", nargs='?', const=1, default=1, type=np.double)
-    parser.add_argument("--loglevel", nargs='?', const=1, default="INFO")
+    parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
+    parser.add_argument('--grid_size', help='Lx-Ly-Lz', required=True)
+    parser.add_argument('--data_dir', help='Directory with tria.xdmf and tetr.xmf mesh files. Output files potential.xdmf and current.xdmf will be saved here', required=True, type=str)
+    parser.add_argument("--voltage", help="Potential to set at the left current collector. Right current collector is set to a potential of 0", nargs='?', const=1, default=1)
+    parser.add_argument("--scale_x", help="Value to scale the Lx grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=np.double)
+    parser.add_argument("--scale_y", help="Value to scale the Ly grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=np.double)
+    parser.add_argument("--scale_z", help="Value to scale the Lz grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=np.double)
+    parser.add_argument("--loglevel",help="Logging level, e.g. ERROR, DEBUG, INFO, WARNING", nargs='?', const=1, default="INFO")
 
     args = parser.parse_args()
     data_dir = args.data_dir
@@ -36,15 +36,15 @@ if __name__ == '__main__':
     rank = comm.rank
     start_time = timeit.default_timer()
 
-    grid_info = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
+    grid_size = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{data_dir}')
     logger.setLevel(args.loglevel)
-    Nx, Ny, Nz = [int(v) for v in grid_info.split("-")]
-    Lx = (Nx - 1) * scale_x
-    Ly = (Ny - 1) * scale_y
-    Lz = (Nz - 1) * scale_z
+    Lx, Ly, Lz = [int(v) for v in grid_size.split("-")]
+    Lx = Lx * scale_x
+    Ly = Ly * scale_y
+    Lz = Lz * scale_z
     tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
     output_current_path = os.path.join(data_dir, 'current.xdmf')

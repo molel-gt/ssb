@@ -287,17 +287,17 @@ def label_surface_mesh(mesh, effective_electrolyte, transport_length, axis=1):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='computes specific area')
-    parser.add_argument('--img_folder', help='bmp files parent directory',
+    parser = argparse.ArgumentParser(description='Reconstructs volume from segemented images.')
+    parser.add_argument('--img_folder', help='Directory with input .tif files',
                         required=True)
-    parser.add_argument('--grid_info', help='Nx-Ny-Nz',
+    parser.add_argument('--grid_info', help='Grid size is given by Nx-Ny-Nz such that the lengths are (Nx-1) by (Ny - 1) by (Nz - 1).',
                         required=True)
-    parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
-    parser.add_argument("--resolution", nargs='?', const=1, default=0.5, type=float)
-    parser.add_argument("--phase", nargs='?', const=1, default=1, type=int)
-    parser.add_argument("--scale_x", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
-    parser.add_argument("--scale_y", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
-    parser.add_argument("--scale_z", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
+    parser.add_argument('--origin', default=(0, 0, 0), help='Where to select choice grid from available segmented image array such that `subdata = data[origin_x:Nx, origin_y:Ny, origin_z:Nz]`')
+    parser.add_argument("--resolution", help='Minimum resolution using gmsh', nargs='?', const=1, default=0.5, type=float)
+    parser.add_argument("--phase", help='Phase that we want to reconstruct, e.g. 0 for void, 1 for solid electrolyte and 2 for active material', nargs='?', const=1, default=1, type=int)
+    parser.add_argument("--scale_x" help="Value to scale the Lx grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
+    parser.add_argument("--scale_y" help="Value to scale the Ly grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
+    parser.add_argument("--scale_z" help="Value to scale the Lz grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
     start_time = time.time()
     args = parser.parse_args()
     phase = args.phase
