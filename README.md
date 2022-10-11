@@ -85,5 +85,5 @@ optional arguments:
   --scale_z [SCALE_Z]   Value to scale the Lz grid size given to match dimensions of mesh files.
 ```
 The input meshfiles include two options:
-- tetrahedral mesh of the solid electrolyte phase and a pickle file *effective_electrolyte.pickle* containing coordinates of solid electrolyte that are in contact with active material
-- tetrahedral mesh of the solid electrolyte phase, and a triangle mesh of the surface of solid electrolyte with effective active material area labelled
+- Tetrahedral mesh of the solid electrolyte phase (tetr.xmdf) and a pickle file *effective_electrolyte.pickle* containing coordinates of solid electrolyte that are in contact with active material
+- Tetrahedral mesh of the solid electrolyte phase (tetr.xmdf), and a triangle mesh of the surface of solid electrolyte (tria.xmdf) with effective active material area labelled
