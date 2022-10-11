@@ -28,12 +28,12 @@ optional arguments:
 The volume reconstruction proceeds as follows:
 - Load the segmented stack of images into a 3D array
 - Select coordinates of voxels that belong to phase 1 (solid electrolyte) and label them using natural numbers starting from 0
-- Select coordinates of voxels that belong to phase 1 (solid electrolyte), and are neighbors to phase 2 (active material), e.g. `(x_0, y_0, z_0)` and `(x_0, y_0 + 1, z_0)` are neighbors, but  `(x_0, y_0, z_0)` and `(x_0, y_0 + 1, z_0 + 1)` are not neighbors.
-- Save the effective electrolyte coordinates to the file `effective_electrolyte.pickle` to the input data directory.
+- Select coordinates of voxels that belong to phase 1 (solid electrolyte), and are neighbors to phase 2 (active material), e.g. `(x_0, y_0, z_0)` and `(x_0, y_0 + 1, z_0)` are neighbors, but  `(x_0, y_0, z_0)` and `(x_0, y_0 + 1, z_0 + 1)` are not neighbors
+- Save the effective electrolyte coordinates to the file `effective_electrolyte.pickle` to the input data directory
 - Create an ordered tuple of neighboring solid electrolyte voxels that form a tetrahedra such that for 8 adjacent voxels that form a cube we end up with 5 non-intersecting tetrahedra.
 - Optionally refine the tetrahedra using [TetGen](https://wias-berlin.de/software/index.jsp?id=TetGen&lang=1#Introduction)
-- Optionally refine the mesh further using [GMSH](https://gmsh.info/#Documentation).
-- Create a tetrahedral mesh file called tetr.xdmf that is scaled to match the voxel volume size.
+- Optionally refine the mesh further using [GMSH](https://gmsh.info/#Documentation)
+- Create a tetrahedral mesh file called tetr.xdmf that is scaled to match the voxel volume size
 - Using [ParaView](https://www.paraview.org/), extract the external surface of the tetrahedral mesh file&emdash;tetr.xdmf
 - Label surfaces of the above surface mesh that are spanned by the coordinates of the effective electrolyte obtained in step 3, and save the triangle mesh to tria.xmdf
 ## Estimation of Effective Conductivity
@@ -75,5 +75,5 @@ optional arguments:
   --scale_z [SCALE_Z]   Value to scale the Lz grid size given to match dimensions of mesh files.
 ```
 The input meshfiles include two options:
-- tetrahedral mesh of the solid electrolyte phase and a pickle file *effective_electrolyte.pickle* containing coordinates of solid electrolyte that are in contact with active material.
+- tetrahedral mesh of the solid electrolyte phase and a pickle file *effective_electrolyte.pickle* containing coordinates of solid electrolyte that are in contact with active material
 - tetrahedral mesh of the solid electrolyte phase, and a triangle mesh of the surface of solid electrolyte with effective and ineffective
