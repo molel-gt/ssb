@@ -76,4 +76,4 @@ optional arguments:
 ```
 The input meshfiles include two options:
 - tetrahedral mesh of the solid electrolyte phase and a pickle file *effective_electrolyte.pickle* containing coordinates of solid electrolyte that are in contact with active material
-- tetrahedral mesh of the solid electrolyte phase, and a triangle mesh of the surface of solid electrolyte with effective and ineffective
+- tetrahedral mesh of the solid electrolyte phase, and a triangle mesh of the surface of solid electrolyte with effective active material area labelled
