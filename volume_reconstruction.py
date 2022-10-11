@@ -295,9 +295,9 @@ if __name__ == "__main__":
     parser.add_argument('--origin', default=(0, 0, 0), help='Where to select choice grid from available segmented image array such that `subdata = data[origin_x:Nx, origin_y:Ny, origin_z:Nz]`')
     parser.add_argument("--resolution", help='Minimum resolution using gmsh', nargs='?', const=1, default=0.5, type=float)
     parser.add_argument("--phase", help='Phase that we want to reconstruct, e.g. 0 for void, 1 for solid electrolyte and 2 for active material', nargs='?', const=1, default=1, type=int)
-    parser.add_argument("--scale_x" help="Value to scale the Lx grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
-    parser.add_argument("--scale_y" help="Value to scale the Ly grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
-    parser.add_argument("--scale_z" help="Value to scale the Lz grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
+    parser.add_argument("--scale_x", help="Value to scale the Lx grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
+    parser.add_argument("--scale_y", help="Value to scale the Ly grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
+    parser.add_argument("--scale_z", help="Value to scale the Lz grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
     start_time = time.time()
     args = parser.parse_args()
     phase = args.phase
