@@ -1,6 +1,6 @@
 # Estimation of Effective Properties Using Finite Element Analysis
 Two models are provided that estimate the effective conductivity and the effective active material specific area. We focus on the contact area between active material and solid electrolyte.
-The [constants](constants.py:22) file contains constant variables such as default bulk ionic conductivity, which we set at 0.1 S/m (1 mS/cm).
+The [constants](constants.py) file contains constant variables such as default bulk ionic conductivity, which we set at 0.1 S/m (1 mS/cm).
 ## Geometry Preparation
 The geometry used in our models is prepared from segmented tomograms. For ease of communication, we label our segmented phases as 0 for void, 1 for solid electrolyte and 2 for active material. The volume reconstruction from segmented images is achieved using the [volume_reconstruction](volume_reconstruction.py) program. The parameters are:
 ```
