@@ -39,7 +39,7 @@ The volume reconstruction proceeds as follows:
 - Load the segmented stack of images into a 3D array
 - Select coordinates of voxels that belong to phase 1 (solid electrolyte) and label them using natural numbers starting from 0
 - Select coordinates of voxels that belong to phase 1 (solid electrolyte), and are neighbors to phase 2 (active material), e.g. `(x_0, y_0, z_0)` and `(x_0, y_0 + 1, z_0)` are neighbors, but  `(x_0, y_0, z_0)` and `(x_0, y_0 + 1, z_0 + 1)` are not neighbors
-- Save the effective electrolyte coordinates to the file `effective_electrolyte.pickle` to the input data directory
+- Save the effective electrolyte coordinates to the file `effective_electrolyte.pickle` within the input data directory
 - Create an ordered tuple of neighboring solid electrolyte voxels that form a tetrahedra such that for 8 adjacent voxels that form a cube we end up with 5 non-intersecting tetrahedra.
 - Optionally refine the tetrahedra using [TetGen](https://wias-berlin.de/software/index.jsp?id=TetGen&lang=1#Introduction)
 - Optionally refine the mesh further using [GMSH](https://gmsh.info/#Documentation)
@@ -79,7 +79,7 @@ optional arguments:
   -h, --help            show this help message and exit
   --grid_size GRID_SIZE
                         Lx-Ly-Lz
-  --data_dir DATA_DIR   Directory with tria.xdmf and tetr.xdmf mesh files, and effective_electrolyte.pickle file. Output files potential.xdmf and current.xdmf will be saved here.
+  --data_dir DATA_DIR   Directory with tria.xdmf and tetr.xdmf mesh files, and effective_electrolyte.pickle file. Output files potential.xdmf and current.xdf will be saved here.
   --scale_x [SCALE_X]   Value to scale the Lx grid size given to match dimensions of mesh files.
   --scale_y [SCALE_Y]   Value to scale the Ly grid size given to match dimensions of mesh files.
   --scale_z [SCALE_Z]   Value to scale the Lz grid size given to match dimensions of mesh files.
