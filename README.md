@@ -41,7 +41,7 @@ The volume reconstruction proceeds as follows:
 - Select coordinates of voxels that belong to phase 1 (solid electrolyte), and are neighbors to phase 2 (active material), e.g. `(x_0, y_0, z_0)` and `(x_0, y_0 + 1, z_0)` are neighbors, but  `(x_0, y_0, z_0)` and `(x_0, y_0 + 1, z_0 + 1)` are not neighbors
 - Save the effective electrolyte coordinates to the file `effective_electrolyte.pickle` within the input data directory
 - Create an ordered tuple of neighboring solid electrolyte voxels that form a tetrahedra such that for 8 adjacent voxels that form a cube we end up with 5 non-intersecting tetrahedra.
-- Optionally refine the tetrahedra using [TetGen](https://wias-berlin.de/software/index.jsp?id=TetGen&lang=1#Introduction)
+- Optionally refine the tetrahedra using [TetGen](https://wias-berlin.de/software/index.jsp?id=TetGen&lang=1#Introduction) with inputs points in a `.node` file and input tetrahedra in a `.ele` file
 - Optionally refine the mesh further using [GMSH](https://gmsh.info/#Documentation)
 - Create a tetrahedral mesh file called tetr.xdmf that is scaled to match the voxel volume size
 - Using [ParaView](https://www.paraview.org/), extract the external surface of the tetrahedral mesh file&emdash;tetr.xdmf
