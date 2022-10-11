@@ -58,7 +58,7 @@ optional arguments:
 ```
 The output units for area and volume are assumed to be in micrometers while effective conductivity is reported in Siemens per meter.
 ## Estimation of Effective Active Material Specific Area
-This is achived using the [effective active material area](effective_active_material_area.py) model. The model input parameters are:
+This is achieved using the [effective active material area](effective_active_material_area.py) model. The model input parameters are:
 ```
 (base) molel@molel-ThinkPad-T15-Gen-2i ~/dev/ssb (dev) $ python3 effective_active_material_area.py -h
 usage: effective_active_material_area.py [-h] --grid_size GRID_SIZE --data_dir DATA_DIR [--scale_x [SCALE_X]] [--scale_y [SCALE_Y]] [--scale_z [SCALE_Z]]
