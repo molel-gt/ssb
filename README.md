@@ -58,7 +58,7 @@ optional arguments:
   -h, --help            show this help message and exit
   --grid_size GRID_SIZE
                         Lx-Ly-Lz
-  --data_dir DATA_DIR   Directory with tria.xdmf and tetr.xmf mesh files. Output files potential.xdmf and current.xdmf will be saved here
+  --data_dir DATA_DIR   Directory with tria.xdmf and tetr.xdmf mesh files. Output files potential.xdmf and current.xdmf will be saved here
   --voltage [VOLTAGE]   Potential to set at the left current collector. Right current collector is set to a potential of 0
   --scale_x [SCALE_X]   Value to scale the Lx grid size given to match dimensions of mesh files.
   --scale_y [SCALE_Y]   Value to scale the Ly grid size given to match dimensions of mesh files.
@@ -79,11 +79,11 @@ optional arguments:
   -h, --help            show this help message and exit
   --grid_size GRID_SIZE
                         Lx-Ly-Lz
-  --data_dir DATA_DIR   Directory with tria.xdmf and tetr.xmdf mesh files, and effective_electrolyte.pickle file. Output files potential.xdmf and current.xmdf will be saved here.
+  --data_dir DATA_DIR   Directory with tria.xdmf and tetr.xdmf mesh files, and effective_electrolyte.pickle file. Output files potential.xdmf and current.xdmf will be saved here.
   --scale_x [SCALE_X]   Value to scale the Lx grid size given to match dimensions of mesh files.
   --scale_y [SCALE_Y]   Value to scale the Ly grid size given to match dimensions of mesh files.
   --scale_z [SCALE_Z]   Value to scale the Lz grid size given to match dimensions of mesh files.
 ```
 The input meshfiles include two options:
-- Tetrahedral mesh of the solid electrolyte phase (tetr.xmdf) and a pickle file *effective_electrolyte.pickle* containing coordinates of solid electrolyte that are in contact with active material
-- Tetrahedral mesh of the solid electrolyte phase (tetr.xmdf), and a triangle mesh of the surface of solid electrolyte (tria.xmdf) with effective active material area labelled
+- Tetrahedral mesh of the solid electrolyte phase (tetr.xdmf) and a pickle file *effective_electrolyte.pickle* containing coordinates of solid electrolyte that are in contact with active material
+- Tetrahedral mesh of the solid electrolyte phase (tetr.xdmf), and a triangle mesh of the surface of solid electrolyte (tria.xmdf) with effective active material area labelled

@@ -19,7 +19,7 @@ import constants, utils
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Specific Active Material Area.')
     parser.add_argument('--grid_size', help='Lx-Ly-Lz', required=True)
-    parser.add_argument('--data_dir', help='Directory with tria.xdmf and tetr.xmdf mesh files, and effective_electrolyte.pickle file. Output files potential.xdmf and current.xmdf will be saved here.', required=True, type=str)
+    parser.add_argument('--data_dir', help='Directory with tria.xdmf and tetr.xdmf mesh files, and effective_electrolyte.pickle file. Output files potential.xdmf and current.xdmf will be saved here.', required=True, type=str)
     parser.add_argument("--scale_x", help="Value to scale the Lx grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=np.double)
     parser.add_argument("--scale_y", help="Value to scale the Ly grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=np.double)
     parser.add_argument("--scale_z", help="Value to scale the Lz grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=np.double)
