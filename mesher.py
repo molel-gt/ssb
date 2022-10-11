@@ -13,7 +13,6 @@ import meshio
 import numpy as np
 
 from itertools import groupby
-from operator import itemgetter
 
 import connected_pieces, geometry, utils
 

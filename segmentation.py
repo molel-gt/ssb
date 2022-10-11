@@ -45,11 +45,11 @@ for img_file in image_files:
 
     img_raw = Image.fromarray(img.astype(np.uint8))
     img_raw.save(os.path.join("unsegmented", fname), format="TIFF")
-    img_gauss = filters.gaussian(img)
-    thresholds_auto = filters.threshold_multiotsu(img_gauss)
-    all_thresholds.append(thresholds_auto)
-    img_segmented = filters.meijering(img_gauss)
-    img_edges = img_segmented >= 0.075
+    # img_gauss = filters.gaussian(img)
+    # thresholds_auto = filters.threshold_multiotsu(img_gauss)
+    # all_thresholds.append(thresholds_auto)
+    # img_segmented = filters.meijering(img_gauss)
+    # img_edges = img_segmented >= 0.075
     # test small slice due to memory issues
     # img_edges = img_edges[0:101, 0:101]
     # edges_coords = np.argwhere(img_edges == 1)

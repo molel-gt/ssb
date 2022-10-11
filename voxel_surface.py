@@ -13,10 +13,6 @@ import gmsh
 import meshio
 import numpy as np
 
-from itertools import groupby
-from operator import itemgetter
-from stl import mesh
-
 import geometry, utils
 
 
