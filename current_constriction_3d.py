@@ -17,14 +17,16 @@ import constants, utils
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
-    parser.add_argument('--grid_size', help='Lx-Ly-Lz', required=True)
-    parser.add_argument('--data_dir', help='Directory with tria.xdmf and tetr.xmf mesh files. Output files potential.xdmf and current.xdmf will be saved here', required=True, type=str)
-    parser.add_argument("--voltage", help="Potential to set at the left current collector. Right current collector is set to a potential of 0", nargs='?', const=1, default=1)
-    parser.add_argument("--scale_x", help="Value to scale the Lx grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=np.double)
-    parser.add_argument("--scale_y", help="Value to scale the Ly grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=np.double)
-    parser.add_argument("--scale_z", help="Value to scale the Lz grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=np.double)
-    parser.add_argument("--loglevel",help="Logging level, e.g. ERROR, DEBUG, INFO, WARNING", nargs='?', const=1, default="INFO")
+    parser = argparse.ArgumentParser(description='run simulation..')
+    parser.add_argument('--grid_info', help='Nx-Ny-Nz', required=True)
+    parser.add_argument('--data_dir', help='directory with mesh files. output will be saved here', required=True, type=str)
+    parser.add_argument("--voltage", nargs='?', const=1, default=1)
+    parser.add_argument("--scale_x", nargs='?', const=1, default=1, type=np.double)
+    parser.add_argument("--scale_y", nargs='?', const=1, default=1, type=np.double)
+    parser.add_argument("--scale_z", nargs='?', const=1, default=1, type=np.double)
+    parser.add_argument("--loglevel", nargs='?', const=1, default="INFO")
+    parser.add_argument("--eps", help='fraction of area at left current collector that is in contact',
+                        nargs='?', const=1, default=0.3, type=np.double)
 
     args = parser.parse_args()
     data_dir = args.data_dir
@@ -36,15 +38,15 @@ if __name__ == '__main__':
     rank = comm.rank
     start_time = timeit.default_timer()
 
-    grid_size = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
+    grid_info = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{data_dir}')
     logger.setLevel(args.loglevel)
-    Lx, Ly, Lz = [int(v) for v in grid_size.split("-")]
-    Lx = Lx * scale_x
-    Ly = Ly * scale_y
-    Lz = Lz * scale_z
+    Nx, Ny, Nz = [int(v) for v in grid_info.split("-")]
+    Lx = (Nx - 1) * scale_x
+    Ly = (Ny - 1) * scale_y
+    Lz = (Nz - 1) * scale_z
     tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
     output_current_path = os.path.join(data_dir, 'current.xdmf')
@@ -56,28 +58,36 @@ if __name__ == '__main__':
         mesh3d = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(mesh3d, name="Grid")
     mesh3d.topology.create_connectivity(mesh3d.topology.dim, mesh3d.topology.dim - 1)
+    mesh3d.topology.create_connectivity(mesh3d.topology.dim, mesh3d.topology.dim - 2)
+    mesh3d.topology.create_connectivity(mesh3d.topology.dim, mesh3d.topology.dim - 3)
+    mesh3d = dolfinx.mesh.refine(mesh3d)
 
-    logger.debug("Loading effective electrolyte..")
-    with open(os.path.join(data_dir, 'effective_electrolyte.pickle'), 'rb') as handle:
-        effective_electrolyte = list(pickle.load(handle))
+    logger.debug("Loading contact points..")
+    with open(os.path.join(data_dir, 'contact_points.pickle'), 'rb') as handle:
+        contact_points = list(pickle.load(handle))
 
-    # logger.debug("Loading triangles (dim = 2) mesh..")
-    # with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile2:
-    #     mesh2d = infile2.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
-    #     facets_ct = infile2.read_meshtags(mesh2d, name="Grid")
-    # surf_meshtags = dolfinx.mesh.meshtags(mesh3d, 2, facets_ct.indices, facets_ct.values)
+    def is_contact_area(x, area):
+        ret_val = np.zeros(x.shape[1])
+        for idx in range(x.shape[1]):
+            c = tuple(x[:, idx])
+            coord = (int(np.rint(c[0]/scale_x)), int(np.rint(c[1]/scale_y)), int(np.rint(c[2]/scale_z)))
+            ret_val[idx] = coord in area
+        ret_val.reshape(-1, 1)
+        return ret_val
+
+    def contact_area(x, eps=args.eps, Lx=Lx, Ly=Ly, z=0):
+        center = (Lx/2, Ly/2, z)
+        radius = (Lx*Ly*eps/np.pi) ** (1/2)
+        vals = np.zeros((x.shape[1], ), dtype=bool)
+        for i in range(x.shape[1]):
+            coord = x[:, i]
+            vals[i] = np.linalg.norm(coord - center) <= radius and np.isclose(coord[2], 0)
+
+        return vals
 
     left_cc_marker = constants.surface_tags["left_cc"]
     right_cc_marker = constants.surface_tags["right_cc"]
     insulated_marker = constants.surface_tags["insulated"]
-    active_marker = constants.surface_tags["active_area"]
-    inactive_marker = constants.surface_tags["inactive_area"]
-
-    # x0facet = np.array(facets_ct.indices[facets_ct.values == left_cc_marker])
-    # x1facet = np.array(facets_ct.indices[facets_ct.values == right_cc_marker])
-    # insulated_facet = np.array(facets_ct.indices[facets_ct.values == insulated_marker])
-    # active_facet = np.array(facets_ct.indices[facets_ct.values == active_marker])
-    # inactive_facet = np.array(facets_ct.indices[facets_ct.values == inactive_marker])
 
     # Dirichlet BCs
     V = dolfinx.fem.FunctionSpace(mesh3d, ("Lagrange", 2))
@@ -89,31 +99,15 @@ if __name__ == '__main__':
     with u1.vector.localForm() as u1_loc:
         u1_loc.set(0.0)
     
-    x0facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2,
-                                    lambda x: np.isclose(x[1], 0.0))
+    x0facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: contact_area(x))
     x1facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2,
-                                    lambda x: np.isclose(x[1], Ly))
-    insulated_facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.logical_and(np.logical_not(np.isclose(x[1], 0)), np.logical_not(np.isclose(x[1], Ly))))
-
-    def is_active_area(x, effective_electrolyte):
-        ret_val = np.zeros(x.shape[1])
-        for idx in range(x.shape[1]):
-            c = tuple(x[:, idx])
-            coord = (int(np.rint(c[0]/scale_x)), int(np.rint(c[1]/scale_y)), int(np.rint(c[2]/scale_z)))
-            ret_val[idx] = coord in effective_electrolyte
-        ret_val.reshape(-1, 1)
-        return ret_val
-
-    active_facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: is_active_area(x, effective_electrolyte))
-    inactive_facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.logical_not(is_active_area(x, effective_electrolyte)))
+                                    lambda x: np.isclose(x[2], Lz))
+    insulated_facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.logical_and(np.logical_not(contact_area(x)), np.logical_not(np.isclose(x[2], Lz))))
 
     facets_ct_indices = np.hstack((x0facet, x1facet, insulated_facet))
     facets_ct_values = np.hstack((np.ones(x0facet.shape[0], dtype=np.int32), right_cc_marker * np.ones(x1facet.shape[0], dtype=np.int32),
                                 insulated_marker * np.ones(insulated_facet.shape[0], dtype=np.int32)))
     surf_meshtags = dolfinx.mesh.meshtags(mesh3d, 2, facets_ct_indices, facets_ct_values)
-    facets_ct_indices2 = np.hstack((active_facet, inactive_facet))
-    facets_ct_values2 = np.hstack((active_marker * np.ones(active_facet.shape[0], dtype=np.int32), inactive_marker * np.ones(inactive_facet.shape[0], dtype=np.int32)))
-    surf_meshtags2 = dolfinx.mesh.meshtags(mesh3d, 2, facets_ct_indices2, facets_ct_values2)
 
     x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 2, x0facet))
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 2, x1facet))
@@ -121,8 +115,7 @@ if __name__ == '__main__':
     ds = ufl.Measure("ds", domain=mesh3d, subdomain_data=surf_meshtags, subdomain_id=insulated_marker)
     ds_left_cc = ufl.Measure('ds', domain=mesh3d, subdomain_data=surf_meshtags, subdomain_id=left_cc_marker)
     ds_right_cc = ufl.Measure('ds', domain=mesh3d, subdomain_data=surf_meshtags, subdomain_id=right_cc_marker)
-    ds_active = ufl.Measure('ds', domain=mesh3d, subdomain_data=surf_meshtags2, subdomain_id=active_marker)
-    ds_inactive = ufl.Measure('ds', domain=mesh3d, subdomain_data=surf_meshtags2, subdomain_id=inactive_marker)
+
 
     # Define variational problem
     u = ufl.TrialFunction(V)
@@ -169,8 +162,6 @@ if __name__ == '__main__':
         file.write_function(current_h)
 
     insulated_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds))
-    active_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_active))
-    inactive_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_inactive))
     area_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_left_cc))
     area_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_right_cc))
     i_left_cc = (1/area_left_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds_left_cc))
@@ -185,15 +176,12 @@ if __name__ == '__main__':
     logger.info("Contact Area @ right cc [sq. um]                : {:.4e}".format(area_right_cc))
     logger.info("Current density @ left cc                       : {:.4e}".format(i_left_cc))
     logger.info("Current density @ right cc                      : {:.4e}".format(i_right_cc))
-    logger.info("Effective Active Material Area [sq. um]         : {:.4e}".format(active_area))
-    logger.info("Ineffective Active Material Area [sq. um]       : {:.4e}".format(inactive_area))
     logger.info("Insulated Area [sq. um]                         : {:.4e}".format(insulated_area))
     logger.info("Total Area [sq. um]                             : {:.4e}".format(area_left_cc + area_right_cc + insulated_area))
     logger.info("Total Volume [cu. um]                           : {:.4e}".format(volume))
     logger.info("Electrolyte Volume Fraction                     : {:.2%}".format(volume/(Lx * Ly * Lz)))
-    logger.info("Effective Active Material Specific Area [um-1]  : {:.4e}".format(active_area/(Lx * Ly * Lz)))
     logger.info("Bulk conductivity [S.m-1]                       : {:.4e}".format(0.1))
-    logger.info("Effective conductivity [S.m-1]                  : {:.4e}".format(Ly * area_left_cc * i_left_cc / (voltage * (Lx * Lz))))
+    logger.info("Effective conductivity [S.m-1]                  : {:.4e}".format(Lz * area_left_cc * i_left_cc / (voltage * (Lx * Ly))))
     logger.info(f"Homogeneous Neumann BC trace                    : {solution_trace_norm:.2e}")
     logger.info(f"Area-averaged Homogeneous Neumann BC trace      : {avg_solution_trace_norm:.2e}")
     logger.info("Deviation in current at two current collectors  : {:.2f}%".format(deviation_in_current))

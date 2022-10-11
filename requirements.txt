@@ -1,0 +1,13 @@
+argparse
+gmsh
+h5py
+matplotlib
+meshio
+networkx
+numpy
+opencv-python
+pandas
+scipy
+scikit-image
+sklearn
+vtk
