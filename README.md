@@ -1,5 +1,5 @@
 # Estimation of Effective Properties Using Finite Element Analysis
-Two models are provided that estimate the effective conductivity and the effective active material specific area. We focus on the contact area between active material and solid electrolyte.
+Two Python models are provided that estimate the effective conductivity and the effective active material specific area. We focus on the contact area between active material and solid electrolyte.
 The [constants](constants.py) file contains constant variables such as default bulk ionic conductivity, which we set at 0.1 S/m (1 mS/cm).
 For finite element analysis, we use dolfinx ([`FEniCSx`](https://github.com/FEniCS/dolfinx)). There are many installation options, but we found conda to work best for PC, e.g. in Ubuntu OS. In HPC clusters, installation via spack is preferred. We reproduce the process for installing dolfinx via conda:
 ```
