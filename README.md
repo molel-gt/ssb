@@ -67,6 +67,11 @@ optional arguments:
                         Logging level, e.g. ERROR, DEBUG, INFO, WARNING
 ```
 The output units for area and volume are assumed to be in micrometers while effective conductivity is reported in Siemens per meter.
+We have validated our effective conductivity model in the following ways:
+- Comparison with the Bruggeman relation $\kappa_{eff} = \kappa_0^{1.5}$
+- Check convergence of Dirichlet boundary conditions at the two current collectors
+- Check that current on the insulated surface is approximately zero
+- Check that current estimated at the two current collectors are equal to within < 1%
 ## Estimation of Effective Active Material Specific Area
 This is achieved using the [effective active material area](effective_active_material_area.py) model. The model input parameters are:
 ```
