@@ -36,7 +36,7 @@ if __name__ == '__main__':
     rank = comm.rank
     start_time = timeit.default_timer()
 
-    grid_size = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
+    grid_size = args.grid_size
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{data_dir}')
