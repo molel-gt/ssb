@@ -1,0 +1,15 @@
+#PBS -A GT-tf74
+#PBS -l walltime=24:00:00
+#PBS -l nodes=1:ppn=2
+#PBS -l mem=64gb
+#PBS -m abe
+#PBS -o fib-sem.out
+#PBS -e fib-sem.error
+#PBS -M emolel3@gatech.edu
+
+echo "Started on `/bin/hostname`"
+cd /storage/coda1/p-tf74/0/shared/leshinka/ssb
+export PATH=/storage/coda1/p-tf74/0/shared/leshinka/opt/anaconda3/:$PATH
+conda activate fenicsx-env
+
+mpirun -n 1 ./transport.py --grid_size 250-250-201 --data_dir mesh/1/251-251-202_000-000-000/
