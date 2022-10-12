@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
-import itertools
-import os
-import sys
 
-import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
 from skimage import io
 
-import connected_pieces, constants, utils
+import connected_pieces, constants
 
 
 def load_images(files_list, shape):

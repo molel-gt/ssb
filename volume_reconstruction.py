@@ -9,7 +9,6 @@ import time
 import argparse
 import gmsh
 import logging
-import matplotlib.pyplot as plt
 import meshio
 import numpy as np
 import vtk

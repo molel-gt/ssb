@@ -4,9 +4,7 @@ import os
 import time
 
 import argparse
-import gmsh
 import logging
-import meshio
 import networkx as nx
 import numpy as np
 

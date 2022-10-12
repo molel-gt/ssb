@@ -13,7 +13,7 @@ import ufl
 from mpi4py import MPI
 from petsc4py import PETSc
 
-import constants, utils
+import constants
 
 
 if __name__ == '__main__':
