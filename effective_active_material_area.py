@@ -31,15 +31,12 @@ if __name__ == '__main__':
     rank = comm.rank
     start_time = timeit.default_timer()
 
-    grid_info = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
+    grid_size = args.grid_size
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
-    logger = logging.getLogger(f'{grid_info}' + '_' + __file__)
+    logger = logging.getLogger(f'{grid_size}' + '_' + __file__)
     logger.setLevel('DEBUG')
-    Nx, Ny, Nz = [int(v) for v in grid_info.split("-")]
-    Lx = (Nx - 1) * scale_x
-    Ly = (Ny - 1) * scale_y
-    Lz = (Nz - 1) * scale_z
+    Lx, Ly, Lz = [int(v) for v in grid_size.split("-")]
     tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
 
