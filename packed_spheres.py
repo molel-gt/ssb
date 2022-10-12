@@ -9,7 +9,6 @@ import gmsh
 import meshio
 import numpy as np
 import subprocess
-gmsh.initialize()
 
 
 def read_spheres_position_file(spheres_position_path):
@@ -36,9 +35,12 @@ def read_spheres_position_file(spheres_position_path):
 
 
 def build_packed_spheres_mesh(output_mesh_file, spheres_locations_file):
+    gmsh.initialize()
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 1e-4)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1e-2)
     gmsh.model.add("3D")
     Lx, Ly, Lz = 1, 1, 1
-    resolution = 0.01
+    resolution = 1e-6
     channel = gmsh.model.occ.addBox(0, 0, 0, Lx, Ly, Lz)
     spheres_ = []
     centers, r, n_spheres = read_spheres_position_file(spheres_locations_file)
@@ -77,13 +79,14 @@ def build_packed_spheres_mesh(output_mesh_file, spheres_locations_file):
     gmsh.model.mesh.field.setNumber(2, "DistMin", 0)
     gmsh.model.mesh.field.setNumber(2, "DistMax", 0.1)
 
-    gmsh.model.mesh.field.add("Min", 5)
-    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    # gmsh.model.mesh.field.add("Min", 5)
+    # gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    # gmsh.model.mesh.field.setAsBackgroundMesh(5)
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
     
     gmsh.write(output_mesh_file)
+    gmsh.finalize()
     
     return
 
