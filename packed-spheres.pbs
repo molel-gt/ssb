@@ -8,7 +8,7 @@
 #PBS -M emolel3@gatech.edu
 
 echo "Started on `/bin/hostname`"
-cd /storage/coda1/p-tf74/0/shared/leshinka/opt/ && . ./spack/share/spack/setup-env.sh && spack activate fenicsx-env
+cd /storage/coda1/p-tf74/0/shared/leshinka/ && . ./spack/share/spack/setup-env.sh && spack activate fenicsx-env
 
 cd /storage/coda1/p-tf74/0/shared/leshinka/ssb/
 
