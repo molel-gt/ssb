@@ -114,5 +114,5 @@ if __name__ == '__main__':
     meshio.write(f"mesh/packed_spheres/{grid_size}_{pf}/tetr.xdmf", tetrahedral_mesh)
     tria_mesh = create_mesh(mesh_3d, "triangle")
     meshio.write(f"mesh/packed_spheres/{grid_size}_{pf}/tria.xdmf", tria_mesh)
-    transport_model_path = "transport.py"
-    val = subprocess.check_call(f'mpirun -n 1 python3 {transport_model_path} --grid_size={grid_size} --data_dir=mesh/packed_spheres/{grid_size}_{pf}/', shell=True)
+    # transport_model_path = "transport.py"
+    # val = subprocess.check_call(f'mpirun -n 1 python3 {transport_model_path} --grid_size={grid_size} --data_dir=mesh/packed_spheres/{grid_size}_{pf}/', shell=True)
