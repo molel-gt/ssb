@@ -100,7 +100,7 @@ def create_mesh(mesh, cell_type, prune_z=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Effective Conductivity of Packed Spheres.')
-    parser.add_argument('--pf', help='Packing fraction (%)', default=30)
+    parser.add_argument('--pf', help="Packing fraction (percent)", default=30)
     args = parser.parse_args()
     pf = args.pf
     grid_size = '1-1-1'
