@@ -44,7 +44,7 @@ The volume reconstruction proceeds as follows:
 - Optionally refine the tetrahedra using [TetGen](https://wias-berlin.de/software/index.jsp?id=TetGen&lang=1#Introduction) with inputs points in a `.node` file and input tetrahedra in a `.ele` file
 - Optionally refine the mesh further using [GMSH](https://gmsh.info/#Documentation)
 - Create a tetrahedral mesh file called tetr.xdmf that is scaled to match the voxel volume size
-- Using [ParaView](https://www.paraview.org/), extract the external surface of the tetrahedral mesh file&emdash;tetr.xdmf
+- Using [ParaView](https://www.paraview.org/), extract the external surface of the tetrahedral mesh file&mdash;tetr.xdmf
 - Label surfaces of the above surface mesh that are spanned by the coordinates of the effective electrolyte obtained in step 3, and save the triangle mesh to tria.xmdf
 ## Estimation of Effective Conductivity
 This is achieved using the [transport](transport.py) model. The model input parameters are:
