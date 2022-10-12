@@ -8,8 +8,8 @@
 #PBS -M emolel3@gatech.edu
 
 echo "Started on `/bin/hostname`"
-cd /storage/coda1/p-tf74/0/shared/leshinka/ssb
-export PATH=/storage/coda1/p-tf74/0/shared/leshinka/opt/anaconda3/:$PATH
-conda activate fenicsx-env
+cd /storage/coda1/p-tf74/0/shared/leshinka/opt/ && . ./spack/share/spack/setup-env.sh && spack activate fenicsx-env
+
+cd /storage/coda1/p-tf74/0/shared/leshinka/ssb/
 
 mpirun -n 1 ./transport.py --grid_size 1-1-1 --data_dir mesh/packed_spheres/1-1-1_30/
