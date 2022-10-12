@@ -9,7 +9,7 @@
 
 echo "Started on `/bin/hostname`"
 cd /storage/coda1/p-tf74/0/shared/leshinka/ssb
-export PATH=/storage/coda1/p-tf74/0/shared/leshinka/opt/anaconda3/:$PATH
+export PATH=/storage/coda1/p-tf74/0/shared/leshinka/opt/anaconda3/bin/:/storage/coda1/p-tf74/0/shared/leshinka/opt/:$PATH
 conda activate fenicsx-env
 
 mpirun -n 1 ./transport.py --grid_size 250-250-201 --data_dir mesh/1/251-251-202_000-000-000/
