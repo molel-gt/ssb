@@ -99,24 +99,25 @@ def create_mesh(mesh, cell_type, prune_z=False):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='run simulation..')
+    parser = argparse.ArgumentParser(description='Effective Conductivity of Packed Spheres.')
     parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
 
     args = parser.parse_args()
     origin = args.origin
     home_dir = os.environ["HOME"]
     pf = origin.split(",")[0]
-    spheres_locations_file = os.path.join(home_dir, f"spheres/{pf}.dat")
+    grid_size = '1-1-1'
+    spheres_locations_file = os.path.join(home_dir, f"mesh/packed_spheres/{grid_size}_{pf}/{pf}.dat")
     task_dir = os.path.abspath(os.path.dirname(__file__))
-    output_mesh_file = os.path.join(task_dir, "mesh/spheres.msh")
-    grid_info = '2-2-2'
+    output_mesh_file = os.path.join(task_dir, f"mesh/packed_spheres/{grid_size}_{pf}/spheres.msh")
+    
     origin_str = origin.replace(",", "_")
     
     build_packed_spheres_mesh(output_mesh_file, spheres_locations_file)
     mesh_3d = meshio.read(output_mesh_file)
     tetrahedral_mesh = create_mesh(mesh_3d, "tetra")
-    meshio.write(os.path.join(task_dir, f"mesh/s{grid_info}o{origin_str}_tetr.xdmf"), tetrahedral_mesh)
+    meshio.write(os.path.join(task_dir, f"mesh/packed_spheres/{grid_size}_{pf}/tetr.xdmf"), tetrahedral_mesh)
     tria_mesh = create_mesh(mesh_3d, "triangle")
-    meshio.write(os.path.join(task_dir, f"mesh/s{grid_info}o{origin_str}_tria.xdmf"), tria_mesh)
+    meshio.write(os.path.join(task_dir, f"mesh/packed_spheres/{grid_size}_{pf}/tria.xdmf"), tria_mesh)
     transport_model_path = os.path.join(home_dir, 'dev/ssb', "transport.py")
-    val = subprocess.check_call(f'mpirun -n 2 python3 {transport_model_path} --grid_info={grid_info} --origin={origin}', shell=True)
+    val = subprocess.check_call(f'mpirun -n 2 python3 {transport_model_path} --grid_size={grid_size} --data_dir=mesh/packed_spheres/{grid_size}_{pf}/', shell=True)
