@@ -15,4 +15,4 @@ export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
 
 cd /storage/coda1/p-tf74/0/shared/leshinka/ssb/
 
-mpirun -n 1 ./contact_loss.py 101-101-101 segmented/000.tif
+python3 contact_loss.py 101-101-101 segmented/000.tif

@@ -15,4 +15,4 @@ export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
 
 cd /storage/coda1/p-tf74/0/shared/leshinka/ssb/
 
-mpirun -n 1 ./current_constriction_3d.py --grid_size 100-100-100 --data_dir mesh/1/101-101-101_current-constriction/
+mpirun -n 1 ./current_constriction_3d.py --grid_size 100-100-100 --data_dir mesh/1/101-101-101_current-constriction/ --eps 0.15
