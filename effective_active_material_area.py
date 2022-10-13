@@ -10,9 +10,13 @@ import logging
 import numpy as np
 import ufl
 
+from collections import namedtuple
 from mpi4py import MPI
 
 import constants
+
+
+Facet = namedtuple('Facet', 'indices values')
 
 
 if __name__ == '__main__':
@@ -46,12 +50,17 @@ if __name__ == '__main__':
     with dolfinx.io.XDMFFile(comm, tetr_mesh_path, "r") as infile3:
         mesh3d = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(mesh3d, name="Grid")
+
     mesh3d.topology.create_connectivity(mesh3d.topology.dim, mesh3d.topology.dim - 1)
 
-    logger.debug("Loading triangles (dim = 2) mesh..")
-    with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile3:
-        mesh2d = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
-        facets_ct = infile3.read_meshtags(mesh2d, name="Grid")
+    x = ufl.SpatialCoordinate(mesh3d)
+
+    # logger.debug("Loading triangles (dim = 2) mesh..")
+    # with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile3:
+    #     mesh2d = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
+    #     facets_ct = infile3.read_meshtags(mesh2d, name="Grid")
+
+    # x = ufl.SpatialCoordinate(mesh2d)
 
     logger.debug("Loading effective electrolyte..")
     with open(os.path.join(data_dir, 'effective_electrolyte.pickle'), 'rb') as handle:
@@ -63,27 +72,8 @@ if __name__ == '__main__':
     active_marker = constants.surface_tags["active_area"]
     inactive_marker = constants.surface_tags["inactive_area"]
 
-    x0facet = np.array(facets_ct.indices[facets_ct.values == left_cc_marker])
-    x1facet = np.array(facets_ct.indices[facets_ct.values == right_cc_marker])
-    insulated_facet = np.array(facets_ct.indices[facets_ct.values == insulated_marker])
-    active_facet = np.array(facets_ct.indices[facets_ct.values == active_marker])
-    inactive_facet = np.array(facets_ct.indices[facets_ct.values == inactive_marker])
-
-    # surf_meshtags = dolfinx.mesh.meshtags(mesh2d, 2, facets_ct.indices, facets_ct.values)
-    # n = -ufl.FacetNormal(mesh2d)
-    # ds_left_cc = ufl.Measure('dx', domain=mesh2d, subdomain_data=surf_meshtags, subdomain_id=left_cc_marker)
-    # ds_right_cc = ufl.Measure('dx', domain=mesh2d, subdomain_data=surf_meshtags, subdomain_id=right_cc_marker)
-    # ds_insulated = ufl.Measure('dx', domain=mesh2d, subdomain_data=surf_meshtags, subdomain_id=insulated_marker)
-    # ds_active = ufl.Measure('dx', domain=mesh2d, subdomain_data=surf_meshtags, subdomain_id=active_marker)
-    # ds_inactive = ufl.Measure('dx', domain=mesh2d, subdomain_data=surf_meshtags, subdomain_id=inactive_marker)
-    # x = ufl.SpatialCoordinate(mesh2d)
-
-    x = ufl.SpatialCoordinate(mesh3d)
-
-    x0facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2,
-                                    lambda x: np.isclose(x[1], 0.0))
-    x1facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2,
-                                    lambda x: np.isclose(x[1], Ly))
+    x0facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.isclose(x[1], 0.0))
+    x1facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.isclose(x[1], Ly))
     insulated_facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.logical_and(np.logical_not(np.isclose(x[1], 0)), np.logical_not(np.isclose(x[1], Ly))))
 
     def is_active_area(x, effective_electrolyte, dp=1):
@@ -98,35 +88,40 @@ if __name__ == '__main__':
     active_facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: is_active_area(x, effective_electrolyte))
     inactive_facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.logical_not(is_active_area(x, effective_electrolyte)))
 
-    facets_ct_indices = np.hstack((x0facet, x1facet, insulated_facet))
-    facets_ct_values = np.hstack((np.ones(x0facet.shape[0], dtype=np.int32), right_cc_marker * np.ones(x1facet.shape[0], dtype=np.int32),
+    facets_ct_indices1 = np.hstack((x0facet, x1facet, insulated_facet))
+    facets_ct_values1 = np.hstack((np.ones(x0facet.shape[0], dtype=np.int32), right_cc_marker * np.ones(x1facet.shape[0], dtype=np.int32),
                                 insulated_marker * np.ones(insulated_facet.shape[0], dtype=np.int32)))
-    surf_meshtags = dolfinx.mesh.meshtags(mesh3d, 2, facets_ct_indices, facets_ct_values)
     facets_ct_indices2 = np.hstack((active_facet, inactive_facet))
     facets_ct_values2 = np.hstack((active_marker * np.ones(active_facet.shape[0], dtype=np.int32), inactive_marker * np.ones(inactive_facet.shape[0], dtype=np.int32)))
-    surf_meshtags2 = dolfinx.mesh.meshtags(mesh3d, 2, facets_ct_indices2, facets_ct_values2)
+    facets_ct_indices = np.hstack((facets_ct_indices1, facets_ct_indices2))
+    facets_ct_values = np.hstack((facets_ct_values1, facets_ct_values2))
+    facets_ct = Facet(facets_ct_indices, facets_ct_values)
+    surf_meshtags = dolfinx.mesh.meshtags(mesh3d, 2, facets_ct.indices, facets_ct.values)
     ds_insulated = ufl.Measure("ds", domain=mesh3d, subdomain_data=surf_meshtags, subdomain_id=insulated_marker)
     ds_left_cc = ufl.Measure('ds', domain=mesh3d, subdomain_data=surf_meshtags, subdomain_id=left_cc_marker)
     ds_right_cc = ufl.Measure('ds', domain=mesh3d, subdomain_data=surf_meshtags, subdomain_id=right_cc_marker)
-    ds_active = ufl.Measure('ds', domain=mesh3d, subdomain_data=surf_meshtags2, subdomain_id=active_marker)
-    ds_inactive = ufl.Measure('ds', domain=mesh3d, subdomain_data=surf_meshtags2, subdomain_id=inactive_marker)
+    ds_active = ufl.Measure('ds', domain=mesh3d, subdomain_data=surf_meshtags, subdomain_id=active_marker)
+    ds_inactive = ufl.Measure('ds', domain=mesh3d, subdomain_data=surf_meshtags, subdomain_id=inactive_marker)
 
     logger.debug('Computing areas..')
 
     active_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_active))
-    inactive_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_inactive))
+    inactive_area2 = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_inactive))
     area_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_left_cc))
     area_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_right_cc))
     area_insulated = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_insulated))
+    total_area = area_left_cc + area_right_cc + area_insulated
+    inactive_area = total_area - active_area
+    logger.debug(100 * (inactive_area - inactive_area2)/(inactive_area + inactive_area2))
     logger.info("**************************RESULTS-SUMMARY******************************************")
-    logger.info("Contact Area @ left cc [sq. um]                          : {:.4e}".format(area_left_cc))
-    logger.info("Contact Area @ right cc [sq. um]                         : {:.4e}".format(area_right_cc))
-    logger.info("Insulated Area [sq. um]                                  : {:.4e}".format(area_insulated))
-    logger.info("Effective Active Material Area [sq. um]                  : {:.4e}".format(active_area))
-    logger.info("Ineffective Active Material Area [sq. um]                : {:.4e}".format(inactive_area))
-    logger.info("Total Area [sq. um]                                      : {:.4e}".format(active_area + inactive_area))
-    logger.info("Total Volume [cu. um]                                    : {:.4e}".format(Lx * Ly * Lz))
-    logger.info("Specific Effective Active Material Area [um-1]           : {:.4e}".format(active_area/(Lx * Ly * Lz)))
-    logger.info("Specific Ineffective Active Material Area [um-1]         : {:.4e}".format(inactive_area/(Lx * Ly * Lz)))
+    logger.info(f"Contact Area @ left cc [sq. um]                          : {area_left_cc:.4e}")
+    logger.info(f"Contact Area @ right cc [sq. um]                         : {area_right_cc:.4e}")
+    logger.info(f"Insulated Area [sq. um]                                  : {area_insulated:.4e}")
+    logger.info(f"Effective Active Material Area [sq. um]                  : {active_area:.4e}")
+    logger.info(f"Ineffective Active Material Area [sq. um]                : {inactive_area:.4e}")
+    logger.info(f"Total Area [sq. um]                                      : {total_area:.4e}")
+    logger.info(f"Total Volume [cu. um]                                    : {Lx*Ly*Lz:.4e}")
+    logger.info(f"Specific Effective Active Material Area [um-1]           : {active_area/(Lx * Ly * Lz):.4e}")
+    logger.info(f"Specific Ineffective Active Material Area [um-1]         : {inactive_area/(Lx * Ly * Lz):.4e}")
     logger.info(f"Time elapsed                                             : {int(timeit.default_timer() - start_time):3.5f}s")
     logger.info("*************************END-OF-SUMMARY*******************************************")

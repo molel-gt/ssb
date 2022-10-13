@@ -12,7 +12,7 @@ import ufl
 from mpi4py import MPI
 from petsc4py import PETSc
 
-import constants
+import commons, constants
 
 
 if __name__ == '__main__':
@@ -49,8 +49,11 @@ if __name__ == '__main__':
     output_current_path = os.path.join(data_dir, 'current.xdmf')
     output_potential_path = os.path.join(data_dir, 'potential.xdmf')
 
-    logger.debug("Loading tetrahedra (dim = 3) mesh..")
+    left_cc_marker = constants.surface_tags["left_cc"]
+    right_cc_marker = constants.surface_tags["right_cc"]
+    insulated_marker = constants.surface_tags["insulated"]
 
+    logger.debug("Loading tetrahedra (dim = 3) mesh..")
     with dolfinx.io.XDMFFile(comm, tetr_mesh_path, "r") as infile3:
         mesh3d = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(mesh3d, name="Grid")
@@ -60,12 +63,7 @@ if __name__ == '__main__':
     # with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile2:
     #     mesh2d = infile2.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
     #     facets_ct = infile2.read_meshtags(mesh2d, name="Grid")
-    # surf_meshtags = dolfinx.mesh.meshtags(mesh3d, 2, facets_ct.indices, facets_ct.values)
-
-    left_cc_marker = constants.surface_tags["left_cc"]
-    right_cc_marker = constants.surface_tags["right_cc"]
-    insulated_marker = constants.surface_tags["insulated"]
-
+    
     # x0facet = np.array(facets_ct.indices[facets_ct.values == left_cc_marker])
     # x1facet = np.array(facets_ct.indices[facets_ct.values == right_cc_marker])
     # insulated_facet = np.array(facets_ct.indices[facets_ct.values == insulated_marker])
@@ -89,7 +87,8 @@ if __name__ == '__main__':
     facets_ct_indices = np.hstack((x0facet, x1facet, insulated_facet))
     facets_ct_values = np.hstack((np.ones(x0facet.shape[0], dtype=np.int32), right_cc_marker * np.ones(x1facet.shape[0], dtype=np.int32),
                                 insulated_marker * np.ones(insulated_facet.shape[0], dtype=np.int32)))
-    surf_meshtags = dolfinx.mesh.meshtags(mesh3d, 2, facets_ct_indices, facets_ct_values)
+    facets_ct = commons.Facet(facets_ct_indices, facets_ct_values)
+    surf_meshtags = dolfinx.mesh.meshtags(mesh3d, 2, facets_ct.indices, facets_ct.values)
 
     x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 2, x0facet))
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 2, x1facet))
@@ -134,7 +133,7 @@ if __name__ == '__main__':
     grad_u = ufl.grad(uh)
 
     W = dolfinx.fem.FunctionSpace(mesh3d, ("Lagrange", 1))
-    current_expr = dolfinx.fem.Expression(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
+    current_expr = dolfinx.fem.Expression(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points)
     current_h = dolfinx.fem.Function(W)
     current_h.interpolate(current_expr)
 
