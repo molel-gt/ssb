@@ -1,11 +1,10 @@
-import os
+#!/usr/bin/env python3
+
 import pickle
 import subprocess
 import sys
 
-import cv2
 import gmsh
-import matplotlib.pyplot as plt
 import meshio
 import numpy as np
 
