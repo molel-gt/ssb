@@ -14,17 +14,33 @@ git clone https://github.com/spack/spack.git
 Edit the file `spack/etc/spack/defaults/config.yaml` to change the temporary directory, e.g.
 ```
 build_stage:
-    - /storage/coda1/p-tf74/0/shared/leshinka/tmp/spack-stage
+    - /storage/coda1/p-tf74/0/shared/user3/tmp/spack-stage
     - $user_cache_path/stage
 ```
 ```
 module load gcc/10.1.0
 . ./spack/share/spack/setup-env.sh
 spack compiler find
+spack compiler add gcc@10.1.0
 spack env create fenicsx-env
 spack env activate fenicsx-env
 spack add py-fenics-dolfinx@0.5.1%gcc@10.1.0 cflags="-O3" fflags="-O3"
 spack install
+```
+It may be preferrable to build gmsh without relying on the python pip installation:
+```
+wget https://gmsh.info/src/gmsh-4.10.5-source.tgz
+tar xvzf gmsh-4-10.5-source.tgz
+cd gmsh-4-10.5-source
+mkdir build && cd build
+cmake .. -DCMAKE_PREFIX_PATH=/storage/coda1/p-tf74/0/shared/user3/opt/ -DCMAKE_INSTALL_PREFIX=/storage/coda1/p-tf74/0/shared/user3/opt/ -DENABLE_BUILD_DYNAMIC=1
+make
+make install
+```
+You now will need to export paths to the gmsh:
+```
+export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/user3/opt/
+export PATH=$PATH:/storage/coda1/p-tf74/0/shared/user3/opt/
 ```
 Other required Python packages are specified in the [requirements](requirements.txt) file and can be installed via:
 ```
