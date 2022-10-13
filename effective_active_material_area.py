@@ -13,10 +13,7 @@ import ufl
 from collections import namedtuple
 from mpi4py import MPI
 
-import constants
-
-
-Facet = namedtuple('Facet', 'indices values')
+import commons, constants
 
 
 if __name__ == '__main__':
@@ -95,7 +92,7 @@ if __name__ == '__main__':
     facets_ct_values2 = np.hstack((active_marker * np.ones(active_facet.shape[0], dtype=np.int32), inactive_marker * np.ones(inactive_facet.shape[0], dtype=np.int32)))
     facets_ct_indices = np.hstack((facets_ct_indices1, facets_ct_indices2))
     facets_ct_values = np.hstack((facets_ct_values1, facets_ct_values2))
-    facets_ct = Facet(facets_ct_indices, facets_ct_values)
+    facets_ct = commons.Facet(facets_ct_indices, facets_ct_values)
     surf_meshtags = dolfinx.mesh.meshtags(mesh3d, 2, facets_ct.indices, facets_ct.values)
     ds_insulated = ufl.Measure("ds", domain=mesh3d, subdomain_data=surf_meshtags, subdomain_id=insulated_marker)
     ds_left_cc = ufl.Measure('ds', domain=mesh3d, subdomain_data=surf_meshtags, subdomain_id=left_cc_marker)
