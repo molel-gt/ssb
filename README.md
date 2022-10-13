@@ -44,7 +44,7 @@ export PATH=$PATH:/storage/coda1/p-tf74/0/shared/user3/opt/
 ```
 Other required Python packages are specified in the [requirements](requirements.txt) file and can be installed via:
 ```
-pip3 install -r requirements.txt --user
+python3 -m pip install -r requirements.txt --user
 ```
 ## Geometry Preparation
 The geometry used in our models is prepared from segmented tomograms. For ease of communication, we label our segmented phases as 0 for void, 1 for solid electrolyte and 2 for active material. The volume reconstruction from segmented images is achieved using the [volume_reconstruction](volume_reconstruction.py) program. The parameters are:
