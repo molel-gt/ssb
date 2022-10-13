@@ -11,7 +11,7 @@ echo "Started on `/bin/hostname`"
 cd /storage/coda1/p-tf74/0/shared/leshinka/ && . ./spack/share/spack/setup-env.sh && spack env activate fenicsx-env
 
 export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
-export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
+export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/:/storage/home/hcoda1/0/emolel3/.local/
 
 cd /storage/coda1/p-tf74/0/shared/leshinka/ssb/
 
