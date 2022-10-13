@@ -7,6 +7,25 @@ conda create -n fenicsx-env
 conda activate fenicsx-env
 conda install -c conda-forge fenics-dolfinx mpich pyvista
 ```
+In HPC clusters, installation via spack is preferred:
+```
+git clone https://github.com/spack/spack.git
+```
+Edit the file `spack/etc/spack/defaults/config.yaml` to change the temporary directory, e.g.
+```
+build_stage:
+    - /storage/coda1/p-tf74/0/shared/leshinka/tmp/spack-stage
+    - $user_cache_path/stage
+```
+```
+module load gcc/10.1.0
+. ./spack/share/spack/setup-env.sh
+spack compiler find
+spack env create fenicsx-env
+spack env activate fenicsx-env
+spack add py-fenics-dolfinx@0.5.1%gcc@10.1.0 cflags="-O3" fflags="-O3"
+spack install
+```
 Other required Python packages are specified in the [requirements](requirements.txt) file and can be installed via:
 ```
 pip3 install -r requirements.txt --user
