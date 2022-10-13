@@ -1,4 +1,5 @@
 argparse
+gmsh-sdk
 h5py
 matplotlib
 meshio
