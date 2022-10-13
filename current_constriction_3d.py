@@ -38,6 +38,7 @@ if __name__ == '__main__':
     rank = comm.rank
     start_time = timeit.default_timer()
 
+    eps = args.eps
     grid_size = args.grid_size
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
@@ -49,8 +50,8 @@ if __name__ == '__main__':
     Lz = Lz * scale_z
     tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
-    output_current_path = os.path.join(data_dir, 'current.xdmf')
-    output_potential_path = os.path.join(data_dir, 'potential.xdmf')
+    output_current_path = os.path.join(data_dir, f'{eps}/current.xdmf')
+    output_potential_path = os.path.join(data_dir, f'{eps}/potential.xdmf')
 
     logger.debug("Loading tetrahedra (dim = 3) mesh..")
 
