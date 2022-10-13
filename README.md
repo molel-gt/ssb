@@ -68,11 +68,15 @@ optional arguments:
 ```
 The output units for area and volume are assumed to be in micrometers while effective conductivity is reported in Siemens per meter.
 We have validated our effective conductivity model in the following ways:
-- Comparison with the Bruggeman relation $\kappa_{eff} = \kappa_0\varepsilon^{1.5}$, where $\varepsilon$ is the solid electrolyte volume fraction
+- Compare with the Bruggeman relation $\kappa_{eff} = \kappa_0\varepsilon^{1.5}$, where $\varepsilon$ is the solid electrolyte volume fraction
 - Check convergence of Dirichlet boundary conditions at the two current collectors
 - Check that current on the insulated surface is approximately zero
 - Check that current estimated at the two current collectors are equal to within < 1%
 - Check that the model reproduces effective conductivity of a perfect laminate structure where the conductor phase is fully connected along the transport direction: $\kappa_{eff} = \kappa_0\varepsilon$
+- Check that the model reproduces the Bruggeman relation for random monodisperse packed spheres
+
+[<img src="figures/effective-conductivity.png" style="width: 50%;" align="center"/>](figures/effective-conductivity.png)
+
 ## Estimation of Effective Active Material Specific Area
 This is achieved using the [effective active material area](effective_active_material_area.py) model. The model input parameters are:
 ```
