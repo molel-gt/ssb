@@ -47,6 +47,7 @@ if __name__ == '__main__':
 
     left_cc_marker = constants.surface_tags["left_cc"]
     right_cc_marker = constants.surface_tags["right_cc"]
+    insulated_marker = constants.surface_tags["insulated"]
     active_marker = constants.surface_tags["active_area"]
     inactive_marker = constants.surface_tags["inactive_area"]
 
@@ -59,6 +60,7 @@ if __name__ == '__main__':
     n = -ufl.FacetNormal(mesh)
     ds_left_cc = ufl.Measure('dx', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=left_cc_marker)
     ds_right_cc = ufl.Measure('dx', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=right_cc_marker)
+    ds_insulated = ufl.Measure('dx', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=insulated_marker)
     ds_active = ufl.Measure('dx', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=active_marker)
     ds_inactive = ufl.Measure('dx', domain=mesh, subdomain_data=surf_meshtags, subdomain_id=inactive_marker)
 
@@ -71,9 +73,11 @@ if __name__ == '__main__':
     inactive_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_inactive))
     area_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_left_cc))
     area_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_right_cc))
+    area_insulated = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_insulated))
     logger.info("**************************RESULTS-SUMMARY******************************************")
     logger.info("Contact Area @ left cc [sq. um]                          : {:.4e}".format(area_left_cc))
     logger.info("Contact Area @ right cc [sq. um]                         : {:.4e}".format(area_right_cc))
+    logger.info("Insulated Area [sq. um]                                  : {:.4e}".format(area_insulated))
     logger.info("Effective Active Material Area [sq. um]                  : {:.4e}".format(active_area))
     logger.info("Ineffective Active Material Area [sq. um]                : {:.4e}".format(inactive_area))
     logger.info("Total Area [sq. um]                                      : {:.4e}".format(active_area + inactive_area))
