@@ -70,6 +70,7 @@ The output units for area and volume are assumed to be in micrometers while effe
 We have validated our effective conductivity model in the following ways:
 - Compare with the Bruggeman relation $\kappa_{eff} = \kappa_0\varepsilon^{1.5}$, where $\varepsilon$ is the solid electrolyte volume fraction
 - Check convergence of Dirichlet boundary conditions at the two current collectors
+- Check that the current on conductively isolated blocks is zero
 - Check that current on the insulated surface is approximately zero
 - Check that current estimated at the two current collectors are equal to within < 1%
 - Check that the model reproduces effective conductivity of a perfect laminate structure where the conductor phase is fully connected along the transport direction: $\kappa_{eff} = \kappa_0\varepsilon$
