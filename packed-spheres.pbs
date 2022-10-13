@@ -10,6 +10,9 @@
 echo "Started on `/bin/hostname`"
 cd /storage/coda1/p-tf74/0/shared/leshinka/ && . ./spack/share/spack/setup-env.sh && spack env activate fenicsx-env
 
+export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
+export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
+
 cd /storage/coda1/p-tf74/0/shared/leshinka/ssb/
 
 mpirun -n 1 ./transport.py --grid_size 1-1-1 --data_dir mesh/packed_spheres/1-1-1_30/
