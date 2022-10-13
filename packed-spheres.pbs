@@ -8,7 +8,7 @@
 #PBS -M emolel3@gatech.edu
 
 echo "Started on `/bin/hostname`"
-cd /storage/coda1/p-tf74/0/shared/leshinka/ && . ./spack/share/spack/setup-env.sh && spack env activate fenicsx-env
+module load anaconda3/2020.11 && conda activate fenicsx-env
 
 cd /storage/coda1/p-tf74/0/shared/leshinka/ssb/
 
