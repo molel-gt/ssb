@@ -158,7 +158,7 @@ if __name__ == '__main__':
     logger.info("Current density @ right cc                      : {:.4e}".format(i_right_cc))
     logger.info("Insulated Area [sq. um]                         : {:.4e}".format(insulated_area))
     logger.info("Total Area [sq. um]                             : {:.4e}".format(area_left_cc + area_right_cc + insulated_area))
-    logger.info("Total Volume [cu. um]                           : {:.4e}".format(volume))
+    logger.info("Electrolyte Volume [cu. um]                     : {:.4e}".format(volume))
     logger.info("Electrolyte Volume Fraction                     : {:.2%}".format(volume/(Lx * Ly * Lz)))
     logger.info("Bulk conductivity [S.m-1]                       : {:.4e}".format(0.1))
     logger.info("Effective conductivity [S.m-1]                  : {:.4e}".format(Ly * area_left_cc * i_left_cc / (voltage * (Lx * Lz))))

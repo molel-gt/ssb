@@ -109,7 +109,7 @@ if __name__ == '__main__':
     area_insulated = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_insulated))
     total_area = area_left_cc + area_right_cc + area_insulated
     inactive_area = total_area - active_area
-    logger.debug(100 * (inactive_area - inactive_area2)/(inactive_area + inactive_area2))
+    logger.debug(200 * (inactive_area - inactive_area2)/(inactive_area + inactive_area2))
     logger.info("**************************RESULTS-SUMMARY******************************************")
     logger.info(f"Contact Area @ left cc [sq. um]                          : {area_left_cc:.4e}")
     logger.info(f"Contact Area @ right cc [sq. um]                         : {area_right_cc:.4e}")
@@ -117,7 +117,7 @@ if __name__ == '__main__':
     logger.info(f"Effective Active Material Area [sq. um]                  : {active_area:.4e}")
     logger.info(f"Ineffective Active Material Area [sq. um]                : {inactive_area:.4e}")
     logger.info(f"Total Area [sq. um]                                      : {total_area:.4e}")
-    logger.info(f"Total Volume [cu. um]                                    : {Lx*Ly*Lz:.4e}")
+    logger.info(f"RVE Volume [cu. um]                                      : {Lx*Ly*Lz:.4e}")
     logger.info(f"Specific Effective Active Material Area [um-1]           : {active_area/(Lx * Ly * Lz):.4e}")
     logger.info(f"Specific Ineffective Active Material Area [um-1]         : {inactive_area/(Lx * Ly * Lz):.4e}")
     logger.info(f"Time elapsed                                             : {int(timeit.default_timer() - start_time):3.5f}s")
