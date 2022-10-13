@@ -75,7 +75,7 @@ We have validated our effective conductivity model in the following ways:
 - Check that the model reproduces effective conductivity of a perfect laminate structure where the conductor phase is fully connected along the transport direction: $\kappa_{eff} = \kappa_0\varepsilon$
 - Check that the model reproduces the Bruggeman relation for random monodisperse packed spheres
 
-[<img src="figures/effective-conductivity.png" style="width: 50%;" align="center"/>](figures/effective-conductivity.png)
+[<img src="figures/effective-conductivity.png" style="width: 75%;" align="center"/>](figures/effective-conductivity.png)
 
 ## Estimation of Effective Active Material Specific Area
 This is achieved using the [effective active material area](effective_active_material_area.py) model. The model input parameters are:
