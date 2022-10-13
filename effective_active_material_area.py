@@ -73,7 +73,7 @@ if __name__ == '__main__':
     x1facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.isclose(x[1], Ly))
     insulated_facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.logical_and(np.logical_not(np.isclose(x[1], 0)), np.logical_not(np.isclose(x[1], Ly))))
 
-    def is_active_area(x, effective_electrolyte, dp=1):
+    def is_active_area(x, effective_electrolyte=effective_electrolyte, dp=1):
         ret_val = np.zeros(x.shape[1])
         for idx in range(x.shape[1]):
             c = tuple(x[:, idx])
@@ -82,8 +82,8 @@ if __name__ == '__main__':
         ret_val.reshape(-1, 1)
         return ret_val
 
-    active_facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: is_active_area(x, effective_electrolyte))
-    inactive_facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.logical_not(is_active_area(x, effective_electrolyte)))
+    active_facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: is_active_area(x))
+    inactive_facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.logical_not(is_active_area(x)))
 
     facets_ct_indices1 = np.hstack((x0facet, x1facet, insulated_facet))
     facets_ct_values1 = np.hstack((np.ones(x0facet.shape[0], dtype=np.int32), right_cc_marker * np.ones(x1facet.shape[0], dtype=np.int32),
