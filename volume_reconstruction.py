@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-
+import copy
 import gc
 import os
 import pickle
@@ -113,7 +113,7 @@ def read_vtk_surface(file_path):
     return triangles
 
 
-def electrolyte_bordering_active_material(voxels):
+def electrolyte_bordering_active_material(voxels, dp=0):
     effective_electrolyte = set()
     for idx in np.argwhere(voxels == phase_key["electrolyte"]):
         x, y, z = [int(v) for v in idx]
@@ -129,7 +129,10 @@ def electrolyte_bordering_active_material(voxels):
             try:
                 value = voxels[p]
                 if value == phase_key["activematerial"]:
-                    effective_electrolyte.add(tuple(idx))
+                    if dp > 0:
+                        effective_electrolyte.add(tuple([round(v, dp) for v in idx]))
+                    else:
+                        effective_electrolyte.add(tuple(idx))
             except IndexError:
                 continue
 
@@ -215,6 +218,30 @@ def build_cubes(voxels, points):
     return cubes
 
 
+def build_variable_size_cubes(points, h=0.5):
+    """
+    Filter out vertices that are malformed/ not part of solid inside or solid surface.
+    """
+    cubes = []
+    for coord, _ in points.items():
+        x0, y0, z0 = coord
+        face_1 = [(x0, y0, z0), (x0 + h, y0, z0), (x0 + h, y0 + h, z0), (x0, y0 + h, z0)]
+        face_2 = [(x0, y0, z0 + h), (x0 + h, y0, z0 + h), (x0 + h, y0 + h, z0 + h), (x0, y0 + h, z0 + h)]
+        faces = [[], []]
+        n_points = 0
+        for i in range(4):
+            if points.get(face_1[i]) is None:
+                break
+            faces[0].append(points.get(face_1[i]))
+            n_points += 1
+            if points.get(face_2[i]) is None:
+                break
+            n_points += 1
+            faces[1].append(points.get(face_2[i]))
+        cubes.append((face_1, face_2))
+    return cubes
+
+
 def build_tetrahedra(cube, points):
     """
     Build the 6 tetrahedra in a cube
@@ -269,20 +296,64 @@ def label_surface_mesh(mesh, effective_electrolyte, transport_length, axis=1):
     for i, cell in enumerate(cells):
         coords = [tuple(points[j, :]) for j in cell]
         if np.isclose([v[axis] for v in coords], 0).all():
-            pass
-            # cell_data[i, 0] = surface_tags["left_cc"]
+            cell_data[i, 0] = surface_tags["left_cc"]
         elif np.isclose([v[axis] for v in coords], transport_length).all():
-            pass
-            # cell_data[i, 0] = surface_tags["right_cc"]
+            cell_data[i, 0] = surface_tags["right_cc"]
         else:
-            pass
-            # cell_data[i, 0] = surface_tags["insulated"]
+            cell_data[i, 0] = surface_tags["insulated"]
         if set(coords).issubset(effective_electrolyte):
             cell_data[i, 1] = surface_tags["active_area"]
         else:
             cell_data[i, 1] = surface_tags["inactive_area"]
         
     return meshio.Mesh(points=points, cells={"triangle": cells}, cell_data={"name_to_read": [cell_data]})
+
+
+def add_boundary_points(points, x_max=50, y_max=50, z_max=50, h=0.5, dp=1):
+    """
+    A thickness of *h* pixels around the points of one phase to ensure continuity between phases.
+    """
+    new_points = copy.deepcopy(points)
+    max_id = max(new_points.values())
+    for (x0, y0, z0), _ in points.items():
+        for sign_x in [-1, 0, 1]:
+            for sign_y in [-1, 0, 1]:
+                for sign_z in [-1, 0, 1]:
+                    coord = (round(x0 + h * sign_x, dp), round(y0 + h * sign_y, dp), round(z0 + h * sign_z, dp))
+                    if coord[0] > x_max or coord[1] > y_max or coord[2] > z_max:
+                        continue
+                    if np.less(coord, 0).any():
+                        continue
+                    v = new_points.get(coord)
+                    if v is None:
+                        max_id += 1
+                        new_points[coord] = max_id
+
+    return new_points
+
+
+def extend_points(points, points_master, x_max=50, y_max=50, z_max=50, h=0.5, dp=1):
+    """
+    A thickness of *h* pixels around the points of one phase to ensure continuity between phases.
+    """
+    if not isinstance(points, set) or not isinstance(points_master, dict):
+        raise TypeError("Accepts points set and points_master dictionary")
+    new_points = copy.deepcopy(points)
+    for (x0, y0, z0) in points:
+        for sign_x in [-1, 0, 1]:
+            for sign_y in [-1, 0, 1]:
+                for sign_z in [-1, 0, 1]:
+                    coord = (round(x0 + h * sign_x, dp), round(y0 + h * sign_y, dp), round(z0 + h * sign_z, dp))
+                    if coord[0] > x_max or coord[1] > y_max or coord[2] > z_max:
+                        continue
+                    if np.less(coord, 0).any():
+                        continue
+                    v = points_master.get(coord)
+                    if v is None:
+                        continue
+                    new_points.add(coord)
+    
+    return new_points
 
 
 if __name__ == "__main__":
@@ -329,8 +400,13 @@ if __name__ == "__main__":
     voxels_filtered = filter_voxels.get_filtered_voxels(voxels_raw)
     voxels = np.isclose(voxels_filtered, phase)
 
+    points = connected_pieces.build_points(voxels, dp=1)
+    points = add_boundary_points(points, x_max=Nx-1, y_max=Ny-1, z_max=Nz-1, h=0.5, dp=1)
+    points_view = {v: k for k, v in points.items()}
+
     neighbors = number_of_neighbors(voxels)
-    effective_electrolyte = electrolyte_bordering_active_material(voxels_filtered)
+    effective_electrolyte = electrolyte_bordering_active_material(voxels_filtered, dp=1)
+    effective_electrolyte = extend_points(effective_electrolyte, points, x_max=Nx-1, y_max=Ny-1, z_max=Nz-1, h=0.5, dp=1)
     eff_electrolyte_filepath = f"mesh/{phase}/{grid_info}_{origin_str}/effective_electrolyte.pickle"
     with open(eff_electrolyte_filepath, "wb") as fp:
         pickle.dump(effective_electrolyte, fp, protocol=pickle.HIGHEST_PROTOCOL)
@@ -340,9 +416,8 @@ if __name__ == "__main__":
     n_triangles = 0
     counter = 0
     tetrahedra = {}
-    points = connected_pieces.build_points(voxels)
-    points_view = {v: k for k, v in points.items()}
-    cubes = build_cubes(voxels, points)
+    
+    cubes = build_variable_size_cubes(points, h=0.5)
     for cube in cubes:
         _tetrahedra = build_tetrahedra(cube, points)
         for tet in _tetrahedra:
@@ -355,26 +430,6 @@ if __name__ == "__main__":
             coord = points_view[vertex]
             tetrahedra_np[i, 3*j:3*j+3] = coord
             points_set.add(tuple(coord))
-    dummy_voxels = np.zeros(voxels.shape, dtype=voxels.dtype)
-    for coord in points_set:
-        dummy_voxels[coord] = 1
-    new_neighbors = number_of_neighbors(dummy_voxels)
-    points = {}
-    points_view = {}
-    points_id = 0
-    for idx in np.argwhere(new_neighbors < 6):
-        points[tuple(idx)] = points_id
-        points_id += 1
-    for point in points_set:
-        coord = point
-        if points.get(coord) is None:
-            points[coord] = points_id
-            points_id += 1
-    points_view = {v: k for k, v in points.items()}
-    tetrahedra = np.zeros((n_tetrahedra, 4))
-    for i in range(n_tetrahedra):
-        for j, k in enumerate(range(0, 12, 3)):
-            tetrahedra[i, j] = int(points[tuple(tetrahedra_np[i, k:k+3])])
 
     nodefile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.node"
     tetfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.ele"
@@ -397,8 +452,11 @@ if __name__ == "__main__":
     tet_points = set()
     with open(tetfile, "w") as fp:
         fp.write(f"{n_tetrahedra} 4 0\n")
-        for tet_id, tetrahedron in enumerate(tetrahedra):
-            p1, p2, p3, p4 = [int(v) for v in tetrahedron]
+        for tet_id, tetrahedron in enumerate(tetrahedra_np):
+            p1 = points[tuple(tetrahedron[:3])]
+            p2 = points[tuple(tetrahedron[3:6])]
+            p3 = points[tuple(tetrahedron[6:9])]
+            p4 = points[tuple(tetrahedron[9:])]
             tet_points |= {p1, p2, p3, p4}
             fp.write(f"{tet_id} {p1} {p2} {p3} {p4}\n")
 
@@ -410,7 +468,6 @@ if __name__ == "__main__":
     gc.collect()
 
     retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -rkQF", shell=True)
-    # retcode_paraview = subprocess.check_call("pvpython extractSurf.py {}".format(os.path.dirname(surface_vtk)), shell=True)
 
     # GMSH
     gmsh.initialize()
