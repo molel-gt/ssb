@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-import copy
+
 import gc
 import os
 import pickle
@@ -11,7 +11,6 @@ import gmsh
 import logging
 import meshio
 import numpy as np
-import vtk
 
 from skimage import io
 

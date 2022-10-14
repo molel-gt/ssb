@@ -1,16 +1,13 @@
 #!/usr/bin/env python3
 
 import copy
-import os
 
 import meshio
 import networkx as nx
 import numpy as np
 import vtk
 
-from skimage import io
-
-import configs, commons, constants, filter_voxels, utils
+import commons, constants
 
 
 phases = commons.Phases()
@@ -30,6 +27,7 @@ def create_mesh(mesh, cell_type, prune_z=False):
                            )
     if prune_z:
         out_mesh.prune_z_0()
+
     return out_mesh
 
 
@@ -47,6 +45,7 @@ def build_points(data, dp=0):
                 coord = (round(coord[0], dp), round(coord[1], dp), round(coord[2], dp))
             points[coord] = count
             count += 1
+
     return points
 
 
@@ -81,6 +80,7 @@ def build_graph(points, h=1, dp=0):
             if p is None:
                 continue
             G.add_edge(p0, p)
+
     return G
 
 
@@ -337,7 +337,6 @@ def apply_filter_to_3d_array(array, size):
 def generate_surface_mesh(triangles, effective_electrolyte, shape, points):
     """"""
     _, Ny, _ = shape
-    prev_points = points
     cells = np.zeros((len(triangles), 3), dtype=np.int32)
     cell_data = np.zeros((cells.shape[0], 2))
     
