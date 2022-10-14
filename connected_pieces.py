@@ -17,7 +17,7 @@ logger = logging.getLogger(__file__)
 logger.setLevel('INFO')
 
 
-def build_points(data):
+def build_points(data, dp=0):
     """
     key: (x,y,z) coordinate
     value: point_id
@@ -26,7 +26,10 @@ def build_points(data):
     count = 0
     for idx, v in np.ndenumerate(data):
         if v == 1:
-            points[idx] = count
+            coord = idx
+            if dp > 0:
+                coord = (round(coord[0], dp), round(coord[1], dp), round(coord[2], dp))
+            points[coord] = count
             count += 1
     return points
 

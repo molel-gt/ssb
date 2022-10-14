@@ -13,7 +13,7 @@ import ufl
 from mpi4py import MPI
 from petsc4py import PETSc
 
-import constants, utils
+import commons, constants
 
 
 if __name__ == '__main__':
@@ -53,25 +53,25 @@ if __name__ == '__main__':
     output_current_path = os.path.join(data_dir, f'{eps}/current.xdmf')
     output_potential_path = os.path.join(data_dir, f'{eps}/potential.xdmf')
 
-    logger.debug("Loading tetrahedra (dim = 3) mesh..")
+    left_cc_marker = constants.surface_tags["left_cc"]
+    right_cc_marker = constants.surface_tags["right_cc"]
+    insulated_marker = constants.surface_tags["insulated"]
 
+    logger.debug("Loading tetrahedra (dim = 3) mesh..")
     with dolfinx.io.XDMFFile(comm, tetr_mesh_path, "r") as infile3:
         mesh3d = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(mesh3d, name="Grid")
     mesh3d.topology.create_connectivity(mesh3d.topology.dim, mesh3d.topology.dim - 1)
-    mesh3d.topology.create_connectivity(mesh3d.topology.dim, mesh3d.topology.dim - 2)
-    mesh3d.topology.create_connectivity(mesh3d.topology.dim, mesh3d.topology.dim - 3)
-    mesh3d = dolfinx.mesh.refine(mesh3d)
 
     logger.debug("Loading contact points..")
     with open(os.path.join(data_dir, 'contact_points.pickle'), 'rb') as handle:
         contact_points = list(pickle.load(handle))
 
-    def is_contact_area(x, area):
+    def is_contact_area(x, area, dp=1):
         ret_val = np.zeros(x.shape[1])
         for idx in range(x.shape[1]):
             c = tuple(x[:, idx])
-            coord = (int(np.rint(c[0]/scale_x)), int(np.rint(c[1]/scale_y)), int(np.rint(c[2]/scale_z)))
+            coord = (round(c[0]/scale_x, dp), round(c[1]/scale_y, dp), round(c[2]/scale_z, dp))
             ret_val[idx] = coord in area
         ret_val.reshape(-1, 1)
         return ret_val
@@ -85,10 +85,6 @@ if __name__ == '__main__':
             vals[i] = np.linalg.norm(coord - center) <= radius and np.isclose(coord[2], 0)
 
         return vals
-
-    left_cc_marker = constants.surface_tags["left_cc"]
-    right_cc_marker = constants.surface_tags["right_cc"]
-    insulated_marker = constants.surface_tags["insulated"]
 
     # Dirichlet BCs
     V = dolfinx.fem.FunctionSpace(mesh3d, ("Lagrange", 2))
@@ -108,6 +104,7 @@ if __name__ == '__main__':
     facets_ct_indices = np.hstack((x0facet, x1facet, insulated_facet))
     facets_ct_values = np.hstack((np.ones(x0facet.shape[0], dtype=np.int32), right_cc_marker * np.ones(x1facet.shape[0], dtype=np.int32),
                                 insulated_marker * np.ones(insulated_facet.shape[0], dtype=np.int32)))
+    facets_ct = commons.Facet(facets_ct_indices, facets_ct_values)
     surf_meshtags = dolfinx.mesh.meshtags(mesh3d, 2, facets_ct_indices, facets_ct_values)
 
     x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 2, x0facet))
