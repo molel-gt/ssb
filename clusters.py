@@ -63,19 +63,20 @@ if __name__ == "__main__":
     voxels_filtered = filter_voxels.get_filtered_voxels(voxels_raw)
     voxels = np.isclose(voxels_filtered, args.phase)
 
-    points = geometry.build_points(voxels, dp=1)
-    points = geometry.add_boundary_points(points, x_max=Lx, y_max=Ly, z_max=Lz, h=0.5, dp=1)
-    points_view = {v: k for k, v in points.items()}
+    points0 = geometry.build_points(voxels, dp=1)
+    # points = geometry.add_boundary_points(points, x_max=Lx, y_max=Ly, z_max=Lz, h=0.5, dp=1)
+    points_view0 = {v: k for k, v in points0.items()}
 
-    G = geometry.build_graph(points)
+    G = geometry.build_graph(points0)
     pieces = nx.connected_components(G)
     pieces = [piece for piece in pieces]
     logger.info("{:,} components".format(len(pieces)))
     for idx, piece in enumerate(pieces):
         working_piece = np.zeros((Nx, Ny, Nz), dtype=np.uint8)
         piece_id = str(idx).zfill(6)
+        utils.make_dir_if_missing(os.path.join(mesh_dir, piece_id))
         for p in piece:
-            coord = points_view[p]
+            coord = tuple(points_view0[p])
             working_piece[coord] = 1
         if np.all(working_piece[:, 0, :] == 0) or np.all(working_piece[:, Ly, :] == 0):
             logger.debug(f"Piece {idx} does not span both ends")
