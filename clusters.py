@@ -74,7 +74,6 @@ if __name__ == "__main__":
     for idx, piece in enumerate(pieces):
         working_piece = np.zeros((Nx, Ny, Nz), dtype=np.uint8)
         piece_id = str(idx).zfill(6)
-        utils.make_dir_if_missing(os.path.join(mesh_dir, piece_id))
         for p in piece:
             coord = tuple(points_view0[p])
             working_piece[coord] = 1
@@ -82,6 +81,7 @@ if __name__ == "__main__":
             logger.debug(f"Piece {idx} does not span both ends")
             continue
         logger.info(f"Piece {idx} spans both ends along y-axis")
+        utils.make_dir_if_missing(os.path.join(mesh_dir, piece_id))
         points = geometry.build_points(working_piece, dp=1)
         points = geometry.add_boundary_points(points, x_max=Lx, y_max=Ly, z_max=Lz, h=0.5, dp=1)
         points = geometry.add_boundary_points(points, x_max=Lx, y_max=Ly, z_max=Lz, h=0.5, dp=1)
@@ -90,7 +90,7 @@ if __name__ == "__main__":
         neighbors = geometry.number_of_neighbors(voxels)
         effective_electrolyte = geometry.electrolyte_bordering_active_material(voxels_filtered, dp=1)
         effective_electrolyte = geometry.extend_points(effective_electrolyte, points, x_max=Nx-1, y_max=Ny-1, z_max=Nz-1, h=0.5, dp=1)
-        eff_electrolyte_filepath = os.path.join(mesh_dir, "effective_electrolyte.pickle")
+        eff_electrolyte_filepath = os.path.join(mesh_dir, piece_id, "effective_electrolyte.pickle")
         with open(eff_electrolyte_filepath, "wb") as fp:
             pickle.dump(effective_electrolyte, fp, protocol=pickle.HIGHEST_PROTOCOL)
         
