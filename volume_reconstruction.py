@@ -91,19 +91,8 @@ if __name__ == "__main__":
     tria_xdmf_unscaled = os.path.join(mesh_dir, "tria_unscaled.xdmf")
     tria_xmf_unscaled = os.path.join(mesh_dir, "tria_unscaled.xmf")
 
-    with open(nodefile, "w") as fp:
-        fp.write("%d 3 0 0\n" % int(len(points.values())))
-        for coord, point_id in points.items():
-            x0, y0, z0 = coord
-            fp.write(f"{point_id} {x0} {y0} {z0}\n")
-
-    n_tetrahedra = tetrahedra.shape[0]
-    with open(tetfile, "w") as fp:
-        fp.write(f"{n_tetrahedra} 4 0\n")
-        for tet_id, tetrahedron in enumerate(tetrahedra):
-            p1, p2, p3, p4 = tetrahedron
-
-            fp.write(f"{tet_id} {p1} {p2} {p3} {p4}\n")
+    geometry.write_points_to_node_file(nodefile, points)
+    geometry.write_tetrahedra_to_ele_file(tetfile, tetrahedra)
 
     # Free up memory of objects we won't use
     tetrahedra = None
