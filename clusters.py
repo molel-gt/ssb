@@ -95,11 +95,8 @@ def add_boundary_points(points, x_max=50, y_max=50, z_max=50, h=0.5, dp=1):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='computes specific area')
-    parser.add_argument('--img_folder', help='bmp files directory',
-                        required=True)
     parser.add_argument('--grid_info', help='Nx-Ny-Nz',
                         required=True)
-    parser.add_argument('--origin', default=(0, 0, 0), help='where to extract grid from')
     parser.add_argument("--phase", help='Phase that we want to reconstruct, e.g. 0 for void, 1 for solid electrolyte and 2 for active material', nargs='?', const=1, default=1, type=int)
 
     args = parser.parse_args()
