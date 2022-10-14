@@ -11,7 +11,7 @@ import numpy as np
 
 from skimage import io
 
-import configs, geometry, utils, volume_reconstruction
+import configs, geometry, utils
 
 
 if __name__ == '__main__':
@@ -60,7 +60,7 @@ if __name__ == '__main__':
     box = np.ones((Nx, Ny, Nz), dtype=np.uint8)
     points = geometry.build_points(box)
     points = geometry.add_boundary_points(points, x_max=Lx, y_max=Ly, z_max=Lz, h=0.5, dp=1)
-    cubes = geometry.build_cubes(box, points)
+    cubes = geometry.build_variable_size_cubes(points, h=1)
     tetrahedra = {}
     n_tetrahedra = 0
 
