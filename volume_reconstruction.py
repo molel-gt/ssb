@@ -14,7 +14,7 @@ import numpy as np
 
 from skimage import io
 
-import constants, commons, configs, filter_voxels, geometry, utils
+import commons, configs, filter_voxels, geometry, utils
 
 
 FORMAT = '%(asctime)s: %(message)s'
@@ -22,8 +22,6 @@ logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__file__)
 logger.setLevel(configs.get_configs()['LOGGING']['level'])
 
-phase_key = constants.phase_key
-surface_tags = constants.surface_tags
 CELL_TYPES = commons.CellTypes()
 
 
