@@ -35,6 +35,9 @@ if __name__ == '__main__':
     logger = logging.getLogger(f'{grid_size}' + '_' + __file__)
     logger.setLevel(loglevel)
     Lx, Ly, Lz = [int(v) for v in grid_size.split("-")]
+    Lx = Lx * scale_x
+    Ly = Ly * scale_y
+    Lz = Lz * scale_z
     tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
 
