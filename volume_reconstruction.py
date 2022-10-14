@@ -309,29 +309,6 @@ def label_surface_mesh(mesh, effective_electrolyte, transport_length, axis=1):
     return meshio.Mesh(points=points, cells={"triangle": cells}, cell_data={"name_to_read": [cell_data]})
 
 
-def add_boundary_points(points, x_max=50, y_max=50, z_max=50, h=0.5, dp=1):
-    """
-    A thickness of *h* pixels around the points of one phase to ensure continuity between phases.
-    """
-    new_points = copy.deepcopy(points)
-    max_id = max(new_points.values())
-    for (x0, y0, z0), _ in points.items():
-        for sign_x in [-1, 0, 1]:
-            for sign_y in [-1, 0, 1]:
-                for sign_z in [-1, 0, 1]:
-                    coord = (round(x0 + h * sign_x, dp), round(y0 + h * sign_y, dp), round(z0 + h * sign_z, dp))
-                    if coord[0] > x_max or coord[1] > y_max or coord[2] > z_max:
-                        continue
-                    if np.less(coord, 0).any():
-                        continue
-                    v = new_points.get(coord)
-                    if v is None:
-                        max_id += 1
-                        new_points[coord] = max_id
-
-    return new_points
-
-
 def extend_points(points, points_master, x_max=50, y_max=50, z_max=50, h=0.5, dp=1):
     """
     A thickness of *h* pixels around the points of one phase to ensure continuity between phases.
@@ -392,7 +369,7 @@ if __name__ == "__main__":
     voxels = np.isclose(voxels_filtered, phase)
 
     points = clusters.build_points(voxels, dp=1)
-    points = add_boundary_points(points, x_max=Nx-1, y_max=Ny-1, z_max=Nz-1, h=0.5, dp=1)
+    points = clusters.add_boundary_points(points, x_max=Nx-1, y_max=Ny-1, z_max=Nz-1, h=0.5, dp=1)
     points_view = {v: k for k, v in points.items()}
 
     neighbors = number_of_neighbors(voxels)
