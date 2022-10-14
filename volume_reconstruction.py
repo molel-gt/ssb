@@ -62,8 +62,10 @@ if __name__ == "__main__":
     voxels_filtered = filter_voxels.get_filtered_voxels(voxels_raw)
     voxels = np.isclose(voxels_filtered, phase)
 
+    logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Nx * Ny * Nz)))
+
     points = geometry.build_points(voxels, dp=1)
-    points = geometry.add_boundary_points(points, x_max=Nx-1, y_max=Ny-1, z_max=Nz-1, h=0.5, dp=1)
+    points = geometry.add_boundary_points(points, x_max=Lx, y_max=Ly, z_max=Lz, h=0.5, dp=1)
     points_view = {v: k for k, v in points.items()}
 
     neighbors = geometry.number_of_neighbors(voxels)
@@ -72,15 +74,9 @@ if __name__ == "__main__":
     eff_electrolyte_filepath = os.path.join(mesh_dir, "effective_electrolyte.pickle")
     with open(eff_electrolyte_filepath, "wb") as fp:
         pickle.dump(effective_electrolyte, fp, protocol=pickle.HIGHEST_PROTOCOL)
-    logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Nx * Ny * Nz)))
-    # Only label points that will be used for meshing
-    n_tetrahedra = 0
-    n_triangles = 0
-    counter = 0
-    tetrahedra = {}
     
     cubes = geometry.build_variable_size_cubes(points, h=0.5)
-    tetrahedra_np = geometry.build_tetrahedra(cubes, points, points_view)
+    tetrahedra = geometry.build_tetrahedra(cubes, points, points_view)
 
     nodefile = os.path.join(mesh_dir, "porous.node")
     tetfile = os.path.join(mesh_dir, "porous.ele")
@@ -100,27 +96,26 @@ if __name__ == "__main__":
         for coord, point_id in points.items():
             x0, y0, z0 = coord
             fp.write(f"{point_id} {x0} {y0} {z0}\n")
-    tet_points = set()
+
+    n_tetrahedra = tetrahedra.shape[0]
     with open(tetfile, "w") as fp:
         fp.write(f"{n_tetrahedra} 4 0\n")
-        for tet_id, tetrahedron in enumerate(tetrahedra_np):
-            p1 = points[tuple(tetrahedron[:3])]
-            p2 = points[tuple(tetrahedron[3:6])]
-            p3 = points[tuple(tetrahedron[6:9])]
-            p4 = points[tuple(tetrahedron[9:])]
-            tet_points |= {p1, p2, p3, p4}
+        for tet_id, tetrahedron in enumerate(tetrahedra):
+            p1, p2, p3, p4 = tetrahedron
+
             fp.write(f"{tet_id} {p1} {p2} {p3} {p4}\n")
 
     # Free up memory of objects we won't use
     tetrahedra = None
-    tetrahedra_np = None
     cubes = None
     voxels = None
     gc.collect()
 
+    # TetGen
     retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -rkQF", shell=True)
 
     # GMSH
+    counter = 0
     gmsh.initialize()
     gmsh.model.add("porous")
     gmsh.merge(vtkfile)

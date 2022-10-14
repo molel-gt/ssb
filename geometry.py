@@ -122,7 +122,7 @@ def electrolyte_bordering_active_material(voxels, dp=0):
         for p in neighbors:
             try:
                 value = voxels[p]
-                if value == phases.activematerial:
+                if value == phases.active_material:
                     if dp > 0:
                         effective_electrolyte.add(tuple([round(v, dp) for v in idx]))
                     else:
@@ -184,11 +184,12 @@ def build_variable_size_cubes(points, h=0.5):
 
 def build_tetrahedra(cubes, points, points_view):
     """
-    Build the 6 tetrahedra in a cube
+    Build the 5 tetrahedra in a cube
     """
     cubes = build_variable_size_cubes(points, h=0.5)
     tetrahedra = {}
     n_tetrahedra = 0
+
     for cube in cubes:
         _tetrahedra = []
         p0, p1, p2, p3 = cube[0]
@@ -216,14 +217,12 @@ def build_tetrahedra(cubes, points, points_view):
         for tet in _tetrahedra:
             tetrahedra[tet] = n_tetrahedra
             n_tetrahedra += 1
-    tetrahedra_np = np.zeros((n_tetrahedra, 12))
-    for i, tet in enumerate(list(tetrahedra.keys())):
-        for j, vertex in enumerate(tet):
-            coord = points_view[vertex]
-            tetrahedra_np[i, 3*j:3*j+3] = coord
-    
 
-    return tetrahedra
+    tets = np.zeros((n_tetrahedra, 4))
+    for i, tet in enumerate(list(tetrahedra.keys())):
+        tets[i, :] = tet
+
+    return tets
 
 
 def label_surface_mesh(mesh, effective_electrolyte, transport_length, axis=1):
