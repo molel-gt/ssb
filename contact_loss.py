@@ -3,7 +3,6 @@
 import os
 import pickle
 import subprocess
-import sys
 
 import argparse
 import gmsh
@@ -11,9 +10,8 @@ import meshio
 import numpy as np
 
 from skimage import io
-from sympy import arg
 
-import clusters, configs, geometry, utils, volume_reconstruction
+import configs, geometry, utils, volume_reconstruction
 
 
 if __name__ == '__main__':
@@ -33,6 +31,9 @@ if __name__ == '__main__':
     origin_str = 'contact_loss'
     mesh_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], 'contact_loss', grid_info)
     Nx, Ny, Nz = [int(v) for v in grid_info.split("-")]
+    Lx = Nx - 1
+    Ly = Ny - 1
+    Lz = Nz - 1
     utils.make_dir_if_missing(mesh_dir)
     contact_points_filepath = os.path.join(mesh_dir, "contact_points.pickle")
     nodefile = os.path.join(mesh_dir, "porous.node")
@@ -57,13 +58,14 @@ if __name__ == '__main__':
         pickle.dump(contact_points, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
     box = np.ones((Nx, Ny, Nz), dtype=np.uint8)
-    points = clusters.build_points(box)
-    cubes = volume_reconstruction.build_cubes(box, points)
+    points = geometry.build_points(box)
+    points = geometry.add_boundary_points(points, x_max=Lx, y_max=Ly, z_max=Lz, h=0.5, dp=1)
+    cubes = geometry.build_cubes(box, points)
     tetrahedra = {}
     n_tetrahedra = 0
 
     for cube in cubes:
-        _tetrahedra = volume_reconstruction.build_tetrahedra(cube, points)
+        _tetrahedra = geometry.build_tetrahedra(cube, points)
         for tet in _tetrahedra:
             tetrahedra[tet] = n_tetrahedra
             n_tetrahedra += 1
@@ -101,5 +103,5 @@ if __name__ == '__main__':
     tet_msh = meshio.read(tetr_mshfile)
     tetr_mesh_unscaled = geometry.create_mesh(tet_msh, "tetra")
     tetr_mesh_unscaled.write(tetr_xdmf_unscaled)
-    tetr_mesh_scaled = volume_reconstruction.scale_mesh(tetr_mesh_unscaled, "tetra", scale_factor=scale_factor)
+    tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, "tetra", scale_factor=scale_factor)
     tetr_mesh_scaled.write(tetr_xdmf_scaled)
