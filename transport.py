@@ -154,5 +154,6 @@ if __name__ == '__main__':
     logger.info(f"Homogeneous Neumann BC trace                    : {solution_trace_norm:.2e}")
     logger.info(f"Area-averaged Homogeneous Neumann BC trace      : {avg_solution_trace_norm:.2e}")
     logger.info("Deviation in current at two current collectors  : {:.2f}%".format(deviation_in_current))
+    logger.info(f"Voltage                                         : {args.voltage}")
     logger.info(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
     logger.info("*************************END-OF-SUMMARY*******************************************")

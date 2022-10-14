@@ -13,7 +13,7 @@ import ufl
 from mpi4py import MPI
 from petsc4py import PETSc
 
-import commons, constants
+import commons, constants, configs
 
 
 if __name__ == '__main__':
@@ -21,19 +21,17 @@ if __name__ == '__main__':
     parser.add_argument('--grid_size', help='Nx-Ny-Nz', required=True)
     parser.add_argument('--data_dir', help='directory with mesh files. output will be saved here', required=True, type=str)
     parser.add_argument("--voltage", nargs='?', const=1, default=1)
-    parser.add_argument("--scale_x", nargs='?', const=1, default=1, type=np.double)
-    parser.add_argument("--scale_y", nargs='?', const=1, default=1, type=np.double)
-    parser.add_argument("--scale_z", nargs='?', const=1, default=1, type=np.double)
-    parser.add_argument("--loglevel", nargs='?', const=1, default="INFO")
     parser.add_argument("--eps", help='fraction of area at left current collector that is in contact',
                         nargs='?', const=1, default=0.3, type=np.double)
 
     args = parser.parse_args()
     data_dir = args.data_dir
     voltage = args.voltage
-    scale_x = args.scale_x
-    scale_y = args.scale_y
-    scale_z = args.scale_z
+    scaling = configs.get_configs()['VOXEL_SCALING']
+    scale_x = float(scaling['x'])
+    scale_y = float(scaling['y'])
+    scale_z = float(scaling['z'])
+    loglevel = configs.get_configs()['LOGGING']['level']
     comm = MPI.COMM_WORLD
     rank = comm.rank
     start_time = timeit.default_timer()
@@ -43,7 +41,7 @@ if __name__ == '__main__':
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{data_dir}')
-    logger.setLevel(args.loglevel)
+    logger.setLevel(loglevel)
     Lx, Ly, Lz = [int(v) for v in grid_size.split("-")]
     Lx = Lx * scale_x
     Ly = Ly * scale_y
@@ -184,4 +182,5 @@ if __name__ == '__main__':
     logger.info(f"Area-averaged Homogeneous Neumann BC trace      : {avg_solution_trace_norm:.2e}")
     logger.info("Deviation in current at two current collectors  : {:.2f}%".format(deviation_in_current))
     logger.info(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
+    logger.info(f"Voltage                                         : {args.voltage}")
     logger.info("*************************END-OF-SUMMARY*******************************************")
