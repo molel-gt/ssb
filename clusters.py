@@ -153,4 +153,4 @@ if __name__ == "__main__":
 
         tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, CELL_TYPES.triangle, scale_factor=scale_factor)
         tria_mesh_scaled.write(tria_xdmf_scaled)
-        logger.info("Wrote tetr.xdmf and tria.xdmf mesh files for piece {piece_id}")
+        logger.info(f"Wrote tetr.xdmf and tria.xdmf mesh files for piece {piece_id}")
