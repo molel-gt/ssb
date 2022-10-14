@@ -111,4 +111,5 @@ Separator thickness [m],50e-6
 Total heat transfer coefficient [W.m-2.K-1],10.0
 Typical current [A],0.680616
 Typical electrolyte concentration [mol.m-3],1000.0
+Typical plated lithium concentration [mol.m-3],5
 Upper voltage cut-off [V],4.1
