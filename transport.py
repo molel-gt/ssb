@@ -59,15 +59,6 @@ if __name__ == '__main__':
         ct = infile3.read_meshtags(mesh3d, name="Grid")
     mesh3d.topology.create_connectivity(mesh3d.topology.dim, mesh3d.topology.dim - 1)
 
-    # logger.debug("Loading triangles (dim = 2) mesh..")
-    # with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile2:
-    #     mesh2d = infile2.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
-    #     facets_ct = infile2.read_meshtags(mesh2d, name="Grid")
-    
-    # x0facet = np.array(facets_ct.indices[facets_ct.values == left_cc_marker])
-    # x1facet = np.array(facets_ct.indices[facets_ct.values == right_cc_marker])
-    # insulated_facet = np.array(facets_ct.indices[facets_ct.values == insulated_marker])
-
     # Dirichlet BCs
     V = dolfinx.fem.FunctionSpace(mesh3d, ("Lagrange", 2))
     u0 = dolfinx.fem.Function(V)
