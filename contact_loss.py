@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import pickle
 import subprocess
 import sys
@@ -12,41 +13,46 @@ import numpy as np
 from skimage import io
 from sympy import arg
 
-import clusters, geometry, utils, volume_reconstruction
+import clusters, configs, geometry, utils, volume_reconstruction
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate Volume with Contact Loss")
     parser.add_argument("--grid_info", help="Nx-Ny-Nz that defines the grid size", required=True)
-    parser.add_argument("--contact_map_file", help="Image to generate contact map", required=True)
+    parser.add_argument("--contact_map", help="Image to generate contact map", required=True)
     parser.add_argument("--phase", help="0 -> void, 1 -> SE, 2 -> AM", nargs='?', const=1, default=1)
     args = parser.parse_args()
     grid_info = args.grid_info
-    contact_img_file = args.contact_map_file
+    contact_img_file = args.contact_map
     phase = args.phase
-    scale_factor = (1.0, 1.0, 1.0)
-    origin_str = 'current-constriction'
+    scaling = configs.get_configs()['VOXEL_SCALING']
+    scale_x = float(scaling['x'])
+    scale_y = float(scaling['y'])
+    scale_z = float(scaling['z'])
+    scale_factor = (scale_x, scale_y, scale_z)
+    origin_str = 'contact_loss'
+    mesh_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], 'contact_loss', grid_info)
     Nx, Ny, Nz = [int(v) for v in grid_info.split("-")]
-    utils.make_dir_if_missing(f"mesh/{phase}/{grid_info}_{origin_str}")
-    nodefile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.node"
-    tetfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.ele"
-    facesfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.face"
-    vtkfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.1.vtk"
-    surface_vtk = f"mesh/{phase}/{grid_info}_{origin_str}/surface.vtk"
-    tetr_mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous_tetr.msh"
-    surf_mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous_tria.msh"
-    tetr_xdmf_scaled = f"mesh/{phase}/{grid_info}_{origin_str}/tetr.xdmf"
-    tetr_xdmf_unscaled = f"mesh/{phase}/{grid_info}_{origin_str}/tetr_unscaled.xdmf"
-    tria_xdmf_scaled = f"mesh/{phase}/{grid_info}_{origin_str}/tria.xdmf"
-    tria_xdmf_unscaled = f"mesh/{phase}/{grid_info}_{origin_str}/tria_unscaled.xdmf"
-    tria_xmf_unscaled = f"mesh/{phase}/{grid_info}_{origin_str}/tria_unscaled.xmf"
+    utils.make_dir_if_missing(mesh_dir)
+    contact_points_filepath = os.path.join(mesh_dir, "contact_points.pickle")
+    nodefile = os.path.join(mesh_dir, "porous.node")
+    tetfile = os.path.join(mesh_dir, "porous.ele")
+    facesfile = os.path.join(mesh_dir, "porous.face")
+    vtkfile = os.path.join(mesh_dir, "porous.1.vtk")
+    surface_vtk = os.path.join(mesh_dir, "surface.vtk")
+    tetr_mshfile = os.path.join(mesh_dir, "porous_tetr.msh")
+    surf_mshfile = os.path.join(mesh_dir, "porous_tria.msh")
+    tetr_xdmf_scaled = os.path.join(mesh_dir, "tetr.xdmf")
+    tetr_xdmf_unscaled = os.path.join(mesh_dir, "tetr_unscaled.xdmf")
+    tria_xdmf_scaled = os.path.join(mesh_dir, "tria.xdmf")
+    tria_xdmf_unscaled = os.path.join(mesh_dir, "tria_unscaled.xdmf")
+    tria_xmf_unscaled = os.path.join(mesh_dir, "tria_unscaled.xmf")
 
     img = io.imread(contact_img_file)
     contact_points = set()
     for idx in np.argwhere(np.isclose(img, phase)):
         contact_points.add(tuple([int(v) for v in idx] + [0]))
 
-    contact_points_filepath = f"mesh/{phase}/{grid_info}_{origin_str}/contact_points.pickle"
     with open(contact_points_filepath, "wb") as fp:
         pickle.dump(contact_points, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
