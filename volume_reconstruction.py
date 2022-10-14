@@ -80,18 +80,7 @@ if __name__ == "__main__":
     tetrahedra = {}
     
     cubes = geometry.build_variable_size_cubes(points, h=0.5)
-    for cube in cubes:
-        _tetrahedra = geometry.build_tetrahedra(cube, points)
-        for tet in _tetrahedra:
-            tetrahedra[tet] = n_tetrahedra
-            n_tetrahedra += 1
-    tetrahedra_np = np.zeros((n_tetrahedra, 12))
-    points_set = set()
-    for i, tet in enumerate(list(tetrahedra.keys())):
-        for j, vertex in enumerate(tet):
-            coord = points_view[vertex]
-            tetrahedra_np[i, 3*j:3*j+3] = coord
-            points_set.add(tuple(coord))
+    tetrahedra_np = geometry.build_tetrahedra(cubes, points, points_view)
 
     nodefile = os.path.join(mesh_dir, "porous.node")
     tetfile = os.path.join(mesh_dir, "porous.ele")

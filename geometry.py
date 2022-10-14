@@ -182,33 +182,46 @@ def build_variable_size_cubes(points, h=0.5):
     return cubes
 
 
-def build_tetrahedra(cube, points):
+def build_tetrahedra(cubes, points, points_view):
     """
     Build the 6 tetrahedra in a cube
     """
-    tetrahedra = []
-    p0, p1, p2, p3 = cube[0]
-    p4, p5, p6, p7 = cube[1]
-    for i in range(5):
-        if i == 0:
-            tet = (p0, p1, p3, p4)
-        if i == 1:
-            tet = (p1, p2, p3, p6)
-        if i == 2:
-            tet = (p4, p5, p6, p1)
-        if i == 3:
-            tet = (p4, p7, p6, p3)
-        if i == 4:
-            tet = (p4, p6, p1, p3)
-        tet_ok = True
-        new_tet = []
-        for p in tet:
-            new_p = points.get(p)
-            new_tet.append(new_p)
-            if new_p is None:
-                tet_ok = False
-        if tet_ok:
-            tetrahedra.append(tuple(new_tet))
+    cubes = build_variable_size_cubes(points, h=0.5)
+    tetrahedra = {}
+    n_tetrahedra = 0
+    for cube in cubes:
+        _tetrahedra = []
+        p0, p1, p2, p3 = cube[0]
+        p4, p5, p6, p7 = cube[1]
+        for i in range(5):
+            if i == 0:
+                tet = (p0, p1, p3, p4)
+            if i == 1:
+                tet = (p1, p2, p3, p6)
+            if i == 2:
+                tet = (p4, p5, p6, p1)
+            if i == 3:
+                tet = (p4, p7, p6, p3)
+            if i == 4:
+                tet = (p4, p6, p1, p3)
+            tet_ok = True
+            new_tet = []
+            for p in tet:
+                new_p = points.get(p)
+                new_tet.append(new_p)
+                if new_p is None:
+                    tet_ok = False
+            if tet_ok:
+                _tetrahedra.append(tuple(new_tet))
+        for tet in _tetrahedra:
+            tetrahedra[tet] = n_tetrahedra
+            n_tetrahedra += 1
+    tetrahedra_np = np.zeros((n_tetrahedra, 12))
+    for i, tet in enumerate(list(tetrahedra.keys())):
+        for j, vertex in enumerate(tet):
+            coord = points_view[vertex]
+            tetrahedra_np[i, 3*j:3*j+3] = coord
+    
 
     return tetrahedra
 
