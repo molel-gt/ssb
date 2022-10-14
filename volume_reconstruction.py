@@ -15,7 +15,7 @@ import vtk
 
 from skimage import io
 
-import connected_pieces, constants, filter_voxels, geometry, utils
+import clusters, constants, filter_voxels, geometry, utils
 
 
 FORMAT = '%(asctime)s: %(message)s'
@@ -400,7 +400,7 @@ if __name__ == "__main__":
     voxels_filtered = filter_voxels.get_filtered_voxels(voxels_raw)
     voxels = np.isclose(voxels_filtered, phase)
 
-    points = connected_pieces.build_points(voxels, dp=1)
+    points = clusters.build_points(voxels, dp=1)
     points = add_boundary_points(points, x_max=Nx-1, y_max=Ny-1, z_max=Nz-1, h=0.5, dp=1)
     points_view = {v: k for k, v in points.items()}
 

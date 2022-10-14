@@ -14,7 +14,7 @@ from skimage import (
     segmentation,
     )
 
-import connected_pieces, utils
+import clusters, utils
 
 utils.make_dir_if_missing("unsegmented")
 

@@ -126,7 +126,7 @@ def filter_interior_points(data):
     return surface_data
 
 
-def get_connected_pieces(G):
+def get_clusters(G):
     """"""
     pieces = []
     for item in nx.connected_components(G):
@@ -274,7 +274,7 @@ def particle_neighborhood(data, particle_surf_points, points_view, particle_phas
 #     points_view = {v: k for k, v in points.items()}
 
 #     print("Getting connected pieces..")
-#     solid_pieces = [p for p in get_connected_pieces(G) if is_piece_solid(p, points_view)]
+#     solid_pieces = [p for p in get_clusters(G) if is_piece_solid(p, points_view)]
 
 #     # Summary
 #     print("Grid: {}x{}x{}".format(*[int(v) for v in data.shape]))

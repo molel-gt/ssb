@@ -12,7 +12,7 @@ import numpy as np
 from skimage import io
 from sympy import arg
 
-import connected_pieces, geometry, utils, volume_reconstruction
+import clusters, geometry, utils, volume_reconstruction
 
 
 if __name__ == '__main__':
@@ -51,7 +51,7 @@ if __name__ == '__main__':
         pickle.dump(contact_points, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
     box = np.ones((Nx, Ny, Nz), dtype=np.uint8)
-    points = connected_pieces.build_points(box)
+    points = clusters.build_points(box)
     cubes = volume_reconstruction.build_cubes(box, points)
     tetrahedra = {}
     n_tetrahedra = 0
