@@ -1,5 +1,7 @@
 from collections import namedtuple
 
+from cv2 import triangulatePoints
+
 
 Facet = namedtuple('Facet', 'indices values')
 
@@ -18,3 +20,9 @@ class SurfaceMarkers:
         self.insulated = insulated
         self.active = active
         self.inactive = inactive
+
+
+class CellTypes:
+    def __init__(self, triangle="triangle", tetra="tetra"):
+        self.triangle = triangle
+        self.tetra = tetra
