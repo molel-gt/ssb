@@ -5,7 +5,7 @@ import numpy as np
 
 from skimage import io
 
-import clusters, constants
+import constants, geometry
 
 
 def load_images(files_list, shape):
@@ -71,9 +71,9 @@ def get_filtered_voxels(voxels):
     filtered = voxels
     for phase in constants.PHASES:
         phase_voxels = voxels == phase
-        points = clusters.build_points(phase_voxels)
+        points = geometry.build_points(phase_voxels)
         points_view = {v: k for k, v in points.items()}
-        G = clusters.build_graph(points)
+        G = geometry.build_graph(points)
         pieces = nx.connected_components(G)
         pieces = [piece for piece in pieces]
         for piece in pieces:
