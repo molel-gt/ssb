@@ -15,13 +15,13 @@ import vtk
 
 from skimage import io
 
-import clusters, constants, filter_voxels, geometry, utils
+import clusters, constants, configs, filter_voxels, geometry, utils
 
 
 FORMAT = '%(asctime)s: %(message)s'
 logging.basicConfig(format=FORMAT)
 logger = logging.getLogger(__file__)
-logger.setLevel('INFO')
+logger.setLevel(configs.get_configs()['LOGGING']['level'])
 
 upper_threshold = 0.95
 lower_threshold = 0.05
@@ -358,27 +358,19 @@ def extend_points(points, points_master, x_max=50, y_max=50, z_max=50, h=0.5, dp
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Reconstructs volume from segemented images.')
-    parser.add_argument('--img_folder', help='Directory with input .tif files',
-                        required=True)
     parser.add_argument('--grid_info', help='Grid size is given by Nx-Ny-Nz such that the lengths are (Nx-1) by (Ny - 1) by (Nz - 1).',
                         required=True)
-    parser.add_argument('--origin', default=(0, 0, 0), help='Where to select choice grid from available segmented image array such that `subdata = data[origin_x:Nx, origin_y:Ny, origin_z:Nz]`')
-    parser.add_argument("--resolution", help='Minimum resolution using gmsh', nargs='?', const=1, default=0.5, type=float)
     parser.add_argument("--phase", help='Phase that we want to reconstruct, e.g. 0 for void, 1 for solid electrolyte and 2 for active material', nargs='?', const=1, default=1, type=int)
-    parser.add_argument("--scale_x", help="Value to scale the Lx grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
-    parser.add_argument("--scale_y", help="Value to scale the Ly grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
-    parser.add_argument("--scale_z", help="Value to scale the Lz grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=lambda f: np.around(float(f), 8))
     start_time = time.time()
     args = parser.parse_args()
     phase = args.phase
-    scale_x = args.scale_x
-    scale_y = args.scale_y
-    scale_z = args.scale_z
+    scaling = configs.get_configs()['VOXEL_SCALING']
+    img_folder = configs.get_configs()['LOCAL_PATHS']['segmented_image_stack']
+    scale_x = float(scaling['x'])
+    scale_y = float(scaling['y'])
+    scale_z = float(scaling['z'])
     scale_factor = (scale_x, scale_y, scale_z)
-    if isinstance(args.origin, str):
-        origin = tuple(map(lambda v: int(v), args.origin.split(",")))
-    else:
-        origin = args.origin
+    origin = [int(v) for v in configs.get_configs()['GEOMETRY']['origin'].split(",")]
     origin_str = "-".join([str(v).zfill(3) for v in origin])
     grid_info = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
     grid_size = int(args.grid_info.split("-")[0])
@@ -386,11 +378,10 @@ if __name__ == "__main__":
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
-    img_dir = os.path.join(args.img_folder)
-    mesh_dir = f"mesh/{phase}/{grid_info}_{origin_str}"
+    mesh_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], f"{phase}/{grid_info}_{origin_str}")
     utils.make_dir_if_missing(mesh_dir)
-    im_files = sorted([os.path.join(args.img_folder, f) for
-                       f in os.listdir(args.img_folder) if f.endswith(".tif")])
+    im_files = sorted([os.path.join(img_folder, f) for
+                       f in os.listdir(img_folder) if f.endswith(".tif")])
     n_files = len(im_files)
 
     start_time = time.time()
@@ -407,7 +398,7 @@ if __name__ == "__main__":
     neighbors = number_of_neighbors(voxels)
     effective_electrolyte = electrolyte_bordering_active_material(voxels_filtered, dp=1)
     effective_electrolyte = extend_points(effective_electrolyte, points, x_max=Nx-1, y_max=Ny-1, z_max=Nz-1, h=0.5, dp=1)
-    eff_electrolyte_filepath = f"mesh/{phase}/{grid_info}_{origin_str}/effective_electrolyte.pickle"
+    eff_electrolyte_filepath = os.path.join(mesh_dir, "effective_electrolyte.pickle")
     with open(eff_electrolyte_filepath, "wb") as fp:
         pickle.dump(effective_electrolyte, fp, protocol=pickle.HIGHEST_PROTOCOL)
     logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Nx * Ny * Nz)))
@@ -431,18 +422,18 @@ if __name__ == "__main__":
             tetrahedra_np[i, 3*j:3*j+3] = coord
             points_set.add(tuple(coord))
 
-    nodefile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.node"
-    tetfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.ele"
-    facesfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.face"
-    vtkfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous.1.vtk"
-    surface_vtk = f"mesh/{phase}/{grid_info}_{origin_str}/surface.vtk"
-    tetr_mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous_tetr.msh"
-    surf_mshfile = f"mesh/{phase}/{grid_info}_{origin_str}/porous_tria.msh"
-    tetr_xdmf_scaled = f"mesh/{phase}/{grid_info}_{origin_str}/tetr.xdmf"
-    tetr_xdmf_unscaled = f"mesh/{phase}/{grid_info}_{origin_str}/tetr_unscaled.xdmf"
-    tria_xdmf_scaled = f"mesh/{phase}/{grid_info}_{origin_str}/tria.xdmf"
-    tria_xdmf_unscaled = f"mesh/{phase}/{grid_info}_{origin_str}/tria_unscaled.xdmf"
-    tria_xmf_unscaled = f"mesh/{phase}/{grid_info}_{origin_str}/tria_unscaled.xmf"
+    nodefile = os.path.join(mesh_dir, "porous.node")
+    tetfile = os.path.join(mesh_dir, "porous.ele")
+    facesfile = os.path.join(mesh_dir, "porous.face")
+    vtkfile = os.path.join(mesh_dir, "porous.1.vtk")
+    surface_vtk = os.path.join(mesh_dir, "surface.vtk")
+    tetr_mshfile = os.path.join(mesh_dir, "porous_tetr.msh")
+    surf_mshfile = os.path.join(mesh_dir, "porous_tria.msh")
+    tetr_xdmf_scaled = os.path.join(mesh_dir, "tetr.xdmf")
+    tetr_xdmf_unscaled = os.path.join(mesh_dir, "tetr_unscaled.xdmf")
+    tria_xdmf_scaled = os.path.join(mesh_dir, "tria.xdmf")
+    tria_xdmf_unscaled = os.path.join(mesh_dir, "tria_unscaled.xdmf")
+    tria_xmf_unscaled = os.path.join(mesh_dir, "tria_unscaled.xmf")
 
     with open(nodefile, "w") as fp:
         fp.write("%d 3 0 0\n" % int(len(points.values())))

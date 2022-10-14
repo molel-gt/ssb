@@ -12,7 +12,7 @@ import ufl
 from mpi4py import MPI
 from petsc4py import PETSc
 
-import commons, constants
+import commons, configs, constants
 
 
 if __name__ == '__main__':
@@ -20,26 +20,24 @@ if __name__ == '__main__':
     parser.add_argument('--grid_size', help='Lx-Ly-Lz', required=True)
     parser.add_argument('--data_dir', help='Directory with tria.xdmf and tetr.xmf mesh files. Output files potential.xdmf and current.xdmf will be saved here', required=True, type=str)
     parser.add_argument("--voltage", help="Potential to set at the left current collector. Right current collector is set to a potential of 0", nargs='?', const=1, default=1)
-    parser.add_argument("--scale_x", help="Value to scale the Lx grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=np.double)
-    parser.add_argument("--scale_y", help="Value to scale the Ly grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=np.double)
-    parser.add_argument("--scale_z", help="Value to scale the Lz grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=np.double)
-    parser.add_argument("--loglevel",help="Logging level, e.g. ERROR, DEBUG, INFO, WARNING", nargs='?', const=1, default="INFO")
 
     args = parser.parse_args()
     data_dir = args.data_dir
     voltage = args.voltage
-    scale_x = args.scale_x
-    scale_y = args.scale_y
-    scale_z = args.scale_z
     comm = MPI.COMM_WORLD
     rank = comm.rank
     start_time = timeit.default_timer()
+    scaling = configs.get_configs()['VOXEL_SCALING']
+    scale_x = float(scaling['x'])
+    scale_y = float(scaling['y'])
+    scale_z = float(scaling['z'])
+    loglevel = configs.get_configs()['LOGGING']['level']
 
     grid_size = args.grid_size
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{data_dir}')
-    logger.setLevel(args.loglevel)
+    logger.setLevel(loglevel)
     Lx, Ly, Lz = [int(v) for v in grid_size.split("-")]
     Lx = Lx * scale_x
     Ly = Ly * scale_y
