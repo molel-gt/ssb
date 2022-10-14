@@ -23,7 +23,7 @@ if __name__ == '__main__':
     parser.add_argument("--scale_x", help="Value to scale the Lx grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=np.double)
     parser.add_argument("--scale_y", help="Value to scale the Ly grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=np.double)
     parser.add_argument("--scale_z", help="Value to scale the Lz grid size given to match dimensions of mesh files.", nargs='?', const=1, default=1, type=np.double)
-
+    parser.add_argument("--loglevel", help="Log level.", nargs='?', const=1, default="INFO")
     args = parser.parse_args()
     data_dir = args.data_dir
     scale_x = args.scale_x
@@ -34,10 +34,11 @@ if __name__ == '__main__':
     start_time = timeit.default_timer()
 
     grid_size = args.grid_size
+    loglevel = args.loglevel
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{grid_size}' + '_' + __file__)
-    logger.setLevel('DEBUG')
+    logger.setLevel(loglevel)
     Lx, Ly, Lz = [int(v) for v in grid_size.split("-")]
     tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
