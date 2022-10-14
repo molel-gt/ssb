@@ -53,13 +53,6 @@ if __name__ == '__main__':
 
     x = ufl.SpatialCoordinate(mesh3d)
 
-    # logger.debug("Loading triangles (dim = 2) mesh..")
-    # with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile3:
-    #     mesh2d = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
-    #     facets_ct = infile3.read_meshtags(mesh2d, name="Grid")
-
-    # x = ufl.SpatialCoordinate(mesh2d)
-
     logger.debug("Loading effective electrolyte..")
     with open(os.path.join(data_dir, 'effective_electrolyte.pickle'), 'rb') as handle:
         effective_electrolyte = list(pickle.load(handle))
