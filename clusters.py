@@ -80,7 +80,7 @@ if __name__ == "__main__":
         if np.all(working_piece[:, 0, :] == 0) or np.all(working_piece[:, Ly, :] == 0):
             logger.debug(f"Piece {idx} does not span both ends")
             continue
-        logger.info(f"Piece {idx} spans both ends along y-axis")
+        logger.info(f"Piece {piece_id} spans both ends along y-axis")
         utils.make_dir_if_missing(os.path.join(mesh_dir, piece_id))
         points = geometry.build_points(working_piece, dp=1)
         points = geometry.add_boundary_points(points, x_max=Lx, y_max=Ly, z_max=Lz, h=0.5, dp=1)
