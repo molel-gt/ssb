@@ -14,7 +14,8 @@ surface_tags = {
     "inactive_area": 5,
 }
 
-HFW = 80.4/1768  # micrometers for FIB-SEM per pixel width
+DX = DY = 80.4/1768  # [um] for FIB-SEM per pixel width
+DZ = 0.050  # [um]
 
 # Decimal places in scientific notation
 EXP_DIGITS = 4
