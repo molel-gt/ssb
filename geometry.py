@@ -89,36 +89,22 @@ def add_boundary_points(points, x_max=50, y_max=50, z_max=50, h=0.5, dp=1):
     A thickness of *h* pixels around the points of one phase to ensure continuity between phases.
     """
     new_points = copy.deepcopy(points)
+    print(len(new_points.keys()))
     max_id = max(points.values())
+
     for (x0, y0, z0), _ in points.items():
-        coords = [
-            (round(x0 + h, dp), round(y0, dp), round(z0, dp)),
-            (round(x0 - h, dp), round(y0, dp), round(z0, dp)),
-            (round(x0, dp), round(y0 + h, dp), round(z0, dp)),
-            (round(x0, dp), round(y0 - h, dp), round(z0, dp)),
-            (round(x0, dp), round(y0, dp), round(z0 + h, dp)),
-            (round(x0, dp), round(y0, dp), round(z0 - h, dp)),
-
-        ]
-        coords_1 = [
-            (round(x0 + 1, dp), round(y0, dp), round(z0, dp)),
-            (round(x0 - 1, dp), round(y0, dp), round(z0, dp)),
-            (round(x0, dp), round(y0 + 1, dp), round(z0, dp)),
-            (round(x0, dp), round(y0 - 1, dp), round(z0, dp)),
-            (round(x0, dp), round(y0, dp), round(z0 + 1, dp)),
-            (round(x0, dp), round(y0, dp), round(z0 - 1, dp)),
-
-        ]
-        for i, coord in enumerate(coords):
-            if (coord[0] > x_max) or (coord[1] > y_max) or (coord[2] > z_max):
-                continue
-            if np.less(coord, 0).any():
-                continue
-
-            v = new_points.get(coord)
-            if v is None:
-                max_id += 1
-                new_points[coord] = max_id
+        for sign_x in [-1, 0, 1]:
+            for sign_y in [-1, 0, 1]:
+                for sign_z in [-1, 0, 1]:
+                    coord = (round(x0 + h * sign_x, dp), round(y0 + h * sign_y, dp), round(z0 + h * sign_z, dp))
+                    if coord[0] > x_max or coord[1] > y_max or coord[2] > z_max:
+                        continue
+                    if np.less(coord, 0).any():
+                        continue
+                    v = new_points.get(coord)
+                    if v is None:
+                        max_id += 1
+                        new_points[coord] = max_id
 
     return new_points
 
