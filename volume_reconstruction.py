@@ -38,6 +38,8 @@ if __name__ == "__main__":
     scale_x = float(scaling['x'])
     scale_y = float(scaling['y'])
     scale_z = float(scaling['z'])
+    dp = int(configs.get_configs()['GEOMETRY']['dp'])
+    h = 0.5
     scale_factor = (scale_x, scale_y, scale_z)
     origin = [int(v) for v in configs.get_configs()['GEOMETRY']['origin'].split(",")]
     origin_str = "-".join([str(v).zfill(3) for v in origin])
@@ -62,19 +64,19 @@ if __name__ == "__main__":
 
     logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Nx * Ny * Nz)))
 
-    points = geometry.build_points(voxels, dp=1)
-    points = geometry.add_boundary_points(points, x_max=Lx, y_max=Ly, z_max=Lz, h=0.5, dp=1)
+    points = geometry.build_points(voxels, dp=dp)
+    print(len(points))
+    points = geometry.add_boundary_points(points, x_max=Lx, y_max=Ly, z_max=Lz, h=h, dp=dp)
+    print(len(points.keys()))
+    cubes = geometry.build_variable_size_cubes(points, h=h, dp=dp)
+    tetrahedra = geometry.build_tetrahedra(cubes, points)
     points_view = {v: k for k, v in points.items()}
 
-    neighbors = geometry.number_of_neighbors(voxels)
-    effective_electrolyte = geometry.electrolyte_bordering_active_material(voxels_filtered, dp=1)
-    effective_electrolyte = geometry.extend_points(effective_electrolyte, points, x_max=Nx-1, y_max=Ny-1, z_max=Nz-1, h=0.5, dp=1)
+    effective_electrolyte = geometry.electrolyte_bordering_active_material(voxels_filtered, dp=dp)
+    effective_electrolyte = geometry.extend_points(effective_electrolyte, points, x_max=Lx, y_max=Ly, z_max=Lz, h=h, dp=dp)
     eff_electrolyte_filepath = os.path.join(mesh_dir, "effective_electrolyte.pickle")
     with open(eff_electrolyte_filepath, "wb") as fp:
         pickle.dump(effective_electrolyte, fp, protocol=pickle.HIGHEST_PROTOCOL)
-    
-    cubes = geometry.build_variable_size_cubes(points, h=0.5)
-    tetrahedra = geometry.build_tetrahedra(cubes, points, points_view)
 
     nodefile = os.path.join(mesh_dir, "porous.node")
     tetfile = os.path.join(mesh_dir, "porous.ele")
@@ -127,7 +129,7 @@ if __name__ == "__main__":
 
     retcode_paraview = subprocess.check_call("pvpython extract_surface_from_volume.py {}".format(os.path.dirname(tetr_xdmf_unscaled)), shell=True)
     surf_msh = meshio.read(tria_xmf_unscaled)
-    tria_mesh_unscaled = geometry.label_surface_mesh(surf_msh, effective_electrolyte, Ny - 1)
+    tria_mesh_unscaled = geometry.label_surface_mesh(surf_msh, effective_electrolyte, Ly)
     tria_mesh_unscaled.write(tria_xdmf_unscaled)
 
     tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, CELL_TYPES.triangle, scale_factor=scale_factor)
