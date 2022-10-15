@@ -29,7 +29,7 @@ if __name__ == '__main__':
     scale_z = float(scaling['z'])
     scale_factor = (scale_x, scale_y, scale_z)
     dp = int(configs.get_configs()['GEOMETRY']['dp'])
-    h = 0.5
+    h = float(configs.get_configs()['GEOMETRY']['h'])
     origin_str = 'contact_loss'
     mesh_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], 'contact_loss', grid_info)
     Nx, Ny, Nz = [int(v) for v in grid_info.split("-")]

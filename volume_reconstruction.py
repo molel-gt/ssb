@@ -39,7 +39,7 @@ if __name__ == "__main__":
     scale_y = float(scaling['y'])
     scale_z = float(scaling['z'])
     dp = int(configs.get_configs()['GEOMETRY']['dp'])
-    h = 0.5
+    h = float(configs.get_configs()['GEOMETRY']['h'])
     scale_factor = (scale_x, scale_y, scale_z)
     origin = [int(v) for v in configs.get_configs()['GEOMETRY']['origin'].split(",")]
     origin_str = "-".join([str(v).zfill(3) for v in origin])
