@@ -31,7 +31,7 @@ def create_mesh(mesh, cell_type, prune_z=False):
     return out_mesh
 
 
-def build_points(data, dp=0):
+def build_points(data, dp=1):
     """
     key: (x,y,z) coordinate
     value: point_id
@@ -49,7 +49,7 @@ def build_points(data, dp=0):
     return points
 
 
-def build_graph(points, h=1, dp=0):
+def build_graph(points, h=1, dp=1):
     """"""
     G = nx.Graph()
     for v in points.values():
@@ -89,25 +89,41 @@ def add_boundary_points(points, x_max=50, y_max=50, z_max=50, h=0.5, dp=1):
     A thickness of *h* pixels around the points of one phase to ensure continuity between phases.
     """
     new_points = copy.deepcopy(points)
-    max_id = max(new_points.values())
+    max_id = max(points.values())
     for (x0, y0, z0), _ in points.items():
-        for sign_x in [-1, 0, 1]:
-            for sign_y in [-1, 0, 1]:
-                for sign_z in [-1, 0, 1]:
-                    coord = (round(x0 + h * sign_x, dp), round(y0 + h * sign_y, dp), round(z0 + h * sign_z, dp))
-                    if coord[0] > x_max or coord[1] > y_max or coord[2] > z_max:
-                        continue
-                    if np.less(coord, 0).any():
-                        continue
-                    v = new_points.get(coord)
-                    if v is None:
-                        max_id += 1
-                        new_points[coord] = max_id
+        coords = [
+            (round(x0 + h, dp), round(y0, dp), round(z0, dp)),
+            (round(x0 - h, dp), round(y0, dp), round(z0, dp)),
+            (round(x0, dp), round(y0 + h, dp), round(z0, dp)),
+            (round(x0, dp), round(y0 - h, dp), round(z0, dp)),
+            (round(x0, dp), round(y0, dp), round(z0 + h, dp)),
+            (round(x0, dp), round(y0, dp), round(z0 - h, dp)),
+
+        ]
+        coords_1 = [
+            (round(x0 + 1, dp), round(y0, dp), round(z0, dp)),
+            (round(x0 - 1, dp), round(y0, dp), round(z0, dp)),
+            (round(x0, dp), round(y0 + 1, dp), round(z0, dp)),
+            (round(x0, dp), round(y0 - 1, dp), round(z0, dp)),
+            (round(x0, dp), round(y0, dp), round(z0 + 1, dp)),
+            (round(x0, dp), round(y0, dp), round(z0 - 1, dp)),
+
+        ]
+        for i, coord in enumerate(coords):
+            if (coord[0] > x_max) or (coord[1] > y_max) or (coord[2] > z_max):
+                continue
+            if np.less(coord, 0).any():
+                continue
+
+            v = new_points.get(coord)
+            if v is None:
+                max_id += 1
+                new_points[coord] = max_id
 
     return new_points
 
 
-def electrolyte_bordering_active_material(voxels, dp=0):
+def electrolyte_bordering_active_material(voxels, dp=1):
     effective_electrolyte = set()
     for idx in np.argwhere(voxels == phases.electrolyte):
         x, y, z = [int(v) for v in idx]
@@ -157,43 +173,41 @@ def extend_points(points, points_master, x_max=50, y_max=50, z_max=50, h=0.5, dp
     return new_points
 
 
-def build_variable_size_cubes(points, h=0.5):
+def build_variable_size_cubes(points, h=0.5, dp=1):
     """
     Filter out vertices that are malformed/ not part of solid inside or solid surface.
     """
     cubes = []
     for coord, _ in points.items():
-        x0, y0, z0 = coord
-        face_1 = [(x0, y0, z0), (x0 + h, y0, z0), (x0 + h, y0 + h, z0), (x0, y0 + h, z0)]
-        face_2 = [(x0, y0, z0 + h), (x0 + h, y0, z0 + h), (x0 + h, y0 + h, z0 + h), (x0, y0 + h, z0 + h)]
-        faces = [[], []]
-        n_points = 0
-        for i in range(4):
-            if points.get(face_1[i]) is None:
-                break
-            faces[0].append(points.get(face_1[i]))
-            n_points += 1
-            if points.get(face_2[i]) is None:
-                break
-            n_points += 1
-            faces[1].append(points.get(face_2[i]))
+        x0, y0, z0 = [round(v, dp) for v in coord]
+        face_1 = [
+            (round(x0, dp), round(y0, dp), round(z0, dp)),
+            (round(x0 + h, dp), round(y0, dp), round(z0, dp)),
+            (round(x0 + h, dp), round(y0 + h, dp), round(z0, dp)),
+            (round(x0, dp), round(y0 + h, dp), round(z0, dp))
+        ]
+        face_2 = [
+            (round(x0, dp), round(y0, dp), round(z0 + h, dp)),
+            (round(x0 + h, dp), round(y0, dp), round(z0 + h, dp)),
+            (round(x0 + h, dp), round(y0 + h, dp), round(z0 + h, dp)),
+            (round(x0, dp), round(y0 + h, dp), round(z0 + h, dp))
+        ]
+
         cubes.append((face_1, face_2))
 
     return cubes
 
 
-def build_tetrahedra(cubes, points, points_view):
+def build_tetrahedra(cubes, points):
     """
     Build the 5 tetrahedra in a cube
     """
-    cubes = build_variable_size_cubes(points, h=0.5)
     tetrahedra = {}
     n_tetrahedra = 0
 
     for cube in cubes:
-        _tetrahedra = []
-        p0, p1, p2, p3 = cube[0]
-        p4, p5, p6, p7 = cube[1]
+        p0, p1, p2, p3 = [points.get(p) for p in cube[0]]
+        p4, p5, p6, p7 = [points.get(p) for p in cube[1]]
         for i in range(5):
             if i == 0:
                 tet = (p0, p1, p3, p4)
@@ -205,18 +219,9 @@ def build_tetrahedra(cubes, points, points_view):
                 tet = (p4, p7, p6, p3)
             if i == 4:
                 tet = (p4, p6, p1, p3)
-            tet_ok = True
-            new_tet = []
-            for p in tet:
-                new_p = points.get(p)
-                new_tet.append(new_p)
-                if new_p is None:
-                    tet_ok = False
-            if tet_ok:
-                _tetrahedra.append(tuple(new_tet))
-        for tet in _tetrahedra:
-            tetrahedra[tet] = n_tetrahedra
-            n_tetrahedra += 1
+            if np.all(tet):
+                tetrahedra[tet] = n_tetrahedra
+                n_tetrahedra += 1
 
     tets = np.zeros((n_tetrahedra, 4))
     for i, tet in enumerate(list(tetrahedra.keys())):
@@ -277,73 +282,6 @@ def read_vtk_surface(file_path):
         triangles.append(np_pts)
     
     return triangles
-
-
-def number_of_neighbors(voxels):
-    """"""
-    num_neighbors = np.zeros(voxels.shape, dtype=np.uint8)
-    for idx in np.argwhere(voxels == True):
-        x, y, z = idx
-        neighbors = [
-            (x, y + 1, z),
-            (x, y - 1, z),
-            (x + 1, y, z),
-            (x - 1, y, z),
-            (x, y, z + 1),
-            (x, y, z - 1),
-        ]
-        sum_neighbors = 0
-        for p in neighbors:
-            try:
-                phase_value = voxels[p]
-                sum_neighbors += phase_value
-            except IndexError:
-                continue
-        num_neighbors[(x, y, z)] = sum_neighbors
-    
-    return num_neighbors
-
-
-
-def marching_cubes_filter(voxel_cube):
-    """"""
-    nx, ny, nz = voxel_cube.shape
-    max_volume = nx ** 3
-    max_area = nx ** 2
-    total = np.sum(voxel_cube)
-    if np.isclose(total, max_volume):
-        return voxel_cube
-    if total < 3: #lower_threshold * max_volume:
-        return np.zeros(voxel_cube.shape, dtype=voxel_cube.dtype)
-    if total >= upper_threshold * max_volume:
-        avg_x0 = np.sum(voxel_cube[0, :, :])
-        avg_xL = np.sum(voxel_cube[-1, :, :])
-        avg_y0 = np.sum(voxel_cube[:, 0, :])
-        avg_yL = np.sum(voxel_cube[:, -1, :])
-        avg_z0 = np.sum(voxel_cube[:, :, 0])
-        avg_zL = np.sum(voxel_cube[:, :, -1])
-        if np.isclose(np.array([avg_x0, avg_xL, avg_y0, avg_yL, avg_z0, avg_zL]), max_area).all():
-            return np.ones(voxel_cube.shape, voxel_cube.dtype)
-
-    return voxel_cube
-
-
-def apply_filter_to_3d_array(array, size):
-    nx, ny, nz = array.shape
-    filtered_array = np.zeros(array.shape, array.dtype)
-    x_indices = range(0, nx, size)
-    y_indices = range(0, ny, size)
-    z_indices = range(0, nz, size)
-    for idx in x_indices[:-1]:
-        for idy in y_indices[:-1]:
-            for idz in z_indices[:-1]:
-                upper_x = idx + size if (idx + size) < nx else -1
-                upper_y = idy + size if (idy + size) < ny else -1
-                upper_z = idz + size if (idz + size) < nz else -1
-                chunk = array[idx:upper_x, idy:upper_y, idz:upper_z]
-                filtered_array[idx:upper_x, idy:upper_y, idz:upper_z] = marching_cubes_filter(chunk)
-
-    return filtered_array
 
 
 def generate_surface_mesh(triangles, effective_electrolyte, shape, points):
