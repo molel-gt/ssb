@@ -65,9 +65,7 @@ if __name__ == "__main__":
     logger.info("Rough porosity : {:0.4f}".format(np.sum(voxels) / (Nx * Ny * Nz)))
 
     points = geometry.build_points(voxels, dp=dp)
-    print(len(points))
     points = geometry.add_boundary_points(points, x_max=Lx, y_max=Ly, z_max=Lz, h=h, dp=dp)
-    print(len(points.keys()))
     cubes = geometry.build_variable_size_cubes(points, h=h, dp=dp)
     tetrahedra = geometry.build_tetrahedra(cubes, points)
     points_view = {v: k for k, v in points.items()}
