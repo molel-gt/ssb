@@ -28,6 +28,8 @@ if __name__ == '__main__':
     scale_y = float(scaling['y'])
     scale_z = float(scaling['z'])
     scale_factor = (scale_x, scale_y, scale_z)
+    dp = int(configs.get_configs()['GEOMETRY']['dp'])
+    h = 0.5
     origin_str = 'contact_loss'
     mesh_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], 'contact_loss', grid_info)
     Nx, Ny, Nz = [int(v) for v in grid_info.split("-")]
@@ -59,8 +61,8 @@ if __name__ == '__main__':
 
     box = np.ones((Nx, Ny, Nz), dtype=np.uint8)
     points = geometry.build_points(box)
-    points = geometry.add_boundary_points(points, x_max=Lx, y_max=Ly, z_max=Lz, h=0.5, dp=1)
-    cubes = geometry.build_variable_size_cubes(points, h=1)
+    points = geometry.add_boundary_points(points, x_max=Lx, y_max=Ly, z_max=Lz, h=h, dp=dp)
+    cubes = geometry.build_variable_size_cubes(points, h=h, dp=dp)
     tetrahedra = {}
     n_tetrahedra = 0
 
