@@ -63,27 +63,9 @@ if __name__ == '__main__':
     points = geometry.build_points(box)
     points = geometry.add_boundary_points(points, x_max=Lx, y_max=Ly, z_max=Lz, h=h, dp=dp)
     cubes = geometry.build_variable_size_cubes(points, h=h, dp=dp)
-    tetrahedra = {}
-    n_tetrahedra = 0
-
-    for cube in cubes:
-        _tetrahedra = geometry.build_tetrahedra(cube, points)
-        for tet in _tetrahedra:
-            tetrahedra[tet] = n_tetrahedra
-            n_tetrahedra += 1
-
-    with open(nodefile, "w") as fp:
-        fp.write("%d 3 0 0\n" % int(len(points.values())))
-        for coord, point_id in points.items():
-            x0, y0, z0 = coord
-            fp.write(f"{point_id} {x0} {y0} {z0}\n")
-    tet_points = set()
-    with open(tetfile, "w") as fp:
-        fp.write(f"{n_tetrahedra} 4 0\n")
-        for tetrahedron, tet_id in tetrahedra.items():
-            p1, p2, p3, p4 = [int(v) for v in tetrahedron]
-            tet_points |= {p1, p2, p3, p4}
-            fp.write(f"{tet_id} {p1} {p2} {p3} {p4}\n")
+    tetrahedra = geometry.build_tetrahedra(cubes, points)
+    geometry.write_points_to_node_file(nodefile, points)
+    geometry.write_tetrahedra_to_ele_file(tetfile, tetrahedra)
 
     retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -rkQF", shell=True)
     gmsh.initialize()
