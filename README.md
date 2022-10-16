@@ -73,7 +73,7 @@ optional arguments:
 The volume reconstruction proceeds as follows:
 - Load the segmented stack of images into a 3D array
 - Select coordinates of voxels that belong to phase 1 (solid electrolyte) and label them using natural numbers starting from 0
-- Select coordinates of voxels that belong to phase 1 (solid electrolyte), and are neighbors to phase 2 (active material), e.g. ($x_0$, $y_0$, $z_0$) and ($x_0$, $y_0$ + 1, $z_0$) are neighbors, but  ($x_0$, $y_0$, $z_0$) and ($x_0$, $y_0$ + 1, $z_0$ + 1) are not neighbors
+- Select coordinates of voxels that belong to phase 1 (solid electrolyte), and are neighbors to phase 2 (active material), e.g. ( $x_0$, $y_0$, $z_0$) and ($x_0$, $y_0$ + 1, $z_0$) are neighbors, but  ( $x_0$, $y_0$, $z_0$) and ( $x_0$, $y_0$ + 1, $z_0$ + 1) are not neighbors
 - Save the effective electrolyte coordinates to the file `effective_electrolyte.pickle` within the input data directory
 - Create an ordered tuple of neighboring solid electrolyte voxels that form a tetrahedra such that for 8 adjacent voxels that form a cube we end up with 5 non-intersecting tetrahedra.
 - Optionally refine the tetrahedra using [TetGen](https://wias-berlin.de/software/index.jsp?id=TetGen&lang=1#Introduction) with inputs points in a `.node` file and input tetrahedra in a `.ele` file
