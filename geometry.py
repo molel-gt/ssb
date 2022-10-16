@@ -88,6 +88,9 @@ def add_boundary_points(points, x_max=50, y_max=50, z_max=50, h=0.5, dp=1):
     """
     A thickness of *h* pixels around the points of one phase to ensure continuity between phases.
     """
+    if np.isclose(h, 1):
+        return points
+
     new_points = copy.deepcopy(points)
     max_id = max(points.values())
 

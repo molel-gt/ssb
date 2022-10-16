@@ -1,7 +1,5 @@
 from collections import namedtuple
 
-from cv2 import triangulatePoints
-
 
 Facet = namedtuple('Facet', 'indices values')
 

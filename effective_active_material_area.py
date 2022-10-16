@@ -15,6 +15,9 @@ from mpi4py import MPI
 import commons, configs, constants
 
 
+markers = commons.SurfaceMarkers()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Specific Active Material Area.')
     parser.add_argument('--grid_size', help='Lx-Ly-Lz', required=True)
@@ -55,11 +58,11 @@ if __name__ == '__main__':
     with open(os.path.join(data_dir, 'effective_electrolyte.pickle'), 'rb') as handle:
         effective_electrolyte = list(pickle.load(handle))
 
-    left_cc_marker = constants.surface_tags["left_cc"]
-    right_cc_marker = constants.surface_tags["right_cc"]
-    insulated_marker = constants.surface_tags["insulated"]
-    active_marker = constants.surface_tags["active_area"]
-    inactive_marker = constants.surface_tags["inactive_area"]
+    left_cc_marker = markers.left_cc
+    right_cc_marker = markers.right_cc
+    insulated_marker = markers.insulated
+    active_marker = markers.active
+    inactive_marker = markers.inactive
 
     x0facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.isclose(x[1], 0.0))
     x1facet = dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.isclose(x[1], Ly))
