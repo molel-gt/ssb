@@ -16,6 +16,9 @@ from petsc4py import PETSc
 import commons, constants, configs
 
 
+markers = commons.SurfaceMarkers()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
     parser.add_argument('--grid_size', help='Nx-Ny-Nz', required=True)
@@ -51,9 +54,9 @@ if __name__ == '__main__':
     output_current_path = os.path.join(data_dir, f'{eps}/current.xdmf')
     output_potential_path = os.path.join(data_dir, f'{eps}/potential.xdmf')
 
-    left_cc_marker = constants.surface_tags["left_cc"]
-    right_cc_marker = constants.surface_tags["right_cc"]
-    insulated_marker = constants.surface_tags["insulated"]
+    left_cc_marker = markers.left_cc
+    right_cc_marker = markers.right_cc
+    insulated_marker = markers.insulated
 
     logger.debug("Loading tetrahedra (dim = 3) mesh..")
     with dolfinx.io.XDMFFile(comm, tetr_mesh_path, "r") as infile3:
