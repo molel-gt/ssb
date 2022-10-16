@@ -143,6 +143,7 @@ def extend_points(points, points_master, x_max=50, y_max=50, z_max=50, h=0.5, dp
     """
     if not isinstance(points, set) or not isinstance(points_master, dict):
         raise TypeError("Accepts points set and points_master dictionary")
+
     new_points = copy.deepcopy(points)
     for (x0, y0, z0) in points:
         for sign_x in [-1, 0, 1]:
