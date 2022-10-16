@@ -8,6 +8,9 @@ numpy
 opencv-python
 pandas
 pybamm
+pyvista
+pyvistaqt
+pyqt5
 scipy
 scikit-image
 sklearn
