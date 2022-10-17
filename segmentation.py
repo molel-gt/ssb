@@ -51,6 +51,7 @@ if __name__ == '__main__':
 
     all_thresholds = []
     for img_file in image_files:
+        print(f"Processing image {img_file}")
         idx = int(img_file.split("-")[-1].strip().split(".")[0]) - 1
         fname = str(idx).zfill(3) + ".tif"
         image = plt.imread(img_file)
