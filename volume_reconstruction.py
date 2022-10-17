@@ -125,12 +125,12 @@ if __name__ == "__main__":
     tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, CELL_TYPES.tetra, scale_factor=scale_factor)
     tetr_mesh_scaled.write(tetr_xdmf_scaled)
 
-    retcode_paraview = subprocess.check_call("pvpython extract_surface_from_volume.py {}".format(os.path.dirname(tetr_xdmf_unscaled)), shell=True)
-    surf_msh = meshio.read(tria_xmf_unscaled)
-    tria_mesh_unscaled = geometry.label_surface_mesh(surf_msh, effective_electrolyte, Ly)
-    tria_mesh_unscaled.write(tria_xdmf_unscaled)
+    # retcode_paraview = subprocess.check_call("pvpython extract_surface_from_volume.py {}".format(os.path.dirname(tetr_xdmf_unscaled)), shell=True)
+    # surf_msh = meshio.read(tria_xmf_unscaled)
+    # tria_mesh_unscaled = geometry.label_surface_mesh(surf_msh, effective_electrolyte, Ly)
+    # tria_mesh_unscaled.write(tria_xdmf_unscaled)
 
-    tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, CELL_TYPES.triangle, scale_factor=scale_factor)
-    tria_mesh_scaled.write(tria_xdmf_scaled)
+    # tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, CELL_TYPES.triangle, scale_factor=scale_factor)
+    # tria_mesh_scaled.write(tria_xdmf_scaled)
     
     logger.info("Took {:,} seconds".format(int(time.time() - start_time)))
