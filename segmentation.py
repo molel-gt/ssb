@@ -6,7 +6,7 @@ import numpy as np
 
 from PIL import Image
 
-import utils
+import configs, utils
 
 
 def H_lo(D, D0, n):
@@ -15,6 +15,7 @@ def H_lo(D, D0, n):
 
 def H_hi(D, D0, n):
     return 1 / (1 + (D0/D) ** (2 * n))
+
 
 def fft_denoise(img, band_type='lo'):
     """"""
@@ -43,13 +44,12 @@ def fft_denoise(img, band_type='lo'):
 
 
 if __name__ == '__main__':
-
-    utils.make_dir_if_missing("unsegmented")
+    unsegmented_dir = configs.get_configs()['LOCAL_PATHS']['unsegmented_image_stack']
+    utils.make_dir_if_missing(unsegmented_dir)
 
     img_dir = "SEM Image/"
     image_files = sorted([os.path.join(img_dir, f) for f in os.listdir(img_dir) if f.endswith(".tif")])
 
-    all_thresholds = []
     for img_file in image_files:
         print(f"Processing image {img_file}")
         idx = int(img_file.split("-")[-1].strip().split(".")[0]) - 1
@@ -65,4 +65,4 @@ if __name__ == '__main__':
         g = fft_denoise(img, 'hi')
 
         img_raw = Image.fromarray(g.astype(np.uint8))
-        img_raw.save(os.path.join("unsegmented", fname), format="TIFF")
+        img_raw.save(os.path.join(unsegmented_dir, fname), format="TIFF")
