@@ -14,16 +14,12 @@ from ufl import dx, grad, inner
 from mpi4py import MPI
 from petsc4py import PETSc
 
-try:
-    import pyvista as pv
-    import pyvistaqt as pvqt
-    have_pyvista = True
-    if pv.OFF_SCREEN:
-        pv.start_xvfb(wait=0.5)
-except ModuleNotFoundError:
-    print("pyvista and pyvistaqt are required to visualise the solution")
-    have_pyvista = False
+import pyvista as pv
+import pyvistaqt as pvqt
 
+
+if pv.OFF_SCREEN:
+    pv.start_xvfb(wait=0.5)
 
 # model parameters
 lmbda = 1.0e-02
@@ -126,10 +122,9 @@ while (t < T):
 file.close()
 
 # Update ghost entries and plot
-if have_pyvista:
-    u.x.scatter_forward()
-    grid.point_data["c"] = u.x.array[dofs].real
-    screenshot = None
-    if pv.OFF_SCREEN:
-        screenshot = "c.png"
-    pv.plot(grid, show_edges=True, screenshot=screenshot)
+u.x.scatter_forward()
+grid.point_data["c"] = u.x.array[dofs].real
+screenshot = None
+if pv.OFF_SCREEN:
+    screenshot = "c.png"
+pv.plot(grid, show_edges=True, screenshot=screenshot)
