@@ -114,10 +114,9 @@ while (t < T):
     file.write_function(c, t)
 
     # Update the plot window
-    if have_pyvista:
-        p.add_text(f"time: {t:.2e}", font_size=12, name="timelabel")
-        grid.point_data["c"] = u.x.array[dofs].real
-        p.app.processEvents()
+    p.add_text(f"time: {t:.2e}", font_size=12, name="timelabel")
+    grid.point_data["c"] = u.x.array[dofs].real
+    p.app.processEvents()
 
 file.close()
 
