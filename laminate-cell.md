@@ -15,9 +15,7 @@ In developing the laminate cell model, we borrow the set up already used in the 
 - Pore-wall flux: $$j_n = -D_{eff}\nabla c_2$$ for concentration of lithium $c_2$ in the AM phase.
 - Insertion process at the cathode proceeds as:
   $$
-  \begin{equation*}
   \chemfig{Li^+  - \Theta_1} + \Theta_2 + e^- \rightleftharpoons \chemfig{Li - \Theta_2} + \Theta_1
-  \end{equation*}
   $$
 ### Model Validation
 ## Conclusions and Recommendations
