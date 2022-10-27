@@ -11,7 +11,7 @@ import commons, geometry
 
 markers = commons.SurfaceMarkers()
 
-W = 200
+W = 20
 L = 100
 La = 25  # anode
 Ls = 25  # separator
@@ -38,7 +38,7 @@ serrated = sorted(list(points1) + list(points2) + [W], reverse=True)
 
 gmsh.initialize()
 gmsh.model.add("AM/SE")
-gmsh.option.setNumber("Mesh.MeshSizeMax", resolution)
+# gmsh.option.setNumber("Mesh.MeshSizeMax", resolution)
 
 serrated_points = []
 for i in range(1, len(serrated)):
@@ -71,8 +71,10 @@ for i in range(-1, len(points_se) - 1):
 se_loop = gmsh.model.occ.addCurveLoop(se_lines)
 se_channel = gmsh.model.occ.addPlaneSurface((1, se_loop))
 gmsh.model.occ.synchronize()
-gmsh.model.addPhysicalGroup(2, [se_channel])
-
+s1 = gmsh.model.addPhysicalGroup(2, [se_channel])
+grp1 = gmsh.model.addPhysicalGroup(1, [se_lines[1]])
+gmsh.model.setPhysicalName(1, grp1, "left_cc")
+gmsh.model.setPhysicalName(2, s1, "SE")
 am_lines = []
 points_am = points[2:]
 for i in range(-1, len(points_am) - 1):
@@ -81,7 +83,10 @@ for i in range(-1, len(points_am) - 1):
 am_loop = gmsh.model.occ.addCurveLoop(am_lines)
 am_channel = gmsh.model.occ.addPlaneSurface((2, am_loop))
 gmsh.model.occ.synchronize()
-gmsh.model.addPhysicalGroup(2, [am_channel])
+s2 = gmsh.model.addPhysicalGroup(2, [am_channel])
+gmsh.model.setPhysicalName(2, s2, "AM")
+grp2 = gmsh.model.addPhysicalGroup(1, [am_lines[-1]])
+gmsh.model.setPhysicalName(1, grp2, "right_cc")
 
 gmsh.model.occ.synchronize()
 gmsh.model.mesh.generate(2)
