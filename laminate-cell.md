@@ -14,8 +14,6 @@ In developing the laminate cell model, we borrow the set up already used in the 
 - At the AM/SE interface, we have the pore-wall flux across the interface, $$j_n$$
 - Pore-wall flux: $$j_n = -D_{eff}\nabla c_2$$ for concentration of lithium $c_2$ in the AM phase.
 - Insertion process at the cathode proceeds as:
-  $$
-  \chemfig{Li^+  - \Theta_1} + \Theta_2 + e^- \rightleftharpoons \chemfig{Li - \Theta_2} + \Theta_1
-  $$
+  $$\chemfig{Li^+  - \Theta_1} + \Theta_2 + e^- \rightleftharpoons \chemfig{Li - \Theta_2} + \Theta_1$$
 ### Model Validation
 ## Conclusions and Recommendations
