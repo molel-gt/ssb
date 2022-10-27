@@ -12,8 +12,10 @@ In developing the laminate cell model, we borrow the set up already used in the 
 - Local ionic current density: $$i_1 = -\kappa_0 \nabla \phi_1$$
 - Local electronic current density: $$i_2 = -\sigma_0 \nabla \phi_2$$
 - At the AM/SE interface, we have the pore-wall flux across the interface, $$j_n$$
-- Pore-wall flux: $$j_n = -D_{eff}\nabla c_2$$ for concentration of lithium $c_2$ in the AM phase.
+- Pore-wall flux: $$j_n = -D_{eff}\nabla c_2$$ for concentration of lithium $c_2$ in the AM phase. $$aj_n$$ is the volumetric charge generation
 - Insertion process at the cathode proceeds as:
   $$\chemfig{Li^+  - \Theta_1} + \Theta_2 + e^- \rightleftharpoons \chemfig{Li - \Theta_2} + \Theta_1$$
+- Since there is no penetration of materials into the current collectors, then the fluxes are set to zero there.
+- Current in the two phases is conserved, thus: $$\nabla \cdot (i_1 + i_2) = 0$$ and thus $i = i_1 + i_2$
 ### Model Validation
 ## Conclusions and Recommendations
