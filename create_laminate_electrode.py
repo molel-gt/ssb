@@ -4,12 +4,11 @@ import gmsh
 import meshio
 import numpy as np
 
-from collections import OrderedDict
-
 import commons, geometry
 
 
 markers = commons.SurfaceMarkers()
+phases = commons.Phases()
 
 W = 20
 L = 100
@@ -20,8 +19,8 @@ eps_se = 0.3
 eps_am = 0.7
 
 # meshing
-resolution = 0.1
-L_coating = L - resolution
+resolution = 0.05
+L_coating = L - 5 * resolution
 
 
 se_points = [
@@ -71,8 +70,8 @@ for i in range(-1, len(points_se) - 1):
 se_loop = gmsh.model.occ.addCurveLoop(se_lines)
 se_channel = gmsh.model.occ.addPlaneSurface((1, se_loop))
 gmsh.model.occ.synchronize()
-s1 = gmsh.model.addPhysicalGroup(2, [se_channel])
-grp1 = gmsh.model.addPhysicalGroup(1, [se_lines[1]])
+s1 = gmsh.model.addPhysicalGroup(2, [se_channel], phases.electrolyte)
+grp1 = gmsh.model.addPhysicalGroup(1, [se_lines[1]], markers.left_cc)
 gmsh.model.setPhysicalName(1, grp1, "left_cc")
 gmsh.model.setPhysicalName(2, s1, "SE")
 am_lines = []
@@ -83,9 +82,9 @@ for i in range(-1, len(points_am) - 1):
 am_loop = gmsh.model.occ.addCurveLoop(am_lines)
 am_channel = gmsh.model.occ.addPlaneSurface((2, am_loop))
 gmsh.model.occ.synchronize()
-s2 = gmsh.model.addPhysicalGroup(2, [am_channel])
+s2 = gmsh.model.addPhysicalGroup(2, [am_channel], phases.active_material)
 gmsh.model.setPhysicalName(2, s2, "AM")
-grp2 = gmsh.model.addPhysicalGroup(1, [am_lines[-1]])
+grp2 = gmsh.model.addPhysicalGroup(1, [am_lines[-1]], markers.right_cc)
 gmsh.model.setPhysicalName(1, grp2, "right_cc")
 
 gmsh.model.occ.synchronize()
