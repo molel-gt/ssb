@@ -11,7 +11,7 @@ import commons, geometry
 
 markers = commons.SurfaceMarkers()
 
-W = 1000
+W = 200
 L = 100
 La = 25  # anode
 Ls = 25  # separator
@@ -70,7 +70,7 @@ for i in range(-1, len(points_se) - 1):
     se_lines.append(line)
 se_loop = gmsh.model.occ.addCurveLoop(se_lines)
 se_channel = gmsh.model.occ.addPlaneSurface((1, se_loop))
-print(se_channel)
+gmsh.model.occ.synchronize()
 gmsh.model.addPhysicalGroup(2, [se_channel])
 
 am_lines = []
@@ -80,6 +80,7 @@ for i in range(-1, len(points_am) - 1):
         am_lines.append(line)
 am_loop = gmsh.model.occ.addCurveLoop(am_lines)
 am_channel = gmsh.model.occ.addPlaneSurface((2, am_loop))
+gmsh.model.occ.synchronize()
 gmsh.model.addPhysicalGroup(2, [am_channel])
 
 gmsh.model.occ.synchronize()
