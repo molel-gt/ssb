@@ -8,5 +8,6 @@ This provides some motivation to consider porous electrodes that do not assume s
 ## Model Development
 In developing the laminate cell model, we borrow the set up already used in the Doyle-Fuller-Newman model. We simplify the DFN model based on the material properties we are working with. We will attempt to use information learnt in phase-field model to further take advantage of variational calculus in the FEA solution to the laminate cell model.
 ### Model Assumptions
+- For kinetics, we use the Butler-Volmer equation: $$I = i_0 \left[ e^{\frac{\alpha_aF\eta_s}{RT}} - e^{\frac{-\alpha_cF\eta_s}{RT}}\right]$$ where $$\eta_s = \phi_1 - \phi_2$$ is the surface overpotential.
 ### Model Validation
 ## Conclusions and Recommendations
