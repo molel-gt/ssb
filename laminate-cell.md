@@ -18,5 +18,6 @@ In developing the laminate cell model, we borrow the set up already used in the 
 - Since there is no penetration of materials into the current collectors, then the fluxes are set to zero there.
 - Current in the two phases is conserved, thus: $$\nabla \cdot (i_1 + i_2) = 0$$ and thus $i = i_1 + i_2$
 - $$i = i_1 + i_2 = \frac{i_0}{A}\left[e^{\frac{\alpha_a F (\phi_1 - \phi_2)}{RT}} - e^{-\frac{\alpha_c F (\phi_1 - \phi_2)}{RT}}\right]$$
+  $$\implies$$ $$- \kappa_0 \nabla \phi_1 - \sigma_0 \nabla \phi_2 = \frac{i_0}{A}\left[e^{\frac{\alpha_a F (\phi_1 - \phi_2)}{RT}} - e^{-\frac{\alpha_c F (\phi_1 - \phi_2)}{RT}}\right]$$
 ### Model Validation
 ## Conclusions and Recommendations
