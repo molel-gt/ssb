@@ -7,8 +7,7 @@ import numpy as np
 import pyvista
 import ufl
 
-from dolfinx import fem, io, mesh, plot
-# from ufl import ds, dx, grad, inner
+from dolfinx import fem, mesh
 from mpi4py import MPI
 from petsc4py import PETSc
 
@@ -86,14 +85,3 @@ uh = problem.solve()
 with dolfinx.io.XDMFFile(mesh2d.comm, "out_poisson/poisson.xdmf", "w") as file:
     file.write_mesh(mesh2d)
     file.write_function(uh)
-
-# Visualization
-# cells, types, x = plot.create_vtk_mesh(V)
-# grid = pyvista.UnstructuredGrid(cells, types, x)
-# grid.point_data["u"] = uh.x.array.real
-# grid.set_active_scalars("u")
-# plotter = pyvista.Plotter()
-# plotter.add_mesh(grid, show_edges=True)
-# warped = grid.warp_by_scalar()
-# plotter.add_mesh(warped)
-# plotter.show()
