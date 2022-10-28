@@ -60,6 +60,7 @@ with io.XDMFFile(mesh2d.comm, "out_poisson/poisson.xdmf", "w") as file:
     file.write_mesh(mesh2d)
     file.write_function(uh)
 
+# Visualization
 cells, types, x = plot.create_vtk_mesh(V)
 grid = pyvista.UnstructuredGrid(cells, types, x)
 grid.point_data["u"] = uh.x.array.real
