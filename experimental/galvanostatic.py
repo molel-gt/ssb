@@ -4,10 +4,8 @@ import sys
 
 import dolfinx
 import numpy as np
-import pyvista
 import ufl
 
-from dolfinx import fem, mesh
 from mpi4py import MPI
 from petsc4py import PETSc
 
@@ -26,12 +24,12 @@ alpha_a = 0.5
 alpha_c = 0.5
 F = 96485  # coulomb per mole --> Faraday constant
 u_am = 0
-mesh2d = mesh.create_rectangle(comm=MPI.COMM_WORLD,
+mesh2d = dolfinx.mesh.create_rectangle(comm=MPI.COMM_WORLD,
                             points=((0.0, 0.0), (Lx, Ly)), n=(16, 16),
-                            cell_type=mesh.CellType.triangle,)
+                            cell_type=dolfinx.mesh.CellType.triangle,)
 x = ufl.SpatialCoordinate(mesh2d)
 n = ufl.FacetNormal(mesh2d)
-V = fem.FunctionSpace(mesh2d, ("Lagrange", 1))
+V = dolfinx.fem.FunctionSpace(mesh2d, ("Lagrange", 1))
 u = ufl.TrialFunction(V)
 v = ufl.TestFunction(V)
 
@@ -48,12 +46,12 @@ g_cc = dolfinx.fem.Constant(mesh2d, PETSc.ScalarType(1e-4))
 # right_cc_value = (-i0 / K0) * (ufl.exp(alpha_a * F * (u0 - u_am) / (R * T)) - ufl.exp(-alpha_c * F * (u - u_am) / (R * T)))
 
 # boundary conditions
-left_cc_facets = mesh.locate_entities_boundary(mesh2d, dim=1, marker=lambda x: np.isclose(x[0], 0.0))
-right_cc_facets = mesh.locate_entities_boundary(mesh2d, dim=1, marker=lambda x: np.isclose(x[0], Lx))
+left_cc_facets = dolfinx.mesh.locate_entities_boundary(mesh2d, dim=1, marker=lambda x: np.isclose(x[0], 0.0))
+right_cc_facets = dolfinx.mesh.locate_entities_boundary(mesh2d, dim=1, marker=lambda x: np.isclose(x[0], Lx))
 insulated_facet = dolfinx.mesh.locate_entities_boundary(mesh2d, 1, lambda x: np.logical_and(np.logical_not(np.isclose(x[0], 0)), np.logical_not(np.isclose(x[0], Lx))))
 
-left_cc_dofs = fem.locate_dofs_topological(V=V, entity_dim=1, entities=left_cc_facets)
-right_cc_dofs = fem.locate_dofs_topological(V=V, entity_dim=1, entities=right_cc_facets)
+left_cc_dofs = dolfinx.fem.locate_dofs_topological(V=V, entity_dim=1, entities=left_cc_facets)
+right_cc_dofs = dolfinx.fem.locate_dofs_topological(V=V, entity_dim=1, entities=right_cc_facets)
 
 # facets_ct_indices = np.hstack((left_cc_facets, right_cc_facets, insulated_facet))
 facets_ct_indices = np.hstack((left_cc_facets, insulated_facet))
@@ -72,14 +70,14 @@ L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds + ufl.inner(g_cc, v) * ds_le
 
 # set bcs
 # left_cc = fem.dirichletbc(value=PETSc.ScalarType(1), dofs=left_cc_dofs, V=V)
-right_cc = fem.dirichletbc(value=PETSc.ScalarType(0), dofs=right_cc_dofs, V=V)
+right_cc = dolfinx.fem.dirichletbc(value=PETSc.ScalarType(0), dofs=right_cc_dofs, V=V)
 # bcs = [left_cc, right_cc]
 options = {
                "ksp_type": "gmres",
                "pc_type": "hypre",
                "ksp_rtol": 1.0e-12
                }
-problem = fem.petsc.LinearProblem(a, L, bcs=[right_cc], petsc_options=options)
+problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[right_cc], petsc_options=options)
 uh = problem.solve()
 
 with dolfinx.io.XDMFFile(mesh2d.comm, "out_poisson/poisson.xdmf", "w") as file:
