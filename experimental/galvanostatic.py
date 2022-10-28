@@ -56,7 +56,7 @@ right_cc = fem.dirichletbc(value=PETSc.ScalarType(0), dofs=right_cc_dofs, V=V)
 problem = fem.petsc.LinearProblem(a, L, bcs=[left_cc, right_cc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 uh = problem.solve()
 
-with io.XDMFFile(mesh2d.comm, "out_poisson/poisson.xdmf", "w") as file:
+with dolfinx.io.XDMFFile(mesh2d.comm, "out_poisson/poisson.xdmf", "w") as file:
     file.write_mesh(mesh2d)
     file.write_function(uh)
 
