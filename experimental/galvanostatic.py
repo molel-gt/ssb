@@ -33,17 +33,8 @@ V = dolfinx.fem.FunctionSpace(mesh2d, ("Lagrange", 1))
 u = ufl.TrialFunction(V)
 v = ufl.TestFunction(V)
 
-# P1 = ufl.FiniteElement("Lagrange", mesh2d.ufl_cell(), 1)
-# ME = fem.FunctionSpace(mesh2d, P1 * P1)
-# q, v = ufl.TestFunctions(ME)
-# u = ufl.TrialFunction(ME)
-# phi, i = ufl.split(u)
-
 f = dolfinx.fem.Constant(mesh2d, PETSc.ScalarType(0.0))
 g = dolfinx.fem.Constant(mesh2d, PETSc.ScalarType(0.0))
-g_cc = dolfinx.fem.Constant(mesh2d, PETSc.ScalarType(1e-4))
-# left_cc_value = (-i0 / K0) * (ufl.exp(alpha_a * F * (u0 - u_am) / (R * T)) - ufl.exp(-alpha_c * F * (u - u_am) / (R * T)))
-# right_cc_value = (-i0 / K0) * (ufl.exp(alpha_a * F * (u0 - u_am) / (R * T)) - ufl.exp(-alpha_c * F * (u - u_am) / (R * T)))
 
 # boundary conditions
 left_cc_facets = dolfinx.mesh.locate_entities_boundary(mesh2d, dim=1, marker=lambda x: np.isclose(x[0], 0.0))
@@ -53,11 +44,9 @@ insulated_facet = dolfinx.mesh.locate_entities_boundary(mesh2d, 1, lambda x: np.
 left_cc_dofs = dolfinx.fem.locate_dofs_topological(V=V, entity_dim=1, entities=left_cc_facets)
 right_cc_dofs = dolfinx.fem.locate_dofs_topological(V=V, entity_dim=1, entities=right_cc_facets)
 
-# facets_ct_indices = np.hstack((left_cc_facets, right_cc_facets, insulated_facet))
-facets_ct_indices = np.hstack((left_cc_facets, insulated_facet))
-# facets_ct_values = np.hstack((markers.left_cc * np.ones(left_cc_facets.shape[0], dtype=np.int32), markers.right_cc * np.ones(right_cc_facets.shape[0], dtype=np.int32),
-#                             markers.insulated * np.ones(insulated_facet.shape[0], dtype=np.int32)))
-facets_ct_values = np.hstack((markers.left_cc * np.ones(left_cc_facets.shape[0], dtype=np.int32), markers.insulated * np.ones(insulated_facet.shape[0], dtype=np.int32)))
+facets_ct_indices = np.hstack((left_cc_facets, right_cc_facets, insulated_facet))
+facets_ct_values = np.hstack((markers.left_cc * np.ones(left_cc_facets.shape[0], dtype=np.int32), markers.right_cc * np.ones(right_cc_facets.shape[0], dtype=np.int32),
+                            markers.insulated * np.ones(insulated_facet.shape[0], dtype=np.int32)))
 facets_ct = commons.Facet(facets_ct_indices, facets_ct_values)
 surf_meshtags = dolfinx.mesh.meshtags(mesh2d, 1, facets_ct.indices, facets_ct.values)
 
@@ -69,15 +58,15 @@ a = ufl.inner(K0 * ufl.grad(u), ufl.grad(v)) * ufl.dx
 L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds + ufl.inner(g_cc, v) * ds_left_cc #+ ufl.inner(g_cc, v) * ds_right_cc
 
 # set bcs
-# left_cc = fem.dirichletbc(value=PETSc.ScalarType(1), dofs=left_cc_dofs, V=V)
+left_cc = fem.dirichletbc(value=PETSc.ScalarType(1), dofs=left_cc_dofs, V=V)
 right_cc = dolfinx.fem.dirichletbc(value=PETSc.ScalarType(0), dofs=right_cc_dofs, V=V)
-# bcs = [left_cc, right_cc]
+bcs = [left_cc, right_cc]
 options = {
                "ksp_type": "gmres",
                "pc_type": "hypre",
                "ksp_rtol": 1.0e-12
                }
-problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[right_cc], petsc_options=options)
+problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=bcs, petsc_options=options)
 uh = problem.solve()
 
 with dolfinx.io.XDMFFile(mesh2d.comm, "out_poisson/poisson.xdmf", "w") as file:
