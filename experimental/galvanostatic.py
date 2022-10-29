@@ -55,10 +55,10 @@ ds_left_cc = ufl.Measure('ds', domain=mesh2d, subdomain_data=surf_meshtags, subd
 ds_right_cc = ufl.Measure('ds', domain=mesh2d, subdomain_data=surf_meshtags, subdomain_id=markers.right_cc)
 
 a = ufl.inner(K0 * ufl.grad(u), ufl.grad(v)) * ufl.dx
-L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds + ufl.inner(g_cc, v) * ds_left_cc #+ ufl.inner(g_cc, v) * ds_right_cc
+L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds
 
 # set bcs
-left_cc = fem.dirichletbc(value=PETSc.ScalarType(1), dofs=left_cc_dofs, V=V)
+left_cc = dolfinx.fem.dirichletbc(value=PETSc.ScalarType(1), dofs=left_cc_dofs, V=V)
 right_cc = dolfinx.fem.dirichletbc(value=PETSc.ScalarType(0), dofs=right_cc_dofs, V=V)
 bcs = [left_cc, right_cc]
 options = {
