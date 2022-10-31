@@ -11,7 +11,7 @@ from petsc4py import PETSc
 from ufl import (dx, grad, inner, lhs, rhs)
 
 
-i0 = 1  # exhchange current density
+i0 = 10  # exchange current density
 phi2 = 0.5
 F_c = 96485  # Faraday constant
 R = 8.314
