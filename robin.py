@@ -33,7 +33,12 @@ kappa = fem.Constant(mesh2d, PETSc.ScalarType(1))
 # Define function space and standard part of variational form
 V = fem.FunctionSpace(mesh2d, ("CG", 1))
 u, v = fem.Function(V), ufl.TestFunction(V)
-g_curr = (-i0 / kappa) * (ufl.exp(alpha_a * F_c * (u - phi2) / R / T) - ufl.exp(-alpha_c * F_c * (u - phi2) / R / T))
+
+def i_butler_volmer(phi1=u, phi2=phi2):
+    return i0  * (ufl.exp(alpha_a * F_c * (u - phi2) / R / T) - ufl.exp(-alpha_c * F_c * (u - phi2) / R / T))
+
+g_curr = -i_butler_volmer() / kappa
+
 boundaries = [(1, lambda x: np.isclose(x[0], 0)),
               (2, lambda x: np.isclose(x[0], 1)),
               (3, lambda x: np.isclose(x[1], 0)),
