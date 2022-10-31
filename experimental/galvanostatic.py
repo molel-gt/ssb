@@ -26,7 +26,15 @@ alpha_a = 0.5
 alpha_c = 0.5
 
 comm = MPI.COMM_WORLD
-mesh2d = mesh.create_unit_square(comm, 10, 10)
+with io.XDMFFile(comm, "mesh/laminate/tria.xdmf", "r") as infile2:
+    mesh2d = infile2.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
+    ct = infile2.read_meshtags(mesh2d, name="Grid")
+
+with io.XDMFFile(comm, "mesh/laminate/line.xdmf", "r") as infile1:
+    mesh1d = infile1.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
+    ft = infile1.read_meshtags(mesh1d, name="Grid")
+
+mesh2d.topology.create_connectivity(mesh2d.topology.dim, mesh2d.topology.dim - 1)
 
 x = ufl.SpatialCoordinate(mesh2d)
 
@@ -51,26 +59,26 @@ boundaries = [(markers.left_cc, lambda x: np.isclose(x[0], 0)),
               (markers.insulated, lambda x: np.isclose(x[1], 0)),
               (markers.insulated, lambda x: np.isclose(x[1], 1))]
 
-facet_indices, facet_markers = [], []
+# facet_indices, facet_markers = [], []
 fdim = mesh2d.topology.dim - 1
-for (marker, locator) in boundaries:
-    facets = mesh.locate_entities(mesh2d, fdim, locator)
-    facet_indices.append(facets)
-    facet_markers.append(np.full_like(facets, marker))
-facet_indices = np.hstack(facet_indices).astype(np.int32)
-facet_markers = np.hstack(facet_markers).astype(np.int32)
-sorted_facets = np.argsort(facet_indices)
-facet_tag = mesh.meshtags(mesh2d, fdim, facet_indices[sorted_facets], facet_markers[sorted_facets])
+# for (marker, locator) in boundaries:
+#     facets = mesh.locate_entities(mesh2d, fdim, locator)
+#     facet_indices.append(facets)
+#     facet_markers.append(np.full_like(facets, marker))
+# facet_indices = np.hstack(facet_indices).astype(np.int32)
+# facet_markers = np.hstack(facet_markers).astype(np.int32)
+# sorted_facets = np.argsort(facet_indices)
+facet_tag = mesh.meshtags(mesh2d, fdim, ft.indices, ft.values)
 
-mesh2d.topology.create_connectivity(mesh2d.topology.dim - 1, mesh2d.topology.dim)
-with io.XDMFFile(comm, "mesh/galvanostatic/facet_tags.xdmf", "w") as xdmf:
-    xdmf.write_mesh(mesh2d)
-    xdmf.write_meshtags(facet_tag)
+# mesh2d.topology.create_connectivity(mesh2d.topology.dim - 1, mesh2d.topology.dim)
+# with io.XDMFFile(comm, "mesh/galvanostatic/facet_tags.xdmf", "w") as xdmf:
+#     xdmf.write_mesh(mesh2d)
+#     xdmf.write_meshtags(facet_tag)
 
 ds = ufl.Measure("ds", domain=mesh2d, subdomain_data=facet_tag)
 u0 = dolfinx.fem.Function(V)
 with u0.vector.localForm() as u0_loc:
-    u0_loc.set(4.0)
+    u0_loc.set(0)
 
 x0facet = dolfinx.mesh.locate_entities_boundary(mesh2d, 1, lambda x: np.isclose(x[0], 0.0))
 x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 1, x0facet))
