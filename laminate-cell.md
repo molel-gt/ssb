@@ -8,7 +8,7 @@ This provides some motivation to consider porous electrodes that do not assume s
 ## Model Development
 In developing the laminate cell model, we borrow the set up already used in the Doyle-Fuller-Newman model. We simplify the DFN model based on the material properties we are working with. We will attempt to use information learnt in phase-field model to further take advantage of variational calculus in the FEA solution to the laminate cell model.
 ### Model Assumptions
-- For kinetics, we use the Butler-Volmer equation: $$I = i_0 \left[ e^{\frac{\alpha_aF\eta_s}{RT}} - e^{\frac{-\alpha_cF\eta_s}{RT}}\right]$$ where $$\eta_s = \phi_1 - \phi_2$$ is the surface overpotential, and $$i_0$$ is the exchange current density.
+- For kinetics, we use the Butler-Volmer equation: $$i = i_0 \left[ e^{\frac{\alpha_aF\eta_s}{RT}} - e^{\frac{-\alpha_cF\eta_s}{RT}}\right]$$ where $$\eta_s = \phi_1 - \phi_2$$ is the surface overpotential, and $$i_0$$ is the exchange current density.
 - Local ionic current density: $$i_1 = -\kappa_0 \nabla \phi_1$$
 - Local electronic current density: $$i_2 = -\sigma_0 \nabla \phi_2$$
 - At the AM/SE interface, we have the pore-wall flux across the interface, $$j_n$$
