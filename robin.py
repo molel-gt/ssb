@@ -11,7 +11,8 @@ from petsc4py import PETSc
 from ufl import (dx, grad, inner, lhs, rhs)
 
 
-i0 = 10  # exhchange current density
+i0 = 1  # exhchange current density
+phi2 = 0.5
 F_c = 96485  # Faraday constant
 R = 8.314
 T = 298
@@ -27,13 +28,13 @@ f = dolfinx.fem.Constant(mesh2d, PETSc.ScalarType(0.0))
 n = ufl.FacetNormal(mesh2d)
 g = dolfinx.fem.Constant(mesh2d, PETSc.ScalarType(0.0))
 g1 = dolfinx.fem.Constant(mesh2d, PETSc.ScalarType(1e-3))
+
 kappa = fem.Constant(mesh2d, PETSc.ScalarType(1))
 
 # Define function space and standard part of variational form
 V = fem.FunctionSpace(mesh2d, ("CG", 1))
 u, v = fem.Function(V), ufl.TestFunction(V)
-F = kappa * inner(grad(u), grad(v)) * dx - inner(f, v) * dx
-g_curr = i0 * ufl.exp(u/R/T)
+g_curr = (-i0 / kappa) * (ufl.exp(alpha_a * F_c * (u - phi2) / R / T) - ufl.exp(-alpha_c * F_c * (u - phi2) / R / T))
 boundaries = [(1, lambda x: np.isclose(x[0], 0)),
               (2, lambda x: np.isclose(x[0], 1)),
               (3, lambda x: np.isclose(x[1], 0)),
@@ -58,12 +59,12 @@ with io.XDMFFile(mesh2d.comm, "facet_tags.xdmf", "w") as xdmf:
 ds = ufl.Measure("ds", domain=mesh2d, subdomain_data=facet_tag)
 u0 = dolfinx.fem.Function(V)
 with u0.vector.localForm() as u0_loc:
-    u0_loc.set(0)
+    u0_loc.set(4.0)
 
 x0facet = dolfinx.mesh.locate_entities_boundary(mesh2d, 1, lambda x: np.isclose(x[0], 0.0))
 x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 1, x0facet))
 
-F = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx - f * v * ufl.dx - ufl.inner(g1, v) * ds(2) - ufl.inner(g, v) * ds(3) - ufl.inner(g, v) * ds(4)
+F = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx - f * v * ufl.dx - ufl.inner(g_curr, v) * ds(2) - ufl.inner(g, v) * ds(3) - ufl.inner(g, v) * ds(4)
 
 problem = fem.petsc.NonlinearProblem(F, u, bcs=[x0bc])
 solver = nls.petsc.NewtonSolver(MPI.COMM_WORLD, problem)
@@ -78,6 +79,7 @@ option_prefix = ksp.getOptionsPrefix()
 opts[f"{option_prefix}ksp_type"] = "cg"
 opts[f"{option_prefix}pc_type"] = "gamg"
 opts[f"{option_prefix}pc_factor_mat_solver_type"] = "mumps"
+opts[f"{option_prefix}maximum_iterations"] = 100
 ksp.setFromOptions()
 
 log.set_log_level(log.LogLevel.INFO)
