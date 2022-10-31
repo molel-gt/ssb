@@ -46,10 +46,10 @@ def i_butler_volmer(phi1=u, phi2=phi2):
 
 g_curr = -i_butler_volmer() / kappa
 
-boundaries = [(1, lambda x: np.isclose(x[0], 0)),
-              (2, lambda x: np.isclose(x[0], 1)),
-              (3, lambda x: np.isclose(x[1], 0)),
-              (4, lambda x: np.isclose(x[1], 1))]
+boundaries = [(markers.left_cc, lambda x: np.isclose(x[0], 0)),
+              (markers.right_cc, lambda x: np.isclose(x[0], 1)),
+              (markers.insulated, lambda x: np.isclose(x[1], 0)),
+              (markers.insulated, lambda x: np.isclose(x[1], 1))]
 
 facet_indices, facet_markers = [], []
 fdim = mesh2d.topology.dim - 1
@@ -75,7 +75,7 @@ with u0.vector.localForm() as u0_loc:
 x0facet = dolfinx.mesh.locate_entities_boundary(mesh2d, 1, lambda x: np.isclose(x[0], 0.0))
 x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 1, x0facet))
 
-F = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx - f * v * ufl.dx - ufl.inner(g_curr, v) * ds(2) - ufl.inner(g, v) * ds(3) - ufl.inner(g, v) * ds(4)
+F = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx - f * v * ufl.dx - ufl.inner(g_curr, v) * ds(markers.right_cc) - ufl.inner(g, v) * ds(markers.insulated) - ufl.inner(g, v) * ds(markers.insulated)
 
 problem = fem.petsc.NonlinearProblem(F, u, bcs=[x0bc])
 solver = nls.petsc.NewtonSolver(comm, problem)
