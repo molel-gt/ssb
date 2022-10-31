@@ -19,7 +19,8 @@ T = 298
 alpha_a = 0.5
 alpha_c = 0.5
 
-mesh2d = mesh.create_unit_square(MPI.COMM_WORLD, 10, 10)
+comm = MPI.COMM_WORLD
+mesh2d = mesh.create_unit_square(comm, 10, 10)
 
 x = ufl.SpatialCoordinate(mesh2d)
 
@@ -56,7 +57,7 @@ sorted_facets = np.argsort(facet_indices)
 facet_tag = mesh.meshtags(mesh2d, fdim, facet_indices[sorted_facets], facet_markers[sorted_facets])
 
 mesh2d.topology.create_connectivity(mesh2d.topology.dim - 1, mesh2d.topology.dim)
-with io.XDMFFile(mesh2d.comm, "facet_tags.xdmf", "w") as xdmf:
+with io.XDMFFile(comm, "facet_tags.xdmf", "w") as xdmf:
     xdmf.write_mesh(mesh2d)
     xdmf.write_meshtags(facet_tag)
 
@@ -71,7 +72,7 @@ x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 1, x0f
 F = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx - f * v * ufl.dx - ufl.inner(g_curr, v) * ds(2) - ufl.inner(g, v) * ds(3) - ufl.inner(g, v) * ds(4)
 
 problem = fem.petsc.NonlinearProblem(F, u, bcs=[x0bc])
-solver = nls.petsc.NewtonSolver(MPI.COMM_WORLD, problem)
+solver = nls.petsc.NewtonSolver(comm, problem)
 solver.convergence_criterion = "incremental"
 solver.rtol = 1e-6
 solver.maximum_iterations = 100
@@ -86,12 +87,12 @@ opts[f"{option_prefix}pc_factor_mat_solver_type"] = "mumps"
 opts[f"{option_prefix}maximum_iterations"] = 100
 ksp.setFromOptions()
 
-log.set_log_level(log.LogLevel.INFO)
+log.set_log_level(log.LogLevel.WARNING)
 n, converged = solver.solve(u)
 assert(converged)
 print(f"Number of interations: {n:d}")
 
-with dolfinx.io.XDMFFile(mesh2d.comm, "out_poisson/poisson.xdmf", "w") as file:
+with dolfinx.io.XDMFFile(comm, "mesh/galvanostatic/potential.xdmf", "w") as file:
     file.write_mesh(mesh2d)
     file.write_function(u)
 
@@ -101,3 +102,12 @@ area_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(2)))
 i_left_cc = (1/area_left_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(1)))
 i_right_cc = (1/area_right_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(2)))
 print(i_left_cc, i_right_cc)
+
+W = dolfinx.fem.FunctionSpace(mesh2d, ("Lagrange", 1))
+current_expr = dolfinx.fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points)
+current_h = dolfinx.fem.Function(W)
+current_h.interpolate(current_expr)
+
+with dolfinx.io.XDMFFile(comm, "mesh/galvanostatic/current.xdmf", "w") as file:
+    file.write_mesh(mesh2d)
+    file.write_function(current_h)
