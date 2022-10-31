@@ -57,7 +57,7 @@ sorted_facets = np.argsort(facet_indices)
 facet_tag = mesh.meshtags(mesh2d, fdim, facet_indices[sorted_facets], facet_markers[sorted_facets])
 
 mesh2d.topology.create_connectivity(mesh2d.topology.dim - 1, mesh2d.topology.dim)
-with io.XDMFFile(comm, "facet_tags.xdmf", "w") as xdmf:
+with io.XDMFFile(comm, "mesh/galvanostatic/facet_tags.xdmf", "w") as xdmf:
     xdmf.write_mesh(mesh2d)
     xdmf.write_meshtags(facet_tag)
 
@@ -104,7 +104,7 @@ i_right_cc = (1/area_right_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(ka
 print(i_left_cc, i_right_cc)
 
 W = dolfinx.fem.FunctionSpace(mesh2d, ("Lagrange", 1))
-current_expr = dolfinx.fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points)
+current_expr = dolfinx.fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
 current_h = dolfinx.fem.Function(W)
 current_h.interpolate(current_expr)
 
