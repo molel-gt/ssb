@@ -101,7 +101,6 @@ area_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(1)))
 area_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(2)))
 i_left_cc = (1/area_left_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(1)))
 i_right_cc = (1/area_right_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(2)))
-print(i_left_cc, i_right_cc)
 
 W = dolfinx.fem.FunctionSpace(mesh2d, ("Lagrange", 1))
 current_expr = dolfinx.fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
@@ -111,3 +110,6 @@ current_h.interpolate(current_expr)
 with dolfinx.io.XDMFFile(comm, "mesh/galvanostatic/current.xdmf", "w") as file:
     file.write_mesh(mesh2d)
     file.write_function(current_h)
+
+print("Current density @ left cc                       : {:.4f}".format(i_left_cc))
+print("Current density @ right cc                      : {:.4f}".format(i_right_cc))
