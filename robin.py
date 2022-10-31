@@ -27,7 +27,6 @@ x = ufl.SpatialCoordinate(mesh2d)
 f = dolfinx.fem.Constant(mesh2d, PETSc.ScalarType(0.0))
 n = ufl.FacetNormal(mesh2d)
 g = dolfinx.fem.Constant(mesh2d, PETSc.ScalarType(0.0))
-g1 = dolfinx.fem.Constant(mesh2d, PETSc.ScalarType(1e-3))
 
 kappa = fem.Constant(mesh2d, PETSc.ScalarType(1))
 
