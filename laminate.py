@@ -22,10 +22,10 @@ phases = commons.Phases()
 D_am = 5e-15
 D_se = 0
 # electronic conductivity
-sigma_am = 5e3
-sigma_se = 0
+sigma_am = 0.1
+sigma_se = 1e-23
 # ionic conductivity
-kappa_am = 0
+kappa_am = 1e-23
 kappa_se = 0.1
 
 i0 = 10  # exchange current density
@@ -50,7 +50,6 @@ if __name__ == '__main__':
     start_time = timeit.default_timer()
     loglevel = configs.get_configs()['LOGGING']['level']
 
-    grid_size = args.grid_size
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{data_dir}')
@@ -65,27 +64,26 @@ if __name__ == '__main__':
     insulated_marker = markers.insulated
 
     with io.XDMFFile(MPI.COMM_WORLD, tria_mesh_path, "r") as xdmf:
-        mesh2d = xdmf.read_mesh(name="Grid")
+        mesh2d = xdmf.read_mesh(dolfinx.cpp.mesh.GhostMode.none, name="Grid")
         ct = xdmf.read_meshtags(mesh2d, name="Grid")
 
     mesh2d.topology.create_connectivity(mesh2d.topology.dim, mesh2d.topology.dim - 1)
     with io.XDMFFile(MPI.COMM_WORLD, line_mesh_path, "r") as xdmf:
-        mesh1d = xdmf.read_mesh(name="Grid")
-        ft = xdmf.read_meshtags(mesh1d, name="Grid")
+        ft = xdmf.read_meshtags(mesh2d, name="Grid")
 
-    # Q = dolfinx.FunctionSpace(mesh2d, ("DG", 0))
-    # kappa = dolfinx.Function(Q)
-    # sigma = dolfinx.Function(Q)
-    # d_eff = dolfinx.Function(Q)
-    # se_cells = ct.find(phases.electrolyte)
-    # am_cells = ct.find(phases.active_material)
-    # kappa.x.array[am_cells] = np.full_like(am_cells, kappa_am, dtype=PETSc.ScalarType)
-    # kappa.x.array[se_cells]  = np.full_like(se_cells, kappa_se, dtype=PETSc.ScalarType)
-    # sigma.x.array[am_cells] = np.full_like(am_cells, sigma_am, dtype=PETSc.ScalarType)
-    # sigma.x.array[se_cells]  = np.full_like(se_cells, sigma_se, dtype=PETSc.ScalarType)
-    # d_eff.x.array[am_cells] = np.full_like(am_cells, D_am, dtype=PETSc.ScalarType)
-    # d_eff.x.array[se_cells]  = np.full_like(se_cells, D_se, dtype=PETSc.ScalarType)
-    kappa = fem.Constant(mesh2d, PETSc.ScalarType(constants.KAPPA0))
+    Q = fem.FunctionSpace(mesh2d, ("DG", 0))
+    kappa = fem.Function(Q)
+    sigma = fem.Function(Q)
+    d_eff = fem.Function(Q)
+    se_cells = ct.find(phases.electrolyte)
+    am_cells = ct.find(phases.active_material)
+    kappa.x.array[am_cells] = np.full_like(am_cells, kappa_am, dtype=PETSc.ScalarType)
+    kappa.x.array[se_cells]  = np.full_like(se_cells, kappa_se, dtype=PETSc.ScalarType)
+    sigma.x.array[am_cells] = np.full_like(am_cells, sigma_am, dtype=PETSc.ScalarType)
+    sigma.x.array[se_cells]  = np.full_like(se_cells, sigma_se, dtype=PETSc.ScalarType)
+    d_eff.x.array[am_cells] = np.full_like(am_cells, D_am, dtype=PETSc.ScalarType)
+    d_eff.x.array[se_cells]  = np.full_like(se_cells, D_se, dtype=PETSc.ScalarType)
+    # kappa = fem.Constant(mesh2d, PETSc.ScalarType(constants.KAPPA0))
     x = ufl.SpatialCoordinate(mesh2d)
     # additions
     f = fem.Constant(mesh2d, PETSc.ScalarType(0.0))
@@ -93,10 +91,11 @@ if __name__ == '__main__':
     g = fem.Constant(mesh2d, PETSc.ScalarType(0.0))
 
     V = fem.FunctionSpace(mesh2d, ("CG", 1))
-    u, v = fem.Function(V), ufl.TestFunction(V)
+    u_se, u_am = fem.Function(V), fem.Function(V)
+    q, v = ufl.TestFunction(V), ufl.TestFunction(V)
 
-    def i_butler_volmer(phi1=u, phi2=phi2):
-        return i0  * (ufl.exp(alpha_a * F_c * (u - phi2) / R / T) - ufl.exp(-alpha_c * F_c * (u - phi2) / R / T))
+    def i_butler_volmer(phi1=u_se, phi2=phi2):
+        return i0  * (ufl.exp(alpha_a * F_c * (phi1 - phi2) / R / T) - ufl.exp(-alpha_c * F_c * (phi1 - phi2) / R / T))
 
     g_curr = -i_butler_volmer() / kappa
 
@@ -108,15 +107,16 @@ if __name__ == '__main__':
     with u0.vector.localForm() as u0_loc:
         u0_loc.set(0)
 
-    x0facet = mesh.locate_entities_boundary(mesh2d, 1, lambda x: np.isclose(x[0], 0.0))
-    x0bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 1, x0facet))
+    left_cc_facet = ft.find(markers.left_cc)
+    left_cc_dofs = fem.locate_dofs_topological(V, 1, left_cc_facet)
+    left_cc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 1, left_cc_facet))
+    # F = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx - f * v * ufl.dx - ufl.inner(g_curr, v) * ds(markers.right_cc) - ufl.inner(g, v) * ds(markers.insulated) - ufl.inner(g, v) * ds(markers.insulated)
+    F = kappa * ufl.inner(ufl.grad(u_se), ufl.grad(q)) * ufl.dx + sigma * ufl.inner(ufl.grad(u_am), ufl.grad(v)) * ufl.dx - f * v * ufl.dx  - f * q * ufl.dx - ufl.inner(g_curr, q) * ds(markers.right_cc) - ufl.inner(g_curr, v) * ds(markers.right_cc) - ufl.inner(g, q) * ds(markers.insulated) - ufl.inner(g, v) * ds(markers.insulated)
 
-    F = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx - f * v * ufl.dx - ufl.inner(g_curr, v) * ds(markers.right_cc) - ufl.inner(g, v) * ds(markers.insulated) - ufl.inner(g, v) * ds(markers.insulated)
-
-    problem = fem.petsc.NonlinearProblem(F, u, bcs=[x0bc])
+    problem = fem.petsc.NonlinearProblem(F, u_se, bcs=[left_cc])
     solver = nls.petsc.NewtonSolver(comm, problem)
     solver.convergence_criterion = "incremental"
-    solver.rtol = 1e-6
+    solver.rtol = 1e-12
     solver.maximum_iterations = 100
     solver.report = True
 
@@ -130,13 +130,14 @@ if __name__ == '__main__':
     ksp.setFromOptions()
 
     log.set_log_level(log.LogLevel.WARNING)
-    n, converged = solver.solve(u)
+    n, converged = solver.solve(u_se)
     assert(converged)
     print(f"Number of interations: {n:d}")
 
     with io.XDMFFile(comm, output_potential_path, "w") as file:
         file.write_mesh(mesh2d)
-        file.write_function(u)
+        file.write_function(u_se)
+        # file.write_function(u_am)
 
     grad_u = ufl.grad(u)
     area_left_cc = fem.assemble_scalar(fem.form(1 * ds(1)))
@@ -153,5 +154,5 @@ if __name__ == '__main__':
         file.write_mesh(mesh2d)
         file.write_function(current_h)
 
-    print("Current density @ left cc                       : {:.4f}".format(i_left_cc))
-    print("Current density @ right cc                      : {:.4f}".format(i_right_cc))
+    print("Current density @ left cc                       : {:.4e}".format(i_left_cc))
+    print("Current density @ right cc                      : {:.4e}".format(i_right_cc))
