@@ -113,12 +113,12 @@ if __name__ == '__main__':
     facet_tag = mesh.meshtags(mesh2d, fdim, ft.indices, ft.values)
 
     ds = ufl.Measure("ds", domain=mesh2d, subdomain_data=facet_tag)
-    u0 = dolfinx.fem.Function(V)
+    u0 = fem.Function(V)
     with u0.vector.localForm() as u0_loc:
         u0_loc.set(0)
 
-    x0facet = dolfinx.mesh.locate_entities_boundary(mesh2d, 1, lambda x: np.isclose(x[0], 0.0))
-    x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 1, x0facet))
+    x0facet = mesh.locate_entities_boundary(mesh2d, 1, lambda x: np.isclose(x[0], 0.0))
+    x0bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 1, x0facet))
 
     F = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx - f * v * ufl.dx - ufl.inner(g_curr, v) * ds(markers.right_cc) - ufl.inner(g, v) * ds(markers.insulated) - ufl.inner(g, v) * ds(markers.insulated)
 
@@ -143,22 +143,22 @@ if __name__ == '__main__':
     assert(converged)
     print(f"Number of interations: {n:d}")
 
-    with dolfinx.io.XDMFFile(comm, output_potential_path, "w") as file:
+    with io.XDMFFile(comm, output_potential_path, "w") as file:
         file.write_mesh(mesh2d)
         file.write_function(u)
 
     grad_u = ufl.grad(u)
-    area_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(1)))
-    area_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(2)))
-    i_left_cc = (1/area_left_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(1)))
-    i_right_cc = (1/area_right_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(2)))
+    area_left_cc = fem.assemble_scalar(fem.form(1 * ds(1)))
+    area_right_cc = fem.assemble_scalar(fem.form(1 * ds(2)))
+    i_left_cc = (1/area_left_cc) * fem.assemble_scalar(fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(1)))
+    i_right_cc = (1/area_right_cc) * fem.assemble_scalar(fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(2)))
 
-    W = dolfinx.fem.FunctionSpace(mesh2d, ("Lagrange", 1))
-    current_expr = dolfinx.fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
-    current_h = dolfinx.fem.Function(W)
+    W = fem.FunctionSpace(mesh2d, ("Lagrange", 1))
+    current_expr = fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
+    current_h = fem.Function(W)
     current_h.interpolate(current_expr)
 
-    with dolfinx.io.XDMFFile(comm, output_current_path, "w") as file:
+    with io.XDMFFile(comm, output_current_path, "w") as file:
         file.write_mesh(mesh2d)
         file.write_function(current_h)
 
