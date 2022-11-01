@@ -69,11 +69,6 @@ for i in range(-1, len(points_se) - 1):
     se_lines.append(line)
 se_loop = gmsh.model.occ.addCurveLoop(se_lines)
 se_channel = gmsh.model.occ.addPlaneSurface((1, se_loop))
-gmsh.model.occ.synchronize()
-s1 = gmsh.model.addPhysicalGroup(2, [se_channel], phases.electrolyte)
-grp1 = gmsh.model.addPhysicalGroup(1, [se_lines[1]], markers.left_cc)
-gmsh.model.setPhysicalName(1, grp1, "left_cc")
-gmsh.model.setPhysicalName(2, s1, "SE")
 am_lines = []
 points_am = points[2:]
 for i in range(-1, len(points_am) - 1):
@@ -81,12 +76,31 @@ for i in range(-1, len(points_am) - 1):
         am_lines.append(line)
 am_loop = gmsh.model.occ.addCurveLoop(am_lines)
 am_channel = gmsh.model.occ.addPlaneSurface((2, am_loop))
+gmsh.model.occ.fragment([(2, se_channel)], [(2, am_channel)])
 gmsh.model.occ.synchronize()
+surfaces = gmsh.model.getEntities(dim=2)
+print(surfaces, se_channel, am_channel)
+s1 = gmsh.model.addPhysicalGroup(2, [se_channel], phases.electrolyte)
+gmsh.model.setPhysicalName(2, s1, "SE")
 s2 = gmsh.model.addPhysicalGroup(2, [am_channel], phases.active_material)
 gmsh.model.setPhysicalName(2, s2, "AM")
-grp2 = gmsh.model.addPhysicalGroup(1, [am_lines[-1]], markers.right_cc)
-gmsh.model.setPhysicalName(1, grp2, "right_cc")
 
+# Tag the left boundary
+left = []
+right = []
+for line in gmsh.model.getEntities(dim=1):
+    com = gmsh.model.occ.getCenterOfMass(line[0], line[1])
+    if np.isclose(com[0], 0):
+        left.append(line[1])
+    if np.isclose(com[0], L):
+        right.append(line[1])
+gmsh.model.addPhysicalGroup(1, left, markers.left_cc)
+gmsh.model.addPhysicalGroup(1, left, markers.right_cc)
+
+# grp1 = gmsh.model.addPhysicalGroup(1, [se_lines[1]], markers.left_cc)
+# gmsh.model.setPhysicalName(1, grp1, "left_cc")
+# grp2 = gmsh.model.addPhysicalGroup(1, [am_lines[-1]], markers.right_cc)
+# gmsh.model.setPhysicalName(1, grp2, "right_cc")
 gmsh.model.occ.synchronize()
 gmsh.model.mesh.generate(2)
 gmsh.write("mesh/laminate/mesh.msh")
