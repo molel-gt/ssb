@@ -11,10 +11,11 @@ markers = commons.SurfaceMarkers()
 phases = commons.Phases()
 
 W = 20
-L = 100
+
 La = 25  # anode
 Ls = 25  # separator
 Lc = 75  # cathode
+L = Ls + Lc
 eps_se = 0.3
 eps_am = 0.7
 
@@ -79,28 +80,33 @@ am_channel = gmsh.model.occ.addPlaneSurface((2, am_loop))
 gmsh.model.occ.fragment([(2, se_channel)], [(2, am_channel)])
 gmsh.model.occ.synchronize()
 surfaces = gmsh.model.getEntities(dim=2)
+lines = gmsh.model.getEntities(dim=1)
 print(surfaces, se_channel, am_channel)
 s1 = gmsh.model.addPhysicalGroup(2, [se_channel], phases.electrolyte)
 gmsh.model.setPhysicalName(2, s1, "SE")
 s2 = gmsh.model.addPhysicalGroup(2, [am_channel], phases.active_material)
 gmsh.model.setPhysicalName(2, s2, "AM")
+gmsh.model.occ.synchronize()
+grp1 = gmsh.model.addPhysicalGroup(1, [se_lines[1]], markers.left_cc)
+gmsh.model.setPhysicalName(1, grp1, "left_cc")
+grp2 = gmsh.model.addPhysicalGroup(1, [am_lines[0]], markers.right_cc)
+gmsh.model.setPhysicalName(1, grp2, "right_cc")
+gmsh.model.occ.synchronize()
 
 # Tag the left boundary
 left = []
 right = []
-for line in gmsh.model.getEntities(dim=1):
+for line in lines:
     com = gmsh.model.occ.getCenterOfMass(line[0], line[1])
     if np.isclose(com[0], 0):
         left.append(line[1])
+        print(com)
     if np.isclose(com[0], L):
         right.append(line[1])
-gmsh.model.addPhysicalGroup(1, left, markers.left_cc)
-gmsh.model.addPhysicalGroup(1, left, markers.right_cc)
+# gmsh.model.addPhysicalGroup(1, left, markers.left_cc)
+print(right)
+# gmsh.model.addPhysicalGroup(1, right, markers.right_cc)
 
-# grp1 = gmsh.model.addPhysicalGroup(1, [se_lines[1]], markers.left_cc)
-# gmsh.model.setPhysicalName(1, grp1, "left_cc")
-# grp2 = gmsh.model.addPhysicalGroup(1, [am_lines[-1]], markers.right_cc)
-# gmsh.model.setPhysicalName(1, grp2, "right_cc")
 gmsh.model.occ.synchronize()
 gmsh.model.mesh.generate(2)
 gmsh.write("mesh/laminate/mesh.msh")
