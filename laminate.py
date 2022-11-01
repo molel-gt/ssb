@@ -64,7 +64,7 @@ if __name__ == '__main__':
     Lx = Lx * scale_x
     Ly = Ly * scale_y
     Lz = Lz * scale_z
-    tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
+    line_mesh_path = os.path.join(data_dir, 'line.xdmf')
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
     output_current_path = os.path.join(data_dir, 'current.xdmf')
     output_potential_path = os.path.join(data_dir, 'potential.xdmf')
@@ -73,12 +73,12 @@ if __name__ == '__main__':
     right_cc_marker = markers.right_cc
     insulated_marker = markers.insulated
 
-    with io.XDMFFile(MPI.COMM_WORLD, "mesh/laminate/tria.xdmf", "r") as xdmf:
+    with io.XDMFFile(MPI.COMM_WORLD, tria_mesh_path, "r") as xdmf:
         mesh2d = xdmf.read_mesh(name="Grid")
         ct = xdmf.read_meshtags(mesh2d, name="Grid")
 
     mesh2d.topology.create_connectivity(dolfinx.mesh.topology.dim, dolfinx.mesh.topology.dim - 1)
-    with io.XDMFFile(MPI.COMM_WORLD, "mesh/laminate/line.xdmf", "r") as xdmf:
+    with io.XDMFFile(MPI.COMM_WORLD, line_mesh_path, "r") as xdmf:
         mesh1d = xdmf.read_mesh(name="Grid")
         ft = xdmf.read_meshtags(mesh1d, name="Grid")
 
@@ -143,7 +143,7 @@ if __name__ == '__main__':
     assert(converged)
     print(f"Number of interations: {n:d}")
 
-    with dolfinx.io.XDMFFile(comm, "mesh/laminate/potential.xdmf", "w") as file:
+    with dolfinx.io.XDMFFile(comm, output_potential_path, "w") as file:
         file.write_mesh(mesh2d)
         file.write_function(u)
 
@@ -158,7 +158,7 @@ if __name__ == '__main__':
     current_h = dolfinx.fem.Function(W)
     current_h.interpolate(current_expr)
 
-    with dolfinx.io.XDMFFile(comm, "mesh/laminate/current.xdmf", "w") as file:
+    with dolfinx.io.XDMFFile(comm, output_current_path, "w") as file:
         file.write_mesh(mesh2d)
         file.write_function(current_h)
 
