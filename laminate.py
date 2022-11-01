@@ -77,7 +77,7 @@ if __name__ == '__main__':
         mesh2d = xdmf.read_mesh(name="Grid")
         ct = xdmf.read_meshtags(mesh2d, name="Grid")
 
-    mesh2d.topology.create_connectivity(dolfinx.mesh.topology.dim, dolfinx.mesh.topology.dim - 1)
+    mesh2d.topology.create_connectivity(mesh2d.topology.dim, mesh2d.topology.dim - 1)
     with io.XDMFFile(MPI.COMM_WORLD, line_mesh_path, "r") as xdmf:
         mesh1d = xdmf.read_mesh(name="Grid")
         ft = xdmf.read_meshtags(mesh1d, name="Grid")
