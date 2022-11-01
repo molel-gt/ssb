@@ -81,7 +81,6 @@ gmsh.model.occ.fragment([(2, se_channel)], [(2, am_channel)])
 gmsh.model.occ.synchronize()
 surfaces = gmsh.model.getEntities(dim=2)
 lines = gmsh.model.getEntities(dim=1)
-print(surfaces, se_channel, am_channel)
 s1 = gmsh.model.addPhysicalGroup(2, [se_channel], phases.electrolyte)
 gmsh.model.setPhysicalName(2, s1, "SE")
 s2 = gmsh.model.addPhysicalGroup(2, [am_channel], phases.active_material)
@@ -93,18 +92,17 @@ grp2 = gmsh.model.addPhysicalGroup(1, [am_lines[0]], markers.right_cc)
 gmsh.model.setPhysicalName(1, grp2, "right_cc")
 gmsh.model.occ.synchronize()
 
-# Tag the left boundary
-left = []
-right = []
-for line in lines:
-    com = gmsh.model.occ.getCenterOfMass(line[0], line[1])
-    if np.isclose(com[0], 0):
-        left.append(line[1])
-        print(com)
-    if np.isclose(com[0], L):
-        right.append(line[1])
+# Tag the left/right boundaries
+# left = []
+# right = []
+# for line in lines:
+#     com = gmsh.model.occ.getCenterOfMass(line[0], line[1])
+#     if np.isclose(com[0], 0):
+#         left.append(line[1])
+#         print(com)
+#     if np.isclose(com[0], L):
+#         right.append(line[1])
 # gmsh.model.addPhysicalGroup(1, left, markers.left_cc)
-print(right)
 # gmsh.model.addPhysicalGroup(1, right, markers.right_cc)
 
 gmsh.model.occ.synchronize()
