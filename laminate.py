@@ -38,21 +38,16 @@ alpha_c = 0.5
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
-    parser.add_argument('--grid_size', help='Lx-Ly-Lz', required=True)
+    parser = argparse.ArgumentParser(description='Laminate Cell')
     parser.add_argument('--data_dir', help='Directory with tria.xdmf and tetr.xmf mesh files. Output files potential.xdmf and current.xdmf will be saved here', required=True, type=str)
-    parser.add_argument("--voltage", help="Potential to set at the left current collector. Right current collector is set to a potential of 0", nargs='?', const=1, default=1)
+    # parser.add_argument("--voltage", help="Potential to set at the left current collector. Right current collector is set to a potential of 0", nargs='?', const=1, default=1)
 
     args = parser.parse_args()
     data_dir = args.data_dir
-    voltage = args.voltage
+    # voltage = args.voltage
     comm = MPI.COMM_WORLD
     rank = comm.rank
     start_time = timeit.default_timer()
-    scaling = configs.get_configs()['VOXEL_SCALING']
-    scale_x = float(scaling['x'])
-    scale_y = float(scaling['y'])
-    scale_z = float(scaling['z'])
     loglevel = configs.get_configs()['LOGGING']['level']
 
     grid_size = args.grid_size
@@ -60,10 +55,6 @@ if __name__ == '__main__':
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{data_dir}')
     logger.setLevel(loglevel)
-    Lx, Ly, Lz = [int(v) for v in grid_size.split("-")]
-    Lx = Lx * scale_x
-    Ly = Ly * scale_y
-    Lz = Lz * scale_z
     line_mesh_path = os.path.join(data_dir, 'line.xdmf')
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
     output_current_path = os.path.join(data_dir, 'current.xdmf')
