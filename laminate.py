@@ -22,13 +22,13 @@ phases = commons.Phases()
 D_am = 5e-15
 D_se = 0
 # electronic conductivity
-sigma_am = 0.1
-sigma_se = 1e-23
+sigma_am = 5e3
+sigma_se = 0
 # ionic conductivity
-kappa_am = 1e-23
+kappa_am = 0
 kappa_se = 0.1
 
-i0 = 10  # exchange current density
+i0 = 1e-2  # exchange current density
 phi2 = 0.5
 F_c = 96485  # Faraday constant
 R = 8.314
@@ -40,7 +40,6 @@ alpha_c = 0.5
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Laminate Cell')
     parser.add_argument('--data_dir', help='Directory with tria.xdmf and tetr.xmf mesh files. Output files potential.xdmf and current.xdmf will be saved here', required=True, type=str)
-    # parser.add_argument("--voltage", help="Potential to set at the left current collector. Right current collector is set to a potential of 0", nargs='?', const=1, default=1)
 
     args = parser.parse_args()
     data_dir = args.data_dir
@@ -83,7 +82,7 @@ if __name__ == '__main__':
     sigma.x.array[se_cells]  = np.full_like(se_cells, sigma_se, dtype=PETSc.ScalarType)
     d_eff.x.array[am_cells] = np.full_like(am_cells, D_am, dtype=PETSc.ScalarType)
     d_eff.x.array[se_cells]  = np.full_like(se_cells, D_se, dtype=PETSc.ScalarType)
-    # kappa = fem.Constant(mesh2d, PETSc.ScalarType(constants.KAPPA0))
+    kappa = fem.Constant(mesh2d, PETSc.ScalarType(constants.KAPPA0))
     x = ufl.SpatialCoordinate(mesh2d)
     # additions
     f = fem.Constant(mesh2d, PETSc.ScalarType(0.0))
@@ -91,29 +90,62 @@ if __name__ == '__main__':
     g = fem.Constant(mesh2d, PETSc.ScalarType(0.0))
 
     V = fem.FunctionSpace(mesh2d, ("CG", 1))
-    u_se, u_am = fem.Function(V), fem.Function(V)
-    q, v = ufl.TestFunction(V), ufl.TestFunction(V)
+    # u_se, u_am = fem.Function(V), fem.Function(V)
+    # q, v = ufl.TestFunction(V), ufl.TestFunction(V)
+    v = ufl.TestFunction(V)
 
-    def i_butler_volmer(phi1=u_se, phi2=phi2):
+    # V1 = ufl.VectorElement("CG", mesh2d.ufl_cell(), 1)
+    # V = fem.FunctionSpace(mesh2d, V1 * V1)
+    # (q, v) = ufl.TestFunctions(V)
+    u = fem.Function(V)
+    # u_se, u_am = ufl.split(u)
+
+    def i_butler_volmer(phi1=u, phi2=phi2):
         return i0  * (ufl.exp(alpha_a * F_c * (phi1 - phi2) / R / T) - ufl.exp(-alpha_c * F_c * (phi1 - phi2) / R / T))
 
-    g_curr = -i_butler_volmer() / kappa
+    left_cc_curr = -i_butler_volmer() / kappa
 
     fdim = mesh2d.topology.dim - 1
     facet_tag = mesh.meshtags(mesh2d, fdim, ft.indices, ft.values)
 
     ds = ufl.Measure("ds", domain=mesh2d, subdomain_data=facet_tag)
-    u0 = fem.Function(V)
-    with u0.vector.localForm() as u0_loc:
+    u_left_cc = fem.Function(V)
+    with u_left_cc.vector.localForm() as u0_loc:
         u0_loc.set(0)
+    
+    u_right_cc = fem.Function(V)
+    with u_right_cc.vector.localForm() as u0_loc:
+        u0_loc.set(3.7)
 
     left_cc_facet = ft.find(markers.left_cc)
     left_cc_dofs = fem.locate_dofs_topological(V, 1, left_cc_facet)
-    left_cc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 1, left_cc_facet))
-    # F = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx - f * v * ufl.dx - ufl.inner(g_curr, v) * ds(markers.right_cc) - ufl.inner(g, v) * ds(markers.insulated) - ufl.inner(g, v) * ds(markers.insulated)
-    F = kappa * ufl.inner(ufl.grad(u_se), ufl.grad(q)) * ufl.dx + sigma * ufl.inner(ufl.grad(u_am), ufl.grad(v)) * ufl.dx - f * v * ufl.dx  - f * q * ufl.dx - ufl.inner(g_curr, q) * ds(markers.right_cc) - ufl.inner(g_curr, v) * ds(markers.right_cc) - ufl.inner(g, q) * ds(markers.insulated) - ufl.inner(g, v) * ds(markers.insulated)
+    left_cc = fem.dirichletbc(u_left_cc, fem.locate_dofs_topological(V, 1, left_cc_facet))
+    right_cc_facet = ft.find(markers.right_cc)
+    right_cc_dofs = fem.locate_dofs_topological(V, 1, right_cc_facet)
+    right_cc = fem.dirichletbc(u_right_cc, fem.locate_dofs_topological(V, 1, right_cc_facet))
 
-    problem = fem.petsc.NonlinearProblem(F, u_se, bcs=[left_cc])
+    # Trial 1
+    F = (kappa + sigma) * ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx - f * v * ufl.dx - ufl.inner(left_cc_curr, v) * ds(markers.left_cc) - ufl.inner(g, v) * ds(markers.insulated) - ufl.inner(g, v) * ds(markers.insulated)
+    
+    # Trial 2
+    # F_elec = sigma * ufl.inner(ufl.grad(u_am), ufl.grad(v)) * ufl.dx \
+    #          - f * v * ufl.dx \
+    #          - ufl.inner(g, v) * ds(markers.insulated)\
+    #          + ufl.inner(ufl.grad(u_am), ufl.grad(v)) * ds(markers.am_se_interface)
+            #  + ufl.inner(left_cc_curr, v) * ds(markers.am_se_interface)\
+
+    # F_ion = kappa * ufl.inner(ufl.grad(u_se), ufl.grad(q)) * ufl.dx \
+    #         - f * q * ufl.dx \
+    #         - ufl.inner(g, q) * ds(markers.insulated)\
+    #         + ufl.inner(left_cc_curr, q) * ds(markers.am_se_interface)\
+    #         - ufl.inner(ufl.grad(u_se), ufl.grad(q)) * ds(markers.am_se_interface)
+    # F = F_ion + F_elec
+    # Trial 3
+    # F_elec = ufl.inner(sigma * ufl.grad(u), ufl.grad(v)) * ufl.dx(2) - ufl.inner(f, v) * ufl.dx(2) - ufl.inner(g, v) * ds (markers.insulated)
+    # F_ion = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx(1) - ufl.inner(f, v) * ufl.dx(1) - ufl.inner(g, v) * ds (markers.insulated)
+    # F = F_ion + F_elec
+
+    problem = fem.petsc.NonlinearProblem(F, u, bcs=[left_cc, right_cc])
     solver = nls.petsc.NewtonSolver(comm, problem)
     solver.convergence_criterion = "incremental"
     solver.rtol = 1e-12
@@ -130,14 +162,14 @@ if __name__ == '__main__':
     ksp.setFromOptions()
 
     log.set_log_level(log.LogLevel.WARNING)
-    n, converged = solver.solve(u_se)
+    n, converged = solver.solve(u)
+    # n, converged = solver.solve(u_am)
     assert(converged)
     print(f"Number of interations: {n:d}")
 
     with io.XDMFFile(comm, output_potential_path, "w") as file:
         file.write_mesh(mesh2d)
-        file.write_function(u_se)
-        # file.write_function(u_am)
+        file.write_function(u)
 
     grad_u = ufl.grad(u)
     area_left_cc = fem.assemble_scalar(fem.form(1 * ds(1)))
