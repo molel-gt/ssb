@@ -21,12 +21,12 @@ phases = commons.Phases()
 # Some constants
 D_am = 5e-15
 D_se = 0
-# electronic conductivity
-sigma_am = 1e-1
-sigma_se = 1e-3
-# ionic conductivity
+# assume electronic conductivity of SE is 0 and ionic conductivity of AM is 0
+# conductivity
 kappa_am = 0
 kappa_se = 0.1
+sigma_am = 1e3
+sigma_se = 0.01
 
 i0 = 1e-2  # exchange current density
 phi2 = 0.495
@@ -82,7 +82,6 @@ if __name__ == '__main__':
     sigma.x.array[se_cells]  = np.full_like(se_cells, sigma_se, dtype=PETSc.ScalarType)
     d_eff.x.array[am_cells] = np.full_like(am_cells, D_am, dtype=PETSc.ScalarType)
     d_eff.x.array[se_cells]  = np.full_like(se_cells, D_se, dtype=PETSc.ScalarType)
-    kappa = fem.Constant(mesh2d, PETSc.ScalarType(constants.KAPPA0))
     x = ufl.SpatialCoordinate(mesh2d)
     # additions
     f = fem.Constant(mesh2d, PETSc.ScalarType(0.0))
@@ -92,10 +91,11 @@ if __name__ == '__main__':
     V = fem.FunctionSpace(mesh2d, ("Lagrange", 2))
     v = ufl.TestFunction(V)
     u = fem.Function(V)
-    # def i_butler_volmer(phi1=u, phi2=phi2):
-    #     return i0  * (ufl.exp(alpha_a * F_c * (phi1 - phi2) / R / T) - ufl.exp(-alpha_c * F_c * (phi1 - phi2) / R / T))
 
-    # left_cc_curr = -i_butler_volmer() / kappa
+    def i_butler_volmer(phi1=u, phi2=phi2):
+        return i0  * (ufl.exp(alpha_a * F_c * (phi1 - phi2) / R / T) - ufl.exp(-alpha_c * F_c * (phi1 - phi2) / R / T))
+
+    left_cc_curr = -i_butler_volmer() / kappa
 
     fdim = mesh2d.topology.dim - 1
     facet_tag = mesh.meshtags(mesh2d, fdim, ft.indices, ft.values)
@@ -116,7 +116,7 @@ if __name__ == '__main__':
     right_cc_dofs = fem.locate_dofs_topological(V, 1, right_cc_facet)
     right_cc = fem.dirichletbc(u_right_cc, fem.locate_dofs_topological(V, 1, right_cc_facet))
 
-    F = sigma * ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx - f * v * ufl.dx - ufl.inner(g, v) * ds(markers.insulated)
+    F = (kappa + sigma) * ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx - f * v * ufl.dx - ufl.inner(g, v) * ds(markers.insulated)
     problem = fem.petsc.NonlinearProblem(F, u, bcs=[left_cc, right_cc])
     solver = nls.petsc.NewtonSolver(comm, problem)
     solver.convergence_criterion = "incremental"
@@ -144,11 +144,11 @@ if __name__ == '__main__':
     grad_u = ufl.grad(u)
     area_left_cc = fem.assemble_scalar(fem.form(1 * ds(markers.left_cc)))
     area_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
-    i_left_cc = (1/area_left_cc) * fem.assemble_scalar(fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.left_cc)))
-    i_right_cc = (1/area_right_cc) * fem.assemble_scalar(fem.form(sigma * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.right_cc)))
+    i_left_cc = (1/area_left_cc) * fem.assemble_scalar(fem.form((kappa + sigma) * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.left_cc)))
+    i_right_cc = (1/area_right_cc) * fem.assemble_scalar(fem.form((kappa + sigma) * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.right_cc)))
 
     W = fem.FunctionSpace(mesh2d, ("Lagrange", 1))
-    current_expr = fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
+    current_expr = fem.Expression((kappa + sigma) * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
     current_h = fem.Function(W)
     current_h.interpolate(current_expr)
 
