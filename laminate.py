@@ -119,6 +119,7 @@ if __name__ == '__main__':
     facet_tag = mesh.meshtags(domain, fdim, ft.indices, ft.values)
     dx = ufl.Measure('dx', domain=domain, subdomain_data=vol_tag)
     ds = ufl.Measure("ds", domain=domain, subdomain_data=facet_tag)
+    dS = ufl.Measure("dS", domain=domain, subdomain_data=facet_tag)
     u_left_cc = fem.Function(V)
     with u_left_cc.vector.localForm() as u0_loc:
         u0_loc.set(phi_ref)
