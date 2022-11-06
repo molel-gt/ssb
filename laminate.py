@@ -40,7 +40,7 @@ alpha_c = 0.5
 # potentials
 phi_ref = 0.25
 phi_term = 3.7
-i_superficial = -1e-2
+i_superficial = -1e-4
 
 
 if __name__ == '__main__':
@@ -101,17 +101,17 @@ if __name__ == '__main__':
     uh = fem.Function(V)
     v = ufl.TestFunction(V)
     
-    def i_linear(phi1, phi2=phi2):
-        return i0 * F_c * (phi1 - phi2) / R / T
+    def i_linear(eta):
+        return i0 * F_c * eta / R / T
     
-    def i_tafel(phi1, phi2=phi2):
-        return i0  * ufl.exp(alpha_a * F_c * (phi1 - phi2) / R / T)
+    def i_tafel(eta):
+        return i0  * ufl.exp(alpha_a * F_c * eta / R / T)
 
-    def i_bv(phi1, phi2=phi2):
-        return i0  * (ufl.exp(alpha_a * F_c * (phi1 - phi2) / R / T) - ufl.exp(-alpha_c * F_c * (phi1 - phi2) / R / T))
+    def i_bv(eta):
+        return i0  * (ufl.exp(alpha_a * F_c * eta / R / T) - ufl.exp(-alpha_c * F_c * eta / R / T))
 
-    def i_butler_volmer(phi1, phi2=phi2):
-        return i0  * (ufl.exp(alpha_a * F_c * (phi1 - phi2) / R / T) - ufl.exp(-alpha_c * F_c * (phi1 - phi2) / R / T))
+    def i_butler_volmer(eta):
+        return i0  * (ufl.exp(alpha_a * F_c * eta / R / T) - ufl.exp(-alpha_c * F_c * eta / R / T))
 
     # left_cc_curr = -i_butler_volmer() / kappa
 
@@ -136,7 +136,7 @@ if __name__ == '__main__':
     right_cc_dofs = fem.locate_dofs_topological(V, 1, right_cc_facet)
     right_cc = fem.dirichletbc(u_right_cc, fem.locate_dofs_topological(V, 1, right_cc_facet))
 
-    bcs = [right_cc]
+    bcs = [left_cc, right_cc]
 
     a = kappa * ufl.inner(ufl.grad(u), ufl.grad(v)) * dx(phases.electrolyte)
     a += sigma * ufl.inner(ufl.grad(u), ufl.grad(v)) * dx(phases.active_material)
@@ -144,7 +144,8 @@ if __name__ == '__main__':
     L += ufl.inner(f, v) * dx(phases.active_material)
     L += ufl.inner(g, v) * ds(markers.insulated)
     L += ufl.inner(g_left_cc, v) * ds(markers.left_cc)
-    # L +=  ufl.inner(ufl.jump(u, n), ufl.jump(v, n)) * ds(markers.am_se_interface)
+    a += (i0 * F_c / R / T ) * ufl.inner(ufl.jump(u), v("+")) * dS(markers.am_se_interface) 
+    L += ufl.inner(g_left_cc, v("+")) * dS(markers.left_cc)
 
     options = {
                "ksp_type": "gmres",
@@ -154,7 +155,25 @@ if __name__ == '__main__':
 
     model = dolfinx.fem.petsc.LinearProblem(a, L, bcs=bcs, petsc_options=options)
 
-    logger.debug('Solving problem..')
+    # bilinear_form = fem.form(a)
+    # linear_form = fem.form(L)
+    # A = fem.petsc.assemble_matrix(bilinear_form)
+    # A.assemble()
+    # b = fem.petsc.create_vector(linear_form)
+
+    # solver = PETSc.KSP().create(domain.comm)
+    # solver.setOperators(A)
+    # solver.setType(PETSc.KSP.Type.PREONLY)
+    # solver.getPC().setType(PETSc.PC.Type.LU)
+
+    # with b.localForm() as loc_b:
+    #     loc_b.set(0)
+    # fem.petsc.assemble_vector(b, linear_form)
+
+    # Solve linear problem
+    # solver.solve(b, uh.vector)
+
+    # logger.debug('Solving problem..')
     uh = model.solve()
 
     with io.XDMFFile(comm, output_potential_path, "w") as file:
