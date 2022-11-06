@@ -23,7 +23,7 @@ D_am = 5e-15
 D_se = 0
 # assume electronic conductivity of SE is 0 and ionic conductivity of AM is 0
 # conductivity
-kappa_am = 0
+kappa_am = 1e-3
 kappa_se = 0.1
 sigma_am = 1e3
 sigma_se = 1e-4
@@ -40,7 +40,7 @@ alpha_c = 0.5
 # potentials
 phi_ref = 0.25
 phi_term = 3.7
-i_superficial = 1e-4
+i_superficial = -1e-2
 
 
 if __name__ == '__main__':
@@ -98,6 +98,7 @@ if __name__ == '__main__':
 
     V = fem.FunctionSpace(domain, ("CG", 1))
     u = ufl.TrialFunction(V)
+    uh = fem.Function(V)
     v = ufl.TestFunction(V)
     
     def i_linear(phi1, phi2=phi2):
@@ -135,12 +136,15 @@ if __name__ == '__main__':
     right_cc_dofs = fem.locate_dofs_topological(V, 1, right_cc_facet)
     right_cc = fem.dirichletbc(u_right_cc, fem.locate_dofs_topological(V, 1, right_cc_facet))
 
+    bcs = [right_cc]
 
-    uh = fem.Function(V)
-    bcs = [left_cc, right_cc]
-
-    a = kappa * ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx + sigma * ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
-    L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated)
+    a = kappa * ufl.inner(ufl.grad(u), ufl.grad(v)) * dx(phases.electrolyte)
+    a += sigma * ufl.inner(ufl.grad(u), ufl.grad(v)) * dx(phases.active_material)
+    L = ufl.inner(f, v) * dx(phases.electrolyte)
+    L += ufl.inner(f, v) * dx(phases.active_material)
+    L += ufl.inner(g, v) * ds(markers.insulated)
+    L += ufl.inner(g_left_cc, v) * ds(markers.left_cc)
+    # L +=  ufl.inner(ufl.jump(u, n), ufl.jump(v, n)) * ds(markers.am_se_interface)
 
     options = {
                "ksp_type": "gmres",
@@ -173,4 +177,4 @@ if __name__ == '__main__':
         file.write_function(current_h)
 
     print("Current density @ left cc                       : {:.4e}".format(i_left_cc))
-    # print("Current density @ right cc                      : {:.4e}".format(i_right_cc))
+    print("Current density @ right cc                      : {:.4e}".format(i_right_cc))
