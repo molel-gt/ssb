@@ -10,19 +10,11 @@ import commons, geometry
 markers = commons.SurfaceMarkers()
 phases = commons.Phases()
 
-
 # meshing
-<<<<<<< HEAD
 resolution = 0.5
 
 W = 20
 L = 50
-=======
-resolution = 0.1
-
-W = 50
-L = 100
->>>>>>> fcd4b1140b475a91179b80e05e342688e16e1ec5
 L_coating = L - 10 * resolution
 d = 2
 corners = list(reversed(np.arange(0.5 * d, W, d)))
@@ -43,11 +35,7 @@ for i, p in enumerate(corners[:-1]):
 
 gmsh.initialize()
 gmsh.model.add("Laminate AM")
-<<<<<<< HEAD
 gmsh.option.setNumber("Mesh.MeshSizeMin", resolution)
-=======
-# gmsh.option.setNumber("Mesh.MeshSizeMax", resolution)
->>>>>>> fcd4b1140b475a91179b80e05e342688e16e1ec5
 gmsh_points = []
 for p in points:
     tag = gmsh.model.occ.addPoint(*p, meshSize=resolution)
@@ -79,10 +67,6 @@ left_cc_t = gmsh.model.addPhysicalGroup(1, left_cc, markers.left_cc)
 gmsh.model.setPhysicalName(1, left_cc_t, "left_cc")
 right_cc_t = gmsh.model.addPhysicalGroup(1, right_cc, markers.right_cc)
 gmsh.model.setPhysicalName(1, right_cc_t, "right_cc")
-<<<<<<< HEAD
-=======
-gmsh.model.occ.synchronize()
->>>>>>> fcd4b1140b475a91179b80e05e342688e16e1ec5
 insulated_t = gmsh.model.addPhysicalGroup(1, walls, markers.insulated)
 gmsh.model.setPhysicalName(1, insulated_t, "insulated")
 gmsh.model.occ.synchronize()
