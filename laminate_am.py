@@ -11,14 +11,14 @@ markers = commons.SurfaceMarkers()
 phases = commons.Phases()
 
 # meshing
-resolution = 0.5
+resolution = 0.1
 
 W = 20
-L = 50
-L_coating = L - 10 * resolution
-d = 2
+L = 20
+L_coating = L - 5 * resolution
+d = 5
 corners = list(reversed(np.arange(0.5 * d, W, d)))
-
+print(corners)
 points = [
     (0, 0, 0),
     (L, 0, 0),
@@ -35,7 +35,7 @@ for i, p in enumerate(corners[:-1]):
 
 gmsh.initialize()
 gmsh.model.add("Laminate AM")
-gmsh.option.setNumber("Mesh.MeshSizeMin", resolution)
+# gmsh.option.setNumber("Mesh.MeshSizeMin", resolution)
 gmsh_points = []
 for p in points:
     tag = gmsh.model.occ.addPoint(*p, meshSize=resolution)
@@ -47,9 +47,12 @@ for i in range(-1, len(gmsh_points) - 1):
     lines.append(
         gmsh.model.occ.addLine(gmsh_points[i], gmsh_points[i + 1])
     )
-
+gmsh.model.occ.synchronize()
 curveloop = gmsh.model.occ.addCurveLoop(lines)
 surface = gmsh.model.occ.addPlaneSurface((1, curveloop))
+gmsh.model.occ.synchronize()
+s1 = gmsh.model.addPhysicalGroup(2, [surface], phases.active_material)
+gmsh.model.setPhysicalName(2, s1, "AM")
 gmsh.model.occ.synchronize()
 all_lines = gmsh.model.getEntities(dim=1)
 walls = []
@@ -65,8 +68,10 @@ for line in all_lines:
         left_cc.append(line[1])
 left_cc_t = gmsh.model.addPhysicalGroup(1, left_cc, markers.left_cc)
 gmsh.model.setPhysicalName(1, left_cc_t, "left_cc")
+gmsh.model.occ.synchronize()
 right_cc_t = gmsh.model.addPhysicalGroup(1, right_cc, markers.right_cc)
 gmsh.model.setPhysicalName(1, right_cc_t, "right_cc")
+gmsh.model.occ.synchronize()
 insulated_t = gmsh.model.addPhysicalGroup(1, walls, markers.insulated)
 gmsh.model.setPhysicalName(1, insulated_t, "insulated")
 gmsh.model.occ.synchronize()
