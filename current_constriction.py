@@ -60,19 +60,19 @@ if __name__ == '__main__':
 
     logger.debug("Loading tetrahedra (dim = 3) mesh..")
     with dolfinx.io.XDMFFile(comm, tetr_mesh_path, "r") as infile3:
-        mesh3d = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
-        ct = infile3.read_meshtags(mesh3d, name="Grid")
-    mesh3d.topology.create_connectivity(mesh3d.topology.dim, mesh3d.topology.dim - 1)
+        domain = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
+        ct = infile3.read_meshtags(domain, name="Grid")
+    domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
 
     with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile3:
-        ft = infile3.read_meshtags(mesh3d, name="Grid")
+        ft = infile3.read_meshtags(domain, name="Grid")
     
-    surf_meshtags = dolfinx.mesh.meshtags(mesh3d, 2, ft.indices, ft.values)
-    n = -ufl.FacetNormal(mesh3d)
-    ds = ufl.Measure("ds", domain=mesh3d, subdomain_data=surf_meshtags)
+    surf_meshtags = dolfinx.mesh.meshtags(domain, 2, ft.indices, ft.values)
+    n = ufl.FacetNormal(domain)
+    ds = ufl.Measure("ds", domain=domain, subdomain_data=surf_meshtags)
 
     # Dirichlet BCs
-    V = dolfinx.fem.FunctionSpace(mesh3d, ("Lagrange", 2))
+    V = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 2))
     u0 = dolfinx.fem.Function(V)
     with u0.vector.localForm() as u0_loc:
         u0_loc.set(voltage)
@@ -84,7 +84,7 @@ if __name__ == '__main__':
     x0facet = ft.find(markers.left_cc)
     x1facet = ft.find(markers.right_cc)
     insulated_facet = ft.find(markers.insulated)
-    surf_meshtags = dolfinx.mesh.meshtags(mesh3d, 2, ft.indices, ft.values)
+    surf_meshtags = dolfinx.mesh.meshtags(domain, 2, ft.indices, ft.values)
 
     x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 2, x0facet))
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 2, x1facet))
@@ -92,12 +92,12 @@ if __name__ == '__main__':
     # Define variational problem
     u = ufl.TrialFunction(V)
     v = ufl.TestFunction(V)
-    x = ufl.SpatialCoordinate(mesh3d)
+    x = ufl.SpatialCoordinate(domain)
 
     # bulk conductivity [S.m-1]
-    kappa_0 = dolfinx.fem.Constant(mesh3d, PETSc.ScalarType(constants.KAPPA0))
-    f = dolfinx.fem.Constant(mesh3d, PETSc.ScalarType(0.0))
-    g = dolfinx.fem.Constant(mesh3d, PETSc.ScalarType(0.0))
+    kappa_0 = dolfinx.fem.Constant(domain, PETSc.ScalarType(constants.KAPPA0))
+    f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
+    g = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
 
     a = ufl.inner(kappa_0 * ufl.grad(u), ufl.grad(v)) * ufl.dx
     L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated)
@@ -115,7 +115,7 @@ if __name__ == '__main__':
     
     # Save solution in XDMF format
     with dolfinx.io.XDMFFile(comm, output_potential_path, "w") as outfile:
-        outfile.write_mesh(mesh3d)
+        outfile.write_mesh(domain)
         outfile.write_function(uh)
 
     # # Update ghost entries and plot
@@ -124,13 +124,13 @@ if __name__ == '__main__':
     # Post-processing: Compute derivatives
     grad_u = ufl.grad(uh)
 
-    W = dolfinx.fem.FunctionSpace(mesh3d, ("Lagrange", 1))
+    W = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 1))
     current_expr = dolfinx.fem.Expression(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
     current_h = dolfinx.fem.Function(W)
     current_h.interpolate(current_expr)
 
     with dolfinx.io.XDMFFile(comm, output_current_path, "w") as file:
-        file.write_mesh(mesh3d)
+        file.write_mesh(domain)
         file.write_function(current_h)
 
     insulated_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds))
@@ -139,7 +139,7 @@ if __name__ == '__main__':
     i_left_cc = (1/area_left_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.left_cc)))
     i_right_cc = (1/area_right_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.right_cc)))
     i_insulated = (1/insulated_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.insulated)))
-    volume = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(mesh3d)))
+    volume = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(domain)))
     solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
     avg_solution_trace_norm = solution_trace_norm / insulated_area
     deviation_in_current = np.around(100 * 2 * np.abs(area_left_cc * i_left_cc - area_right_cc * i_right_cc) / (area_left_cc * i_left_cc + area_right_cc * i_right_cc), 2)
