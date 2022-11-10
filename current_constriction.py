@@ -65,35 +65,11 @@ if __name__ == '__main__':
     mesh3d.topology.create_connectivity(mesh3d.topology.dim, mesh3d.topology.dim - 1)
 
     with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile3:
-        # mesh2d = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
         ft = infile3.read_meshtags(mesh3d, name="Grid")
     
     surf_meshtags = dolfinx.mesh.meshtags(mesh3d, 2, ft.indices, ft.values)
     n = -ufl.FacetNormal(mesh3d)
     ds = ufl.Measure("ds", domain=mesh3d, subdomain_data=surf_meshtags)
-
-    # logger.debug("Loading contact points..")
-    # with open(os.path.join(data_dir, 'contact_points.pickle'), 'rb') as handle:
-    #     contact_points = list(pickle.load(handle))
-
-    # def is_contact_area(x, area, dp=1):
-    #     ret_val = np.zeros(x.shape[1])
-    #     for idx in range(x.shape[1]):
-    #         c = tuple(x[:, idx])
-    #         coord = (round(c[0]/scale_x, dp), round(c[1]/scale_y, dp), round(c[2]/scale_z, dp))
-    #         ret_val[idx] = coord in area
-    #     ret_val.reshape(-1, 1)
-    #     return ret_val
-
-    # def contact_area(x, eps=args.eps, Lx=Lx, Ly=Ly, z=0):
-    #     center = (Lx/2, Ly/2, z)
-    #     radius = (Lx*Ly*eps/np.pi) ** (1/2)
-    #     vals = np.zeros((x.shape[1], ), dtype=bool)
-    #     for i in range(x.shape[1]):
-    #         coord = x[:, i]
-    #         vals[i] = np.linalg.norm(coord - center) <= radius and np.isclose(coord[2], 0)
-
-    #     return vals
 
     # Dirichlet BCs
     V = dolfinx.fem.FunctionSpace(mesh3d, ("Lagrange", 2))
@@ -105,24 +81,13 @@ if __name__ == '__main__':
     with u1.vector.localForm() as u1_loc:
         u1_loc.set(0.0)
     
-    x0facet = ft.find(markers.left_cc) #dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: contact_area(x))
-    x1facet = ft.find(markers.right_cc) #dolfinx.mesh.locate_entities_boundary(mesh3d, 2,
-                                    # lambda x: np.isclose(x[2], Lz))
-    insulated_facet = ft.find(markers.insulated) #dolfinx.mesh.locate_entities_boundary(mesh3d, 2, lambda x: np.logical_and(np.logical_not(contact_area(x)), np.logical_not(np.isclose(x[2], Lz))))
-
-    # facets_ct_indices = np.hstack((x0facet, x1facet, insulated_facet))
-    # facets_ct_values = np.hstack((np.ones(x0facet.shape[0], dtype=np.int32), right_cc_marker * np.ones(x1facet.shape[0], dtype=np.int32),
-    #                             insulated_marker * np.ones(insulated_facet.shape[0], dtype=np.int32)))
-    # facets_ct = commons.Facet(facets_ct_indices, facets_ct_values)
-    # surf_meshtags = dolfinx.mesh.meshtags(mesh3d, 2, facets_ct_indices, facets_ct_values)
+    x0facet = ft.find(markers.left_cc)
+    x1facet = ft.find(markers.right_cc)
+    insulated_facet = ft.find(markers.insulated)
+    surf_meshtags = dolfinx.mesh.meshtags(mesh3d, 2, ft.indices, ft.values)
 
     x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 2, x0facet))
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 2, x1facet))
-    # n = -ufl.FacetNormal(mesh3d)
-    # ds = ufl.Measure("ds", domain=mesh3d, subdomain_data=surf_meshtags, subdomain_id=insulated_marker)
-    # ds_left_cc = ufl.Measure('ds', domain=mesh3d, subdomain_data=surf_meshtags, subdomain_id=left_cc_marker)
-    # ds_right_cc = ufl.Measure('ds', domain=mesh3d, subdomain_data=surf_meshtags, subdomain_id=right_cc_marker)
-
 
     # Define variational problem
     u = ufl.TrialFunction(V)
