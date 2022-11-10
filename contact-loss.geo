@@ -58,7 +58,3 @@ Physical Surface(3) = {3, 4, 5, 6, 7};
 Surface Loop(1) = {1, 2, 3, 4, 5, 6, 7};
 Volume(1) = {1};
 Physical Volume(1) = {1};
-
-// BooleanFragments{Surface{1, 7}; Delete; }{}
-// Box(3) = {0, 0, 0, 50, 50, 50};
-// Extrude {0, 0, -50} { {2}; }
