@@ -19,13 +19,13 @@ have_pyvista = True
 markers = commons.SurfaceMarkers()
 
 # model parameters
-kappa = 1e3  # S/m
+kappa = 1e1  # S/m
 D = 1e-15  # m^2/s
 F_c = 96485  # C/mol
 i0 = 10  # A/m^2
-dt = 5.0e-03
+dt = 1.0e-06
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
-c_init = 35000
+c_init = 1
 R = 8.314
 T = 298
 
@@ -45,6 +45,7 @@ n = ufl.FacetNormal(domain)
 tags = mesh.meshtags(domain, domain.topology.dim - 1, ft.indices, ft.values)
 ds = ufl.Measure("ds", domain=domain, subdomain_data=tags)
 dS = ufl.Measure("dS", domain=domain, subdomain_data=tags)
+
 # Trial and test functions of the space `ME` are now defined:
 q, v = ufl.TestFunctions(ME)
 
@@ -76,13 +77,15 @@ x1facet = ft.find(markers.right_cc)
 # Dirichlet BCs
 V0, dofs = ME.sub(0).collapse()
 V1, dofs = ME.sub(1).collapse()
-# V = fem.FunctionSpace(domain, ("Lagrange", 1))
+
 u_ = fem.Function(V0)
 u__ = fem.Function(V1)
+
 with u_.vector.localForm() as u0_loc:
     u0_loc.set(0.0)
 with u__.vector.localForm() as u0_loc:
     u0_loc.set(0.0)
+
 x0bc1 = dolfinx.fem.dirichletbc(u_, dolfinx.fem.locate_dofs_topological(V0, 1, x0facet))
 x0bc2 = dolfinx.fem.dirichletbc(u__, dolfinx.fem.locate_dofs_topological(V1, 1, x0facet))
 
@@ -92,7 +95,7 @@ F1 = inner(kappa * grad(mu), grad(v)) * dx - inner(f, v) * dx - inner(g, v) * ds
 F = F0 + F1
 
 # Create nonlinear problem and Newton solver
-problem = fem.petsc.NonlinearProblem(F, u)
+problem = fem.petsc.NonlinearProblem(F, u, bcs=[])
 solver = nls.petsc.NewtonSolver(MPI.COMM_WORLD, problem)
 solver.convergence_criterion = "incremental"
 solver.rtol = 1e-6
@@ -113,7 +116,7 @@ file.write_mesh(domain)
 # Step in time
 t = 0.0
 
-SIM_TIME = 200 * dt
+SIM_TIME = 1200 * dt
 
 # Get the sub-space for c and the corresponding dofs in the mixed space
 # vector
@@ -129,7 +132,7 @@ if have_pyvista:
     grid.set_active_scalars("c")
 
     p = pvqt.BackgroundPlotter(title="concentration", auto_update=True)
-    p.add_mesh(grid, clim=[0, 1])
+    p.add_mesh(grid, clim=[0, 100])
     p.view_xy(True)
     p.add_text(f"time: {t}", font_size=12, name="timelabel")
 
