@@ -1,17 +1,18 @@
 SetFactory('OpenCASCADE');
 
-R = 15;
-xc = 25;
-yc = 25;
-
+R = 7.5;
+xc = 12.5;
+yc = 12.5;
+Mesh.CharacteristicLengthMin = 0.1;
+Mesh.CharacteristicLengthMax = 0.5;
 Point(1) = {0, 0, 0};
-Point(2) = {50, 0, 0};
-Point(3) = {50, 50, 0};
-Point(4) = {0, 50, 0};
-Point(5) = {0, 0, 50};
-Point(6) = {50, 0, 50};
-Point(7) = {50, 50, 50};
-Point(8) = {0, 50, 50};
+Point(2) = {25, 0, 0};
+Point(3) = {25, 25, 0};
+Point(4) = {0, 25, 0};
+Point(5) = {0, 0, 25};
+Point(6) = {25, 0, 25};
+Point(7) = {25, 25, 25};
+Point(8) = {0, 25, 25};
 
 Point(109) = {xc, yc, 0};
 Point(110) = {xc + R, yc, 0};
