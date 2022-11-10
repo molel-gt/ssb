@@ -52,40 +52,15 @@ if __name__ == '__main__':
     tria_xdmf_unscaled = os.path.join(mesh_dir, "tria_unscaled.xdmf")
     tria_xmf_unscaled = os.path.join(mesh_dir, "tria_unscaled.xmf")
 
-    img = io.imread(contact_img_file)
-    contact_points = set()
-    for idx in np.argwhere(np.isclose(img, phase)):
-        contact_points.add(tuple([int(v) for v in idx] + [0]))
+    # img = io.imread(contact_img_file)
+    # contact_points = set()
+    # for idx in np.argwhere(np.isclose(img, phase)):
+    #     contact_points.add(tuple([int(v) for v in idx] + [0]))
 
-    with open(contact_points_filepath, "wb") as fp:
-        pickle.dump(contact_points, fp, protocol=pickle.HIGHEST_PROTOCOL)
+    # with open(contact_points_filepath, "wb") as fp:
+    #     pickle.dump(contact_points, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
-    gmsh.initialize()
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1)
-    gmsh.model.add("porous")
-    circle = gmsh.model.occ.addCircle(12.5, 12.5, 0, 7)
-    gmsh.model.occ.synchronize()
-    box = gmsh.model.occ.addBox(0, 0, 0, Lx, Ly, Lz)
-    gmsh.model.occ.synchronize()
-    grp1 = gmsh.model.addPhysicalGroup(3, [box], args.phase)
-    gmsh.model.setPhysicalName(3, grp1, "conductor")
-    gmsh.model.occ.synchronize()
-    grp2 = gmsh.model.addPhysicalGroup(2, [circle], markers.left_cc)
-    gmsh.model.setPhysicalName(2, grp2, "left_cc")
-    gmsh.model.occ.synchronize()
-
-    surfaces = gmsh.model.occ.getEntities(dim=2)
-    walls = []
-    for surface in surfaces:
-        com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
-        if np.isclose(com[2], Lz):
-            right_cc = gmsh.model.addPhysicalGroup(2, [surface[1]])
-            gmsh.model.setPhysicalName(2, markers.right_cc, "right_cc")
-    gmsh.model.occ.synchronize()
-    gmsh.model.mesh.generate(3)
-    gmsh.write(tetr_mshfile)
-    gmsh.finalize()
-
+    res = subprocess.check_call(f"gmsh -3 contact-loss.geo -o {tetr_mshfile}", shell=True)
     tet_msh = meshio.read(tetr_mshfile)
     tetr_mesh_unscaled = geometry.create_mesh(tet_msh, "tetra")
     tetr_mesh_unscaled.write(tetr_xdmf_unscaled)
