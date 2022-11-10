@@ -1,4 +1,5 @@
 SetFactory('OpenCASCADE');
+
 R = 15;
 xc = 25;
 yc = 25;
@@ -7,6 +8,10 @@ Point(1) = {0, 0, 0};
 Point(2) = {50, 0, 0};
 Point(3) = {50, 50, 0};
 Point(4) = {0, 50, 0};
+Point(5) = {0, 0, 50};
+Point(6) = {50, 0, 50};
+Point(7) = {50, 50, 50};
+Point(8) = {0, 50, 50};
 
 Point(109) = {xc, yc, 0};
 Point(110) = {xc + R, yc, 0};
@@ -19,19 +24,41 @@ Line(2) = {2, 3};
 Line(3) = {3, 4};
 Line(4) = {4, 1};
 
-Curve Loop(1) = {1, 2, 3, 4};
+Line(5) = {5, 6};
+Line(6) = {6, 7};
+Line(7) = {7, 8};
+Line(8) = {8, 5};
+
+Line(9) = {5, 1};
+Line(10) = {4, 8};
+Line(11) = {2, 6};
+Line(12) = {3, 7};
+
 Circle(22) = {110, 109, 111};
 Circle(23) = {111, 109, 112};
 Circle(24) = {112, 109, 113};
 Circle(25) = {113, 109, 110};
-Curve Loop(2) = {22, 23, 24, 25};
+Curve Loop(1) = {22, 23, 24, 25};
 Plane Surface(1) = {1};
+Curve Loop(7) = {1, 2, 3, 4};
+Plane Surface(7) = {7, 1};
+Curve Loop(2) = {5, 6, 7, 8};
+Plane Surface(2) = {2};
+Curve Loop(3) = {4, 9, 8, 10};
+Plane Surface(3) = {3};
+Curve Loop(4) = {2, 11, 6, 12};
+Plane Surface(4) = {4};
+Curve Loop(5) = {3, 12, 7, 10};
+Plane Surface(5) = {5};
+Curve Loop(6) = {1, 11, 5, 9};
+Plane Surface(6) = {6};
 Physical Surface(1) = {1};
-// Plane Surface(2) = {2};
-Physical Surface(1) = {2};
-// Plane Surface(3) = {1, 2};
-// BooleanFragments{Surface{2}; }{Surface{3}; }
-Extrude {0, 0, 50} { Surface{1}; }
-// Physical Surface(1) = {2};
-// getCenterOfMass Surface{1}
+Physical Surface(2) = {2};
+Physical Surface(3) = {3, 4, 5, 6, 7};
+Surface Loop(1) = {1, 2, 3, 4, 5, 6, 7};
+Volume(1) = {1};
 Physical Volume(1) = {1};
+
+// BooleanFragments{Surface{1, 7}; Delete; }{}
+// Box(3) = {0, 0, 0, 50, 50, 50};
+// Extrude {0, 0, -50} { {2}; }
