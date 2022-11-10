@@ -19,13 +19,13 @@ have_pyvista = True
 markers = commons.SurfaceMarkers()
 
 # model parameters
-kappa = 1e1  # S/m
+kappa = 1e2  # S/m
 D = 1e-15  # m^2/s
 F_c = 96485  # C/mol
 i0 = 10  # A/m^2
 dt = 1.0e-06
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
-c_init = 1
+c_init = 0.1
 R = 8.314
 T = 298
 
@@ -90,12 +90,12 @@ x0bc1 = dolfinx.fem.dirichletbc(u_, dolfinx.fem.locate_dofs_topological(V0, 1, x
 x0bc2 = dolfinx.fem.dirichletbc(u__, dolfinx.fem.locate_dofs_topological(V1, 1, x0facet))
 
 # Weak statement of the equations
-F0 = inner(c, q) * dx - inner(c0, q) * dx + dt * inner(D * grad(c), grad(q)) * dx - inner(f, q) * dx - inner(g, q) * ds(markers.insulated) - inner(flux, q) * ds(markers.left_cc)
+F0 = inner(c, q) * dx - inner(c0, q) * dx + dt * inner(D * grad(c), grad(q)) * dx - inner(f, q) * dx - inner(g, q) * ds(markers.insulated) + inner(flux, q) * ds(markers.left_cc)
 F1 = inner(kappa * grad(mu), grad(v)) * dx - inner(f, v) * dx - inner(g, v) * ds(markers.insulated) - inner(g, v) * ds(markers.right_cc)
 F = F0 + F1
 
 # Create nonlinear problem and Newton solver
-problem = fem.petsc.NonlinearProblem(F, u, bcs=[])
+problem = fem.petsc.NonlinearProblem(F, u, bcs=[x0bc1, x0bc2])
 solver = nls.petsc.NewtonSolver(MPI.COMM_WORLD, problem)
 solver.convergence_criterion = "incremental"
 solver.rtol = 1e-6
@@ -116,7 +116,7 @@ file.write_mesh(domain)
 # Step in time
 t = 0.0
 
-SIM_TIME = 1200 * dt
+SIM_TIME = 500 * dt
 
 # Get the sub-space for c and the corresponding dofs in the mixed space
 # vector
@@ -132,7 +132,7 @@ if have_pyvista:
     grid.set_active_scalars("c")
 
     p = pvqt.BackgroundPlotter(title="concentration", auto_update=True)
-    p.add_mesh(grid, clim=[0, 100])
+    p.add_mesh(grid, clim=[0, 0.1])
     p.view_xy(True)
     p.add_text(f"time: {t}", font_size=12, name="timelabel")
 

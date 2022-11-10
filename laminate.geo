@@ -1,6 +1,8 @@
 SetFactory('OpenCASCADE');
-Mesh.CharacteristicLengthMin = 0.05;
-Mesh.CharacteristicLengthMax = 0.25;
+Mesh.CharacteristicLengthMin = 0.01;
+Mesh.CharacteristicLengthMax = 0.1;
+// Mesh.SubdivisionAlgorithm  = 1;
+Mesh.Hexahedra = 1;
 Point(1) = {0, 0, 0};
 Point(2) = {20, 0, 0};
 Point(3) = {20, 20, 0};
