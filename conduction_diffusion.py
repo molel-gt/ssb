@@ -19,22 +19,23 @@ have_pyvista = True
 markers = commons.SurfaceMarkers()
 
 # model parameters
-kappa = 1e2  # S/m
+kappa = 1e-2 # S/m
 D = 1e-15  # m^2/s
 F_c = 96485  # C/mol
 i0 = 1  # A/m^2
 dt = 1.0e-06
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
-c_init = 10
+c_init = 1
 R = 8.314
 T = 298
 
-with io.XDMFFile(MPI.COMM_WORLD, "mesh/laminate/tria.xdmf", "r") as xdmf:
+comm = MPI.COMM_WORLD
+with io.XDMFFile(comm, "mesh/laminate/tria.xdmf", "r") as xdmf:
     domain = xdmf.read_mesh(cpp.mesh.GhostMode.shared_facet, name="Grid")
     ct = xdmf.read_meshtags(domain, name="Grid")
 
 domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
-with io.XDMFFile(MPI.COMM_WORLD, "mesh/laminate/line.xdmf", "r") as xdmf:
+with io.XDMFFile(comm, "mesh/laminate/line.xdmf", "r") as xdmf:
     ft = xdmf.read_meshtags(domain, name="Grid")
 
 P1 = ufl.FiniteElement("Lagrange", domain.ufl_cell(), 1)
@@ -77,60 +78,115 @@ u.sub(0).interpolate(lambda x: set_initial_bc(x))
 u.x.scatter_forward()
 
 mu = ufl.variable(mu)
-flux = i0 * ( ufl.exp(0.5 * F_c * (mu - 0.05) / (R * T)) - ufl.exp(-0.5 * F_c * (mu - 0.05) / (R * T)))
+flux = 0 * ( ufl.exp(0.5 * F_c * (mu - 0.0) / (R * T)) - ufl.exp(-0.5 * F_c * (mu - 0.0) / (R * T)))
 
 f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
 g = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
 
-x0facet = ft.find(markers.left_cc)
-x1facet = ft.find(markers.right_cc)
+left_cc_facet = ft.find(markers.left_cc)
+right_cc_facet = ft.find(markers.right_cc)
 
 # Dirichlet BCs
-V0, dofs = ME.sub(0).collapse()
+# V0, dofs = ME.sub(0).collapse()
 V1, dofs = ME.sub(1).collapse()
-u_ = fem.Function(V0)
-u__ = fem.Function(V1)
+u_left = fem.Function(V1)
+u_right = fem.Function(V1)
 
-# with u_.vector.localForm() as u0_loc:
-#     u0_loc.set(0.0)
-with u__.vector.localForm() as u0_loc:
-    u0_loc.set(0.0)
+with u_left.vector.localForm() as u0_loc:
+    u0_loc.set(2.5)
 
-left_cc_dofs0 = dolfinx.fem.locate_dofs_topological(V0, 1, x0facet)
-left_cc_dofs1 = dolfinx.fem.locate_dofs_topological(V1, 1, x0facet)
-x0bc1 = dolfinx.fem.dirichletbc(u_, left_cc_dofs0)
-x0bc2 = dolfinx.fem.dirichletbc(u__, left_cc_dofs1)
+# with u_right.vector.localForm() as u0_loc:
+#     u0_loc.set(3.7)
 
+left_cc_dofs = dolfinx.fem.locate_dofs_topological(V1, 1, left_cc_facet)
+right_cc_dofs = dolfinx.fem.locate_dofs_topological(V1, 1, right_cc_facet)
+left_cc_bc = dolfinx.fem.dirichletbc(u_left, left_cc_dofs)
+right_cc_bc = dolfinx.fem.dirichletbc(u_right, right_cc_dofs)
 # mu_mid = (1.0 - theta) * mu0 + theta * mu
 # Weak statement of the equations
-F0 = inner(c, q) * dx - inner(c0, q) * dx + dt * inner(D * grad(c), grad(q)) * dx - inner(f, q) * dx - inner(g, q) * ds(markers.insulated) + inner(flux, q) * ds(markers.left_cc)
-F1 = inner(kappa * grad(mu), grad(v)) * dx - inner(f, v) * dx - inner(g, v) * ds(markers.insulated) - inner(g, q) * ds(markers.right_cc)
+c = ufl.variable(c)
+current = -D * ufl.diff(c, x)
+F0 = inner(c, q) * dx - inner(c0, q) * dx + dt * inner(D * grad(c), grad(q)) * dx - dt * inner(f, q) * dx - dt * inner(g, q) * ds(markers.insulated)
+F1 = inner(kappa * grad(mu), grad(v)) * dx - inner(f, v) * dx - inner(g, v) * ds(markers.insulated) - inner(flux, q) * ds(markers.left_cc) #- inner(-D * grad(c), n) * ds(markers.left_cc)# - inner(g, q) * ds(markers.right_cc) - 
 F = F0 + F1
 
-# Create nonlinear problem and Newton solver
-problem = fem.petsc.NonlinearProblem(F, u, bcs=[x0bc2])
+class NonlinearPDE_SNESProblem:
+    def __init__(self, F, u, bc):
+        V = u.function_space
+        du = ufl.TrialFunction(V)
+        self.L = fem.form(F)
+        self.a = fem.form(ufl.derivative(F, u, du))
+        self.bc = bc
+        self._F, self._J = None, None
+        self.u = u
+        self.J_mat_dolfinx = fem.petsc.create_matrix(self.a)
+        self.F_vec_dolfinx = fem.petsc.create_vector(self.L)
+
+    def F(self, snes, x, F):
+        """Assemble residual vector."""
+        x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+        x.copy(self.u.vector)
+        self.u.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+
+        self.F_vec_dolfinx.set(0.)
+        with F.localForm() as f_local:
+            f_local.set(0.0)
+        fem.petsc.assemble_vector(self.F_vec_dolfinx, self.L)
+        fem.petsc.apply_lifting(self.F_vec_dolfinx, [self.a], bcs=[[self.bc]], x0=[x], scale=-1.0)
+        self.F_vec_dolfinx.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
+        fem.petsc.set_bc(self.F_vec_dolfinx, [self.bc], x, -1.0)
+        F.getArray()[:] = self.F_vec_dolfinx.getArray()[:]
+
+    def J(self, snes, x, J, P):
+        """Assemble Jacobian matrix."""
+        J.zeroEntries()
+        self.J_mat_dolfinx.zeroEntries()
+
+        fem.petsc.assemble_matrix(self.J_mat_dolfinx, self.a, bcs=[self.bc])
+        self.J_mat_dolfinx.assemble()
+        ai, aj, av = self.J_mat_dolfinx.getValuesCSR()
+        J.setPreallocationNNZ(np.diff(ai))
+        J.setValuesCSR(ai,aj,av)
+        J.assemble()
+
+# bcs = right_cc_bc
+# problem = NonlinearPDE_SNESProblem(F, u, bcs)
+# J_mat_dolfinx = fem.petsc.create_matrix(problem.a)
+# F_vec_dolfinx = fem.petsc.create_vector(problem.L)
+# J_mat = PETSc.Mat().createAIJ(J_mat_dolfinx.getSizes())
+# J_mat.setPreallocationNNZ(50)
+# J_mat.setUp()
+# F_vec = J_mat.createVecRight()
+# snes = PETSc.SNES().create(comm)
+# snes.setTolerances(max_it=4000)
+# snes.getKSP().setType("gmres")
+# snes.getKSP().getPC().setType("hypre")
+# snes.getKSP().getPC().setFactorSolverType("mumps")
+# snes.setFunction(problem.F, F_vec)
+# snes.setJacobian(problem.J, J=J_mat, P=None)
+# snes.setMonitor(lambda _, it, residual: print(it, residual))
+
+problem = fem.petsc.NonlinearProblem(F, u)
 solver = nls.petsc.NewtonSolver(MPI.COMM_WORLD, problem)
 solver.convergence_criterion = "incremental"
 solver.maximum_iterations = 250
-solver.rtol = 1e-06
-
-# customize the linear solver used inside the NewtonSolver
+solver.rtol = 1e-12
 ksp = solver.krylov_solver
 opts = PETSc.Options()
 option_prefix = ksp.getOptionsPrefix()
-opts[f"{option_prefix}ksp_type"] = "preonly"
-opts[f"{option_prefix}pc_type"] = "lu"
+opts[f"{option_prefix}ksp_type"] = "gmres"
+opts[f"{option_prefix}pc_type"] = "hypre"
 opts[f"{option_prefix}pc_factor_mat_solver_type"] = "mumps"
 ksp.setFromOptions()
 
 # Output file
-file = io.XDMFFile(MPI.COMM_WORLD, "demo_ch/output.xdmf", "w")
+file = io.XDMFFile(comm, "demo_ch/output.xdmf", "w")
 file.write_mesh(domain)
 
 # Step in time
 t = 0.0
 
-SIM_TIME = 500 * dt
+SIM_TIME = 1000 * dt
 
 # Get the sub-space for c and the corresponding dofs in the mixed space
 # vector
@@ -152,13 +208,17 @@ if have_pyvista:
 
 c = u.sub(0)
 u0.x.array[:] = u.x.array
+solution = fem.petsc.create_vector(problem.L)
+
 while (t < SIM_TIME):
     t += dt
     r = solver.solve(u)
     print(f"Step {int(t/dt)}: num iterations: {r[0]}")
+    # snes.solve(None, solution)
+    # u.x.array[:] = solution.getArray()[:]
     u0.x.array[:] = u.x.array
-    if np.less(u.x.array[dofs].real, 0).any():
-        break
+    # if np.less(u.sub(0).x.array[dofs].real, 0).any():
+    #     break
     file.write_function(c, t)
     # file.write_function(mu, t)
 
