@@ -107,64 +107,8 @@ right_cc_bc = dolfinx.fem.dirichletbc(u_right, right_cc_dofs)
 c = ufl.variable(c)
 current = -D * ufl.diff(c, x)
 F0 = inner(c, q) * dx - inner(c0, q) * dx + dt * inner(D * grad(c), grad(q)) * dx - dt * inner(f, q) * dx - dt * inner(g, q) * ds(markers.insulated)
-F1 = inner(kappa * grad(mu), grad(v)) * dx - inner(f, v) * dx - inner(g, v) * ds(markers.insulated) - inner(flux, q) * ds(markers.left_cc) #- inner(-D * grad(c), n) * ds(markers.left_cc)# - inner(g, q) * ds(markers.right_cc) - 
+F1 = inner(kappa * grad(mu), grad(v)) * dx - inner(f, v) * dx - inner(g, v) * ds(markers.insulated) - inner(flux, q) * ds(markers.left_cc)
 F = F0 + F1
-
-class NonlinearPDE_SNESProblem:
-    def __init__(self, F, u, bc):
-        V = u.function_space
-        du = ufl.TrialFunction(V)
-        self.L = fem.form(F)
-        self.a = fem.form(ufl.derivative(F, u, du))
-        self.bc = bc
-        self._F, self._J = None, None
-        self.u = u
-        self.J_mat_dolfinx = fem.petsc.create_matrix(self.a)
-        self.F_vec_dolfinx = fem.petsc.create_vector(self.L)
-
-    def F(self, snes, x, F):
-        """Assemble residual vector."""
-        x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-        x.copy(self.u.vector)
-        self.u.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-
-        self.F_vec_dolfinx.set(0.)
-        with F.localForm() as f_local:
-            f_local.set(0.0)
-        fem.petsc.assemble_vector(self.F_vec_dolfinx, self.L)
-        fem.petsc.apply_lifting(self.F_vec_dolfinx, [self.a], bcs=[[self.bc]], x0=[x], scale=-1.0)
-        self.F_vec_dolfinx.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
-        fem.petsc.set_bc(self.F_vec_dolfinx, [self.bc], x, -1.0)
-        F.getArray()[:] = self.F_vec_dolfinx.getArray()[:]
-
-    def J(self, snes, x, J, P):
-        """Assemble Jacobian matrix."""
-        J.zeroEntries()
-        self.J_mat_dolfinx.zeroEntries()
-
-        fem.petsc.assemble_matrix(self.J_mat_dolfinx, self.a, bcs=[self.bc])
-        self.J_mat_dolfinx.assemble()
-        ai, aj, av = self.J_mat_dolfinx.getValuesCSR()
-        J.setPreallocationNNZ(np.diff(ai))
-        J.setValuesCSR(ai,aj,av)
-        J.assemble()
-
-# bcs = right_cc_bc
-# problem = NonlinearPDE_SNESProblem(F, u, bcs)
-# J_mat_dolfinx = fem.petsc.create_matrix(problem.a)
-# F_vec_dolfinx = fem.petsc.create_vector(problem.L)
-# J_mat = PETSc.Mat().createAIJ(J_mat_dolfinx.getSizes())
-# J_mat.setPreallocationNNZ(50)
-# J_mat.setUp()
-# F_vec = J_mat.createVecRight()
-# snes = PETSc.SNES().create(comm)
-# snes.setTolerances(max_it=4000)
-# snes.getKSP().setType("gmres")
-# snes.getKSP().getPC().setType("hypre")
-# snes.getKSP().getPC().setFactorSolverType("mumps")
-# snes.setFunction(problem.F, F_vec)
-# snes.setJacobian(problem.J, J=J_mat, P=None)
-# snes.setMonitor(lambda _, it, residual: print(it, residual))
 
 problem = fem.petsc.NonlinearProblem(F, u)
 solver = nls.petsc.NewtonSolver(MPI.COMM_WORLD, problem)
@@ -214,13 +158,8 @@ while (t < SIM_TIME):
     t += dt
     r = solver.solve(u)
     print(f"Step {int(t/dt)}: num iterations: {r[0]}")
-    # snes.solve(None, solution)
-    # u.x.array[:] = solution.getArray()[:]
     u0.x.array[:] = u.x.array
-    # if np.less(u.sub(0).x.array[dofs].real, 0).any():
-    #     break
     file.write_function(c, t)
-    # file.write_function(mu, t)
 
      # Update the plot window
     p.add_text(f"time: {t:.2e}", font_size=12, name="timelabel")
