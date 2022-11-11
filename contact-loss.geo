@@ -1,8 +1,12 @@
+cov = 0.05;
+L = 100;
 SetFactory('OpenCASCADE');
-
-R = 7.5;
-xc = 12.5;
-yc = 12.5;
+R = 2 * L * (cov/Pi) ^ (0.5);
+xc = 0.5 * L;
+yc = 0.5 * L;
+// R = 7.5;
+// xc = 12.5;
+// yc = 12.5;
 Mesh.CharacteristicLengthMin = 0.05;
 Mesh.CharacteristicLengthMax = 0.25;
 Point(1) = {0, 0, 0};
