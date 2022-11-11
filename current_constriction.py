@@ -51,8 +51,8 @@ if __name__ == '__main__':
     Lz = Lz * scale_z
     tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
-    output_current_path = os.path.join(data_dir, f'{eps}/current.xdmf')
-    output_potential_path = os.path.join(data_dir, f'{eps}/potential.xdmf')
+    output_current_path = os.path.join(data_dir, f'current.xdmf')
+    output_potential_path = os.path.join(data_dir, 'potential.xdmf')
 
     left_cc_marker = markers.left_cc
     right_cc_marker = markers.right_cc
