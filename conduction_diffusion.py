@@ -22,10 +22,10 @@ markers = commons.SurfaceMarkers()
 kappa = 1e2  # S/m
 D = 1e-15  # m^2/s
 F_c = 96485  # C/mol
-i0 = 10  # A/m^2
+i0 = 1  # A/m^2
 dt = 1.0e-06
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
-c_init = 0.1
+c_init = 10
 R = 8.314
 T = 298
 
@@ -57,11 +57,23 @@ c, mu = ufl.split(u)
 c0, mu0 = ufl.split(u0)
 
 # The initial conditions are interpolated into a finite element space
-# Zero u
-u.x.array[:] = c_init
+def set_initial_bc(x):
+    values = np.zeros(x.shape[1])
+    for i in range(x.shape[1]):
+        val = c_init
+        if np.isclose(x[0, i], 0):
+            val = 0.0
+        elif np.isclose(x[0, i], 19.9):
+            if np.logical_and(np.less_equal(x[1, i], 17.5), np.greater_equal(x[1, i], 12.5)):
+                val = 0.0
+            elif np.logical_and(np.less_equal(x[1, i], 7.5), np.greater_equal(x[1, i], 2.5)):
+                val = 0.0
+        elif np.logical_and(np.less_equal(x[0, i], 19.9), np.isclose(x[1, i], [17.5, 12.5, 7.5, 2.5])).any():
+            val = 0.0
+        values[i] = val
+    return values
 
-# Interpolate initial condition
-u.sub(0).interpolate(lambda x: c_init * np.ones(x.shape[1]))
+u.sub(0).interpolate(lambda x: set_initial_bc(x))
 u.x.scatter_forward()
 
 mu = ufl.variable(mu)
@@ -69,7 +81,6 @@ flux = i0 * ( ufl.exp(0.5 * F_c * (mu - 0.05) / (R * T)) - ufl.exp(-0.5 * F_c * 
 
 f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
 g = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
-g_right_cc = dolfinx.fem.Constant(domain, PETSc.ScalarType(3.7))
 
 x0facet = ft.find(markers.left_cc)
 x1facet = ft.find(markers.right_cc)
@@ -77,36 +88,39 @@ x1facet = ft.find(markers.right_cc)
 # Dirichlet BCs
 V0, dofs = ME.sub(0).collapse()
 V1, dofs = ME.sub(1).collapse()
-
 u_ = fem.Function(V0)
 u__ = fem.Function(V1)
 
-with u_.vector.localForm() as u0_loc:
-    u0_loc.set(0.0)
+# with u_.vector.localForm() as u0_loc:
+#     u0_loc.set(0.0)
 with u__.vector.localForm() as u0_loc:
     u0_loc.set(0.0)
 
-x0bc1 = dolfinx.fem.dirichletbc(u_, dolfinx.fem.locate_dofs_topological(V0, 1, x0facet))
-x0bc2 = dolfinx.fem.dirichletbc(u__, dolfinx.fem.locate_dofs_topological(V1, 1, x0facet))
+left_cc_dofs0 = dolfinx.fem.locate_dofs_topological(V0, 1, x0facet)
+left_cc_dofs1 = dolfinx.fem.locate_dofs_topological(V1, 1, x0facet)
+x0bc1 = dolfinx.fem.dirichletbc(u_, left_cc_dofs0)
+x0bc2 = dolfinx.fem.dirichletbc(u__, left_cc_dofs1)
 
+# mu_mid = (1.0 - theta) * mu0 + theta * mu
 # Weak statement of the equations
 F0 = inner(c, q) * dx - inner(c0, q) * dx + dt * inner(D * grad(c), grad(q)) * dx - inner(f, q) * dx - inner(g, q) * ds(markers.insulated) + inner(flux, q) * ds(markers.left_cc)
-F1 = inner(kappa * grad(mu), grad(v)) * dx - inner(f, v) * dx - inner(g, v) * ds(markers.insulated) - inner(g, v) * ds(markers.right_cc)
+F1 = inner(kappa * grad(mu), grad(v)) * dx - inner(f, v) * dx - inner(g, v) * ds(markers.insulated) - inner(g, q) * ds(markers.right_cc)
 F = F0 + F1
 
 # Create nonlinear problem and Newton solver
-problem = fem.petsc.NonlinearProblem(F, u, bcs=[x0bc1, x0bc2])
+problem = fem.petsc.NonlinearProblem(F, u, bcs=[x0bc2])
 solver = nls.petsc.NewtonSolver(MPI.COMM_WORLD, problem)
 solver.convergence_criterion = "incremental"
-solver.rtol = 1e-6
+solver.maximum_iterations = 250
+solver.rtol = 1e-06
 
 # customize the linear solver used inside the NewtonSolver
 ksp = solver.krylov_solver
 opts = PETSc.Options()
 option_prefix = ksp.getOptionsPrefix()
-opts[f"{option_prefix}ksp_type"] = "gmres"
-opts[f"{option_prefix}pc_type"] = "hypre"
-# opts[f"{option_prefix}pc_factor_mat_solver_type"] = "mumps"
+opts[f"{option_prefix}ksp_type"] = "preonly"
+opts[f"{option_prefix}pc_type"] = "lu"
+opts[f"{option_prefix}pc_factor_mat_solver_type"] = "mumps"
 ksp.setFromOptions()
 
 # Output file
@@ -132,7 +146,7 @@ if have_pyvista:
     grid.set_active_scalars("c")
 
     p = pvqt.BackgroundPlotter(title="concentration", auto_update=True)
-    p.add_mesh(grid, clim=[0, 0.1])
+    p.add_mesh(grid, clim=[0, c_init])
     p.view_xy(True)
     p.add_text(f"time: {t}", font_size=12, name="timelabel")
 
@@ -143,7 +157,10 @@ while (t < SIM_TIME):
     r = solver.solve(u)
     print(f"Step {int(t/dt)}: num iterations: {r[0]}")
     u0.x.array[:] = u.x.array
+    if np.less(u.x.array[dofs].real, 0).any():
+        break
     file.write_function(c, t)
+    # file.write_function(mu, t)
 
      # Update the plot window
     p.add_text(f"time: {t:.2e}", font_size=12, name="timelabel")
