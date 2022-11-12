@@ -20,7 +20,7 @@ markers = commons.SurfaceMarkers()
 
 # model parameters
 kappa = 1e-2 # S/m
-D = 1e-15  # m^2/s
+D = 1e-10  # m^2/s
 F_c = 96485  # C/mol
 i0 = 1  # A/m^2
 dt = 1.0e-06
@@ -130,7 +130,7 @@ file.write_mesh(domain)
 # Step in time
 t = 0.0
 
-SIM_TIME = 1000 * dt
+SIM_TIME = 6000 * dt
 
 # Get the sub-space for c and the corresponding dofs in the mixed space
 # vector
