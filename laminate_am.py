@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import subprocess
-import gmsh
 import meshio
 import numpy as np
 
