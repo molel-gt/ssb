@@ -25,7 +25,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_dir', help='directory with mesh files. output will be saved here', required=True, type=str)
     parser.add_argument("--voltage", nargs='?', const=1, default=1)
     parser.add_argument("--eps", help='fraction of area at left current collector that is in contact',
-                        nargs='?', const=1, default=0.3, type=np.double)
+                        nargs='?', const=1, default=0.05, type=np.double)
 
     args = parser.parse_args()
     data_dir = args.data_dir
