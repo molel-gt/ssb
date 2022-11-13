@@ -203,7 +203,7 @@ if __name__ == '__main__':
         r = solver.solve(u)
         print(f"Step {int(t/dt)}: num iterations: {r[0]}")
         u0.x.array[:] = u.x.array
-        print(fem.assemble_scalar(fem.form(flux * ds(markers.left_cc))), fem.assemble_scalar(fem.form(flux2 * ds(markers.left_cc))))
+        # print(fem.assemble_scalar(fem.form(flux * ds(markers.left_cc))), fem.assemble_scalar(fem.form(flux2 * ds(markers.left_cc))))
         file.write_function(c, t)
 
         # Update the plot window
