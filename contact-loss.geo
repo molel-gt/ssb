@@ -1,11 +1,11 @@
 cov = 0.05;
-L = 25;
+L = 50;
 SetFactory('OpenCASCADE');
 R = 2 * L * (cov/Pi) ^ (0.5);
 xc = 0.5 * L;
 yc = 0.5 * L;
-// Mesh.CharacteristicLengthMin = 0.25;
-Mesh.CharacteristicLengthMax = 0.25;
+Mesh.CharacteristicLengthMin = 0.1;
+Mesh.CharacteristicLengthMax = 0.5;
 Point(1) = {0, 0, 0};
 Point(2) = {L, 0, 0};
 Point(3) = {L, L, 0};
