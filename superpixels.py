@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+import time
 
 import cv2
 import matplotlib.pyplot as plt
@@ -14,6 +15,40 @@ from skimage.color import label2rgb
 
 import geometry, constants, commons
 
+# atomics masses of elements used in the composite cathode
+atomic_masses = {
+    "Li": 6.94,
+    "O": 15.999,
+    "P": 30.974,
+    "S": 32.06,
+    "Cl": 35.45,
+    "Mn": 54.938,
+    "Co": 58.933,
+    "Ni": 58.693,
+}
+
+atomic_ratios_nmc622 = {
+    "Li": 0.25,
+    "O": 0.5,
+    "Mn": 0.05,
+    "Ni": 0.15,
+    "Co": 0.05,
+    "S": 0,
+    "P": 0,
+    "Cl": 0,
+
+}
+
+atomic_ratios_lpsc = {
+    "Li": 6/13,
+    "O": 0,
+    "Mn": 0,
+    "Ni": 0,
+    "Co": 0,
+    "S": 5/13,
+    "P": 1/13,
+    "Cl": 1/13,
+}
 
 def build_graph(points, h=1, dp=1):
     """"""
@@ -51,16 +86,29 @@ if __name__ == '__main__':
     for f in img_files:
         img_unseg = plt.imread(os.path.join("unsegmented", f.split("/")[-1]))
         img = cv2.imread(f)
-        img_new = np.ones(img.shape[:2], dtype=int)
-        for i in range(501):
-            for j in range(501):
-                v = img[i, j, :]
-                if np.isclose(v, 255).all():
-                    img_new[i, j] = 0
-        
+
+        # fig, ax = plt.subplots(figsize=(5, 5))
+        # qcs = ax.contour(img[:, :, 2], origin='image')
+        # plt.clf()
+        # print(qcs.levels)
+        levels = [0, 40, 80, 120, 160, 200, 240, 280]
+        # ax.imshow(img_unseg,  cmap='gray')
+        img_clusters = np.ones(img.shape[:2])
+        contours = measure.find_contours(img[:, :, 2], 0)
+        for contour in contours:
+            for coord in contour:
+                img_clusters[tuple([int(v) for v in coord])] = 0
+            # ax.plot(contour[:, 1], contour[:, 0])
+        # ax.imshow(img_clusters, cmap='gray')
+        # ax.set_aspect('equal', 'box')
+        # ax.set_title('Contour')
+        # ax.grid()
+        # plt.savefig("figures/superpixels.png")
+        # plt.show()
+    
         points = {}
         counter = 0
-        for idx in np.argwhere(np.isclose(img_new, 1)):
+        for idx in np.argwhere(np.isclose(img_clusters, 1)):
             points[tuple(idx)] = counter
             counter += 1 
 
@@ -69,38 +117,27 @@ if __name__ == '__main__':
         pieces = nx.connected_components(G)
         pieces = [piece for piece in pieces]
         print("{:,} components".format(len(pieces)))
-        img_seg = np.zeros(img_new.shape, dtype=np.uint8)
+        img_seg = np.zeros(img_unseg.shape, dtype=np.uint8)
         valz = []
-        # for idx, piece in enumerate(pieces):
-        #     img_ = np.zeros(img.shape)
-        #     coords = set()
-        #     for p in piece:
-        #         coord = tuple(points_view[p])
-        #         coords.add(coord)
-        #     avg = np.average(np.take(img_unseg, list(coords)))
-        #     valz.append(avg)
-        #     for coord in coords:
-        #         img_[coord] = avg
-        #     fig, ax = plt.subplots(1, 2, figsize=(10, 10))
-        #     ax[0].imshow(img_, cmap='gray')
-        #     ax[0].set_title("Section")
-        #     ax[1].imshow(img_unseg, cmap="gray")
-        #     ax[1].set_title("Unsegmented")
-        #     plt.show()
-        #     phase = int(input("Enter phase: "))
-        #     print(phase)
-        #     np.put(img_seg, list(coords), phase)
-        #     break
-        fig, ax = plt.subplots(figsize=(5, 5))
-        # qcs = ax.contour(img[:, :, 2], origin='image')
-        # plt.clf()
-        # print(qcs.levels)
-        levels = [0, 40, 80, 120, 160, 200, 240, 280]
-        ax.imshow(img_unseg,  cmap='gray')
-        contours = measure.find_contours(img[:, :, 2], 0)
-        for contour in contours:
-            ax.plot(contour[:, 1], contour[:, 0])
-        ax.set_title('Contour')
-        ax.grid()
+        for idx, piece in enumerate(pieces):
+            coords = set()
+            for p in piece:
+                coord = tuple(points_view[p])
+                coords.add(coord)
+            avg = np.average([img_unseg[c] for c in coords])
+            
+            valz.append(avg)
+            for coord in coords:
+                img_seg[coord] = avg
+        fig, ax = plt.subplots(figsize=(10, 10))
+        ax.imshow(img_seg, cmap='gray')
+        ax.set_title("Section")
+        # ax.imshow(img_unseg, cmap="gray")
+        # ax.set_title("Unsegmented")
+        plt.savefig("../figures/img-clusters.tif", format='TIF', dpi=500)
         plt.show()
+        # phase = int(input("Enter phase: "))
+        # print(phase)
+        # np.put(img_seg, list(coords), phase)
         break
+        
