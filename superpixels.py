@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+import csv
 import os
 import subprocess
 import time
@@ -117,24 +118,34 @@ if __name__ == '__main__':
         pieces = nx.connected_components(G)
         pieces = [piece for piece in pieces]
         print("{:,} components".format(len(pieces)))
-        img_seg = np.zeros(img_unseg.shape, dtype=np.uint8)
+        img_seg = np.copy(img_unseg)  # np.zeros(img_unseg.shape, dtype=np.uint8)
         valz = []
-        for idx, piece in enumerate(pieces):
-            coords = set()
-            for p in piece:
-                coord = tuple(points_view[p])
-                coords.add(coord)
-            avg = np.average([img_unseg[c] for c in coords])
-            
-            valz.append(avg)
-            for coord in coords:
-                img_seg[coord] = avg
+        with open("data/clusters.csv", "w") as fp:
+            writer = csv.DictWriter(fp, fieldnames=["centroid", "pixel_avg", "pixel_std"])
+            writer.writeheader()
+            for idx, piece in enumerate(pieces):
+                coords = set()
+                for p in piece:
+                    coord = tuple(points_view[p])
+                    coords.add(coord)
+                avg = np.average([img_unseg[c] for c in coords])
+                xc = np.average([c[0] for c in coords])
+                yc = np.average([c[1] for c in coords])
+                std = np.std([img_unseg[c] for c in coords])
+                writer.writerow({"centroid": f"({xc:.2f}, {yc:.2f})", "pixel_avg": f"{avg:.2f}", "pixel_std": f"{std:.2f}"})
+                print(f"{avg:.2f}, {std:.2f}")
+                
+                valz.append(avg)
+                for coord in coords:
+                    img_seg[coord] = 255 * (std / 35)
+                    # img_seg[coord] = avg
         fig, ax = plt.subplots(figsize=(10, 10))
         ax.imshow(img_seg, cmap='gray')
-        ax.set_title("Section")
+        # ax.set_title("Section")
+        ax.set_axis_off()
         # ax.imshow(img_unseg, cmap="gray")
         # ax.set_title("Unsegmented")
-        plt.savefig("../figures/img-clusters.tif", format='TIF', dpi=500)
+        plt.savefig("figures/img-clusters.tif", format='TIF', bbox_inches='tight', pad_inches=0)
         plt.show()
         # phase = int(input("Enter phase: "))
         # print(phase)
