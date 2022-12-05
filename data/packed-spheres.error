@@ -1,0 +1,160 @@
+INFO:mesh/packed_spheres/1-1-1_30/:**************************RESULTS-SUMMARY******************************************
+INFO:mesh/packed_spheres/1-1-1_30/:Contact Area @ left cc [sq. um]                 : 8.2369e-01
+INFO:mesh/packed_spheres/1-1-1_30/:Contact Area @ right cc [sq. um]                : 8.5251e-01
+INFO:mesh/packed_spheres/1-1-1_30/:Current density @ left cc                       : 7.9271e-02
+INFO:mesh/packed_spheres/1-1-1_30/:Current density @ right cc                      : 7.6600e-02
+INFO:mesh/packed_spheres/1-1-1_30/:Insulated Area [sq. um]                         : 9.7474e+00
+INFO:mesh/packed_spheres/1-1-1_30/:Total Area [sq. um]                             : 1.1424e+01
+INFO:mesh/packed_spheres/1-1-1_30/:Total Volume [cu. um]                           : 7.4483e-01
+INFO:mesh/packed_spheres/1-1-1_30/:Electrolyte Volume Fraction                     : 74.48%
+INFO:mesh/packed_spheres/1-1-1_30/:Bulk conductivity [S.m-1]                       : 1.0000e-01
+INFO:mesh/packed_spheres/1-1-1_30/:Effective conductivity [S.m-1]                  : 6.5295e-02
+INFO:mesh/packed_spheres/1-1-1_30/:Homogeneous Neumann BC trace                    : 4.94e-02
+INFO:mesh/packed_spheres/1-1-1_30/:Area-averaged Homogeneous Neumann BC trace      : 5.06e-03
+INFO:mesh/packed_spheres/1-1-1_30/:Deviation in current at two current collectors  : 0.01%
+INFO:mesh/packed_spheres/1-1-1_30/:Time elapsed                                    : 667.00000s
+INFO:mesh/packed_spheres/1-1-1_30/:*************************END-OF-SUMMARY*******************************************
+INFO:mesh/packed_spheres/1-1-1_80/:**************************RESULTS-SUMMARY******************************************
+INFO:mesh/packed_spheres/1-1-1_80/:Contact Area @ left cc [sq. um]                 : 6.9173e-01
+INFO:mesh/packed_spheres/1-1-1_80/:Contact Area @ right cc [sq. um]                : 7.6545e-01
+INFO:mesh/packed_spheres/1-1-1_80/:Current density @ left cc                       : 4.4674e-02
+INFO:mesh/packed_spheres/1-1-1_80/:Current density @ right cc                      : 4.0422e-02
+INFO:mesh/packed_spheres/1-1-1_80/:Insulated Area [sq. um]                         : 1.6698e+01
+INFO:mesh/packed_spheres/1-1-1_80/:Total Area [sq. um]                             : 1.8155e+01
+INFO:mesh/packed_spheres/1-1-1_80/:Total Volume [cu. um]                           : 4.3867e-01
+INFO:mesh/packed_spheres/1-1-1_80/:Electrolyte Volume Fraction                     : 43.87%
+INFO:mesh/packed_spheres/1-1-1_80/:Bulk conductivity [S.m-1]                       : 1.0000e-01
+INFO:mesh/packed_spheres/1-1-1_80/:Effective conductivity [S.m-1]                  : 3.0902e-02
+INFO:mesh/packed_spheres/1-1-1_80/:Homogeneous Neumann BC trace                    : 8.74e-02
+INFO:mesh/packed_spheres/1-1-1_80/:Area-averaged Homogeneous Neumann BC trace      : 5.24e-03
+INFO:mesh/packed_spheres/1-1-1_80/:Deviation in current at two current collectors  : 0.12%
+INFO:mesh/packed_spheres/1-1-1_80/:Time elapsed                                    : 474.00000s
+INFO:mesh/packed_spheres/1-1-1_80/:*************************END-OF-SUMMARY*******************************************
+INFO:mesh/packed_spheres/1-1-1_90/:**************************RESULTS-SUMMARY******************************************
+INFO:mesh/packed_spheres/1-1-1_90/:Contact Area @ left cc [sq. um]                 : 7.3384e-01
+INFO:mesh/packed_spheres/1-1-1_90/:Contact Area @ right cc [sq. um]                : 6.3506e-01
+INFO:mesh/packed_spheres/1-1-1_90/:Current density @ left cc                       : 4.2061e-02
+INFO:mesh/packed_spheres/1-1-1_90/:Current density @ right cc                      : 4.8546e-02
+INFO:mesh/packed_spheres/1-1-1_90/:Insulated Area [sq. um]                         : 1.6423e+01
+INFO:mesh/packed_spheres/1-1-1_90/:Total Area [sq. um]                             : 1.7792e+01
+INFO:mesh/packed_spheres/1-1-1_90/:Total Volume [cu. um]                           : 4.4505e-01
+INFO:mesh/packed_spheres/1-1-1_90/:Electrolyte Volume Fraction                     : 44.51%
+INFO:mesh/packed_spheres/1-1-1_90/:Bulk conductivity [S.m-1]                       : 1.0000e-01
+INFO:mesh/packed_spheres/1-1-1_90/:Effective conductivity [S.m-1]                  : 3.0866e-02
+INFO:mesh/packed_spheres/1-1-1_90/:Homogeneous Neumann BC trace                    : 8.59e-02
+INFO:mesh/packed_spheres/1-1-1_90/:Area-averaged Homogeneous Neumann BC trace      : 5.23e-03
+INFO:mesh/packed_spheres/1-1-1_90/:Deviation in current at two current collectors  : 0.12%
+INFO:mesh/packed_spheres/1-1-1_90/:Time elapsed                                    : 495.00000s
+INFO:mesh/packed_spheres/1-1-1_90/:*************************END-OF-SUMMARY*******************************************
+INFO:mesh/packed_spheres/1-1-1_15/:**************************RESULTS-SUMMARY******************************************
+INFO:mesh/packed_spheres/1-1-1_15/:Contact Area @ left cc [sq. um]                 : 9.2298e-01
+INFO:mesh/packed_spheres/1-1-1_15/:Contact Area @ right cc [sq. um]                : 9.2753e-01
+INFO:mesh/packed_spheres/1-1-1_15/:Current density @ left cc                       : 8.6951e-02
+INFO:mesh/packed_spheres/1-1-1_15/:Current density @ right cc                      : 8.6515e-02
+INFO:mesh/packed_spheres/1-1-1_15/:Insulated Area [sq. um]                         : 8.0380e+00
+INFO:mesh/packed_spheres/1-1-1_15/:Total Area [sq. um]                             : 9.8885e+00
+INFO:mesh/packed_spheres/1-1-1_15/:Total Volume [cu. um]                           : 8.6207e-01
+INFO:mesh/packed_spheres/1-1-1_15/:Electrolyte Volume Fraction                     : 86.21%
+INFO:mesh/packed_spheres/1-1-1_15/:Bulk conductivity [S.m-1]                       : 1.0000e-01
+INFO:mesh/packed_spheres/1-1-1_15/:Effective conductivity [S.m-1]                  : 8.0253e-02
+INFO:mesh/packed_spheres/1-1-1_15/:Homogeneous Neumann BC trace                    : 5.35e-02
+INFO:mesh/packed_spheres/1-1-1_15/:Area-averaged Homogeneous Neumann BC trace      : 6.65e-03
+INFO:mesh/packed_spheres/1-1-1_15/:Deviation in current at two current collectors  : 0.01%
+INFO:mesh/packed_spheres/1-1-1_15/:Time elapsed                                    : 928.00000s
+INFO:mesh/packed_spheres/1-1-1_15/:*************************END-OF-SUMMARY*******************************************
+INFO:mesh/packed_spheres/1-1-1_20/:**************************RESULTS-SUMMARY******************************************
+INFO:mesh/packed_spheres/1-1-1_20/:Contact Area @ left cc [sq. um]                 : 8.3947e-01
+INFO:mesh/packed_spheres/1-1-1_20/:Contact Area @ right cc [sq. um]                : 9.3218e-01
+INFO:mesh/packed_spheres/1-1-1_20/:Current density @ left cc                       : 8.8322e-02
+INFO:mesh/packed_spheres/1-1-1_20/:Current density @ right cc                      : 7.9612e-02
+INFO:mesh/packed_spheres/1-1-1_20/:Insulated Area [sq. um]                         : 1.0320e+01
+INFO:mesh/packed_spheres/1-1-1_20/:Total Area [sq. um]                             : 1.2092e+01
+INFO:mesh/packed_spheres/1-1-1_20/:Total Volume [cu. um]                           : 8.1650e-01
+INFO:mesh/packed_spheres/1-1-1_20/:Electrolyte Volume Fraction                     : 81.65%
+INFO:mesh/packed_spheres/1-1-1_20/:Bulk conductivity [S.m-1]                       : 1.0000e-01
+INFO:mesh/packed_spheres/1-1-1_20/:Effective conductivity [S.m-1]                  : 7.4144e-02
+INFO:mesh/packed_spheres/1-1-1_20/:Homogeneous Neumann BC trace                    : 7.61e-02
+INFO:mesh/packed_spheres/1-1-1_20/:Area-averaged Homogeneous Neumann BC trace      : 7.38e-03
+INFO:mesh/packed_spheres/1-1-1_20/:Deviation in current at two current collectors  : 0.09%
+INFO:mesh/packed_spheres/1-1-1_20/:Time elapsed                                    : 948.00000s
+INFO:mesh/packed_spheres/1-1-1_20/:*************************END-OF-SUMMARY*******************************************
+INFO:mesh/packed_spheres/1-1-1_60/:**************************RESULTS-SUMMARY******************************************
+INFO:mesh/packed_spheres/1-1-1_60/:Contact Area @ left cc [sq. um]                 : 7.9038e-01
+INFO:mesh/packed_spheres/1-1-1_60/:Contact Area @ right cc [sq. um]                : 6.9160e-01
+INFO:mesh/packed_spheres/1-1-1_60/:Current density @ left cc                       : 4.2611e-02
+INFO:mesh/packed_spheres/1-1-1_60/:Current density @ right cc                      : 4.8665e-02
+INFO:mesh/packed_spheres/1-1-1_60/:Insulated Area [sq. um]                         : 1.6309e+01
+INFO:mesh/packed_spheres/1-1-1_60/:Total Area [sq. um]                             : 1.7791e+01
+INFO:mesh/packed_spheres/1-1-1_60/:Total Volume [cu. um]                           : 4.6909e-01
+INFO:mesh/packed_spheres/1-1-1_60/:Electrolyte Volume Fraction                     : 46.91%
+INFO:mesh/packed_spheres/1-1-1_60/:Bulk conductivity [S.m-1]                       : 1.0000e-01
+INFO:mesh/packed_spheres/1-1-1_60/:Effective conductivity [S.m-1]                  : 3.3678e-02
+INFO:mesh/packed_spheres/1-1-1_60/:Homogeneous Neumann BC trace                    : 7.64e-02
+INFO:mesh/packed_spheres/1-1-1_60/:Area-averaged Homogeneous Neumann BC trace      : 4.69e-03
+INFO:mesh/packed_spheres/1-1-1_60/:Deviation in current at two current collectors  : 0.06%
+INFO:mesh/packed_spheres/1-1-1_60/:Time elapsed                                    : 431.00000s
+INFO:mesh/packed_spheres/1-1-1_60/:*************************END-OF-SUMMARY*******************************************
+INFO:mesh/packed_spheres/1-1-1_70/:**************************RESULTS-SUMMARY******************************************
+INFO:mesh/packed_spheres/1-1-1_70/:Contact Area @ left cc [sq. um]                 : 7.3277e-01
+INFO:mesh/packed_spheres/1-1-1_70/:Contact Area @ right cc [sq. um]                : 7.4104e-01
+INFO:mesh/packed_spheres/1-1-1_70/:Current density @ left cc                       : 4.6912e-02
+INFO:mesh/packed_spheres/1-1-1_70/:Current density @ right cc                      : 4.6362e-02
+INFO:mesh/packed_spheres/1-1-1_70/:Insulated Area [sq. um]                         : 1.3125e+01
+INFO:mesh/packed_spheres/1-1-1_70/:Total Area [sq. um]                             : 1.4599e+01
+INFO:mesh/packed_spheres/1-1-1_70/:Total Volume [cu. um]                           : 4.7501e-01
+INFO:mesh/packed_spheres/1-1-1_70/:Electrolyte Volume Fraction                     : 47.50%
+INFO:mesh/packed_spheres/1-1-1_70/:Bulk conductivity [S.m-1]                       : 1.0000e-01
+INFO:mesh/packed_spheres/1-1-1_70/:Effective conductivity [S.m-1]                  : 3.4375e-02
+INFO:mesh/packed_spheres/1-1-1_70/:Homogeneous Neumann BC trace                    : 6.68e-02
+INFO:mesh/packed_spheres/1-1-1_70/:Area-averaged Homogeneous Neumann BC trace      : 5.09e-03
+INFO:mesh/packed_spheres/1-1-1_70/:Deviation in current at two current collectors  : 0.06%
+INFO:mesh/packed_spheres/1-1-1_70/:Time elapsed                                    : 493.00000s
+INFO:mesh/packed_spheres/1-1-1_70/:*************************END-OF-SUMMARY*******************************************
+INFO:mesh/packed_spheres/1-1-1_50/:**************************RESULTS-SUMMARY******************************************
+INFO:mesh/packed_spheres/1-1-1_50/:Contact Area @ left cc [sq. um]                 : 7.7198e-01
+INFO:mesh/packed_spheres/1-1-1_50/:Contact Area @ right cc [sq. um]                : 7.9214e-01
+INFO:mesh/packed_spheres/1-1-1_50/:Current density @ left cc                       : 5.5561e-02
+INFO:mesh/packed_spheres/1-1-1_50/:Current density @ right cc                      : 5.4118e-02
+INFO:mesh/packed_spheres/1-1-1_50/:Insulated Area [sq. um]                         : 1.5091e+01
+INFO:mesh/packed_spheres/1-1-1_50/:Total Area [sq. um]                             : 1.6655e+01
+INFO:mesh/packed_spheres/1-1-1_50/:Total Volume [cu. um]                           : 5.5387e-01
+INFO:mesh/packed_spheres/1-1-1_50/:Electrolyte Volume Fraction                     : 55.39%
+INFO:mesh/packed_spheres/1-1-1_50/:Bulk conductivity [S.m-1]                       : 1.0000e-01
+INFO:mesh/packed_spheres/1-1-1_50/:Effective conductivity [S.m-1]                  : 4.2892e-02
+INFO:mesh/packed_spheres/1-1-1_50/:Homogeneous Neumann BC trace                    : 7.40e-02
+INFO:mesh/packed_spheres/1-1-1_50/:Area-averaged Homogeneous Neumann BC trace      : 4.90e-03
+INFO:mesh/packed_spheres/1-1-1_50/:Deviation in current at two current collectors  : 0.05%
+INFO:mesh/packed_spheres/1-1-1_50/:Time elapsed                                    : 569.00000s
+INFO:mesh/packed_spheres/1-1-1_50/:*************************END-OF-SUMMARY*******************************************
+INFO:mesh/packed_spheres/1-1-1_40/:**************************RESULTS-SUMMARY******************************************
+INFO:mesh/packed_spheres/1-1-1_40/:Contact Area @ left cc [sq. um]                 : 8.4398e-01
+INFO:mesh/packed_spheres/1-1-1_40/:Contact Area @ right cc [sq. um]                : 8.1933e-01
+INFO:mesh/packed_spheres/1-1-1_40/:Current density @ left cc                       : 6.2939e-02
+INFO:mesh/packed_spheres/1-1-1_40/:Current density @ right cc                      : 6.4836e-02
+INFO:mesh/packed_spheres/1-1-1_40/:Insulated Area [sq. um]                         : 1.1344e+01
+INFO:mesh/packed_spheres/1-1-1_40/:Total Area [sq. um]                             : 1.3008e+01
+INFO:mesh/packed_spheres/1-1-1_40/:Total Volume [cu. um]                           : 6.4791e-01
+INFO:mesh/packed_spheres/1-1-1_40/:Electrolyte Volume Fraction                     : 64.79%
+INFO:mesh/packed_spheres/1-1-1_40/:Bulk conductivity [S.m-1]                       : 1.0000e-01
+INFO:mesh/packed_spheres/1-1-1_40/:Effective conductivity [S.m-1]                  : 5.3119e-02
+INFO:mesh/packed_spheres/1-1-1_40/:Homogeneous Neumann BC trace                    : 5.16e-02
+INFO:mesh/packed_spheres/1-1-1_40/:Area-averaged Homogeneous Neumann BC trace      : 4.55e-03
+INFO:mesh/packed_spheres/1-1-1_40/:Deviation in current at two current collectors  : 0.01%
+INFO:mesh/packed_spheres/1-1-1_40/:Time elapsed                                    : 694.00000s
+INFO:mesh/packed_spheres/1-1-1_40/:*************************END-OF-SUMMARY*******************************************
+INFO:mesh/packed_spheres/1-1-1_85/:**************************RESULTS-SUMMARY******************************************
+INFO:mesh/packed_spheres/1-1-1_85/:Contact Area @ left cc [sq. um]                 : 6.8433e-01
+INFO:mesh/packed_spheres/1-1-1_85/:Contact Area @ right cc [sq. um]                : 7.7950e-01
+INFO:mesh/packed_spheres/1-1-1_85/:Current density @ left cc                       : 4.9674e-02
+INFO:mesh/packed_spheres/1-1-1_85/:Current density @ right cc                      : 4.3622e-02
+INFO:mesh/packed_spheres/1-1-1_85/:Insulated Area [sq. um]                         : 1.3055e+01
+INFO:mesh/packed_spheres/1-1-1_85/:Total Area [sq. um]                             : 1.4518e+01
+INFO:mesh/packed_spheres/1-1-1_85/:Total Volume [cu. um]                           : 4.8102e-01
+INFO:mesh/packed_spheres/1-1-1_85/:Electrolyte Volume Fraction                     : 48.10%
+INFO:mesh/packed_spheres/1-1-1_85/:Bulk conductivity [S.m-1]                       : 1.0000e-01
+INFO:mesh/packed_spheres/1-1-1_85/:Effective conductivity [S.m-1]                  : 3.3994e-02
+INFO:mesh/packed_spheres/1-1-1_85/:Homogeneous Neumann BC trace                    : 6.23e-02
+INFO:mesh/packed_spheres/1-1-1_85/:Area-averaged Homogeneous Neumann BC trace      : 4.77e-03
+INFO:mesh/packed_spheres/1-1-1_85/:Deviation in current at two current collectors  : 0.03%
+INFO:mesh/packed_spheres/1-1-1_85/:Time elapsed                                    : 558.00000s
+INFO:mesh/packed_spheres/1-1-1_85/:*************************END-OF-SUMMARY*******************************************
