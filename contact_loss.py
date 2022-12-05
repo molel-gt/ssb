@@ -69,8 +69,9 @@ if __name__ == '__main__':
     tetr_mesh_unscaled.write(tetr_xdmf_unscaled)
     tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, "tetra", scale_factor=scale_factor)
     tetr_mesh_scaled.write(tetr_xdmf_scaled)
-
+    print(f"Wrote meshfile '{tetr_xdmf_scaled}'")
     tria_mesh_unscaled = geometry.create_mesh(tet_msh, "triangle")
     tria_mesh_unscaled.write(tria_xdmf_unscaled)
     tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, "triangle", scale_factor=scale_factor)
     tria_mesh_scaled.write(tria_xdmf_scaled)
+    print(f"Wrote meshfile '{tria_xdmf_scaled}'")
