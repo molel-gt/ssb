@@ -1,11 +1,11 @@
 cov = 0.05;
-L = 50;
+L = 25;
 SetFactory('OpenCASCADE');
 R = L * Sqrt(cov/Pi);
 xc = 0.5 * L;
 yc = 0.5 * L;
-Mesh.CharacteristicLengthMin = 0.1;
-Mesh.CharacteristicLengthMax = 0.5;
+// Mesh.CharacteristicLengthMin = 0.1;
+// Mesh.CharacteristicLengthMax = 0.5;
 Point(1) = {0, 0, 0};
 Point(2) = {L, 0, 0};
 Point(3) = {L, L, 0};
@@ -61,21 +61,12 @@ Physical Surface(3) = {3, 4, 5, 6, 7};
 Surface Loop(1) = {1, 2, 3, 4, 5, 6, 7};
 Volume(1) = {1};
 Physical Volume(1) = {1};
-
-// Transfinite Line "*" = 100 Using Bump 0.25;
-// Transfinite Surface "*";
-// Recombine Surface "*";
-// Transfinite Volume "*";
-
+// refining
 Field[1] = Distance;
 Field[2] = Threshold;
-//Field[1].PointsList = {109};
 Field[1].FacesList = {1, 2, 3, 4, 5, 6, 7};
 Field[2].IField = 1;
 Field[2].LcMin = 0.001;
-Field[2].LcMax = 0.01;
+Field[2].LcMax = 0.5;
 Field[2].DistMin = 0;
 Field[2].DistMax = 5;
-// Field[1].Sampling = 100;
-Mesh.Algorithm = 5;
-Mesh.Smoothing = 5;
