@@ -87,25 +87,27 @@ if __name__ == '__main__':
     for f in img_files:
         img_unseg = plt.imread(os.path.join("unsegmented", f.split("/")[-1]))
         img = cv2.imread(f)
+        print(np.unique(img))
 
-        # fig, ax = plt.subplots(figsize=(5, 5))
+        fig, ax = plt.subplots(figsize=(5, 5))
         # qcs = ax.contour(img[:, :, 2], origin='image')
         # plt.clf()
         # print(qcs.levels)
         levels = [0, 40, 80, 120, 160, 200, 240, 280]
-        # ax.imshow(img_unseg,  cmap='gray')
+        ax.imshow(img_unseg,  cmap='gray')
         img_clusters = np.ones(img.shape[:2])
         contours = measure.find_contours(img[:, :, 2], 0)
         for contour in contours:
             for coord in contour:
                 img_clusters[tuple([int(v) for v in coord])] = 0
-            # ax.plot(contour[:, 1], contour[:, 0])
+            ax.plot(contour[:, 1], contour[:, 0])
         # ax.imshow(img_clusters, cmap='gray')
         # ax.set_aspect('equal', 'box')
         # ax.set_title('Contour')
         # ax.grid()
         # plt.savefig("figures/superpixels.png")
-        # plt.show()
+        plt.savefig("figures/superpixels.png", format='png', edgecolor='red', bbox_inches='tight', pad_inches=0)
+        plt.show()
     
         points = {}
         counter = 0
@@ -137,16 +139,16 @@ if __name__ == '__main__':
                 
                 valz.append(avg)
                 for coord in coords:
-                    img_seg[coord] = 255 * (std / 35)
-                    # img_seg[coord] = avg
-        fig, ax = plt.subplots(figsize=(10, 10))
-        ax.imshow(img_seg, cmap='gray')
+                    # img_seg[coord] = std
+                    img_seg[coord] = avg
+        # fig, ax = plt.subplots(figsize=(10, 10))
+        # ax.imshow(img_seg, cmap='gray')
         # ax.set_title("Section")
-        ax.set_axis_off()
+        # ax.set_axis_off()
         # ax.imshow(img_unseg, cmap="gray")
         # ax.set_title("Unsegmented")
-        plt.savefig("figures/img-clusters.tif", format='TIF', bbox_inches='tight', pad_inches=0)
-        plt.show()
+        # plt.savefig("figures/img-clusters.tif", format='TIF', bbox_inches='tight', pad_inches=0)
+        # plt.show()
         # phase = int(input("Enter phase: "))
         # print(phase)
         # np.put(img_seg, list(coords), phase)

@@ -23,7 +23,7 @@ markers = commons.SurfaceMarkers()
 
 # model parameters
 kappa = 1e3 # S/m
-D = 1e-3  # m^2/s
+D = 1e-15  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
 dt = 1.0e-03
@@ -190,7 +190,7 @@ if __name__ == '__main__':
         grid.set_active_scalars("c")
 
         p = pvqt.BackgroundPlotter(title="concentration", auto_update=True)
-        p.add_mesh(grid, clim=[0, c_init])
+        p.add_mesh(grid, clim=[0, c_init], cmap="hot")
         p.view_xy(True)
         p.add_text(f"time: {t}", font_size=12, name="timelabel")
 
