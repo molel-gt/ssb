@@ -88,7 +88,7 @@ gmsh.model.setPhysicalName(2, s2, "AM")
 gmsh.model.occ.synchronize()
 grp1 = gmsh.model.addPhysicalGroup(1, [se_lines[1]], markers.left_cc)
 gmsh.model.setPhysicalName(1, grp1, "left_cc")
-grp2 = gmsh.model.addPhysicalGroup(1, [am_lines[0]], markers.right_cc)
+grp2 = gmsh.model.addPhysicalGroup(1, [am_lines[0], am_lines[-1]], markers.right_cc)
 gmsh.model.setPhysicalName(1, grp2, "right_cc")
 gmsh.model.occ.synchronize()
 
