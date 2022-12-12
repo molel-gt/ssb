@@ -9,7 +9,7 @@ import logging
 import numpy as np
 import ufl
 
-from dolfinx import mesh, fem, io, nls, log
+from dolfinx import cpp, fem, io, log, mesh, nls
 from mpi4py import MPI
 from petsc4py import PETSc
 
@@ -21,27 +21,32 @@ phases = commons.Phases()
 # Some constants
 D_am = 5e-15
 D_se = 0
-# electronic conductivity
-sigma_am = 5e3
-sigma_se = 0
-# ionic conductivity
-kappa_am = 0
+# assume electronic conductivity of SE is 0 and ionic conductivity of AM is 0
+# conductivity
+kappa_am = 1e-3
 kappa_se = 0.1
-
-i0 = 10  # exchange current density
-phi2 = 0.5
+sigma_am = 1e3
+sigma_se = 1e-4
+source_am = 0.01
+source_se = 1e-4
+i0 = 1e-2  # exchange current density
+eta_s = 0.005  # surface overpotential
+phi2 = 0.225
 F_c = 96485  # Faraday constant
 R = 8.314
 T = 298
 alpha_a = 0.5
 alpha_c = 0.5
+# potentials
+phi_ref = 0.25
+phi_term = 3.7
+i_superficial = -1e-4
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Laminate Cell')
     parser.add_argument('--data_dir', help='Directory with tria.xdmf and tetr.xmf mesh files. Output files potential.xdmf and current.xdmf will be saved here', required=True, type=str)
-    # parser.add_argument("--voltage", help="Potential to set at the left current collector. Right current collector is set to a potential of 0", nargs='?', const=1, default=1)
-
+    parser.add_argument('--grid_size', help='Lx-Ly-Lz', required=True)
     args = parser.parse_args()
     data_dir = args.data_dir
     # voltage = args.voltage
@@ -49,8 +54,7 @@ if __name__ == '__main__':
     rank = comm.rank
     start_time = timeit.default_timer()
     loglevel = configs.get_configs()['LOGGING']['level']
-
-    grid_size = args.grid_size
+    Lx, Ly, Lz = map(lambda val: int(val), args.grid_size.split("-"))
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{data_dir}')
@@ -65,93 +69,131 @@ if __name__ == '__main__':
     insulated_marker = markers.insulated
 
     with io.XDMFFile(MPI.COMM_WORLD, tria_mesh_path, "r") as xdmf:
-        mesh2d = xdmf.read_mesh(name="Grid")
-        ct = xdmf.read_meshtags(mesh2d, name="Grid")
+        domain = xdmf.read_mesh(cpp.mesh.GhostMode.shared_facet, name="Grid")
+        ct = xdmf.read_meshtags(domain, name="Grid")
 
-    mesh2d.topology.create_connectivity(mesh2d.topology.dim, mesh2d.topology.dim - 1)
+    domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
     with io.XDMFFile(MPI.COMM_WORLD, line_mesh_path, "r") as xdmf:
-        mesh1d = xdmf.read_mesh(name="Grid")
-        ft = xdmf.read_meshtags(mesh1d, name="Grid")
+        ft = xdmf.read_meshtags(domain, name="Grid")
 
-    # Q = dolfinx.FunctionSpace(mesh2d, ("DG", 0))
-    # kappa = dolfinx.Function(Q)
-    # sigma = dolfinx.Function(Q)
-    # d_eff = dolfinx.Function(Q)
-    # se_cells = ct.find(phases.electrolyte)
-    # am_cells = ct.find(phases.active_material)
-    # kappa.x.array[am_cells] = np.full_like(am_cells, kappa_am, dtype=PETSc.ScalarType)
-    # kappa.x.array[se_cells]  = np.full_like(se_cells, kappa_se, dtype=PETSc.ScalarType)
-    # sigma.x.array[am_cells] = np.full_like(am_cells, sigma_am, dtype=PETSc.ScalarType)
-    # sigma.x.array[se_cells]  = np.full_like(se_cells, sigma_se, dtype=PETSc.ScalarType)
-    # d_eff.x.array[am_cells] = np.full_like(am_cells, D_am, dtype=PETSc.ScalarType)
-    # d_eff.x.array[se_cells]  = np.full_like(se_cells, D_se, dtype=PETSc.ScalarType)
-    kappa = fem.Constant(mesh2d, PETSc.ScalarType(constants.KAPPA0))
-    x = ufl.SpatialCoordinate(mesh2d)
-    # additions
-    f = fem.Constant(mesh2d, PETSc.ScalarType(0.0))
-    n = ufl.FacetNormal(mesh2d)
-    g = fem.Constant(mesh2d, PETSc.ScalarType(0.0))
+    x = ufl.SpatialCoordinate(domain)
+    n = ufl.FacetNormal(domain)
+    Q = fem.FunctionSpace(domain, ("DG", 0))
+    kappa = fem.Function(Q)
+    sigma = fem.Function(Q)
+    d_eff = fem.Function(Q)
+    se_cells = ct.find(phases.electrolyte)
+    am_cells = ct.find(phases.active_material)
+    kappa.x.array[am_cells] = np.full_like(am_cells, kappa_am, dtype=PETSc.ScalarType)
+    kappa.x.array[se_cells]  = np.full_like(se_cells, kappa_se, dtype=PETSc.ScalarType)
+    sigma.x.array[am_cells] = np.full_like(am_cells, sigma_am, dtype=PETSc.ScalarType)
+    sigma.x.array[se_cells]  = np.full_like(se_cells, sigma_se, dtype=PETSc.ScalarType)
+    d_eff.x.array[am_cells] = np.full_like(am_cells, D_am, dtype=PETSc.ScalarType)
+    d_eff.x.array[se_cells]  = np.full_like(se_cells, D_se, dtype=PETSc.ScalarType)
 
-    V = fem.FunctionSpace(mesh2d, ("CG", 1))
-    u, v = fem.Function(V), ufl.TestFunction(V)
+    # Source and Flux Terms
+    f = fem.Constant(domain, PETSc.ScalarType(0.0))
+    g = fem.Constant(domain, PETSc.ScalarType(0.0))
+    g_left_cc = fem.Constant(domain, PETSc.ScalarType(i_superficial))
 
-    def i_butler_volmer(phi1=u, phi2=phi2):
-        return i0  * (ufl.exp(alpha_a * F_c * (u - phi2) / R / T) - ufl.exp(-alpha_c * F_c * (u - phi2) / R / T))
+    V = fem.FunctionSpace(domain, ("CG", 1))
+    u = ufl.TrialFunction(V)
+    uh = fem.Function(V)
+    v = ufl.TestFunction(V)
+    
+    def i_linear(eta):
+        return i0 * F_c * eta / R / T
+    
+    def i_tafel(eta):
+        return i0  * ufl.exp(alpha_a * F_c * eta / R / T)
 
-    g_curr = -i_butler_volmer() / kappa
+    def i_bv(eta):
+        return i0  * (ufl.exp(alpha_a * F_c * eta / R / T) - ufl.exp(-alpha_c * F_c * eta / R / T))
 
-    fdim = mesh2d.topology.dim - 1
-    facet_tag = mesh.meshtags(mesh2d, fdim, ft.indices, ft.values)
+    def i_butler_volmer(eta):
+        return i0  * (ufl.exp(alpha_a * F_c * eta / R / T) - ufl.exp(-alpha_c * F_c * eta / R / T))
 
-    ds = ufl.Measure("ds", domain=mesh2d, subdomain_data=facet_tag)
-    u0 = fem.Function(V)
-    with u0.vector.localForm() as u0_loc:
-        u0_loc.set(0)
+    # left_cc_curr = -i_butler_volmer() / kappa
 
-    x0facet = mesh.locate_entities_boundary(mesh2d, 1, lambda x: np.isclose(x[0], 0.0))
-    x0bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 1, x0facet))
+    fdim = domain.topology.dim - 1
+    vol_tag = mesh.meshtags(domain, domain.topology.dim, ct.indices, ct.values)
+    facet_tag = mesh.meshtags(domain, fdim, ft.indices, ft.values)
+    dx = ufl.Measure('dx', domain=domain, subdomain_data=vol_tag)
+    ds = ufl.Measure("ds", domain=domain, subdomain_data=facet_tag)
+    dS = ufl.Measure("dS", domain=domain, subdomain_data=facet_tag)
+    u_left_cc = fem.Function(V)
+    with u_left_cc.vector.localForm() as u0_loc:
+        u0_loc.set(phi_ref)
+    
+    u_right_cc = fem.Function(V)
+    with u_right_cc.vector.localForm() as u0_loc:
+        u0_loc.set(3.7)
 
-    F = ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx - f * v * ufl.dx - ufl.inner(g_curr, v) * ds(markers.right_cc) - ufl.inner(g, v) * ds(markers.insulated) - ufl.inner(g, v) * ds(markers.insulated)
+    left_cc_facet = ft.find(markers.left_cc)
+    left_cc_dofs = fem.locate_dofs_topological(V, 1, left_cc_facet)
+    left_cc = fem.dirichletbc(u_left_cc, fem.locate_dofs_topological(V, 1, left_cc_facet))
+    right_cc_facet = ft.find(markers.right_cc)
+    right_cc_dofs = fem.locate_dofs_topological(V, 1, right_cc_facet)
+    right_cc = fem.dirichletbc(u_right_cc, fem.locate_dofs_topological(V, 1, right_cc_facet))
 
-    problem = fem.petsc.NonlinearProblem(F, u, bcs=[x0bc])
-    solver = nls.petsc.NewtonSolver(comm, problem)
-    solver.convergence_criterion = "incremental"
-    solver.rtol = 1e-6
-    solver.maximum_iterations = 100
-    solver.report = True
+    bcs = [left_cc, right_cc]
 
-    ksp = solver.krylov_solver
-    opts = PETSc.Options()
-    option_prefix = ksp.getOptionsPrefix()
-    opts[f"{option_prefix}ksp_type"] = "cg"
-    opts[f"{option_prefix}pc_type"] = "gamg"
-    opts[f"{option_prefix}pc_factor_mat_solver_type"] = "mumps"
-    opts[f"{option_prefix}maximum_iterations"] = 100
-    ksp.setFromOptions()
+    a = kappa * ufl.inner(ufl.grad(u), ufl.grad(v)) * dx(phases.electrolyte)
+    a += sigma * ufl.inner(ufl.grad(u), ufl.grad(v)) * dx(phases.active_material)
+    L = ufl.inner(f, v) * dx(phases.electrolyte)
+    L += ufl.inner(f, v) * dx(phases.active_material)
+    L += ufl.inner(g, v) * ds(markers.insulated)
+    L += ufl.inner(g_left_cc, v) * ds(markers.left_cc)
+    a += (i0 * F_c / R / T ) * ufl.inner(ufl.jump(u), v("+")) * dS(markers.am_se_interface) 
+    L += ufl.inner(g_left_cc, v("+")) * dS(markers.left_cc)
 
-    log.set_log_level(log.LogLevel.WARNING)
-    n, converged = solver.solve(u)
-    assert(converged)
-    print(f"Number of interations: {n:d}")
+    options = {
+               "ksp_type": "gmres",
+               "pc_type": "hypre",
+               "ksp_rtol": 1.0e-12
+               }
+
+    model = dolfinx.fem.petsc.LinearProblem(a, L, bcs=bcs, petsc_options=options)
+
+    # bilinear_form = fem.form(a)
+    # linear_form = fem.form(L)
+    # A = fem.petsc.assemble_matrix(bilinear_form)
+    # A.assemble()
+    # b = fem.petsc.create_vector(linear_form)
+
+    # solver = PETSc.KSP().create(domain.comm)
+    # solver.setOperators(A)
+    # solver.setType(PETSc.KSP.Type.PREONLY)
+    # solver.getPC().setType(PETSc.PC.Type.LU)
+
+    # with b.localForm() as loc_b:
+    #     loc_b.set(0)
+    # fem.petsc.assemble_vector(b, linear_form)
+
+    # Solve linear problem
+    # solver.solve(b, uh.vector)
+
+    # logger.debug('Solving problem..')
+    uh = model.solve()
 
     with io.XDMFFile(comm, output_potential_path, "w") as file:
-        file.write_mesh(mesh2d)
-        file.write_function(u)
+        file.write_mesh(domain)
+        file.write_function(uh)
 
-    grad_u = ufl.grad(u)
-    area_left_cc = fem.assemble_scalar(fem.form(1 * ds(1)))
-    area_right_cc = fem.assemble_scalar(fem.form(1 * ds(2)))
-    i_left_cc = (1/area_left_cc) * fem.assemble_scalar(fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(1)))
-    i_right_cc = (1/area_right_cc) * fem.assemble_scalar(fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(2)))
+    grad_u = ufl.grad(uh)
+    area_left_cc = fem.assemble_scalar(fem.form(1 * ds(markers.left_cc)))
+    area_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
+    i_left_cc = (1/area_left_cc) * fem.assemble_scalar(fem.form((kappa + sigma) * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.left_cc)))
+    i_right_cc = (1/area_right_cc) * fem.assemble_scalar(fem.form(sigma * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.right_cc)))
 
-    W = fem.FunctionSpace(mesh2d, ("Lagrange", 1))
-    current_expr = fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
+    W = fem.FunctionSpace(domain, ("Lagrange", 1))
+    current_expr = fem.Expression((kappa + sigma) * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
     current_h = fem.Function(W)
     current_h.interpolate(current_expr)
 
     with io.XDMFFile(comm, output_current_path, "w") as file:
-        file.write_mesh(mesh2d)
+        file.write_mesh(domain)
         file.write_function(current_h)
 
-    print("Current density @ left cc                       : {:.4f}".format(i_left_cc))
-    print("Current density @ right cc                      : {:.4f}".format(i_right_cc))
+    print("Current density @ left cc                       : {:.4e}".format(i_left_cc))
+    print("Current density @ right cc                      : {:.4e}".format(i_right_cc))

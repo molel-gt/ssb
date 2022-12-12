@@ -1,0 +1,109 @@
+INFO:mesh/1/051-051-051_000-000-000/:**************************RESULTS-SUMMARY******************************************
+INFO:mesh/1/051-051-051_000-000-000/:Contact Area @ left cc [sq. um]                 : 2.9438e+02
+INFO:mesh/1/051-051-051_000-000-000/:Contact Area @ right cc [sq. um]                : 5.7988e+02
+INFO:mesh/1/051-051-051_000-000-000/:Current density @ left cc                       : 2.0358e-04
+INFO:mesh/1/051-051-051_000-000-000/:Current density @ right cc                      : 1.0332e-04
+INFO:mesh/1/051-051-051_000-000-000/:Insulated Area [sq. um]                         : 2.4196e+05
+INFO:mesh/1/051-051-051_000-000-000/:Total Area [sq. um]                             : 2.4284e+05
+INFO:mesh/1/051-051-051_000-000-000/:Total Volume [cu. um]                           : 2.0028e+04
+INFO:mesh/1/051-051-051_000-000-000/:Electrolyte Volume Fraction                     : 16.02%
+INFO:mesh/1/051-051-051_000-000-000/:Bulk conductivity [S.m-1]                       : 1.0000e-01
+INFO:mesh/1/051-051-051_000-000-000/:Effective conductivity [S.m-1]                  : 1.1986e-03
+INFO:mesh/1/051-051-051_000-000-000/:Homogeneous Neumann BC trace                    : 1.80e+00
+INFO:mesh/1/051-051-051_000-000-000/:Area-averaged Homogeneous Neumann BC trace      : 7.44e-06
+INFO:mesh/1/051-051-051_000-000-000/:Deviation in current at two current collectors  : 0.03%
+INFO:mesh/1/051-051-051_000-000-000/:Time elapsed                                    : 330.00000s
+INFO:mesh/1/051-051-051_000-000-000/:*************************END-OF-SUMMARY*******************************************
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:**************************RESULTS-SUMMARY******************************************
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Contact Area @ left cc [sq. um]                          : 2.4315e+02
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Contact Area @ right cc [sq. um]                         : 4.7404e+02
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Insulated Area [sq. um]                                  : 1.2253e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Effective Active Material Area [sq. um]                  : 5.2664e+04
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Ineffective Active Material Area [sq. um]                : 7.0606e+04
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Total Area [sq. um]                                      : 1.2327e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Total Volume [cu. um]                                    : 1.2500e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Specific Effective Active Material Area [sq. um]         : 4.2131e-01
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Specific Ineffective Active Material Area [sq. um]       : 5.6485e-01
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Time elapsed                                             : 9.00000s
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:*************************END-OF-SUMMARY*******************************************
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:**************************RESULTS-SUMMARY******************************************
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Contact Area @ left cc [sq. um]                          : 1.8602e+02
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Contact Area @ right cc [sq. um]                         : 3.5926e+02
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Insulated Area [sq. um]                                  : 9.4204e+04
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Effective Active Material Area [sq. um]                  : 4.0555e+04
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Ineffective Active Material Area [sq. um]                : 5.4205e+04
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Total Area [sq. um]                                      : 9.4760e+04
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Total Volume [cu. um]                                    : 1.2500e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Specific Effective Active Material Area [sq. um]         : 3.2444e-01
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Specific Ineffective Active Material Area [sq. um]       : 4.3364e-01
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Time elapsed                                             : 335.00000s
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:*************************END-OF-SUMMARY*******************************************
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:**************************RESULTS-SUMMARY******************************************
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Contact Area @ left cc [sq. um]                          : 2.9438e+02
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Contact Area @ right cc [sq. um]                         : 5.7988e+02
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Insulated Area [sq. um]                                  : 2.4196e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Effective Active Material Area [sq. um]                  : 1.0179e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Ineffective Active Material Area [sq. um]                : 1.1726e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Total Area [sq. um]                                      : 2.1905e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Total Volume [cu. um]                                    : 1.2500e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Specific Effective Active Material Area [sq. um]         : 8.1431e-01
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Specific Ineffective Active Material Area [sq. um]       : 9.3810e-01
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Time elapsed                                             : 2996.00000s
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:*************************END-OF-SUMMARY*******************************************
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:**************************RESULTS-SUMMARY******************************************
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Contact Area @ left cc [sq. um]                          : 2.9438e+02
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Contact Area @ right cc [sq. um]                         : 5.7988e+02
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Insulated Area [sq. um]                                  : 2.4196e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Effective Active Material Area [sq. um]                  : 1.0179e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Ineffective Active Material Area [sq. um]                : 1.1726e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Total Area [sq. um]                                      : 2.1905e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Total Volume [cu. um]                                    : 1.2500e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Specific Effective Active Material Area [sq. um]         : 8.1431e-01
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Specific Ineffective Active Material Area [sq. um]       : 9.3810e-01
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Time elapsed                                             : 3438.00000s
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:*************************END-OF-SUMMARY*******************************************
+INFO:mesh/1/051-051-051_000-000-000/:**************************RESULTS-SUMMARY******************************************
+INFO:mesh/1/051-051-051_000-000-000/:Contact Area @ left cc [sq. um]                 : 2.9438e+02
+INFO:mesh/1/051-051-051_000-000-000/:Contact Area @ right cc [sq. um]                : 5.7988e+02
+INFO:mesh/1/051-051-051_000-000-000/:Current density @ left cc                       : 2.0358e-04
+INFO:mesh/1/051-051-051_000-000-000/:Current density @ right cc                      : 1.0332e-04
+INFO:mesh/1/051-051-051_000-000-000/:Insulated Area [sq. um]                         : 2.4196e+05
+INFO:mesh/1/051-051-051_000-000-000/:Total Area [sq. um]                             : 2.4284e+05
+INFO:mesh/1/051-051-051_000-000-000/:Electrolyte Volume [cu. um]                     : 2.0028e+04
+INFO:mesh/1/051-051-051_000-000-000/:Electrolyte Volume Fraction                     : 16.02%
+INFO:mesh/1/051-051-051_000-000-000/:Bulk conductivity [S.m-1]                       : 1.0000e-01
+INFO:mesh/1/051-051-051_000-000-000/:Effective conductivity [S.m-1]                  : 1.1986e-03
+INFO:mesh/1/051-051-051_000-000-000/:Homogeneous Neumann BC trace                    : 1.80e+00
+INFO:mesh/1/051-051-051_000-000-000/:Area-averaged Homogeneous Neumann BC trace      : 7.44e-06
+INFO:mesh/1/051-051-051_000-000-000/:Deviation in current at two current collectors  : 0.03%
+INFO:mesh/1/051-051-051_000-000-000/:Time elapsed                                    : 353.00000s
+INFO:mesh/1/051-051-051_000-000-000/:*************************END-OF-SUMMARY*******************************************
+DEBUG:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:18.41536384536978
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:**************************RESULTS-SUMMARY******************************************
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Contact Area @ left cc [sq. um]                          : 2.9438e+02
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Contact Area @ right cc [sq. um]                         : 5.7988e+02
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Insulated Area [sq. um]                                  : 2.4196e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Effective Active Material Area [sq. um]                  : 1.0179e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Ineffective Active Material Area [sq. um]                : 1.4105e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Total Area [sq. um]                                      : 2.4284e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:RVE Volume [cu. um]                                      : 1.2500e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Specific Effective Active Material Area [um-1]           : 8.1431e-01
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Specific Ineffective Active Material Area [um-1]         : 1.1284e+00
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Time elapsed                                             : 2850.00000s
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:*************************END-OF-SUMMARY*******************************************
+DEBUG:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Loading tetrahedra (dim = 3) mesh..
+DEBUG:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Loading effective electrolyte..
+DEBUG:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Computing areas..
+DEBUG:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:-1.5049585076671195
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:**************************RESULTS-SUMMARY******************************************
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Contact Area @ left cc [sq. um]                          : 2.9438e+02
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Contact Area @ right cc [sq. um]                         : 5.7988e+02
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Insulated Area [sq. um]                                  : 2.4196e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Effective Active Material Area [sq. um]                  : 0.0000e+00
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Ineffective Active Material Area [sq. um]                : 2.4284e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Total Area [sq. um]                                      : 2.4284e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:RVE Volume [cu. um]                                      : 1.2500e+05
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Specific Effective Active Material Area [um-1]           : 0.0000e+00
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Specific Ineffective Active Material Area [um-1]         : 1.9427e+00
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:Time elapsed                                             : 8835.00000s
+INFO:050-050-050_/home/molel/dev/ssb/./effective_active_material_area.py:*************************END-OF-SUMMARY*******************************************

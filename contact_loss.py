@@ -11,18 +11,21 @@ import numpy as np
 
 from skimage import io
 
-import configs, geometry, utils
+import commons, configs, geometry, utils
 
+markers = commons.SurfaceMarkers()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate Volume with Contact Loss")
     parser.add_argument("--grid_info", help="Nx-Ny-Nz that defines the grid size", required=True)
     parser.add_argument("--contact_map", help="Image to generate contact map", required=True)
     parser.add_argument("--phase", help="0 -> void, 1 -> SE, 2 -> AM", nargs='?', const=1, default=1)
+    parser.add_argument("--eps", help="coverage of area at left cc", nargs='?', const=1, default=0.05)
     args = parser.parse_args()
     grid_info = args.grid_info
     contact_img_file = args.contact_map
     phase = args.phase
+    eps = float(args.eps)
     scaling = configs.get_configs()['VOXEL_SCALING']
     scale_x = float(scaling['x'])
     scale_y = float(scaling['y'])
@@ -31,7 +34,7 @@ if __name__ == '__main__':
     dp = int(configs.get_configs()['GEOMETRY']['dp'])
     h = float(configs.get_configs()['GEOMETRY']['h'])
     origin_str = 'contact_loss'
-    mesh_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], 'contact_loss', grid_info)
+    mesh_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], 'contact_loss', grid_info, str(eps))
     Nx, Ny, Nz = [int(v) for v in grid_info.split("-")]
     Lx = Nx - 1
     Ly = Ny - 1
@@ -51,41 +54,24 @@ if __name__ == '__main__':
     tria_xdmf_unscaled = os.path.join(mesh_dir, "tria_unscaled.xdmf")
     tria_xmf_unscaled = os.path.join(mesh_dir, "tria_unscaled.xmf")
 
-    img = io.imread(contact_img_file)
-    contact_points = set()
-    for idx in np.argwhere(np.isclose(img, phase)):
-        contact_points.add(tuple([int(v) for v in idx] + [0]))
+    # img = io.imread(contact_img_file)
+    # contact_points = set()
+    # for idx in np.argwhere(np.isclose(img, phase)):
+    #     contact_points.add(tuple([int(v) for v in idx] + [0]))
 
-    with open(contact_points_filepath, "wb") as fp:
-        pickle.dump(contact_points, fp, protocol=pickle.HIGHEST_PROTOCOL)
-
-    box = np.ones((Nx, Ny, Nz), dtype=np.uint8)
-    points = geometry.build_points(box)
-    points = geometry.add_boundary_points(points, x_max=Lx, y_max=Ly, z_max=Lz, h=h, dp=dp)
-    cubes = geometry.build_variable_size_cubes(points, h=h, dp=dp)
-    tetrahedra = geometry.build_tetrahedra(cubes, points)
-    geometry.write_points_to_node_file(nodefile, points)
-    geometry.write_tetrahedra_to_ele_file(tetfile, tetrahedra)
-
-    retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -rkQF", shell=True)
-    gmsh.initialize()
-
-    gmsh.model.add("porous")
-    gmsh.merge(vtkfile)
-    gmsh.model.occ.synchronize()
-    counter = 0
-    volumes = gmsh.model.getEntities(dim=3)
-    for i, volume in enumerate(volumes):
-        marker = int(counter + i)
-        gmsh.model.addPhysicalGroup(3, [volume[1]], marker)
-        gmsh.model.setPhysicalName(3, marker, f"V{marker}")
-    gmsh.model.occ.synchronize()
-    gmsh.model.mesh.generate(3)
-    gmsh.write(tetr_mshfile)
-    gmsh.finalize()
-
+    # with open(contact_points_filepath, "wb") as fp:
+    #     pickle.dump(contact_points, fp, protocol=pickle.HIGHEST_PROTOCOL)
+    r = 2 * Lx * (eps/np.pi) ** 0.5
+    xc, yc = 0.5 * Lx, 0.5 * Ly
+    res = subprocess.check_call(f"gmsh -3 contact-loss.geo -o {tetr_mshfile}", shell=True)
     tet_msh = meshio.read(tetr_mshfile)
     tetr_mesh_unscaled = geometry.create_mesh(tet_msh, "tetra")
     tetr_mesh_unscaled.write(tetr_xdmf_unscaled)
     tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, "tetra", scale_factor=scale_factor)
     tetr_mesh_scaled.write(tetr_xdmf_scaled)
+    print(f"Wrote meshfile '{tetr_xdmf_scaled}'")
+    tria_mesh_unscaled = geometry.create_mesh(tet_msh, "triangle")
+    tria_mesh_unscaled.write(tria_xdmf_unscaled)
+    tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, "triangle", scale_factor=scale_factor)
+    tria_mesh_scaled.write(tria_xdmf_scaled)
+    print(f"Wrote meshfile '{tria_xdmf_scaled}'")

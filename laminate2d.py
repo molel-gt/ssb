@@ -61,7 +61,14 @@ F = ufl.inner(K0 * ufl.grad(u), ufl.grad(v)) * ufl.dx
 
 # set bcs
 W = dolfinx.fem.FunctionSpace(mesh2d, ("Lagrange", 1))
-g_left_cc = dolfinx.fem.Expression(-(i0/K0) * (ufl.exp(alpha_a * F * (u - u_am) / R / T) - ufl.exp(-alpha_c * F * (u - u_am)) / R / T), W.interpolation_points)
+
+def grad_u_bv(u):
+    """magnitude of gradient of potential expressed using Butler-Volmer
+    for where there is galvanostatic cycling
+    """
+    return -(i0/K0) * (ufl.exp(alpha_a * F * (u - u_am) / R / T) - ufl.exp(-alpha_c * F * (u - u_am)) / R / T)
+
+g_left_cc = dolfinx.fem.Expression(grad_u_bv(u), W.interpolation_points)
 left_cc_bc = dolfinx.fem.dirichletbc(V, g_left_cc, dofs=left_cc_dofs)
 # right_cc = dolfinx.fem.dirichletbc(value=PETSc.ScalarType(0), dofs=right_cc_dofs, V=V)
 # bcs = [left_cc, right_cc]
@@ -70,7 +77,8 @@ options = {
                "pc_type": "hypre",
                "ksp_rtol": 1.0e-12
                }
-
+a = ufl.inner(K0 * ufl.grad(u), ufl.grad(v)) * ufl.dx
+L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds
 model = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[left_cc_bc], petsc_options=options)
 u = model.solve()
 # Create nonlinear problem and Newton solver
