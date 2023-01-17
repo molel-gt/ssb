@@ -23,8 +23,8 @@ i0 = 10  # A/m^2
 mesh = create_unit_square(MPI.COMM_WORLD, 10, 10)
 
 # u_ex = Constant(mesh, ScalarType(0.0))
-# u_ex = lambda x: 1 + x[0]**2 + 2*x[1]**2
-u_ex = lambda x: 0
+u_ex = lambda x: 1 + x[0]**2 + 2*x[1]**2
+# u_ex = lambda x: 0
 x = SpatialCoordinate(mesh)
 # Define physical parameters and boundary condtions
 s = Constant(mesh, ScalarType(0.005))  # u_ex(x)
@@ -32,7 +32,6 @@ f = Constant(mesh, ScalarType(0.0))  # -div(grad(u_ex(x)))
 n = FacetNormal(mesh)
 g = Constant(mesh, ScalarType(0.0))  # -dot(n, grad(u_ex(x)))
 kappa = Constant(mesh, ScalarType(1))
-# r0 = 
 r = Constant(mesh, ScalarType(i0 * z * F_farad / (R * T)))  # Constant(mesh, ScalarType(1000))
 # Define function space and standard part of variational form
 V = FunctionSpace(mesh, ("CG", 1))
