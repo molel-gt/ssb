@@ -13,17 +13,27 @@ from dolfinx.io import XDMFFile
 from dolfinx.plot import create_vtk_mesh
 
 
+# parameters
+R = 8.314 # J/K/mol
+T = 298 # K
+z = 1  # number of electrons involved
+F_farad = 96485  # C/mol
+i0 = 10  # A/m^2
+
 mesh = create_unit_square(MPI.COMM_WORLD, 10, 10)
 
-u_ex = lambda x: 1 + x[0]**2 + 2*x[1]**2
+# u_ex = Constant(mesh, ScalarType(0.0))
+# u_ex = lambda x: 1 + x[0]**2 + 2*x[1]**2
+u_ex = lambda x: 0
 x = SpatialCoordinate(mesh)
 # Define physical parameters and boundary condtions
-s = u_ex(x)
-f = -div(grad(u_ex(x)))
+s = Constant(mesh, ScalarType(0.005))  # u_ex(x)
+f = Constant(mesh, ScalarType(0.0))  # -div(grad(u_ex(x)))
 n = FacetNormal(mesh)
-g = -dot(n, grad(u_ex(x)))
+g = Constant(mesh, ScalarType(0.0))  # -dot(n, grad(u_ex(x)))
 kappa = Constant(mesh, ScalarType(1))
-r = Constant(mesh, ScalarType(1000))
+# r0 = 
+r = Constant(mesh, ScalarType(i0 * z * F_farad / (R * T)))  # Constant(mesh, ScalarType(1000))
 # Define function space and standard part of variational form
 V = FunctionSpace(mesh, ("CG", 1))
 u, v = TrialFunction(V), TestFunction(V)
@@ -77,8 +87,8 @@ class BoundaryCondition():
 
 # Define the Dirichlet condition
 boundary_conditions = [BoundaryCondition("Dirichlet", 1, u_ex),
-                       BoundaryCondition("Dirichlet", 2, u_ex),
-                       BoundaryCondition("Robin", 3, (r, s)),
+                        BoundaryCondition("Robin", 2, (r, s)),
+                       BoundaryCondition("Neumann", 3, g),
                        BoundaryCondition("Neumann", 4, g)]
 
 bcs = []
@@ -89,9 +99,10 @@ for condition in boundary_conditions:
         F += condition.bc
 
 # Solve linear variational problem
+options = {"ksp_type": "preonly", "pc_type": "lu"}
 a = lhs(F)
 L = rhs(F)
-problem = LinearProblem(a, L, bcs=bcs, petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+problem = LinearProblem(a, L, bcs=bcs, petsc_options=options)
 uh = problem.solve()
 
 # Visualize solution
