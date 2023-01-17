@@ -1,75 +1,112 @@
-import sys
-
 import numpy as np
+import pyvista
 
-import dolfinx
-import ufl
-
+from dolfinx.fem import (Constant,  Function, FunctionSpace, assemble_scalar, 
+                         dirichletbc, form, locate_dofs_topological)
+from dolfinx.fem.petsc import LinearProblem
+from dolfinx.mesh import create_unit_square, locate_entities, meshtags
 from mpi4py import MPI
-from petsc4py import PETSc
+from petsc4py.PETSc import ScalarType
+from ufl import (FacetNormal, Measure, SpatialCoordinate, TestFunction, TrialFunction, 
+                 div, dot, dx, grad, inner, lhs, rhs)
+from dolfinx.io import XDMFFile
+from dolfinx.plot import create_vtk_mesh
 
-Ly = int(sys.argv[1])
-meshname = sys.argv[2]
-coverage = float(sys.argv[3])
-Lx = int(sys.argv[4])
-lower_cov = 0.5 * (1 - coverage) * Lx
-upper_cov = Lx - 0.5 * (1 - coverage) * Lx
 
-with dolfinx.io.XDMFFile(MPI.COMM_WORLD, f"{meshname}.xdmf", "r") as infile3:
-        msh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
-        ct = infile3.read_meshtags(msh, name="Grid")
+mesh = create_unit_square(MPI.COMM_WORLD, 10, 10)
 
-msh.topology.create_connectivity(msh.topology.dim, msh.topology.dim-1)
+u_ex = lambda x: 1 + x[0]**2 + 2*x[1]**2
+x = SpatialCoordinate(mesh)
+# Define physical parameters and boundary condtions
+s = u_ex(x)
+f = -div(grad(u_ex(x)))
+n = FacetNormal(mesh)
+g = -dot(n, grad(u_ex(x)))
+kappa = Constant(mesh, ScalarType(1))
+r = Constant(mesh, ScalarType(1000))
+# Define function space and standard part of variational form
+V = FunctionSpace(mesh, ("CG", 1))
+u, v = TrialFunction(V), TestFunction(V)
+F = kappa * inner(grad(u), grad(v)) * dx - inner(f, v) * dx
 
-Q = dolfinx.fem.FunctionSpace(msh, ("DG", 0))
-kappa = 1.0
-# kappa = dolfinx.fem.Function(Q)
-# lithium_cells = ct.indices[np.argwhere(ct.values == 1)]
-# kappa.x.array[lithium_cells] = np.full_like(lithium_cells, 1, dtype=PETSc.ScalarType)
-# electrolyte_cells = ct.indices[np.argwhere(ct.values == 2)]
-# kappa.x.array[electrolyte_cells]  = np.full_like(electrolyte_cells, 1, dtype=PETSc.ScalarType)
+boundaries = [(1, lambda x: np.isclose(x[0], 0)),
+              (2, lambda x: np.isclose(x[0], 1)),
+              (3, lambda x: np.isclose(x[1], 0)),
+              (4, lambda x: np.isclose(x[1], 1))]
 
-V = dolfinx.fem.FunctionSpace(msh, ("Lagrange", 1))
+facet_indices, facet_markers = [], []
+fdim = mesh.topology.dim - 1
+for (marker, locator) in boundaries:
+    facets = locate_entities(mesh, fdim, locator)
+    facet_indices.append(facets)
+    facet_markers.append(np.full_like(facets, marker))
+facet_indices = np.hstack(facet_indices).astype(np.int32)
+facet_markers = np.hstack(facet_markers).astype(np.int32)
+sorted_facets = np.argsort(facet_indices)
+facet_tag = meshtags(mesh, fdim, facet_indices[sorted_facets], facet_markers[sorted_facets])
 
-# Dirichlet BCs
-u0 = dolfinx.fem.Function(V)
-with u0.vector.localForm() as u0_loc:
-    u0_loc.set(1)
+mesh.topology.create_connectivity(mesh.topology.dim-1, mesh.topology.dim)
+with XDMFFile(mesh.comm, "facet_tags.xdmf", "w") as xdmf:
+    xdmf.write_mesh(mesh)
+    xdmf.write_meshtags(facet_tag)
 
-u1 = dolfinx.fem.Function(V)
-with u1.vector.localForm() as u1_loc:
-    u1_loc.set(0)
-partially_insulated = lambda x: np.logical_and(np.isclose(x[1], 0.0), np.logical_and(lower_cov <= x[0],  x[0] <= upper_cov))
-x0facet = dolfinx.mesh.locate_entities_boundary(msh, 0, partially_insulated)
-# x0facet = dolfinx.mesh.locate_entities_boundary(msh, 0, lambda x: np.isclose(x[1], 0.0))
-x1facet = dolfinx.mesh.locate_entities_boundary(msh, 0,
-                                lambda x: np.isclose(x[1], Ly))
-x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 0, x0facet))
-x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 0, x1facet))
+ds = Measure("ds", domain=mesh, subdomain_data=facet_tag)
 
-u = ufl.TrialFunction(V)
-v = ufl.TestFunction(V)
-x = ufl.SpatialCoordinate(msh)
-f = dolfinx.fem.Constant(msh, PETSc.ScalarType(0))
-g = dolfinx.fem.Constant(msh, PETSc.ScalarType(0))
+class BoundaryCondition():
+    def __init__(self, type, marker, values):
+        self._type = type
+        if type == "Dirichlet":
+            u_D = Function(V)
+            u_D.interpolate(values)
+            facets = facet_tag.find(marker)
+            dofs = locate_dofs_topological(V, fdim, facets)
+            self._bc = dirichletbc(u_D, dofs)
+        elif type == "Neumann":
+                self._bc = inner(values, v) * ds(marker)
+        elif type == "Robin":
+            self._bc = values[0] * inner(u-values[1], v)* ds(marker)
+        else:
+            raise TypeError("Unknown boundary condition: {0:s}".format(type))
+    @property
+    def bc(self):
+        return self._bc
 
-a = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
-L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ufl.ds
+    @property
+    def type(self):
+        return self._type
 
-problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options={"ksp_type": "gmres", "pc_type": "hypre", "ksp_atol": 1.0e-12, "ksp_rtol": 1.0e-12})
+# Define the Dirichlet condition
+boundary_conditions = [BoundaryCondition("Dirichlet", 1, u_ex),
+                       BoundaryCondition("Dirichlet", 2, u_ex),
+                       BoundaryCondition("Robin", 3, (r, s)),
+                       BoundaryCondition("Neumann", 4, g)]
+
+bcs = []
+for condition in boundary_conditions:
+    if condition.type == "Dirichlet":
+        bcs.append(condition.bc)
+    else:
+        F += condition.bc
+
+# Solve linear variational problem
+a = lhs(F)
+L = rhs(F)
+problem = LinearProblem(a, L, bcs=bcs, petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
 uh = problem.solve()
 
-with dolfinx.io.XDMFFile(msh.comm, f"{meshname}-{coverage}-potential.xdmf", "w") as file:
-    file.write_mesh(msh)
-    file.write_function(uh)
-grad_u = ufl.grad(uh)
+# Visualize solution
+pyvista.set_jupyter_backend("pythreejs")
+pyvista_cells, cell_types, geometry = create_vtk_mesh(V)
+grid = pyvista.UnstructuredGrid(pyvista_cells, cell_types, geometry)
+grid.point_data["u"] = uh.x.array
+grid.set_active_scalars("u")
 
-W = dolfinx.fem.FunctionSpace(msh, ("Lagrange", 1))
-
-current_expr = dolfinx.fem.Expression(ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points)
-current_h = dolfinx.fem.Function(W)
-current_h.interpolate(current_expr)
-
-with dolfinx.io.XDMFFile(MPI.COMM_WORLD, f"{meshname}-{coverage}-current.xdmf", "w") as file:
-    file.write_mesh(msh)
-    file.write_function(current_h)
+plotter = pyvista.Plotter()
+plotter.add_text("uh", position="upper_edge", font_size=14, color="black")
+plotter.add_mesh(grid, show_edges=True)
+plotter.view_xy()
+if not pyvista.OFF_SCREEN:
+    plotter.show()
+else:
+    pyvista.start_xvfb()
+    figure = plotter.screenshot("robin_neumann_dirichlet.png")
