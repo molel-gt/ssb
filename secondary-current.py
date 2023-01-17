@@ -66,14 +66,16 @@ class BoundaryCondition():
         self._type = type
         if type == "Dirichlet":
             u_D = Function(V)
-            u_D.interpolate(values)
+            # u_D.interpolate(values)
             facets = facet_tag.find(marker)
             dofs = locate_dofs_topological(V, fdim, facets)
+            with u_D.vector.localForm() as u0_loc:
+                u0_loc.set(1.0)
             self._bc = dirichletbc(u_D, dofs)
         elif type == "Neumann":
                 self._bc = inner(values, v) * ds(marker)
         elif type == "Robin":
-            self._bc = values[0] * inner(u-values[1], v)* ds(marker)
+            self._bc = values[0] * inner(u - values[1], v)* ds(marker)
         else:
             raise TypeError("Unknown boundary condition: {0:s}".format(type))
     @property
