@@ -1,6 +1,7 @@
 import dolfinx
 import numpy as np
 import pyvista
+import ufl
 
 from dolfinx.fem import (Constant,  Function, FunctionSpace, assemble_scalar, 
                          dirichletbc, form, locate_dofs_topological)
@@ -24,17 +25,17 @@ i0 = 10  # A/m^2
 comm = MPI.COMM_WORLD
 mesh = create_unit_square(comm, 10, 10)
 
-# u_ex = Constant(mesh, ScalarType(0.0))
-u_ex = lambda x: 1 + x[0]**2 + 2*x[1]**2
-# u_ex = lambda x: 0
+u_left_bc = 1.0
 x = SpatialCoordinate(mesh)
+
 # Define physical parameters and boundary condtions
-s = Constant(mesh, ScalarType(0.005))  # u_ex(x)
-f = Constant(mesh, ScalarType(0.0))  # -div(grad(u_ex(x)))
+s = Constant(mesh, ScalarType(0.005))
+f = Constant(mesh, ScalarType(0.0))
 n = FacetNormal(mesh)
-g = Constant(mesh, ScalarType(0.0))  # -dot(n, grad(u_ex(x)))
+g = Constant(mesh, ScalarType(0.0))
 kappa = Constant(mesh, ScalarType(1))
-r = Constant(mesh, ScalarType(i0 * z * F_farad / (R * T)))  # Constant(mesh, ScalarType(1000))
+r = Constant(mesh, ScalarType(i0 * z * F_farad / (R * T)))
+
 # Define function space and standard part of variational form
 V = FunctionSpace(mesh, ("CG", 1))
 u, v = TrialFunction(V), TestFunction(V)
@@ -72,7 +73,7 @@ class BoundaryCondition():
             facets = facet_tag.find(marker)
             dofs = locate_dofs_topological(V, fdim, facets)
             with u_D.vector.localForm() as u0_loc:
-                u0_loc.set(1.0)
+                u0_loc.set(values[0])
             self._bc = dirichletbc(u_D, dofs)
         elif type == "Neumann":
                 self._bc = inner(values, v) * ds(marker)
@@ -89,7 +90,7 @@ class BoundaryCondition():
         return self._type
 
 # Define the Dirichlet condition
-boundary_conditions = [BoundaryCondition("Dirichlet", 1, u_ex),
+boundary_conditions = [BoundaryCondition("Dirichlet", 1, (u_left_bc, )),
                         BoundaryCondition("Robin", 2, (r, s)),
                        BoundaryCondition("Neumann", 3, g),
                        BoundaryCondition("Neumann", 4, g)]
@@ -109,9 +110,21 @@ problem = LinearProblem(a, L, bcs=bcs, petsc_options=options)
 uh = problem.solve()
 
 # save to file
-with dolfinx.io.XDMFFile(comm, "secondary.xdmf", "w") as outfile:
+with dolfinx.io.XDMFFile(comm, "secondary-potential.xdmf", "w") as outfile:
     outfile.write_mesh(mesh)
     outfile.write_function(uh)
+
+grad_u = ufl.grad(uh)
+
+W = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 1))
+current_expr = dolfinx.fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
+current_h = dolfinx.fem.Function(W)
+current_h.interpolate(current_expr)
+
+with dolfinx.io.XDMFFile(comm, "secondary-current.xdmf", "w") as file:
+    file.write_mesh(mesh)
+    file.write_function(current_h)
+
 # Visualize solution
 pyvista.set_jupyter_backend("pythreejs")
 pyvista_cells, cell_types, geometry = create_vtk_mesh(V)
