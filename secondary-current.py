@@ -1,3 +1,4 @@
+import dolfinx
 import numpy as np
 import pyvista
 
@@ -20,7 +21,8 @@ z = 1  # number of electrons involved
 F_farad = 96485  # C/mol
 i0 = 10  # A/m^2
 
-mesh = create_unit_square(MPI.COMM_WORLD, 10, 10)
+comm = MPI.COMM_WORLD
+mesh = create_unit_square(comm, 10, 10)
 
 # u_ex = Constant(mesh, ScalarType(0.0))
 u_ex = lambda x: 1 + x[0]**2 + 2*x[1]**2
@@ -55,7 +57,7 @@ sorted_facets = np.argsort(facet_indices)
 facet_tag = meshtags(mesh, fdim, facet_indices[sorted_facets], facet_markers[sorted_facets])
 
 mesh.topology.create_connectivity(mesh.topology.dim-1, mesh.topology.dim)
-with XDMFFile(mesh.comm, "facet_tags.xdmf", "w") as xdmf:
+with XDMFFile(comm, "facet_tags.xdmf", "w") as xdmf:
     xdmf.write_mesh(mesh)
     xdmf.write_meshtags(facet_tag)
 
@@ -106,6 +108,10 @@ L = rhs(F)
 problem = LinearProblem(a, L, bcs=bcs, petsc_options=options)
 uh = problem.solve()
 
+# save to file
+with dolfinx.io.XDMFFile(comm, "secondary.xdmf", "w") as outfile:
+    outfile.write_mesh(mesh)
+    outfile.write_function(uh)
 # Visualize solution
 pyvista.set_jupyter_backend("pythreejs")
 pyvista_cells, cell_types, geometry = create_vtk_mesh(V)
