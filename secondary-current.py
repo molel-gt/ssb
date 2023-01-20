@@ -13,6 +13,8 @@ from ufl import (FacetNormal, Measure, SpatialCoordinate, TestFunction, TrialFun
                  div, dot, dx, grad, inner, lhs, rhs)
 from dolfinx.io import XDMFFile
 from dolfinx.plot import create_vtk_mesh
+from matplotlib.widgets import Slider, Button
+# pyvista.global_theme.interactive = True
 
 
 # parameters
@@ -34,7 +36,7 @@ f = Constant(mesh, ScalarType(0.0))
 n = FacetNormal(mesh)
 # i0 = Constant(mesh, ScalarType(10))  # A/m^2
 g = Constant(mesh, ScalarType(0.0))
-kappa = Constant(mesh, ScalarType(1))
+kappa = Constant(mesh, ScalarType(1e3))
 r = Constant(mesh, ScalarType(i0 * z * F_farad / (R * T)))
 
 # Define function space and standard part of variational form
@@ -42,11 +44,21 @@ V = FunctionSpace(mesh, ("CG", 1))
 u, v = TrialFunction(V), TestFunction(V)
 F = kappa * inner(grad(u), grad(v)) * dx - inner(f, v) * dx
 
-boundaries = [(1, lambda x: np.isclose(x[0], 0)),
-              (2, lambda x: np.isclose(x[0], 1)),
-              (3, lambda x: np.isclose(x[1], 0)),
-              (4, lambda x: np.isclose(x[1], 1))]
+# boundaries
+y_lower = 0.25
+y_upper = 0.75
+left_cc = lambda x: np.logical_and(np.isclose(x[0], 0), np.logical_and(np.less_equal(x[1], y_upper), np.greater_equal(x[1], y_lower)))
+right_cc = lambda x: np.isclose(x[0], 1.0)
+insulated = lambda x: np.logical_and(
+    np.logical_not(np.logical_and(np.isclose(x[0], 0), np.logical_and(np.less_equal(x[1], y_upper), np.greater_equal(x[1], y_lower)))),
+    np.logical_not(np.isclose(x[0], 1.0)),
+)
 
+boundaries = [
+    (1, left_cc),
+    (2, right_cc),
+    (3, insulated),
+]
 facet_indices, facet_markers = [], []
 fdim = mesh.topology.dim - 1
 for (marker, locator) in boundaries:
@@ -67,7 +79,7 @@ ds = Measure("ds", domain=mesh, subdomain_data=facet_tag)
 
 # Dirichlet boundary
 u_D = Function(V)
-facets = facet_tag.find(1)
+facets = facet_tag.find(2)
 dofs = locate_dofs_topological(V, fdim, facets)
 with u_D.vector.localForm() as u0_loc:
     u0_loc.set(1.0)
@@ -76,10 +88,10 @@ bcs = [dirichletbc(u_D, dofs)]
 
 # Neumann boundary
 F += inner(g, v) * ds(3)
-F += inner(g, v) * ds(4)
+# F += inner(g, v) * ds(4)
 
 # Robin boundary
-F += r * inner(u - s, v) * ds(2)
+F += r * inner(u - s, v) * ds(1)
 
 # Solve linear variational problem
 options = {
