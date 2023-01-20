@@ -23,7 +23,7 @@ F_farad = 96485  # C/mol
 i0 = 10  # A/m^2
 
 comm = MPI.COMM_WORLD
-mesh = create_unit_square(comm, 10, 10)
+mesh = create_unit_square(comm, 20, 20)
 
 u_left_bc = 1.0
 x = SpatialCoordinate(mesh)
@@ -32,6 +32,7 @@ x = SpatialCoordinate(mesh)
 s = Constant(mesh, ScalarType(0.005))
 f = Constant(mesh, ScalarType(0.0))
 n = FacetNormal(mesh)
+# i0 = Constant(mesh, ScalarType(10))  # A/m^2
 g = Constant(mesh, ScalarType(0.0))
 kappa = Constant(mesh, ScalarType(1))
 r = Constant(mesh, ScalarType(i0 * z * F_farad / (R * T)))
@@ -64,46 +65,28 @@ with XDMFFile(comm, "facet_tags.xdmf", "w") as xdmf:
 
 ds = Measure("ds", domain=mesh, subdomain_data=facet_tag)
 
-class BoundaryCondition():
-    def __init__(self, type, marker, values):
-        self._type = type
-        if type == "Dirichlet":
-            u_D = Function(V)
-            # u_D.interpolate(values)
-            facets = facet_tag.find(marker)
-            dofs = locate_dofs_topological(V, fdim, facets)
-            with u_D.vector.localForm() as u0_loc:
-                u0_loc.set(values[0])
-            self._bc = dirichletbc(u_D, dofs)
-        elif type == "Neumann":
-                self._bc = inner(values, v) * ds(marker)
-        elif type == "Robin":
-            self._bc = values[0] * inner(u - values[1], v)* ds(marker)
-        else:
-            raise TypeError("Unknown boundary condition: {0:s}".format(type))
-    @property
-    def bc(self):
-        return self._bc
+# Dirichlet boundary
+u_D = Function(V)
+facets = facet_tag.find(1)
+dofs = locate_dofs_topological(V, fdim, facets)
+with u_D.vector.localForm() as u0_loc:
+    u0_loc.set(1.0)
 
-    @property
-    def type(self):
-        return self._type
+bcs = [dirichletbc(u_D, dofs)]
 
-# Define the Dirichlet condition
-boundary_conditions = [BoundaryCondition("Dirichlet", 1, (u_left_bc, )),
-                        BoundaryCondition("Robin", 2, (r, s)),
-                       BoundaryCondition("Neumann", 3, g),
-                       BoundaryCondition("Neumann", 4, g)]
+# Neumann boundary
+F += inner(g, v) * ds(3)
+F += inner(g, v) * ds(4)
 
-bcs = []
-for condition in boundary_conditions:
-    if condition.type == "Dirichlet":
-        bcs.append(condition.bc)
-    else:
-        F += condition.bc
+# Robin boundary
+F += r * inner(u - s, v) * ds(2)
 
 # Solve linear variational problem
-options = {"ksp_type": "preonly", "pc_type": "lu"}
+options = {
+            "ksp_type": "gmres",
+            "pc_type": "hypre",
+            "ksp_rtol": 1.0e-12,
+        }
 a = lhs(F)
 L = rhs(F)
 problem = LinearProblem(a, L, bcs=bcs, petsc_options=options)
