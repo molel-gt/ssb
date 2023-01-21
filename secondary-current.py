@@ -15,6 +15,8 @@ from dolfinx.io import XDMFFile
 from dolfinx.plot import create_vtk_mesh
 
 
+pyvista.set_plot_theme("paraview")
+
 # parameters
 R = 8.314 # J/K/mol
 T = 298 # K
@@ -25,7 +27,7 @@ i0 = 10  # A/m^2
 plotter = pyvista.Plotter()
 
 comm = MPI.COMM_WORLD
-mesh = create_unit_square(comm, 20, 20)
+mesh = create_unit_square(comm, 25, 25)
 
 
 def create_mesh(kappa=0.5, y_lower=0.25, y_upper=0.75):
@@ -156,7 +158,7 @@ engine = MyCustomRoutine(mesh)
 
 plotter.add_slider_widget(
     callback=lambda value: engine('kappa', value),
-    rng=[0, 100],
+    rng=[0, 10],
     value=0.5,
     title="conductivity",
     pointa=(0.025, 0.925),
