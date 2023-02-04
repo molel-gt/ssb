@@ -35,7 +35,7 @@ def create_mesh(kappa=0.5, y_lower=0.25, y_upper=0.75):
     u_left_bc = 1.0
     x = SpatialCoordinate(mesh)
 
-    # Define physical parameters and boundary condtions
+    # Define physical parameters and boundary conditions
     s = Constant(mesh, ScalarType(0.005))
     f = Constant(mesh, ScalarType(0.0))
     n = FacetNormal(mesh)
@@ -150,8 +150,7 @@ class MyCustomRoutine:
 
     def update(self):
         # This is where you call your simulation
-        result = create_mesh(**self.kwargs)
-        # self.output.copy_from(result)
+        create_mesh(**self.kwargs)
         return
 
 engine = MyCustomRoutine(mesh)
