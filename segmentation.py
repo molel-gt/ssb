@@ -3,7 +3,7 @@ import os
 import sys
 import time
 
-import cv2
+# import cv2
 import hdbscan
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
@@ -44,8 +44,8 @@ hdbscan_kwargs = {
     "cluster_selection_epsilon": 5,
     "gen_min_span_tree": True
     }
-image_ids = np.array(range(202)).reshape(-1, 1)
-thresholds = np.linspace(0, 0.1, num=41).reshape(-1, 1)
+image_ids = np.array(range(202))
+thresholds = np.linspace(0, 0.1, num=41)
 actions = ['labeling', 'predicting']
 
 
@@ -144,5 +144,5 @@ def get_clustering_results(X_2d, **hdbscan_kwargs):
 def run_segmentation(image_id, threshold, action='labeling'):
     return
 
-fig, ax = plt.subplots(2, 2)
-controls = iplt.plot(run_segmentation, image_id=image_ids, threshold=thresholds)
+# fig, ax = plt.subplots(2, 2)
+# controls = iplt.plot(run_segmentation, image_id=image_ids, threshold=thresholds)
