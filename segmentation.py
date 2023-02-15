@@ -526,9 +526,6 @@ ax[1, 1].set_ylim([0, 500])
 ax[1, 1].set_title("Segmented")
 
 selector = SelectFromCollection(ax[1, 0], pts)
-
-# selected_pts = selector.xys[selector.ind]
-# selector.onselect(selected_pts)
 fig.canvas.mpl_connect("key_press_event", accept)
 image_id_slider.on_changed(update_image_id)
 threshold_slider.on_changed(update_threshold)
