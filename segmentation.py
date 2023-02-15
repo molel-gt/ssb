@@ -1,4 +1,6 @@
 import itertools
+import os
+
 
 import cv2
 import hdbscan
@@ -39,6 +41,14 @@ image_ids = np.array(range(202))
 thresholds = np.linspace(0, 0.1, num=41)
 actions = ['label', 'predict']
 # plotter = pyvista.Plotter()
+
+fig, ax = plt.subplots(3, 2)
+plt.subplots_adjust(left=0.15, bottom=0.25)
+
+
+def make_dir_if_missing(f_path):
+    """"""
+    os.makedirs(f_path, exist_ok=True)
 
 
 def load_clusters(X_2d, y_predict, shape=(501, 501)):
@@ -133,32 +143,61 @@ def get_clustering_results(X_2d, **hdbscan_kwargs):
     return y_predict
 
 
-def run_segmentation(image_id=image_id, threshold=threshold, action='label'):
-    print(image_id, threshold)
+def run_clustering(image_id=image_id, threshold=threshold, rerun=False, action='label'):
     img_id = str(image_id).zfill(3)
-    img_1 = cv2.imread(f"unsegmented/{img_id}.tif", cv2.IMREAD_UNCHANGED)
-    img_11 = neighborhood_average(img_1)
-    for i in range(25):
-        img_11 = neighborhood_average(img_11)
-    img_2 = filters.meijering(img_11)
-    img_3 = neighborhood_average(img_2)
-    for i in range(5):
-        img_3 = neighborhood_average(img_3)
-    img = img_3 / np.max(img_3)
-    X_2d = build_features_matrix(img, img_1, threshold)
-    y_predict = get_clustering_results(X_2d, **hdbscan_kwargs)
-    img_cluster_raw = -2 * np.ones(img.shape)
+    make_dir_if_missing('segmentation')
+    make_dir_if_missing('segmentation/edges')
+    make_dir_if_missing('segmentation/clusters')
+    make_dir_if_missing('segmentation/phases')
+    if rerun or not os.path.exists(f'segmentation/edges/{img_id}'):
+    
+        img_1 = cv2.imread(f"unsegmented/{img_id}.tif", cv2.IMREAD_UNCHANGED)
+        img_11 = neighborhood_average(img_1)
+        for i in range(25):
+            img_11 = neighborhood_average(img_11)
+        img_2 = filters.meijering(img_11)
+        img_3 = neighborhood_average(img_2)
+        for i in range(5):
+            img_3 = neighborhood_average(img_3)
+        img = img_3 / np.max(img_3)
+        with open('segmentation/edges', 'wb') as fp:
+            pickle.dump(img_2, fp)
+    else:
+        with open('segmentation/edges') as fp:
+            img_2= pickle.load(fp)
 
-    # averages = []
-    for v in np.unique(y_predict):
-        X_v = np.where(y_predict == v)[0]
-        coords = np.array([X_2d[ix, :2] for ix in X_v])
-        for (ix, iy) in coords:
-            img_cluster_raw[int(ix), int(iy)] = v
-        # px_avg = np.mean(y[X_v])
-        # averages.append(px_avg)
+    if rerun or not os.path.exists(f'segmentation/clusters/{img_id}'):
+        X_2d = build_features_matrix(img, img_1, threshold)
+        y_predict = get_clustering_results(X_2d, **hdbscan_kwargs)
+        img_cluster_raw = -2 * np.ones(img.shape)
 
-    plt.subplots_adjust(left=0.15, bottom=0.25)
+        for v in np.unique(y_predict):
+            X_v = np.where(y_predict == v)[0]
+            coords = np.array([X_2d[ix, :2] for ix in X_v])
+            for (ix, iy) in coords:
+                img_cluster_raw[int(ix), int(iy)] = v
+
+        img_cluster_enhanced = enhance_clusters(img_cluster_raw)
+        for i in range(1):
+            img_cluster_enhanced = enhance_clusters(img_cluster_raw)
+        with open('segmentation/clusters', 'wb') as fp:
+            pickle.dump(img_cluster_enhanced, fp)
+    else:
+        with open('segmentation/clusters') as fp:
+            img_cluster_enhanced = pickle.load(fp)
+
+    return img_1, img_2, img_cluster_enhanced
+
+
+def run_segmentation(img_1, img_cluster_enhanced):
+    img_seg = np.random.randint(0, 2, size=img_1.shape)
+    return img_seg
+
+
+def update_image_id(val):
+    image_id = image_id_slider.val
+    img_1, img_2, img_cluster_enhanced = run_clustering(image_id=image_id, threshold=threshold)
+    img_seg = run_segmentation(img_1, img_cluster_enhanced)
     ax[0, 0].imshow(img_1, cmap='gray')
     ax[0, 0].set_title('Original')
     ax[0, 0].invert_yaxis()
@@ -167,39 +206,47 @@ def run_segmentation(image_id=image_id, threshold=threshold, action='label'):
     ax[0, 1].set_xlim([0, 500])
     ax[0, 1].set_ylim([0, 500])
 
-    img_cluster_enhanced = enhance_clusters(img_cluster_raw)
-    for i in range(1):
-        img_cluster_enhanced = enhance_clusters(img_cluster_raw)
-    
     ax[1, 0].imshow(img_cluster_enhanced, cmap='magma')
     ax[1, 0].set_title("Enhanced Clusters")
     ax[1, 0].set_xlim([0, 500])
     ax[1, 0].set_ylim([0, 500])
-    
+
+    ax[1, 1].imshow(img_seg, cmap='gray')
     ax[1, 1].set_xlim([0, 500])
     ax[1, 1].set_ylim([0, 500])
     ax[1, 1].set_title("Training Data")
 
 
-def update_image_id(val):
-    image_id = val
-    run_segmentation(fig, ax)
-    # fig.canvas.draw_idle()
-    fig.canvas.draw()
-
-
 def update_threshold(val):
-    threshold = val
-    run_segmentation()
-    # fig.canvas.draw_idle()
-    fig.canvas.draw()
+    threshold = threshold_slider.val
+    img_1, img_2, img_cluster_enhanced = run_clustering(image_id=image_id, threshold=threshold)
+    img_seg = run_segmentation(img_1, img_cluster_enhanced)
+
+    ax[0, 0].imshow(img_1, cmap='gray')
+    ax[0, 0].set_title('Original')
+    ax[0, 0].invert_yaxis()
+    ax[0, 1].imshow(img_2, cmap='magma')
+    ax[0, 1].set_title('Edges')
+    ax[0, 1].set_xlim([0, 500])
+    ax[0, 1].set_ylim([0, 500])
+
+
+    ax[1, 0].imshow(img_cluster_enhanced, cmap='magma')
+    ax[1, 0].set_title("Enhanced Clusters")
+    ax[1, 0].set_xlim([0, 500])
+    ax[1, 0].set_ylim([0, 500])
+    ax[1, 1].imshow(img_seg, cmap='gray')
+    ax[1, 1].set_xlim([0, 500])
+    ax[1, 1].set_ylim([0, 500])
+    ax[1, 1].set_title("Training Data")
+    
 
 def reset(event):
     image_id_slider.reset()
     threshold_slider.reset()
 
 
-fig, ax = plt.subplots(3, 2)
+
 resetax = fig.add_axes([0.8, 0.025, 0.1, 0.04])
 button = Button(resetax, 'Reset', hovercolor='0.975')
 button.on_clicked(reset)
@@ -221,10 +268,32 @@ threshold_slider = Slider(
     valinit=threshold,
     valstep=thresholds,
 )
+image_id = image_id_slider.val
+threshold = threshold_slider.val
 
-run_segmentation()
+img_1, img_2, img_cluster_enhanced = run_clustering()
+
+ax[0, 0].imshow(img_1, cmap='gray')
+ax[0, 0].set_title('Original')
+ax[0, 0].invert_yaxis()
+ax[0, 1].imshow(img_2, cmap='magma')
+ax[0, 1].set_title('Edges')
+ax[0, 1].set_xlim([0, 500])
+ax[0, 1].set_ylim([0, 500])
+
+
+ax[1, 0].imshow(img_cluster_enhanced, cmap='magma')
+ax[1, 0].set_title("Enhanced Clusters")
+ax[1, 0].set_xlim([0, 500])
+ax[1, 0].set_ylim([0, 500])
+
+ax[1, 1].set_xlim([0, 500])
+ax[1, 1].set_ylim([0, 500])
+ax[1, 1].set_title("Training Data")
+
 image_id_slider.on_changed(update_image_id)
 threshold_slider.on_changed(update_threshold)
 
+fig.canvas.draw()
 plt.tight_layout()
 plt.show()
