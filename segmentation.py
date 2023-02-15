@@ -417,7 +417,7 @@ def label_clusters(val):
         img_seg[coords] = phase
     with open(f'segmentation/phases/{img_id}', 'wb') as fp:
         pickle.dump(img_seg, fp)
-    ax[1, 1].imshow(img_seg, cmap='gray')
+    ax[1, 1].imshow(img_seg, cmap='brg')
     ax[1, 1].set_xlim([0, 500])
     ax[1, 1].set_ylim([0, 500])
     ax[1, 1].set_title("Segmented")
@@ -507,6 +507,12 @@ img_1, img_2, img_cluster_enhanced = run_clustering()
 img_seg = run_segmentation(image_id, img_1, img_cluster_enhanced)
 ax[0, 0].imshow(img_1, cmap='gray')
 ax[0, 0].set_title('Original')
+# ax[0, 0].annotate("", xy=(120, 400), xytext=(480, 220), arrowprops=dict(arrowstyle="<|-|>"), color='tab:red')
+t = ax[0, 0].text(270, 320, "Solid Electrolyte",
+            ha="center", va="center", rotation=-35, size=30,
+            bbox=dict(boxstyle="darrow,pad=0.1",
+                      fc="lightblue", ec="steelblue", lw=2))
+
 ax[0, 0].invert_yaxis()
 ax[0, 1].imshow(img_2, cmap='magma')
 ax[0, 1].set_title('Edges')
@@ -517,10 +523,14 @@ ax[1, 0].set_box_aspect(1)
 coords = np.asarray(np.where(img_cluster_enhanced > -1)).T
 y = np.array([img_cluster_enhanced[ix, iy] for (ix, iy) in coords]).reshape(-1, 1)
 X = np.hstack((coords, y))
-pts = ax[1, 0].scatter(X[:, 1], X[:, 0], cmap=X[:, 2])
+pts = ax[1, 0].scatter(X[:, 1], X[:, 0], c=X[:, 2])
 ax[1, 0].set_title("Clusters")
 ax[1, 0].set_xlim([0, 500])
 ax[1, 0].set_ylim([0, 500])
+t = ax[1, 0].text(270, 320, "Solid Electrolyte",
+            ha="center", va="center", rotation=-35, size=30,
+            bbox=dict(boxstyle="darrow,pad=0.1",
+                      fc="lightblue", ec="steelblue", lw=2))
 ax[1, 1].imshow(img_seg, cmap='brg')
 ax[1, 1].set_xlim([0, 500])
 ax[1, 1].set_ylim([0, 500])
