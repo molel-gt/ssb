@@ -4,26 +4,25 @@ import os
 
 import cv2
 import hdbscan
-import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 # %matplotlib ipympl
-import mpl_interactions.ipyplot as iplt
-import networkx as nx
+# import mpl_interactions.ipyplot as iplt
+
 import numpy as np
-import pandas as pd
+# import pandas as pd
 import pickle
-import pyvista
-import seaborn as sns
+# import pyvista
+# import seaborn as sns
 import warnings
 
-from collections import defaultdict
-from matplotlib.widgets import Slider, Button, RadioButtons
-from matplotlib.ticker import (MultipleLocator)
+# from collections import defaultdict
+from matplotlib.widgets import Slider, Button#, RadioButtons
+# from matplotlib.ticker import (MultipleLocator)
 
-from PIL import Image
-from scipy import ndimage, signal, stats
-from skimage import io, filters
-from sklearn.ensemble import RandomForestClassifier
+# from PIL import Image
+# from scipy import ndimage, signal, stats
+from skimage import filters
+# from sklearn.ensemble import RandomForestClassifier
 
 
 # %matplotlib notebook
@@ -42,7 +41,7 @@ thresholds = np.linspace(0, 0.1, num=41)
 actions = ['label', 'predict']
 # plotter = pyvista.Plotter()
 
-fig, ax = plt.subplots(3, 2)
+fig, ax = plt.subplots(3, 2, figsize=(12, 12))
 plt.subplots_adjust(left=0.15, bottom=0.25)
 
 
@@ -100,7 +99,6 @@ def neighborhood_average(arr, d=(1, 1), n_min=(0, 0), n_max=(501, 501)):
     dx, dy = d
     for i in range(n_max[0]):
         for j in range(n_max[1]):
-            val = arr[i, j]
             neighbors = arr[max(i - dx, 0):min(i + dx, n_max[0] - 1), max(j - dy, 0):min(j + dy, n_max[1] - 1)]
             out[i, j] = np.mean(neighbors)
     return out
@@ -111,7 +109,6 @@ def neighborhood_mode(arr, d=(1, 1), n_min=(0, 0), n_max=(501, 501)):
     dx, dy = d
     for i in range(n_max[0]):
         for j in range(n_max[1]):
-            val = arr[i, j]
             neighbors = arr[max(i - dx, 0):min(i + dx, n_max[0] - 1), max(j - dy, 0):min(j + dy, n_max[1] - 1)]
             out[i, j] = np.mode(neighbors)[0][0]
 
@@ -163,8 +160,9 @@ def run_clustering(image_id=image_id, threshold=threshold, rerun=False, action='
         with open(f'segmentation/edges/{img_id}', 'wb') as fp:
             pickle.dump(img_2, fp)
     else:
-        with open(f'segmentation/edges/{img_id}') as fp:
-            img_2= pickle.load(fp)
+        img_1 = cv2.imread(f"unsegmented/{img_id}.tif", cv2.IMREAD_UNCHANGED)
+        with open(f'segmentation/edges/{img_id}', 'rb') as fp:
+            img_2 = pickle.load(fp)
 
     if rerun or not os.path.exists(f'segmentation/clusters/{img_id}'):
         X_2d = build_features_matrix(img, img_1, threshold)
@@ -183,7 +181,7 @@ def run_clustering(image_id=image_id, threshold=threshold, rerun=False, action='
         with open(f'segmentation/clusters/{img_id}', 'wb') as fp:
             pickle.dump(img_cluster_enhanced, fp)
     else:
-        with open(f'segmentation/clusters/{img_id}') as fp:
+        with open(f'segmentation/clusters/{img_id}', 'rb') as fp:
             img_cluster_enhanced = pickle.load(fp)
 
     return img_1, img_2, img_cluster_enhanced
