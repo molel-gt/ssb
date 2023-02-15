@@ -160,10 +160,10 @@ def run_clustering(image_id=image_id, threshold=threshold, rerun=False, action='
         for i in range(5):
             img_3 = neighborhood_average(img_3)
         img = img_3 / np.max(img_3)
-        with open('segmentation/edges', 'wb') as fp:
+        with open(f'segmentation/edges/{img_id}', 'wb') as fp:
             pickle.dump(img_2, fp)
     else:
-        with open('segmentation/edges') as fp:
+        with open(f'segmentation/edges/{img_id}') as fp:
             img_2= pickle.load(fp)
 
     if rerun or not os.path.exists(f'segmentation/clusters/{img_id}'):
@@ -180,10 +180,10 @@ def run_clustering(image_id=image_id, threshold=threshold, rerun=False, action='
         img_cluster_enhanced = enhance_clusters(img_cluster_raw)
         for i in range(1):
             img_cluster_enhanced = enhance_clusters(img_cluster_raw)
-        with open('segmentation/clusters', 'wb') as fp:
+        with open(f'segmentation/clusters/{img_id}', 'wb') as fp:
             pickle.dump(img_cluster_enhanced, fp)
     else:
-        with open('segmentation/clusters') as fp:
+        with open(f'segmentation/clusters/{img_id}') as fp:
             img_cluster_enhanced = pickle.load(fp)
 
     return img_1, img_2, img_cluster_enhanced
