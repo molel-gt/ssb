@@ -268,7 +268,7 @@ def run_clustering(image_id=image_id, threshold=threshold, rerun=False, rethresh
     make_dir_if_missing('segmentation/edges')
     make_dir_if_missing('segmentation/clusters')
     make_dir_if_missing('segmentation/phases')
-    if rerun or not os.path.exists(f'segmentation/edges/{img_id}'):
+    if rerun or rethreshold or not os.path.exists(f'segmentation/edges/{img_id}'):
     
         img_1 = cv2.imread(f"unsegmented/{img_id}.tif", cv2.IMREAD_UNCHANGED)
         img_11 = neighborhood_average(img_1)
@@ -314,6 +314,7 @@ def run_clustering(image_id=image_id, threshold=threshold, rerun=False, rethresh
 
 
 def run_segmentation(image_id, img_1, img_cluster_enhanced):
+    image_id = image_id_slider.val
     img_id = str(image_id).zfill(3)
     if not os.path.exists(f"segmentation/phases/{img_id}"):
         img_seg = np.random.randint(0, 2, size=img_1.shape, dtype=np.uint8)
@@ -351,9 +352,8 @@ def line_picker(line, mouseevent):
 
 def update_image_id(val):
     image_id = image_id_slider.val
-    img_1, img_2, img_cluster_enhanced = run_clustering(image_id=image_id, threshold=threshold)
+    img_1, img_2, img_cluster_enhanced = run_clustering(image_id=image_id, threshold=threshold, rethreshold=True)
     img_seg = run_segmentation(image_id, img_1, img_cluster_enhanced)
-
 
     ax[0, 0].imshow(img_1, cmap='gray')
     ax[0, 0].set_title('Original')
@@ -375,6 +375,7 @@ def update_image_id(val):
     ax[1, 1].set_xlim([0, 500])
     ax[1, 1].set_ylim([0, 500])
     ax[1, 1].set_title("Segmented")
+    fig.canvas.draw_idle()
 
 
 def update_threshold(val):
@@ -402,6 +403,7 @@ def update_threshold(val):
     ax[1, 1].set_xlim([0, 500])
     ax[1, 1].set_ylim([0, 500])
     ax[1, 1].set_title("Segmented")
+    fig.canvas.draw_idle()
 
 
 def label_clusters(val):
