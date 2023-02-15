@@ -6,29 +6,18 @@ import os
 import cv2
 import hdbscan
 import matplotlib.pyplot as plt
-# %matplotlib ipympl
-# import mpl_interactions.ipyplot as iplt
-
 import numpy as np
-# import pandas as pd
 import pickle
-# import pyvista
-# import seaborn as sns
 import warnings
 
-# from collections import defaultdict
 from matplotlib.image import AxesImage
 from matplotlib.widgets import Slider, Button, PolygonSelector, RadioButtons, LassoSelector
 from matplotlib.path import Path
-# from matplotlib.ticker import (MultipleLocator)
 
-# from PIL import Image
-# from scipy import ndimage, signal, stats
 from skimage import filters
-# from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier
 
 
-# %matplotlib notebook
 warnings.simplefilter("ignore")
 hdbscan_kwargs = {
     "min_cluster_size": 25,
