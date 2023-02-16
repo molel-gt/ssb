@@ -10,7 +10,7 @@ import pickle
 import warnings
 
 from matplotlib.image import AxesImage
-from matplotlib.widgets import Slider, Button, PolygonSelector, RadioButtons, LassoSelector
+from matplotlib.widgets import Slider, Button, CheckButtons, PolygonSelector, RadioButtons, LassoSelector
 from matplotlib.path import Path
 
 from skimage import filters
@@ -153,6 +153,10 @@ class SelectFromCollection:
 
 fig, ax = plt.subplots(2, 2, figsize=(12, 12))
 plt.subplots_adjust(left=0.15, bottom=0.25)
+ax[0, 0].grid(which='both')
+ax[1, 0].grid(which='both')
+ax[0, 1].grid(which='both')
+ax[1, 1].grid(which='both')
 
 
 def make_dir_if_missing(f_path):
@@ -297,7 +301,7 @@ class Segmentor:
         make_dir_if_missing(self.phases_dir)
 
     def clustering(self):
-        img_id = str(image_id).zfill(3)
+        img_id = str(self.image_id).zfill(3)
         if not os.path.exists(os.path.join(self.edges_dir, f'{img_id}')):
         
             img_1 = cv2.imread(os.path.join(self.input_dir, f"{img_id}.tif"), cv2.IMREAD_UNCHANGED)
@@ -343,7 +347,7 @@ class Segmentor:
         self.img = img_1
         self.edges = img_2
         self.clusters = img_cluster_enhanced
-        print(os.path.exists(os.path.join(self.phases_dir, f'{img_id}')))
+
         if not os.path.exists(os.path.join(self.phases_dir, f'{img_id}')):
             self.phases = np.zeros(self.img.shape, dtype=np.uint8)
         else:
@@ -351,6 +355,7 @@ class Segmentor:
                 self.phases = pickle.load(fp)
 
     def run(self, selection=None, phase=None):
+        img_id = str(self.image_id).zfill(3)
         self.create_dirs()
         if self.clusters is None:
             self.clustering()
@@ -363,72 +368,10 @@ class Segmentor:
             coords = np.where(self.clusters == cluster_vals[0])
             self.phases[coords] = phase
 
-        with open(os.path.join(self.phases_dir, f'{self.img_id}'), 'wb') as fp:
+        img_id = str(self.image_id).zfill(3)
+
+        with open(os.path.join(self.phases_dir, f'{img_id}'), 'wb') as fp:
             pickle.dump(self.phases, fp)
-    
-    
-def run_clustering(image_id=image_id, threshold=threshold, rerun=False, rethreshold=False, action='label'):
-    img_id = str(image_id).zfill(3)
-    make_dir_if_missing('segmentation')
-    make_dir_if_missing('segmentation/edges')
-    make_dir_if_missing('segmentation/clusters')
-    make_dir_if_missing('segmentation/phases')
-    if rerun or rethreshold or not os.path.exists(f'segmentation/edges/{img_id}'):
-    
-        img_1 = cv2.imread(f"unsegmented/{img_id}.tif", cv2.IMREAD_UNCHANGED)
-        img_11 = neighborhood_average(img_1)
-        for i in range(25):
-            img_11 = neighborhood_average(img_11)
-        img_2 = filters.meijering(img_11)
-        img_3 = neighborhood_average(img_2)
-        for i in range(5):
-            img_3 = neighborhood_average(img_3)
-        img = img_3 / np.max(img_3)
-        with open(f'segmentation/edges/{img_id}', 'wb') as fp:
-            pickle.dump(img_2, fp)
-    else:
-        img_1 = cv2.imread(f"unsegmented/{img_id}.tif", cv2.IMREAD_UNCHANGED)
-        with open(f'segmentation/edges/{img_id}', 'rb') as fp:
-            img_2 = pickle.load(fp)
-
-    if rerun or rethreshold or not os.path.exists(f'segmentation/clusters/{img_id}'):
-        img_3 = neighborhood_average(img_2)
-        for i in range(5):
-            img_3 = neighborhood_average(img_3)
-        img = img_3 / np.max(img_3)
-        X_2d = build_features_matrix(img, img_1, threshold)
-        y_predict = get_clustering_results(X_2d, **hdbscan_kwargs)
-        img_cluster_raw = -2 * np.ones(img.shape)
-
-        for v in np.unique(y_predict):
-            X_v = np.where(y_predict == v)[0]
-            coords = np.array([X_2d[ix, :2] for ix in X_v])
-            for (ix, iy) in coords:
-                img_cluster_raw[int(ix), int(iy)] = v
-
-        img_cluster_enhanced = enhance_clusters(img_cluster_raw)
-        for i in range(1):
-            img_cluster_enhanced = enhance_clusters(img_cluster_raw)
-        with open(f'segmentation/clusters/{img_id}', 'wb') as fp:
-            pickle.dump(img_cluster_enhanced, fp)
-    else:
-        with open(f'segmentation/clusters/{img_id}', 'rb') as fp:
-            img_cluster_enhanced = pickle.load(fp)
-
-    return img_1, img_2, img_cluster_enhanced
-
-
-def run_segmentation(image_id, img_1, img_cluster_enhanced):
-    image_id = image_id_slider.val
-    img_id = str(image_id).zfill(3)
-    if not os.path.exists(f"segmentation/phases/{img_id}"):
-        img_seg = np.random.randint(0, 2, size=img_1.shape, dtype=np.uint8)
-        with open(f'segmentation/phases/{img_id}', 'wb') as fp:
-            pickle.dump(img_seg, fp)
-    else:
-        with open(f'segmentation/phases/{img_id}', 'rb') as fp:
-            img_seg = pickle.load(fp)
-    return img_seg
 
 
 def line_picker(line, mouseevent):
@@ -456,83 +399,47 @@ def line_picker(line, mouseevent):
 
 
 def update_image_id(val):
-    image_id = image_id_slider.val
-    img_1, img_2, img_cluster_enhanced = run_clustering(image_id=image_id, threshold=threshold, rethreshold=True)
-    img_seg = run_segmentation(image_id, img_1, img_cluster_enhanced)
+    seg = Segmentor(image_id=image_id_slider.val, threshold=threshold_slider.val)
+    seg.run()
+    img = seg.img
+    edges = seg.edges
+    clusters = seg.clusters
+    img_seg = seg.phases
 
-    ax[0, 0].imshow(img_1, cmap='gray')
-    ax[0, 0].set_title('Original')
-    ax[0, 0].invert_yaxis()
-    ax[0, 1].imshow(img_2, cmap='magma')
-    ax[0, 1].set_title('Edges')
-    ax[0, 1].set_xlim([0, 500])
-    ax[0, 1].set_ylim([0, 500])
-
-    coords = np.asarray(np.where(img_cluster_enhanced > -1)).T
-    y = np.array([img_cluster_enhanced[ix, iy] for (ix, iy) in coords]).reshape(-1, 1)
+    coords = np.asarray(np.where(clusters > -1)).T
+    y = np.array([clusters[ix, iy] for (ix, iy) in coords]).reshape(-1, 1)
     X = np.hstack((coords, y))
-    ax[1, 0].scatter(X[:, 1], X[:, 0], cmap=X[:, 2])
-    ax[1, 0].set_title("Clusters")
-    ax[1, 0].set_xlim([0, 500])
-    ax[1, 0].set_ylim([0, 500])
-
-    ax[1, 1].imshow(img_seg, cmap='gray')
-    ax[1, 1].set_xlim([0, 500])
-    ax[1, 1].set_ylim([0, 500])
-    ax[1, 1].set_title("Segmented")
+    
+    f1.set_data(img)
+    f2.set_data(edges)
+    # f3.set_data(X[:, [1, 0]])
+    # f3.set_xdata(X[:, 1])
+    # f3.set_ydata(X[:, 0])
+    f4.set_data(img_seg)
     fig.canvas.draw_idle()
 
 
 def update_threshold(val):
-    image_id = image_id_slider.val
-    threshold = threshold_slider.val
-    img_1, img_2, img_cluster_enhanced = run_clustering(image_id=image_id, threshold=threshold, rethreshold=True)
-    img_seg = run_segmentation(image_id, img_1, img_cluster_enhanced)
+    seg = Segmentor(image_id=image_id_slider.val, threshold=threshold_slider.val)
+    seg.run()
 
-    ax[0, 0].imshow(img_1, cmap='gray')
-    ax[0, 0].set_title('Original')
-    ax[0, 0].invert_yaxis()
-    ax[0, 1].imshow(img_2, cmap='magma')
-    ax[0, 1].set_title('Edges')
-    ax[0, 1].set_xlim([0, 500])
-    ax[0, 1].set_ylim([0, 500])
+    img = seg.img
+    edges = seg.edges
+    clusters = seg.clusters
+    img_seg = seg.phases
 
-    coords = np.asarray(np.where(img_cluster_enhanced > -1)).T
-    y = np.array([img_cluster_enhanced[ix, iy] for (ix, iy) in coords]).reshape(-1, 1)
+    coords = np.asarray(np.where(clusters > -1)).T
+    y = np.array([clusters[ix, iy] for (ix, iy) in coords]).reshape(-1, 1)
     X = np.hstack((coords, y))
-    ax[1, 0].scatter(X[:, 1], X[:, 0], cmap=X[:, 2])
-    ax[1, 0].set_title("Clusters")
-    ax[1, 0].set_xlim([0, 500])
-    ax[1, 0].set_ylim([0, 500])
-    ax[1, 1].imshow(img_seg, cmap='gray')
-    ax[1, 1].set_xlim([0, 500])
-    ax[1, 1].set_ylim([0, 500])
-    ax[1, 1].set_title("Segmented")
+
+    f1.set_data(img)
+    f2.set_data(edges)
+    f3.set_data(X[:, [1, 0]])
+    # f3.set_xdata(X[:, 1])
+    # f3.set_ydata(X[:, 0])
+    f4.set_data(img_seg)
+
     fig.canvas.draw_idle()
-
-
-def label_clusters(val):
-    image_id = image_id_slider.val
-    img_id = str(image_id).zfill(3)
-    selected_pts = np.array(selector.xys[selector.ind], dtype=int)
-    cluster_vals = list(np.unique([img_cluster_enhanced[iy, ix] for ix, iy in selected_pts]))
-    print(cluster_vals)
-    if len(cluster_vals) == 1:
-        coords = np.where(img_cluster_enhanced == cluster_vals[0])
-        img_seg[coords] = phase
-    with open(f'segmentation/phases/{img_id}', 'wb') as fp:
-        pickle.dump(img_seg, fp)
-    ax[1, 1].imshow(img_seg, cmap='brg')
-    ax[1, 1].set_xlim([0, 500])
-    ax[1, 1].set_ylim([0, 500])
-    ax[1, 1].set_title("Segmented")
-    fig.canvas.draw_idle()
-    
-    return True
-
-
-def select_phase(val):
-    phase = phases[radio2.value_selected]
 
 
 def reset(event):
@@ -540,34 +447,41 @@ def reset(event):
     threshold_slider.reset()
 
 
-def onpick(event):
-    print('onpick2 line:', event.pickx, event.picky)
-
-
 def accept(event):
-        if event.key == "enter":
-            print("Selected points:")
-            print(selector.xys[selector.ind])
-            
-            image_id = image_id_slider.val
-            img_id = str(image_id).zfill(3)
-            selected_pts = np.array(selector.xys[selector.ind], dtype=int)
-            cluster_vals = list(np.unique([img_cluster_enhanced[iy, ix] for ix, iy in selected_pts]))
-            print(cluster_vals)
-            if len(cluster_vals) == 1:
-                coords = np.where(img_cluster_enhanced == int(cluster_vals[0]))
-                img_seg[coords] = phase
-            else:
-                for v in cluster_vals:
-                    coords = np.where(img_cluster_enhanced == int(v))
-                    img_seg[coords] = phase
-            with open(f'segmentation/phases/{img_id}', 'wb') as fp:
-                pickle.dump(img_seg, fp)
-            ax[1, 1].imshow(img_seg, cmap='brg')
-            ax[1, 1].set_xlim([0, 500])
-            ax[1, 1].set_ylim([0, 500])
-            ax[1, 1].set_title("Segmented")
-            fig.canvas.draw_idle()
+    print(event)
+    if event.key == "enter":
+        print("Selected points:")
+        print(selector.xys[selector.ind])
+        selected_pts = np.array(selector.xys[selector.ind], dtype=int)
+
+        seg = Segmentor(image_id=image_id_slider.val, threshold=threshold_slider.val)
+        seg.run()
+        img_1 = seg.img
+        img_2 = seg.edges
+        img_cluster_enhanced = seg.clusters
+        img_seg = seg.phases
+
+        cluster_vals = list(np.unique([img_cluster_enhanced[iy, ix] for ix, iy in selected_pts]))
+        selection = []
+        for v in cluster_vals:
+            selection += [[ix, iy] for ix, iy in np.asarray(np.where(seg.clusters == v)).T]
+
+        seg.run(selection=selection, phase=phases[radio2.value_selected])
+
+        img = seg.img
+        edges = seg.edges
+        clusters = seg.clusters
+        img_seg = seg.phases
+
+        coords = np.asarray(np.where(img_cluster_enhanced > -1)).T
+        y = np.array([img_cluster_enhanced[ix, iy] for (ix, iy) in coords]).reshape(-1, 1)
+        X = np.hstack((coords, y))
+        
+        f1.set_data(img)
+        f2.set_data(edges)
+        f3.set_xdata(X[:, 1])
+        f3.set_ydata(X[:, 0])
+        f4.set_data(img_seg)
 
 resetax = fig.add_axes([0.935, 0.035, 0.05, 0.025])
 image_id_ax = fig.add_axes([0.01, 0.6, 0.025, 0.35])
@@ -595,20 +509,27 @@ threshold_slider = Slider(
     valstep=thresholds,
 )
 
-##
 axcolor = 'lightgoldenrodyellow'
 rax = fig.add_axes([0.475, 0.475, 0.05, 0.05], facecolor=axcolor)
-radio2 = RadioButtons(rax, ('Void', 'SE', 'AM'), active=2)
+# radio2 = RadioButtons(rax, ('Void', 'SE', 'AM'), active=2)
+check = CheckButtons(
+    ax=rax,
+    labels=['Void', 'SE', 'AM'],
+    actives=[1, 0, 0],
+    # label_props={'color': line_colors},
+    # frame_props={'edgecolor': line_colors},
+    # check_props={'facecolor': line_colors},
+)
 
-radio2.on_clicked(select_phase)
+seg = Segmentor(image_id=image_id_slider.val, threshold=threshold_slider.val)
+seg.run()
+img = seg.img
+edges = seg.edges
+clusters = seg.clusters
+img_seg = seg.phases
 
-##
-image_id = image_id_slider.val
-threshold = threshold_slider.val
+f1 = ax[0, 0].imshow(img, cmap='gray')
 
-img_1, img_2, img_cluster_enhanced = run_clustering()
-img_seg = run_segmentation(image_id, img_1, img_cluster_enhanced)
-ax[0, 0].imshow(img_1, cmap='gray')
 ax[0, 0].set_title('Original')
 
 t = ax[0, 0].text(270, 320, "Solid Electrolyte",
@@ -617,32 +538,46 @@ t = ax[0, 0].text(270, 320, "Solid Electrolyte",
                       fc="lightblue", ec="steelblue", lw=2))
 
 ax[0, 0].invert_yaxis()
-ax[0, 1].imshow(img_2, cmap='magma')
+f2 = ax[0, 1].imshow(edges, cmap='magma')
 ax[0, 1].set_title('Edges')
 ax[0, 1].set_xlim([0, 500])
 ax[0, 1].set_ylim([0, 500])
 ax[1, 0].set_box_aspect(1)
 
-coords = np.asarray(np.where(img_cluster_enhanced > -1)).T
-y = np.array([img_cluster_enhanced[ix, iy] for (ix, iy) in coords]).reshape(-1, 1)
+coords = np.asarray(np.where(clusters > -1)).T
+y = np.array([clusters[ix, iy] for (ix, iy) in coords]).reshape(-1, 1)
 X = np.hstack((coords, y))
-pts = ax[1, 0].scatter(X[:, 1], X[:, 0], c=X[:, 2])
+f3 = ax[1, 0].scatter(X[:, 1], X[:, 0], c=X[:, 2], alpha=0.1)
+
 ax[1, 0].set_title("Clusters")
 ax[1, 0].set_xlim([0, 500])
 ax[1, 0].set_ylim([0, 500])
+
 t = ax[1, 0].text(270, 320, "Solid Electrolyte",
             ha="center", va="center", rotation=-35, size=30,
             bbox=dict(boxstyle="darrow,pad=0.1",
                       fc="lightblue", ec="steelblue", lw=2))
-ax[1, 1].imshow(img_seg, cmap='brg')
+f4 = ax[1, 1].imshow(img_seg, cmap='brg')
 ax[1, 1].set_xlim([0, 500])
 ax[1, 1].set_ylim([0, 500])
 ax[1, 1].set_title("Segmented")
+selector = SelectFromCollection(ax[1, 0], f3)
 
-selector = SelectFromCollection(ax[1, 0], pts)
+
+def func(label):
+    pass
+    # print(check.get_active())
+    # print(label)
+    # index = labels.index(label)
+    # lines[index].set_visible(not lines[index].get_visible())
+    # plt.draw()
+
+check.on_clicked(func)
+
 fig.canvas.mpl_connect("key_press_event", accept)
 image_id_slider.on_changed(update_image_id)
 threshold_slider.on_changed(update_threshold)
+# check.on_clicked(accept)
 fig.canvas.draw_idle()
 plt.tight_layout()
 plt.show()
