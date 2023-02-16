@@ -251,6 +251,120 @@ def get_clustering_results(X_2d, **hdbscan_kwargs):
     return y_predict
 
 
+class Segmentor:
+    def __init__(self, image_id=0, threshold=0.0325, img_dir='unsegmented', edges_dir='edges', clusters_dir='clusters', phases_dir='phases'):
+        self._image_id = image_id
+        self._threshold = threshold
+        self._edges_dir = edges_dir
+        self._clusters_dir = clusters_dir
+        self._phases_dir = phases_dir
+        self._img_dir = img_dir
+        self.img = None
+        self.clusters = None
+        self.edges = None
+        self.residual = None
+        self.phases = None
+
+    @property
+    def image_id(self):
+        return self._image_id
+    
+    @property
+    def img_dir(self):
+        return self._img_dir
+
+    @property
+    def edges_dir(self):
+        return self._edges_dir
+
+    @property
+    def clusters_dir(self):
+        return self._clusters_dir
+    
+    @property
+    def phases_dir(self):
+        return self._phases_dir
+
+    @property
+    def threshold(self):
+        return self._threshold
+    
+    def create_dirs(self):
+        make_dir_if_missing(self.edges_dir)
+        make_dir_if_missing(self.clusters_dir)
+        make_dir_if_missing(self.phases_dir)
+
+    def clustering(self):
+        img_id = str(image_id).zfill(3)
+        if not os.path.exists(os.path.join(self.edges_dir, f'{img_id}')):
+        
+            img_1 = cv2.imread(os.path.join(self.img_dir, f"{img_id}.tif"), cv2.IMREAD_UNCHANGED)
+            img_11 = neighborhood_average(img_1)
+            for i in range(25):
+                img_11 = neighborhood_average(img_11)
+            img_2 = filters.meijering(img_11)
+            img_3 = neighborhood_average(img_2)
+            for i in range(5):
+                img_3 = neighborhood_average(img_3)
+            img = img_3 / np.max(img_3)
+            with open(os.path.join(self.edges_dir, f'{img_id}'), 'wb') as fp:
+                pickle.dump(img_2, fp)
+        else:
+            img_1 = cv2.imread(os.path.join(self.img_dir, f"{img_id}.tif"), cv2.IMREAD_UNCHANGED)
+            with open(os.path.join(self.edges_dir, f'{img_id}'), 'rb') as fp:
+                img_2 = pickle.load(fp)
+
+        if not os.path.exists(os.path.join(self.clusters_dir, f'{img_id}')):
+            img_3 = neighborhood_average(img_2)
+            for i in range(5):
+                img_3 = neighborhood_average(img_3)
+            img = img_3 / np.max(img_3)
+            X_2d = build_features_matrix(img, img_1, threshold)
+            y_predict = get_clustering_results(X_2d, **hdbscan_kwargs)
+            img_cluster_raw = -2 * np.ones(img.shape)
+
+            for v in np.unique(y_predict):
+                X_v = np.where(y_predict == v)[0]
+                coords = np.array([X_2d[ix, :2] for ix in X_v])
+                for (ix, iy) in coords:
+                    img_cluster_raw[int(ix), int(iy)] = v
+
+            img_cluster_enhanced = enhance_clusters(img_cluster_raw)
+            for i in range(1):
+                img_cluster_enhanced = enhance_clusters(img_cluster_raw)
+            with open(os.path.join(self.clusters_dir, f'{img_id}'), 'wb') as fp:
+                pickle.dump(img_cluster_enhanced, fp)
+        else:
+            with open(os.path.join(self.clusters_dir, f'{img_id}'), 'rb') as fp:
+                img_cluster_enhanced = pickle.load(fp)
+        
+        if not os.path.exists(os.path.join(self.phases_dir, f'{img_id}')):
+            self.phases = np.zeros(self.img.shape, dtype=np.uint8)
+        else:
+            with open(os.path.join(self.phases_dir, f'{img_id}'), 'rb') as fp:
+                self.phases = pickle.load(fp)
+
+        self.img = img_1
+        self.edges = img_2
+        self.clusters = img_cluster_enhanced
+
+    def run(self, selection=None, phase=None):
+        self.create_dirs()
+        if self.clusters is None:
+            self.clustering()
+
+        if not all([selection, phase]):
+            return
+
+        cluster_vals = list(np.unique([self.clusters[iy, ix] for ix, iy in selection]))
+        if len(cluster_vals) == 1:
+            coords = np.where(self.clusters == cluster_vals[0])
+            self.phases[coords] = phase
+
+        with open(os.path.join(self.phases_dir, f'{self.img_id}'), 'wb') as fp:
+            pickle.dump(self.phases, fp)
+    
+    
 def run_clustering(image_id=image_id, threshold=threshold, rerun=False, rethreshold=False, action='label'):
     img_id = str(image_id).zfill(3)
     make_dir_if_missing('segmentation')
@@ -452,9 +566,6 @@ def accept(event):
             ax[1, 1].set_ylim([0, 500])
             ax[1, 1].set_title("Segmented")
             fig.canvas.draw_idle()
-            # selector.disconnect()
-            # ax.set_title("")
-            # fig.canvas.draw()
 
 resetax = fig.add_axes([0.935, 0.035, 0.05, 0.025])
 image_id_ax = fig.add_axes([0.01, 0.6, 0.025, 0.35])
@@ -481,6 +592,7 @@ threshold_slider = Slider(
     valinit=threshold,
     valstep=thresholds,
 )
+
 ##
 axcolor = 'lightgoldenrodyellow'
 rax = fig.add_axes([0.475, 0.475, 0.05, 0.05], facecolor=axcolor)
@@ -496,7 +608,7 @@ img_1, img_2, img_cluster_enhanced = run_clustering()
 img_seg = run_segmentation(image_id, img_1, img_cluster_enhanced)
 ax[0, 0].imshow(img_1, cmap='gray')
 ax[0, 0].set_title('Original')
-# ax[0, 0].annotate("", xy=(120, 400), xytext=(480, 220), arrowprops=dict(arrowstyle="<|-|>"), color='tab:red')
+
 t = ax[0, 0].text(270, 320, "Solid Electrolyte",
             ha="center", va="center", rotation=-35, size=30,
             bbox=dict(boxstyle="darrow,pad=0.1",
@@ -529,7 +641,6 @@ selector = SelectFromCollection(ax[1, 0], pts)
 fig.canvas.mpl_connect("key_press_event", accept)
 image_id_slider.on_changed(update_image_id)
 threshold_slider.on_changed(update_threshold)
-# selector.disconnect()
 fig.canvas.draw_idle()
 plt.tight_layout()
 plt.show()
