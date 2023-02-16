@@ -2,7 +2,6 @@
 import itertools
 import os
 
-
 import cv2
 import hdbscan
 import matplotlib.pyplot as plt
@@ -252,13 +251,11 @@ def get_clustering_results(X_2d, **hdbscan_kwargs):
 
 
 class Segmentor:
-    def __init__(self, image_id=0, threshold=0.0325, img_dir='unsegmented', edges_dir='edges', clusters_dir='clusters', phases_dir='phases'):
+    def __init__(self, image_id=0, threshold=0.0325, input_dir='unsegmented', output_dir='segmentation'):
         self._image_id = image_id
         self._threshold = threshold
-        self._edges_dir = edges_dir
-        self._clusters_dir = clusters_dir
-        self._phases_dir = phases_dir
-        self._img_dir = img_dir
+        self._output_dir = output_dir
+        self._input_dir = input_dir
         self.img = None
         self.clusters = None
         self.edges = None
@@ -270,26 +267,31 @@ class Segmentor:
         return self._image_id
     
     @property
-    def img_dir(self):
-        return self._img_dir
+    def input_dir(self):
+        return self._input_dir
+    
+    @property
+    def output_dir(self):
+        return self._output_dir
 
     @property
     def edges_dir(self):
-        return self._edges_dir
+        return os.path.join(self.output_dir, 'edges')
 
     @property
     def clusters_dir(self):
-        return self._clusters_dir
+        return os.path.join(self.output_dir, 'clusters')
     
     @property
     def phases_dir(self):
-        return self._phases_dir
+        return os.path.join(self.output_dir, 'phases')
 
     @property
     def threshold(self):
         return self._threshold
     
     def create_dirs(self):
+        make_dir_if_missing(self.output_dir)
         make_dir_if_missing(self.edges_dir)
         make_dir_if_missing(self.clusters_dir)
         make_dir_if_missing(self.phases_dir)
@@ -298,7 +300,7 @@ class Segmentor:
         img_id = str(image_id).zfill(3)
         if not os.path.exists(os.path.join(self.edges_dir, f'{img_id}')):
         
-            img_1 = cv2.imread(os.path.join(self.img_dir, f"{img_id}.tif"), cv2.IMREAD_UNCHANGED)
+            img_1 = cv2.imread(os.path.join(self.input_dir, f"{img_id}.tif"), cv2.IMREAD_UNCHANGED)
             img_11 = neighborhood_average(img_1)
             for i in range(25):
                 img_11 = neighborhood_average(img_11)
@@ -310,7 +312,7 @@ class Segmentor:
             with open(os.path.join(self.edges_dir, f'{img_id}'), 'wb') as fp:
                 pickle.dump(img_2, fp)
         else:
-            img_1 = cv2.imread(os.path.join(self.img_dir, f"{img_id}.tif"), cv2.IMREAD_UNCHANGED)
+            img_1 = cv2.imread(os.path.join(self.input_dir, f"{img_id}.tif"), cv2.IMREAD_UNCHANGED)
             with open(os.path.join(self.edges_dir, f'{img_id}'), 'rb') as fp:
                 img_2 = pickle.load(fp)
 
@@ -338,15 +340,15 @@ class Segmentor:
             with open(os.path.join(self.clusters_dir, f'{img_id}'), 'rb') as fp:
                 img_cluster_enhanced = pickle.load(fp)
         
+        self.img = img_1
+        self.edges = img_2
+        self.clusters = img_cluster_enhanced
+        print(os.path.exists(os.path.join(self.phases_dir, f'{img_id}')))
         if not os.path.exists(os.path.join(self.phases_dir, f'{img_id}')):
             self.phases = np.zeros(self.img.shape, dtype=np.uint8)
         else:
             with open(os.path.join(self.phases_dir, f'{img_id}'), 'rb') as fp:
                 self.phases = pickle.load(fp)
-
-        self.img = img_1
-        self.edges = img_2
-        self.clusters = img_cluster_enhanced
 
     def run(self, selection=None, phase=None):
         self.create_dirs()
