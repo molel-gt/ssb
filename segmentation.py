@@ -518,7 +518,7 @@ t = ax[1, 0].text(270, 320, "Solid Electrolyte",
             ha="center", va="center", rotation=-35, size=30,
             bbox=dict(boxstyle="darrow,pad=0.1",
                       fc="lightblue", ec="steelblue", lw=2))
-f4 = ax[1, 1].imshow(img_seg, cmap='brg')
+f4 = ax[1, 1].imshow(img_seg, cmap='gray')
 ax[1, 1].set_xlim([0, 500])
 ax[1, 1].set_ylim([0, 500])
 ax[1, 1].set_title("Segmented")
