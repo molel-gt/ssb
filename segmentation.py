@@ -290,9 +290,9 @@ threshold_slider = Slider(
     label='Threshold',
     orientation='vertical',
     valmin=0,
-    valmax=0.1,
-    valinit=0.032,
-    valstep=np.linspace(0, 0.1, num=101),
+    valmax=0.2,
+    valinit=0.05,
+    valstep=np.linspace(0, 0.2, num=201),
 )
 
 radio = RadioButtons(
