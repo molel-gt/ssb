@@ -39,118 +39,6 @@ image_ids = np.array(range(NZ))
 thresholds = np.linspace(0, 0.1, num=41)
 actions = ['label', 'predict']
 
-
-class SelectFromCollection1:
-    """
-    Select indices from a matplotlib collection using `PolygonSelector`.
-
-    Selected indices are saved in the `ind` attribute. This tool fades out the
-    points that are not part of the selection (i.e., reduces their alpha
-    values). If your collection has alpha < 1, this tool will permanently
-    alter the alpha values.
-
-    Note that this tool selects collection objects based on their *origins*
-    (i.e., `offsets`).
-
-    Parameters
-    ----------
-    ax : `~matplotlib.axes.Axes`
-        Axes to interact with.
-    collection : `matplotlib.collections.Collection` subclass
-        Collection you want to select from.
-    alpha_other : 0 <= float <= 1
-        To highlight a selection, this tool sets all selected points to an
-        alpha value of 1 and non-selected points to *alpha_other*.
-    """
-
-    def __init__(self, ax, collection, alpha_other=0.3):
-        self.canvas = ax.figure.canvas
-        self.collection = collection
-        self.alpha_other = alpha_other
-
-        self.xys = collection.get_offsets()
-        self.Npts = len(self.xys)
-
-        # Ensure that we have separate colors for each object
-        self.fc = collection.get_facecolors()
-        if len(self.fc) == 0:
-            raise ValueError('Collection must have a facecolor')
-        elif len(self.fc) == 1:
-            self.fc = np.tile(self.fc, (self.Npts, 1))
-
-        self.poly = PolygonSelector(ax, self.onselect, draw_bounding_box=True)
-        self.ind = []
-
-    def onselect(self, verts):
-        path = Path(verts)
-        self.ind = np.nonzero(path.contains_points(self.xys))[0]
-        self.fc[:, -1] = self.alpha_other
-        self.fc[self.ind, -1] = 1
-        self.collection.set_facecolors(self.fc)
-        self.canvas.draw_idle()
-
-    def disconnect(self):
-        self.poly.disconnect_events()
-        self.fc[:, -1] = 1
-        self.collection.set_facecolors(self.fc)
-        self.canvas.draw_idle()
-
-
-class SelectFromCollection:
-    """
-    Select indices from a matplotlib collection using `LassoSelector`.
-
-    Selected indices are saved in the `ind` attribute. This tool fades out the
-    points that are not part of the selection (i.e., reduces their alpha
-    values). If your collection has alpha < 1, this tool will permanently
-    alter the alpha values.
-
-    Note that this tool selects collection objects based on their *origins*
-    (i.e., `offsets`).
-
-    Parameters
-    ----------
-    ax : `~matplotlib.axes.Axes`
-        Axes to interact with.
-    collection : `matplotlib.collections.Collection` subclass
-        Collection you want to select from.
-    alpha_other : 0 <= float <= 1
-        To highlight a selection, this tool sets all selected points to an
-        alpha value of 1 and non-selected points to *alpha_other*.
-    """
-
-    def __init__(self, ax, collection, alpha_other=0.3):
-        self.canvas = ax.figure.canvas
-        self.collection = collection
-        self.alpha_other = alpha_other
-
-        self.xys = collection.get_offsets()
-        self.Npts = len(self.xys)
-
-        # Ensure that we have separate colors for each object
-        self.fc = collection.get_facecolors()
-        if len(self.fc) == 0:
-            raise ValueError('Collection must have a facecolor')
-        elif len(self.fc) == 1:
-            self.fc = np.tile(self.fc, (self.Npts, 1))
-
-        self.lasso = LassoSelector(ax, onselect=self.onselect)
-        self.ind = []
-
-    def onselect(self, verts):
-        path = Path(verts)
-        self.ind = np.nonzero(path.contains_points(self.xys))[0]
-        self.fc[:, -1] = self.alpha_other
-        self.fc[self.ind, -1] = 1
-        self.collection.set_facecolors(self.fc)
-        self.canvas.draw_idle()
-
-    def disconnect(self):
-        self.lasso.disconnect_events()
-        self.fc[:, -1] = 1
-        self.collection.set_facecolors(self.fc)
-        self.canvas.draw_idle()
-
 fig, ax = plt.subplots(2, 2, figsize=(12, 12))
 plt.subplots_adjust(left=0.15, bottom=0.25)
 ax[0, 0].grid(which='both')
@@ -363,10 +251,9 @@ class Segmentor:
         if not all([selection, phase]):
             return
 
-        cluster_vals = list(np.unique([self.clusters[iy, ix] for ix, iy in selection]))
-        if len(cluster_vals) == 1:
-            coords = np.where(self.clusters == cluster_vals[0])
-            self.phases[coords] = phase
+        cluster_vals = list(np.unique(self.clusters[selection]))
+        coords = np.where(self.clusters == cluster_vals[0])
+        self.phases[coords] = phase
 
         img_id = str(self.image_id).zfill(3)
 
@@ -419,39 +306,38 @@ def reset(event):
     threshold_slider.reset()
 
 
-def accept(event):
-    if event.key == "enter":
-        selected_pts = np.array(selector.xys[selector.ind], dtype=int)
+def onSelect(val):
+    selected_pts = np.array(val, dtype=int)
 
-        seg = Segmentor(image_id=image_id_slider.val, threshold=threshold_slider.val)
-        seg.run()
-        img = seg.img
-        edges = seg.edges
-        clusters = seg.clusters
-        img_seg = seg.phases
+    seg = Segmentor(image_id=image_id_slider.val, threshold=threshold_slider.val)
+    seg.run()
+    img = seg.img
+    edges = seg.edges
+    clusters = seg.clusters
+    img_seg = seg.phases
 
-        cluster_vals = list(np.unique([clusters[iy, ix] for ix, iy in selected_pts]))
-        selection = []
-        for v in cluster_vals:
-            selection += [[ix, iy] for ix, iy in np.asarray(np.where(clusters == v)).T]
+    cluster_vals = [int(v) for v in np.unique([clusters[iy, ix] for ix, iy in selected_pts]) if v > -1]
 
-        seg.run(selection=selection, phase=phases[radio.value_selected])
+    for v in cluster_vals:
+        coords = np.where(clusters == v)
+        seg.run(selection=coords, phase=phases[radio.value_selected])
 
-        img = seg.img
-        edges = seg.edges
-        clusters = seg.clusters
-        img_seg = seg.phases
+    img = seg.img
+    edges = seg.edges
+    clusters = seg.clusters
+    img_seg = seg.phases
 
-        coords = np.asarray(np.where(clusters > -1)).T
-        y = np.array([clusters[ix, iy] for (ix, iy) in coords]).reshape(-1, 1)
-        X = np.hstack((coords, y))
-        
-        f1.set_data(img)
-        f2.set_data(edges)
-        f3.set_offsets(X[:, [1, 0]])
-        f4.set_data(img_seg)
+    coords = np.asarray(np.where(clusters > -1)).T
+    y = np.array([clusters[ix, iy] for (ix, iy) in coords]).reshape(-1, 1)
+    X = np.hstack((coords, y))
 
-        fig.canvas.draw_idle()
+    f1.set_data(img)
+    f2.set_data(edges)
+    f3.set_offsets(X[:, [1, 0]])
+    f4.set_data(img_seg)
+
+    fig.canvas.draw_idle()
+
 
 resetax = fig.add_axes([0.935, 0.035, 0.05, 0.025])
 image_id_ax = fig.add_axes([0.01, 0.6, 0.025, 0.35])
@@ -523,9 +409,7 @@ f4 = ax[1, 1].imshow(img_seg, cmap='gray')
 ax[1, 1].set_xlim([0, 500])
 ax[1, 1].set_ylim([0, 500])
 ax[1, 1].set_title("Segmented")
-selector = SelectFromCollection(ax[1, 0], f3)
-
-fig.canvas.mpl_connect("key_press_event", accept)
+selector = LassoSelector(ax=ax[1, 0], onselect=onSelect)
 image_id_slider.on_changed(update_image_id)
 threshold_slider.on_changed(update_threshold)
 # radio.on_clicked(accept)
