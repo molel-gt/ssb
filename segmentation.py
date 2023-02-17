@@ -317,22 +317,20 @@ img_seg = seg.phases
 f1 = ax[0, 0].imshow(img, cmap='gray')
 ax[0, 0].set_title('Original')
 ax[0, 0].invert_yaxis()
+ax[0, 0].set_aspect('equal', 'box')
 
 f2 = ax[0, 1].imshow(edges, cmap='magma')
 ax[0, 1].set_title('Edges')
-ax[0, 1].set_xlim([0, 500])
-ax[0, 1].set_ylim([0, 500])
-ax[1, 0].set_box_aspect(1)
+ax[0, 1].set_box_aspect(1)
 
 f3 = ax[1, 0].imshow(clusters, cmap='magma')
 ax[1, 0].set_title("Clusters")
-ax[1, 0].set_xlim([0, 500])
-ax[1, 0].set_ylim([0, 500])
+ax[1, 0].set_aspect('equal', 'box')
 
 f4 = ax[1, 1].imshow(img_seg, cmap='brg')
-ax[1, 1].set_xlim([0, 500])
-ax[1, 1].set_ylim([0, 500])
 ax[1, 1].set_title("Segmented")
+ax[1, 1].set_aspect('equal', 'box')
+
 selector = LassoSelector(ax=ax[0, 0], onselect=onSelect)
 threshold_slider.on_changed(update_view)
 
