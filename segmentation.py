@@ -283,8 +283,8 @@ def onSelect(val):
 
 axcolor = 'lightgoldenrodyellow'
 rax = fig.add_axes([0.45, 0.8, 0.1, 0.1], facecolor=axcolor)
-img_id_ax = fig.add_axes([0.525, 0.975, 0.025, 0.025])
-threshold_ax = fig.add_axes([0.475, 0.6, 0.025, 0.1])
+img_id_ax = fig.add_axes([0.525, 0.925, 0.025, 0.025])
+threshold_ax = fig.add_axes([0.475, 0.6, 0.025, 0.15])
 img_id_input = TextBox(img_id_ax, "Image Number :  ", textalignment="right", initial=0)
 img_id_input.on_text_change(update_view)
 
