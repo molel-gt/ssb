@@ -252,7 +252,6 @@ def update_view(val):
 
 def onSelect(val):
     selected_pts = np.array(val, dtype=int)
-    print(selected_pts.shape)
 
     seg = Segmentor(image_id=int(img_id_input.text), threshold=threshold_slider.val)
     seg.run()
@@ -261,7 +260,7 @@ def onSelect(val):
     clusters = seg.clusters
     img_seg = seg.phases
 
-    cluster_vals = [int(v) for v in np.unique([clusters[ix, iy] for ix, iy in selected_pts]) if v > -1]
+    cluster_vals = [int(v) for v in np.unique([clusters[iy, ix] for ix, iy in selected_pts]) if v > -1]
 
     for v in cluster_vals:
         coords = np.where(clusters == v)
