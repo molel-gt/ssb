@@ -20,6 +20,9 @@ from sklearn.ensemble import RandomForestClassifier
 warnings.simplefilter("ignore")
 
 
+rerun = False
+image = None
+
 hdbscan_kwargs = {
     "min_cluster_size": 25,
     "cluster_selection_epsilon": 5,
@@ -117,20 +120,16 @@ def get_clustering_results(X_2d, **hdbscan_kwargs):
 
 
 class Segmentor:
-    def __init__(self, image, image_id=0, threshold=0.0325, output_dir='segmentation', rerun=False):
+    def __init__(self, image, image_id=0, threshold=0.0325, output_dir='segmentation'):
         self._image_id = image_id
         self._threshold = threshold
         self._output_dir = output_dir
-        self._rerun = rerun
         self._image = image
         self.clusters = None
         self.edges = None
-        self.residual = None
         self.phases = None
-
-    @property
-    def rerun(self):
-        return self._rerun
+        self.residual = None
+        self.rerun = False
 
     @property
     def image_id(self):
@@ -139,6 +138,7 @@ class Segmentor:
     @property
     def image(self):
         return self._image
+
     @property
     def output_dir(self):
         return self._output_dir
@@ -207,14 +207,15 @@ class Segmentor:
         self.clusters = img_cluster_enhanced
 
         if not os.path.exists(os.path.join(self.phases_dir, f'{img_id}')):
-            self.phases = np.zeros(self.img.shape, dtype=np.uint8)
+            self.phases = np.zeros(self.image.shape, dtype=np.uint8)
         else:
             with open(os.path.join(self.phases_dir, f'{img_id}'), 'rb') as fp:
                 self.phases = pickle.load(fp)
 
         self.residual = self.image[np.where(self.phases < 1)]
 
-    def run(self, selection=None, phase=None):
+    def run(self, selection=None, phase=None, rerun=False):
+        self.rerun = rerun
         img_id = str(self.image_id).zfill(3)
         self.create_dirs()
         if self.clusters is None:
@@ -231,18 +232,32 @@ class Segmentor:
             pickle.dump(self.phases, fp)
 
 
-def update_view(val):
+def switch_images(val):
+    with open(os.path.join('unsegmented', str(img_id_input.text).zfill(3) + '.tif'), 'rb') as fp:
+        image = plt.imread(fp)
+
+    update_view(val, rerun=False, image=image)
+
+
+def switch_threshold(val):
+    with open(os.path.join('unsegmented', str(img_id_input.text).zfill(3) + '.tif'), 'rb') as fp:
+        image = plt.imread(fp)
+    update_view(val, image=image, rerun=True)
+
+
+def update_view(val, rerun=False, image=image):
+    f1.set_data(image)
+    fig.canvas.draw_idle()
+
     seg = Segmentor(image, image_id=int(img_id_input.text), threshold=threshold_slider.val)
-    seg.run()
-    img = seg.img
-    edges = seg.edges
-    clusters = seg.clusters
-    img_seg = seg.phases
-    
-    f1.set_data(img)
-    f2.set_data(edges)
-    f3.set_data(clusters)
-    f4.set_data(img_seg)
+    seg.run(rerun)
+
+    if rerun:
+        f2.set_data(seg.edges)
+        fig.canvas.draw()
+        f3.set_data(seg.clusters)
+        fig.canvas.draw()
+        f4.set_data(seg.phases)
 
     fig.canvas.draw_idle()
 
@@ -251,37 +266,24 @@ def onSelect(val):
     selected_pts = np.array(val, dtype=int)
 
     seg = Segmentor(image, image_id=int(img_id_input.text), threshold=threshold_slider.val)
-    seg.run()
-    # img = seg.img
-    # edges = seg.edges
-    clusters = seg.clusters
-    img_seg = seg.phases
+    seg.run(rerun=False)
 
-    cluster_vals = [int(v) for v in np.unique([clusters[iy, ix] for ix, iy in selected_pts]) if v > -1]
+    cluster_vals = [int(v) for v in np.unique([seg.clusters[iy, ix] for ix, iy in selected_pts]) if v > -1]
 
     for v in cluster_vals:
-        coords = np.where(clusters == v)
+        coords = np.where(seg.clusters == v)
         seg.run(selection=coords, phase=phases[radio.value_selected])
 
-    # img = seg.img
-    # edges = seg.edges
-    # clusters = seg.clusters
-    img_seg = seg.phases
-
-    # f1.set_data(img)
-    # f2.set_data(edges)
-    # f3.set_data(clusters)
-    f4.set_data(img_seg)
-
+    f4.set_data(seg.phases)
     fig.canvas.draw_idle()
 
 
 axcolor = 'lightgoldenrodyellow'
 rax = fig.add_axes([0.45, 0.8, 0.1, 0.1], facecolor=axcolor)
 img_id_ax = fig.add_axes([0.525, 0.925, 0.025, 0.025])
-threshold_ax = fig.add_axes([0.475, 0.6, 0.025, 0.15])
+threshold_ax = fig.add_axes([0.475, 0.4, 0.025, 0.25])
 img_id_input = TextBox(img_id_ax, "Image Number :  ", textalignment="right", initial=0)
-img_id_input.on_text_change(update_view)
+img_id_input.on_text_change(switch_images)
 
 threshold_slider = Slider(
     ax=threshold_ax,
@@ -289,8 +291,8 @@ threshold_slider = Slider(
     orientation='vertical',
     valmin=0,
     valmax=0.1,
-    valinit=0.0325,
-    valstep=[0, 0.01, 0.02, 0.03, 0.0325, 0.04, 0.05, 0.075, 0.1],
+    valinit=0.032,
+    valstep=np.linspace(0, 0.1, num=101),
 )
 
 radio = RadioButtons(
@@ -302,33 +304,33 @@ radio = RadioButtons(
                  'facecolor': ['blue', 'red', 'green'],
                  },
     )
+
 with open(os.path.join('unsegmented', str(img_id_input.text).zfill(3) + '.tif'), 'rb') as fp:
     image = plt.imread(fp)
-seg = Segmentor(image, image_id=int(img_id_input.text), threshold=threshold_slider.val)
-seg.run()
-image = seg.image
-edges = seg.edges
-clusters = seg.clusters
-img_seg = seg.phases
 
 f1 = ax[0, 0].imshow(image, cmap='gray')
 ax[0, 0].set_title('Original')
 ax[0, 0].set_aspect('equal', 'box')
+fig.canvas.draw_idle()
 
-f2 = ax[0, 1].imshow(edges, cmap='magma')
+seg = Segmentor(image, image_id=int(img_id_input.text), threshold=threshold_slider.val)
+seg.run(rerun=False)
+
+
+f2 = ax[0, 1].imshow(seg.edges, cmap='magma')
 ax[0, 1].set_title('Edges')
 ax[0, 1].set_box_aspect(1)
 
-f3 = ax[1, 0].imshow(clusters, cmap='magma')
+f3 = ax[1, 0].imshow(seg.clusters, cmap='magma')
 ax[1, 0].set_title("Clusters")
 ax[1, 0].set_aspect('equal', 'box')
 
-f4 = ax[1, 1].imshow(img_seg, cmap='brg')
+f4 = ax[1, 1].imshow(seg.phases, cmap='brg')
 ax[1, 1].set_title("Segmented")
 ax[1, 1].set_aspect('equal', 'box')
 
 selector = LassoSelector(ax=ax[0, 0], onselect=onSelect)
-threshold_slider.on_changed(update_view)
+threshold_slider.on_changed(switch_threshold)
 
 fig.canvas.draw_idle()
 plt.tight_layout()
