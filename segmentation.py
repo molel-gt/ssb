@@ -299,9 +299,9 @@ threshold_slider = Slider(
 radio = RadioButtons(rax,
                      ('Void', 'Solid Electrolyte', 'Active Material'),
                      active=0,
-                     label_props={'color': ['red', 'blue', 'green']},
-                     radio_props={'edgecolor': ['darkred', 'darkblue', 'darkgreen'],
-                                  'facecolor': ['red', 'blue', 'green'],
+                     label_props={'color': ['blue', 'red' , 'green']},
+                     radio_props={'edgecolor': ['darkblue', 'darkred', 'darkgreen'],
+                                  'facecolor': ['blue', 'red', 'green'],
                                   },
                      )
 
