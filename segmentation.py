@@ -421,7 +421,6 @@ def reset(event):
 
 def accept(event):
     if event.key == "enter":
-        print("Selected points")
         selected_pts = np.array(selector.xys[selector.ind], dtype=int)
 
         seg = Segmentor(image_id=image_id_slider.val, threshold=threshold_slider.val)
@@ -451,6 +450,8 @@ def accept(event):
         f2.set_data(edges)
         f3.set_offsets(X[:, [1, 0]])
         f4.set_data(img_seg)
+
+        fig.canvas.draw_idle()
 
 resetax = fig.add_axes([0.935, 0.035, 0.05, 0.025])
 image_id_ax = fig.add_axes([0.01, 0.6, 0.025, 0.35])
