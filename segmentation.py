@@ -295,7 +295,7 @@ threshold_slider = Slider(
     valmin=0,
     valmax=0.1,
     valinit=0.0325,
-    valstep=[0, 0.01, 0.0325, 0.05, 0.1],
+    valstep=[0, 0.01, 0.02, 0.03, 0.0325, 0.04, 0.05, 0.075, 0.1],
 )
 
 radio = RadioButtons(rax,
