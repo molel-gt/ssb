@@ -296,14 +296,15 @@ threshold_slider = Slider(
     valstep=[0, 0.01, 0.02, 0.03, 0.0325, 0.04, 0.05, 0.075, 0.1],
 )
 
-radio = RadioButtons(rax,
-                     ('Void', 'Solid Electrolyte', 'Active Material'),
-                     active=0,
-                     label_props={'color': ['blue', 'red' , 'green']},
-                     radio_props={'edgecolor': ['darkblue', 'darkred', 'darkgreen'],
-                                  'facecolor': ['blue', 'red', 'green'],
-                                  },
-                     )
+radio = RadioButtons(
+    rax,
+    ('Void', 'Solid Electrolyte', 'Active Material'),
+    active=0,
+    label_props={'color': ['blue', 'red' , 'green']},
+    radio_props={'edgecolor': ['darkblue', 'darkred', 'darkgreen'],
+                 'facecolor': ['blue', 'red', 'green'],
+                 },
+    )
 
 seg = Segmentor(image_id=int(img_id_input.text), threshold=threshold_slider.val)
 seg.run()
