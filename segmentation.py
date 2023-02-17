@@ -316,7 +316,6 @@ img_seg = seg.phases
 
 f1 = ax[0, 0].imshow(img, cmap='gray')
 ax[0, 0].set_title('Original')
-ax[0, 0].invert_yaxis()
 ax[0, 0].set_aspect('equal', 'box')
 
 f2 = ax[0, 1].imshow(edges, cmap='magma')
