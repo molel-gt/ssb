@@ -10,7 +10,7 @@ import pickle
 import warnings
 
 from matplotlib.image import AxesImage
-from matplotlib.widgets import Slider, Button, CheckButtons, PolygonSelector, RadioButtons, LassoSelector
+from matplotlib.widgets import Slider, LassoSelector, RadioButtons, TextBox
 from matplotlib.path import Path
 
 from skimage import filters
@@ -18,29 +18,22 @@ from sklearn.ensemble import RandomForestClassifier
 
 
 warnings.simplefilter("ignore")
+
+
 hdbscan_kwargs = {
     "min_cluster_size": 25,
     "cluster_selection_epsilon": 5,
     "gen_min_span_tree": True
     }
+
 phases = {
     "Void": 0,
-    "SE": 1,
-    "AM": 2,
+    "Solid Electrolyte": 1,
+    "Active Material": 2,
     }
 
-# defaults
-phase = 1
-image_id = 0
-threshold = 0.0325
-NZ = 202
-# options
-image_ids = np.array(range(NZ))
-thresholds = np.linspace(0, 0.1, num=41)
-actions = ['label', 'predict']
-
 fig, ax = plt.subplots(2, 2, figsize=(12, 12))
-plt.subplots_adjust(left=0.15, bottom=0.25)
+plt.subplots_adjust(left=0.25, bottom=0.25)
 ax[0, 0].grid(which='both')
 ax[1, 0].grid(which='both')
 ax[0, 1].grid(which='both')
@@ -104,24 +97,6 @@ def neighborhood_average(arr, d=(1, 1), n_min=(0, 0), n_max=(501, 501)):
             neighbors = arr[max(i - dx, 0):min(i + dx, n_max[0] - 1), max(j - dy, 0):min(j + dy, n_max[1] - 1)]
             out[i, j] = np.mean(neighbors)
     return out
-
-
-def neighborhood_mode(arr, d=(1, 1), n_min=(0, 0), n_max=(501, 501)):
-    out = np.zeros(arr.shape)
-    dx, dy = d
-    for i in range(n_max[0]):
-        for j in range(n_max[1]):
-            neighbors = arr[max(i - dx, 0):min(i + dx, n_max[0] - 1), max(j - dy, 0):min(j + dy, n_max[1] - 1)]
-            out[i, j] = np.mode(neighbors)[0][0]
-
-    return out
-
-
-def center_of_mass(arr):
-    xcom = np.average(arr[:, 0])
-    ycom = np.average(arr[:, 1])
-
-    return xcom, ycom
 
 
 def build_features_matrix(img, img_1, threshold):
@@ -213,7 +188,7 @@ class Segmentor:
             for i in range(5):
                 img_3 = neighborhood_average(img_3)
             img = img_3 / np.max(img_3)
-            X_2d = build_features_matrix(img, img_1, threshold)
+            X_2d = build_features_matrix(img, img_1, self.threshold)
             y_predict = get_clustering_results(X_2d, **hdbscan_kwargs)
             img_cluster_raw = -2 * np.ones(img.shape)
 
@@ -261,8 +236,8 @@ class Segmentor:
             pickle.dump(self.phases, fp)
 
 
-def update_image_id(val):
-    seg = Segmentor(image_id=image_id_slider.val, threshold=threshold_slider.val)
+def update_view(val):
+    seg = Segmentor(image_id=int(img_id_input.text), threshold=threshold_slider.val)
     seg.run()
     img = seg.img
     edges = seg.edges
@@ -277,31 +252,10 @@ def update_image_id(val):
     fig.canvas.draw_idle()
 
 
-def update_threshold(val):
-    seg = Segmentor(image_id=image_id_slider.val, threshold=threshold_slider.val)
-    seg.run()
-
-    img = seg.img
-    edges = seg.edges
-    clusters = seg.clusters
-    img_seg = seg.phases
-
-    coords = np.asarray(np.where(clusters > -1)).T
-    y = np.array([clusters[ix, iy] for (ix, iy) in coords]).reshape(-1, 1)
-    X = np.hstack((coords, y))
-
-    f1.set_data(img)
-    f2.set_data(edges)
-    f3.set_data(clusters)
-    f4.set_data(img_seg)
-
-    fig.canvas.draw_idle()
-
-
 def onSelect(val):
     selected_pts = np.array(val, dtype=int)
 
-    seg = Segmentor(image_id=image_id_slider.val, threshold=threshold_slider.val)
+    seg = Segmentor(image_id=int(img_id_input.text), threshold=threshold_slider.val)
     seg.run()
     img = seg.img
     edges = seg.edges
@@ -327,18 +281,12 @@ def onSelect(val):
     fig.canvas.draw_idle()
 
 
-image_id_ax = fig.add_axes([0.01, 0.6, 0.025, 0.35])
-threshold_ax = fig.add_axes([0.95, 0.6, 0.025, 0.35])
-
-image_id_slider = Slider(
-    ax=image_id_ax,
-    label='Image',
-    orientation='vertical',
-    valmin=0,
-    valmax=202,
-    valinit=image_id,
-    valstep=image_ids,
-)
+axcolor = 'lightgoldenrodyellow'
+rax = fig.add_axes([0.45, 0.8, 0.1, 0.1], facecolor=axcolor)
+img_id_ax = fig.add_axes([0.525, 0.975, 0.025, 0.025])
+threshold_ax = fig.add_axes([0.475, 0.6, 0.025, 0.1])
+img_id_input = TextBox(img_id_ax, "Image Number :  ", textalignment="right", initial=0)
+img_id_input.on_text_change(update_view)
 
 threshold_slider = Slider(
     ax=threshold_ax,
@@ -346,15 +294,20 @@ threshold_slider = Slider(
     orientation='vertical',
     valmin=0,
     valmax=0.1,
-    valinit=threshold,
-    valstep=thresholds,
+    valinit=0.0325,
+    valstep=[0, 0.01, 0.0325, 0.05, 0.1],
 )
 
-axcolor = 'lightgoldenrodyellow'
-rax = fig.add_axes([0.475, 0.475, 0.05, 0.05], facecolor=axcolor)
-radio = RadioButtons(rax, ('Void', 'SE', 'AM'), active=0)
+radio = RadioButtons(rax,
+                     ('Void', 'Solid Electrolyte', 'Active Material'),
+                     active=0,
+                     label_props={'color': ['red', 'blue', 'green']},
+                     radio_props={'edgecolor': ['darkred', 'darkblue', 'darkgreen'],
+                                  'facecolor': ['red', 'blue', 'green'],
+                                  },
+                     )
 
-seg = Segmentor(image_id=image_id_slider.val, threshold=threshold_slider.val)
+seg = Segmentor(image_id=int(img_id_input.text), threshold=threshold_slider.val)
 seg.run()
 img = seg.img
 edges = seg.edges
@@ -376,14 +329,13 @@ ax[1, 0].set_title("Clusters")
 ax[1, 0].set_xlim([0, 500])
 ax[1, 0].set_ylim([0, 500])
 
-f4 = ax[1, 1].imshow(img_seg, cmap='gray')
+f4 = ax[1, 1].imshow(img_seg, cmap='brg')
 ax[1, 1].set_xlim([0, 500])
 ax[1, 1].set_ylim([0, 500])
 ax[1, 1].set_title("Segmented")
 selector = LassoSelector(ax=ax[0, 0], onselect=onSelect)
-image_id_slider.on_changed(update_image_id)
-threshold_slider.on_changed(update_threshold)
-# radio.on_clicked(accept)
+threshold_slider.on_changed(update_view)
+
 fig.canvas.draw_idle()
 plt.tight_layout()
 plt.show()
