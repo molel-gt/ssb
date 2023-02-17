@@ -374,30 +374,6 @@ class Segmentor:
             pickle.dump(self.phases, fp)
 
 
-def line_picker(line, mouseevent):
-    """
-    Find the points within a certain distance from the mouseclick in
-    data coords and attach some extra attributes, pickx and picky
-    which are the data points that were picked.
-    """
-    if mouseevent.xdata is None:
-        return False, dict()
-    xdata = line.get_xdata()
-    ydata = line.get_ydata()
-    maxd = 0.05
-    d = np.sqrt(
-        (xdata - mouseevent.xdata)**2 + (ydata - mouseevent.ydata)**2)
-
-    ind, = np.nonzero(d <= maxd)
-    if len(ind):
-        pickx = xdata[ind]
-        picky = ydata[ind]
-        props = dict(ind=ind, pickx=pickx, picky=picky)
-        return True, props
-    else:
-        return False, dict()
-
-
 def update_image_id(val):
     seg = Segmentor(image_id=image_id_slider.val, threshold=threshold_slider.val)
     seg.run()
@@ -412,9 +388,7 @@ def update_image_id(val):
     
     f1.set_data(img)
     f2.set_data(edges)
-    # f3.set_data(X[:, [1, 0]])
-    # f3.set_xdata(X[:, 1])
-    # f3.set_ydata(X[:, 0])
+    f3.set_offsets(X[:, [1, 0]])
     f4.set_data(img_seg)
     fig.canvas.draw_idle()
 
@@ -434,9 +408,7 @@ def update_threshold(val):
 
     f1.set_data(img)
     f2.set_data(edges)
-    f3.set_data(X[:, [1, 0]])
-    # f3.set_xdata(X[:, 1])
-    # f3.set_ydata(X[:, 0])
+    f3.set_offsets(X[:, [1, 0]])
     f4.set_data(img_seg)
 
     fig.canvas.draw_idle()
@@ -448,39 +420,36 @@ def reset(event):
 
 
 def accept(event):
-    print(event)
     if event.key == "enter":
-        print("Selected points:")
-        print(selector.xys[selector.ind])
+        print("Selected points")
         selected_pts = np.array(selector.xys[selector.ind], dtype=int)
 
         seg = Segmentor(image_id=image_id_slider.val, threshold=threshold_slider.val)
         seg.run()
-        img_1 = seg.img
-        img_2 = seg.edges
-        img_cluster_enhanced = seg.clusters
+        img = seg.img
+        edges = seg.edges
+        clusters = seg.clusters
         img_seg = seg.phases
 
-        cluster_vals = list(np.unique([img_cluster_enhanced[iy, ix] for ix, iy in selected_pts]))
+        cluster_vals = list(np.unique([clusters[iy, ix] for ix, iy in selected_pts]))
         selection = []
         for v in cluster_vals:
-            selection += [[ix, iy] for ix, iy in np.asarray(np.where(seg.clusters == v)).T]
+            selection += [[ix, iy] for ix, iy in np.asarray(np.where(clusters == v)).T]
 
-        seg.run(selection=selection, phase=phases[radio2.value_selected])
+        seg.run(selection=selection, phase=phases[radio.value_selected])
 
         img = seg.img
         edges = seg.edges
         clusters = seg.clusters
         img_seg = seg.phases
 
-        coords = np.asarray(np.where(img_cluster_enhanced > -1)).T
-        y = np.array([img_cluster_enhanced[ix, iy] for (ix, iy) in coords]).reshape(-1, 1)
+        coords = np.asarray(np.where(clusters > -1)).T
+        y = np.array([clusters[ix, iy] for (ix, iy) in coords]).reshape(-1, 1)
         X = np.hstack((coords, y))
         
         f1.set_data(img)
         f2.set_data(edges)
-        f3.set_xdata(X[:, 1])
-        f3.set_ydata(X[:, 0])
+        f3.set_offsets(X[:, [1, 0]])
         f4.set_data(img_seg)
 
 resetax = fig.add_axes([0.935, 0.035, 0.05, 0.025])
@@ -511,15 +480,7 @@ threshold_slider = Slider(
 
 axcolor = 'lightgoldenrodyellow'
 rax = fig.add_axes([0.475, 0.475, 0.05, 0.05], facecolor=axcolor)
-# radio2 = RadioButtons(rax, ('Void', 'SE', 'AM'), active=2)
-check = CheckButtons(
-    ax=rax,
-    labels=['Void', 'SE', 'AM'],
-    actives=[1, 0, 0],
-    # label_props={'color': line_colors},
-    # frame_props={'edgecolor': line_colors},
-    # check_props={'facecolor': line_colors},
-)
+radio = RadioButtons(rax, ('Void', 'SE', 'AM'), active=2)
 
 seg = Segmentor(image_id=image_id_slider.val, threshold=threshold_slider.val)
 seg.run()
@@ -563,21 +524,10 @@ ax[1, 1].set_ylim([0, 500])
 ax[1, 1].set_title("Segmented")
 selector = SelectFromCollection(ax[1, 0], f3)
 
-
-def func(label):
-    pass
-    # print(check.get_active())
-    # print(label)
-    # index = labels.index(label)
-    # lines[index].set_visible(not lines[index].get_visible())
-    # plt.draw()
-
-check.on_clicked(func)
-
 fig.canvas.mpl_connect("key_press_event", accept)
 image_id_slider.on_changed(update_image_id)
 threshold_slider.on_changed(update_threshold)
-# check.on_clicked(accept)
+# radio.on_clicked(accept)
 fig.canvas.draw_idle()
 plt.tight_layout()
 plt.show()
