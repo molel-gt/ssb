@@ -32,7 +32,7 @@ phases = {
     "Active Material": 2,
     }
 
-fig, ax = plt.subplots(2, 2, figsize=(12, 12))
+fig, ax = plt.subplots(2, 2)
 plt.subplots_adjust(left=0.25, bottom=0.25)
 ax[0, 0].grid(which='both')
 ax[1, 0].grid(which='both')
