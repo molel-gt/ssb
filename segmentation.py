@@ -268,15 +268,12 @@ def update_image_id(val):
     edges = seg.edges
     clusters = seg.clusters
     img_seg = seg.phases
-
-    coords = np.asarray(np.where(clusters > -1)).T
-    y = np.array([clusters[ix, iy] for (ix, iy) in coords]).reshape(-1, 1)
-    X = np.hstack((coords, y))
     
     f1.set_data(img)
     f2.set_data(edges)
-    f3.set_offsets(X[:, [1, 0]])
+    f3.set_data(clusters)
     f4.set_data(img_seg)
+
     fig.canvas.draw_idle()
 
 
@@ -295,15 +292,10 @@ def update_threshold(val):
 
     f1.set_data(img)
     f2.set_data(edges)
-    f3.set_offsets(X[:, [1, 0]])
+    f3.set_data(clusters)
     f4.set_data(img_seg)
 
     fig.canvas.draw_idle()
-
-
-def reset(event):
-    image_id_slider.reset()
-    threshold_slider.reset()
 
 
 def onSelect(val):
@@ -327,23 +319,16 @@ def onSelect(val):
     clusters = seg.clusters
     img_seg = seg.phases
 
-    coords = np.asarray(np.where(clusters > -1)).T
-    y = np.array([clusters[ix, iy] for (ix, iy) in coords]).reshape(-1, 1)
-    X = np.hstack((coords, y))
-
     f1.set_data(img)
     f2.set_data(edges)
-    f3.set_offsets(X[:, [1, 0]])
+    f3.set_data(clusters)
     f4.set_data(img_seg)
 
     fig.canvas.draw_idle()
 
 
-resetax = fig.add_axes([0.935, 0.035, 0.05, 0.025])
 image_id_ax = fig.add_axes([0.01, 0.6, 0.025, 0.35])
 threshold_ax = fig.add_axes([0.95, 0.6, 0.025, 0.35])
-button = Button(resetax, 'Reset', hovercolor='red')
-button.on_clicked(reset)
 
 image_id_slider = Slider(
     ax=image_id_ax,
@@ -367,7 +352,7 @@ threshold_slider = Slider(
 
 axcolor = 'lightgoldenrodyellow'
 rax = fig.add_axes([0.475, 0.475, 0.05, 0.05], facecolor=axcolor)
-radio = RadioButtons(rax, ('Void', 'SE', 'AM'), active=2)
+radio = RadioButtons(rax, ('Void', 'SE', 'AM'), active=0)
 
 seg = Segmentor(image_id=image_id_slider.val, threshold=threshold_slider.val)
 seg.run()
@@ -377,39 +362,25 @@ clusters = seg.clusters
 img_seg = seg.phases
 
 f1 = ax[0, 0].imshow(img, cmap='gray')
-
 ax[0, 0].set_title('Original')
-
-t = ax[0, 0].text(270, 320, "Solid Electrolyte",
-            ha="center", va="center", rotation=-35, size=30,
-            bbox=dict(boxstyle="darrow,pad=0.1",
-                      fc="lightblue", ec="steelblue", lw=2))
-
 ax[0, 0].invert_yaxis()
+
 f2 = ax[0, 1].imshow(edges, cmap='magma')
 ax[0, 1].set_title('Edges')
 ax[0, 1].set_xlim([0, 500])
 ax[0, 1].set_ylim([0, 500])
 ax[1, 0].set_box_aspect(1)
 
-coords = np.asarray(np.where(clusters > -1)).T
-y = np.array([clusters[ix, iy] for (ix, iy) in coords]).reshape(-1, 1)
-X = np.hstack((coords, y))
-f3 = ax[1, 0].scatter(X[:, 1], X[:, 0], c=X[:, 2], alpha=0.1)
-
+f3 = ax[1, 0].imshow(clusters, cmap='magma')
 ax[1, 0].set_title("Clusters")
 ax[1, 0].set_xlim([0, 500])
 ax[1, 0].set_ylim([0, 500])
 
-t = ax[1, 0].text(270, 320, "Solid Electrolyte",
-            ha="center", va="center", rotation=-35, size=30,
-            bbox=dict(boxstyle="darrow,pad=0.1",
-                      fc="lightblue", ec="steelblue", lw=2))
 f4 = ax[1, 1].imshow(img_seg, cmap='gray')
 ax[1, 1].set_xlim([0, 500])
 ax[1, 1].set_ylim([0, 500])
 ax[1, 1].set_title("Segmented")
-selector = LassoSelector(ax=ax[1, 0], onselect=onSelect)
+selector = LassoSelector(ax=ax[0, 0], onselect=onSelect)
 image_id_slider.on_changed(update_image_id)
 threshold_slider.on_changed(update_threshold)
 # radio.on_clicked(accept)
