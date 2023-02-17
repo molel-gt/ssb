@@ -32,7 +32,7 @@ phases = {
     "Active Material": 2,
     }
 
-fig, ax = plt.subplots(4, 2)
+fig, ax = plt.subplots(2, 2)
 # plt.subplots_adjust(left=0.25, bottom=0.25)
 ax[0, 0].grid(which='both')
 ax[1, 0].grid(which='both')
@@ -110,7 +110,6 @@ def build_features_matrix(img, img_1, threshold):
 
 
 def get_clustering_results(X_2d, **hdbscan_kwargs):
-    # hdbscan
     clusterer = hdbscan.HDBSCAN(**hdbscan_kwargs)
     y_predict = clusterer.fit_predict(X_2d).reshape(-1, 1)
 
@@ -118,20 +117,28 @@ def get_clustering_results(X_2d, **hdbscan_kwargs):
 
 
 class Segmentor:
-    def __init__(self, image, image_id=0, threshold=0.0325, output_dir='segmentation'):
+    def __init__(self, image, image_id=0, threshold=0.0325, output_dir='segmentation', rerun=False):
         self._image_id = image_id
         self._threshold = threshold
         self._output_dir = output_dir
-        self.img = image
+        self._rerun = rerun
+        self._image = image
         self.clusters = None
         self.edges = None
         self.residual = None
         self.phases = None
 
     @property
+    def rerun(self):
+        return self._rerun
+
+    @property
     def image_id(self):
         return self._image_id
 
+    @property
+    def image(self):
+        return self._image
     @property
     def output_dir(self):
         return self._output_dir
@@ -160,8 +167,8 @@ class Segmentor:
 
     def clustering(self):
         img_id = str(self.image_id).zfill(3)
-        if not os.path.exists(os.path.join(self.edges_dir, f'{img_id}')):
-        
+        if self.rerun or not os.path.exists(os.path.join(self.edges_dir, f'{img_id}')):
+
             img_11 = neighborhood_average(self.image)
             for i in range(25):
                 img_11 = neighborhood_average(img_11)
@@ -197,7 +204,6 @@ class Segmentor:
         with open(os.path.join(self.clusters_dir, f'{img_id}'), 'wb') as fp:
             pickle.dump(img_cluster_enhanced, fp)
 
-
         self.clusters = img_cluster_enhanced
 
         if not os.path.exists(os.path.join(self.phases_dir, f'{img_id}')):
@@ -205,6 +211,7 @@ class Segmentor:
         else:
             with open(os.path.join(self.phases_dir, f'{img_id}'), 'rb') as fp:
                 self.phases = pickle.load(fp)
+
         self.residual = self.image[np.where(self.phases < 1)]
 
     def run(self, selection=None, phase=None):
@@ -245,8 +252,8 @@ def onSelect(val):
 
     seg = Segmentor(image, image_id=int(img_id_input.text), threshold=threshold_slider.val)
     seg.run()
-    img = seg.img
-    edges = seg.edges
+    # img = seg.img
+    # edges = seg.edges
     clusters = seg.clusters
     img_seg = seg.phases
 
@@ -256,14 +263,14 @@ def onSelect(val):
         coords = np.where(clusters == v)
         seg.run(selection=coords, phase=phases[radio.value_selected])
 
-    img = seg.img
-    edges = seg.edges
-    clusters = seg.clusters
+    # img = seg.img
+    # edges = seg.edges
+    # clusters = seg.clusters
     img_seg = seg.phases
 
-    f1.set_data(img)
-    f2.set_data(edges)
-    f3.set_data(clusters)
+    # f1.set_data(img)
+    # f2.set_data(edges)
+    # f3.set_data(clusters)
     f4.set_data(img_seg)
 
     fig.canvas.draw_idle()
@@ -295,15 +302,16 @@ radio = RadioButtons(
                  'facecolor': ['blue', 'red', 'green'],
                  },
     )
-
-seg = Segmentor(image_id=int(img_id_input.text), threshold=threshold_slider.val)
+with open(os.path.join('unsegmented', str(img_id_input.text).zfill(3) + '.tif'), 'rb') as fp:
+    image = plt.imread(fp)
+seg = Segmentor(image, image_id=int(img_id_input.text), threshold=threshold_slider.val)
 seg.run()
-img = seg.img
+image = seg.image
 edges = seg.edges
 clusters = seg.clusters
 img_seg = seg.phases
 
-f1 = ax[0, 0].imshow(img, cmap='gray')
+f1 = ax[0, 0].imshow(image, cmap='gray')
 ax[0, 0].set_title('Original')
 ax[0, 0].set_aspect('equal', 'box')
 
