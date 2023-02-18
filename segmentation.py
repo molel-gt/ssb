@@ -247,11 +247,17 @@ def switch_threshold(val):
     fig.canvas.draw_idle()
 
 
-# def switch_images(val):
-#     with open(os.path.join('unsegmented', str(img_id_input.text).zfill(3) + '.tif'), 'rb') as fp:
-#         image = plt.imread(fp)
+def switch_images(val):
+    with open(os.path.join('unsegmented', str(img_id_input.text).zfill(3) + '.tif'), 'rb') as fp:
+        image = plt.imread(fp)
 
-#     update_view(val, rerun=False, image=image)
+    seg = Segmentor(image, image_id=int(img_id_input.text), threshold=threshold_slider.val)
+    seg.run(rerun=False, clustering=True)
+    f1.set_data(image)
+    f2.set_data(seg.edges)
+    f3.set_data(seg.clusters)
+    f4.set_data(seg.phases)
+    fig.draw_idle()
 
 
 axcolor = 'lightgoldenrodyellow'
