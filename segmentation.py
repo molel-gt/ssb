@@ -36,7 +36,6 @@ phases = {
     }
 
 fig, ax = plt.subplots(2, 2)
-# plt.subplots_adjust(left=0.25, bottom=0.25)
 ax[0, 0].grid(which='both')
 ax[1, 0].grid(which='both')
 ax[0, 1].grid(which='both')
@@ -227,9 +226,6 @@ def onSelect(val):
 
 
 def switch_threshold(val):
-    # seg = Segmentor(image, image_id=int(img_id_input.text), threshold=threshold_slider.val)
-    # seg.image = image
-    # seg.image_id = int(img_id_input.text)
     seg.threshold = threshold_slider.val
     seg.run(rerun=False, clustering=True)
     
