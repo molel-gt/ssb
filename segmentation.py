@@ -121,23 +121,15 @@ def get_clustering_results(X_2d, **hdbscan_kwargs):
 
 class Segmentor:
     def __init__(self, image, image_id=0, threshold=0.0325, output_dir='segmentation'):
-        self._image_id = image_id
-        self._threshold = threshold
+        self.image_id = image_id
+        self.threshold = threshold
         self._output_dir = output_dir
-        self._image = image
+        self.image = image
         self.clusters = None
         self.edges = None
         self.phases = np.zeros(self.image.shape, dtype=np.uint8)
         self.residual = np.zeros(self.image.shape, dtype=np.uint8)
         self.rerun = False
-
-    @property
-    def image_id(self):
-        return self._image_id
-
-    @property
-    def image(self):
-        return self._image
 
     @property
     def output_dir(self):
@@ -155,10 +147,6 @@ class Segmentor:
     def phases_dir(self):
         return os.path.join(self.output_dir, 'phases')
 
-    @property
-    def threshold(self):
-        return self._threshold
-    
     def create_dirs(self):
         make_dir_if_missing(self.output_dir)
         make_dir_if_missing(self.edges_dir)
@@ -219,10 +207,10 @@ class Segmentor:
             self.update_phases(selection, phase)
 
 
-with open(os.path.join('unsegmented', str(0).zfill(3) + '.tif'), 'rb') as fp:
+with open(os.path.join('unsegmented', str(10).zfill(3) + '.tif'), 'rb') as fp:
     image = plt.imread(fp)
 
-seg = Segmentor(image, image_id=0, threshold=0.0325)
+seg = Segmentor(image, image_id=10, threshold=0.0325)
 seg.run(rerun=False, clustering=True)
 
 
@@ -239,7 +227,10 @@ def onSelect(val):
 
 
 def switch_threshold(val):
-    seg = Segmentor(image, image_id=int(img_id_input.text), threshold=threshold_slider.val)
+    # seg = Segmentor(image, image_id=int(img_id_input.text), threshold=threshold_slider.val)
+    # seg.image = image
+    # seg.image_id = int(img_id_input.text)
+    seg.threshold = threshold_slider.val
     seg.run(rerun=False, clustering=True)
     
     f2.set_data(seg.edges)
@@ -251,21 +242,23 @@ def switch_images(val):
     with open(os.path.join('unsegmented', str(img_id_input.text).zfill(3) + '.tif'), 'rb') as fp:
         image = plt.imread(fp)
 
-    seg = Segmentor(image, image_id=int(img_id_input.text), threshold=threshold_slider.val)
+    seg.image = image
+    seg.image_id = int(img_id_input.text)
+    seg.threshold = threshold_slider.val
     seg.run(rerun=False, clustering=True)
     f1.set_data(image)
     f2.set_data(seg.edges)
     f3.set_data(seg.clusters)
     f4.set_data(seg.phases)
-    fig.draw_idle()
+    fig.canvas.draw_idle()
 
 
 axcolor = 'lightgoldenrodyellow'
 rax = fig.add_axes([0.45, 0.8, 0.1, 0.1], facecolor=axcolor)
 img_id_ax = fig.add_axes([0.525, 0.925, 0.025, 0.025])
 threshold_ax = fig.add_axes([0.475, 0.4, 0.025, 0.25])
-img_id_input = TextBox(img_id_ax, "Image Number :  ", textalignment="right", initial=0)
-# img_id_input.on_text_change(switch_images)
+img_id_input = TextBox(img_id_ax, "Image Number :  ", textalignment="right", initial=10)
+img_id_input.on_text_change(switch_images)
 
 threshold_slider = Slider(
     ax=threshold_ax,
