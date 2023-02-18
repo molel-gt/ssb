@@ -219,35 +219,6 @@ class Segmentor:
             self.update_phases(selection, phase)
 
 
-# def switch_images(val):
-#     with open(os.path.join('unsegmented', str(img_id_input.text).zfill(3) + '.tif'), 'rb') as fp:
-#         image = plt.imread(fp)
-
-#     update_view(val, rerun=False, image=image)
-
-
-# def switch_threshold(val):
-#     with open(os.path.join('unsegmented', str(img_id_input.text).zfill(3) + '.tif'), 'rb') as fp:
-#         image = plt.imread(fp)
-#     update_view(val, image=image, rerun=True)
-
-
-# def update_view(val, rerun=False, image=image):
-#     f1.set_data(image)
-#     fig.canvas.draw_idle()
-
-#     seg = Segmentor(image, image_id=int(img_id_input.text), threshold=threshold_slider.val)
-#     seg.run(rerun)
-
-#     if rerun:
-#         f2.set_data(seg.edges)
-#         fig.canvas.draw()
-#         f3.set_data(seg.clusters)
-#         fig.canvas.draw()
-#         f4.set_data(seg.phases)
-
-#     fig.canvas.draw_idle()
-
 with open(os.path.join('unsegmented', str(0).zfill(3) + '.tif'), 'rb') as fp:
     image = plt.imread(fp)
 
@@ -267,6 +238,22 @@ def onSelect(val):
         fig.canvas.draw_idle()
 
 
+def switch_threshold(val):
+    seg = Segmentor(image, image_id=int(img_id_input.text), threshold=threshold_slider.val)
+    seg.run(rerun=False, clustering=True)
+    
+    f2.set_data(seg.edges)
+    f3.set_data(seg.clusters)
+    fig.canvas.draw_idle()
+
+
+# def switch_images(val):
+#     with open(os.path.join('unsegmented', str(img_id_input.text).zfill(3) + '.tif'), 'rb') as fp:
+#         image = plt.imread(fp)
+
+#     update_view(val, rerun=False, image=image)
+
+
 axcolor = 'lightgoldenrodyellow'
 rax = fig.add_axes([0.45, 0.8, 0.1, 0.1], facecolor=axcolor)
 img_id_ax = fig.add_axes([0.525, 0.925, 0.025, 0.025])
@@ -280,7 +267,7 @@ threshold_slider = Slider(
     orientation='vertical',
     valmin=0,
     valmax=0.2,
-    valinit=0.05,
+    valinit=0.0325,
     valstep=np.linspace(0, 0.2, num=201),
 )
 
@@ -293,8 +280,6 @@ radio = RadioButtons(
                  'facecolor': ['blue', 'red', 'green'],
                  },
     )
-
-
 
 f1 = ax[0, 0].imshow(image, cmap='gray')
 ax[0, 0].set_title('Original')
@@ -314,7 +299,7 @@ ax[1, 1].set_title("Segmented")
 ax[1, 1].set_aspect('equal', 'box')
 
 selector = LassoSelector(ax=ax[0, 0], onselect=onSelect)
-# threshold_slider.on_changed(switch_threshold)
+threshold_slider.on_changed(switch_threshold)
 
 fig.canvas.draw_idle()
 plt.tight_layout()
