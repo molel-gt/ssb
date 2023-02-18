@@ -200,8 +200,6 @@ class Segmentor:
                 img_cluster_raw[int(ix), int(iy)] = int(v)
 
         img_cluster_enhanced = enhance_clusters(img_cluster_raw)
-        with open(os.path.join(self.clusters_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
-            pickle.dump(img_cluster_enhanced, fp)
 
         self.clusters = img_cluster_enhanced
 
