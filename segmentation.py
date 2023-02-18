@@ -127,8 +127,8 @@ class Segmentor:
         self._image = image
         self.clusters = None
         self.edges = None
-        self.phases = None
-        self.residual = None
+        self.phases = np.zeros(self.image.shape, dtype=np.uint8)
+        self.residual = np.zeros(self.image.shape, dtype=np.uint8)
         self.rerun = False
 
     @property
@@ -164,27 +164,28 @@ class Segmentor:
         make_dir_if_missing(self.edges_dir)
         make_dir_if_missing(self.clusters_dir)
         make_dir_if_missing(self.phases_dir)
+    
+    def update_residuals(self):
+        coords = np.where(self.phases < 1)
+        self.residual[coords] = self.image[coords]
+    
+    def update_phases(self, selection, phase):
+        self.phases[selection] = phase
+        self.update_residuals()
 
-    def clustering(self):
-        img_id = str(self.image_id).zfill(3)
-        if self.rerun or not os.path.exists(os.path.join(self.edges_dir, f'{img_id}')):
+        with open(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
+            pickle.dump(self.phases, fp)
 
-            img_11 = neighborhood_average(self.image)
-            for i in range(25):
-                img_11 = neighborhood_average(img_11)
-            img_2 = filters.meijering(img_11)
-            img_3 = neighborhood_average(img_2)
-            for i in range(5):
-                img_3 = neighborhood_average(img_3)
-            img = img_3 / np.max(img_3)
-            with open(os.path.join(self.edges_dir, f'{img_id}'), 'wb') as fp:
-                pickle.dump(img_2, fp)
-        else:
-            with open(os.path.join(self.edges_dir, f'{img_id}'), 'rb') as fp:
-                img_2 = pickle.load(fp)
+    def set_edges(self):
+        img_11 = neighborhood_average(self.image)
+        for i in range(25):
+            img_11 = neighborhood_average(img_11)
+        img_2 = filters.meijering(img_11)
         self.edges = img_2
 
-        img_3 = neighborhood_average(img_2)
+    def clustering(self):
+        self.set_edges()
+        img_3 = neighborhood_average(self.edges)
         for i in range(5):
             img_3 = neighborhood_average(img_3)
         img = img_3 / np.max(img_3)
@@ -196,86 +197,76 @@ class Segmentor:
             X_v = np.where(y_predict == v)[0]
             coords = np.array([X_2d[ix, :2] for ix in X_v])
             for (ix, iy) in coords:
-                img_cluster_raw[int(ix), int(iy)] = v
+                img_cluster_raw[int(ix), int(iy)] = int(v)
 
         img_cluster_enhanced = enhance_clusters(img_cluster_raw)
-        for i in range(1):
-            img_cluster_enhanced = enhance_clusters(img_cluster_raw)
-        with open(os.path.join(self.clusters_dir, f'{img_id}'), 'wb') as fp:
+        with open(os.path.join(self.clusters_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
             pickle.dump(img_cluster_enhanced, fp)
 
         self.clusters = img_cluster_enhanced
 
-        if not os.path.exists(os.path.join(self.phases_dir, f'{img_id}')):
-            self.phases = np.zeros(self.image.shape, dtype=np.uint8)
-        else:
-            with open(os.path.join(self.phases_dir, f'{img_id}'), 'rb') as fp:
+        if os.path.exists(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}')):
+            with open(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}'), 'rb') as fp:
                 self.phases = pickle.load(fp)
+        
 
-        self.residual = self.image[np.where(self.phases < 1)]
-
-    def run(self, selection=None, phase=None, rerun=False):
+    def run(self, selection=None, phase=None, rerun=False, clustering=False, segmentation=False):
         self.rerun = rerun
-        img_id = str(self.image_id).zfill(3)
         self.create_dirs()
-        if self.clusters is None:
+
+        if clustering:
             self.clustering()
 
-        if not all([selection, phase]):
-            return
-
-        self.phases[selection] = phase
-
-        img_id = str(self.image_id).zfill(3)
-
-        with open(os.path.join(self.phases_dir, f'{img_id}'), 'wb') as fp:
-            pickle.dump(self.phases, fp)
+        if segmentation:
+            self.update_phases(selection, phase)
 
 
-def switch_images(val):
-    with open(os.path.join('unsegmented', str(img_id_input.text).zfill(3) + '.tif'), 'rb') as fp:
-        image = plt.imread(fp)
+# def switch_images(val):
+#     with open(os.path.join('unsegmented', str(img_id_input.text).zfill(3) + '.tif'), 'rb') as fp:
+#         image = plt.imread(fp)
 
-    update_view(val, rerun=False, image=image)
-
-
-def switch_threshold(val):
-    with open(os.path.join('unsegmented', str(img_id_input.text).zfill(3) + '.tif'), 'rb') as fp:
-        image = plt.imread(fp)
-    update_view(val, image=image, rerun=True)
+#     update_view(val, rerun=False, image=image)
 
 
-def update_view(val, rerun=False, image=image):
-    f1.set_data(image)
-    fig.canvas.draw_idle()
+# def switch_threshold(val):
+#     with open(os.path.join('unsegmented', str(img_id_input.text).zfill(3) + '.tif'), 'rb') as fp:
+#         image = plt.imread(fp)
+#     update_view(val, image=image, rerun=True)
 
-    seg = Segmentor(image, image_id=int(img_id_input.text), threshold=threshold_slider.val)
-    seg.run(rerun)
 
-    if rerun:
-        f2.set_data(seg.edges)
-        fig.canvas.draw()
-        f3.set_data(seg.clusters)
-        fig.canvas.draw()
-        f4.set_data(seg.phases)
+# def update_view(val, rerun=False, image=image):
+#     f1.set_data(image)
+#     fig.canvas.draw_idle()
 
-    fig.canvas.draw_idle()
+#     seg = Segmentor(image, image_id=int(img_id_input.text), threshold=threshold_slider.val)
+#     seg.run(rerun)
+
+#     if rerun:
+#         f2.set_data(seg.edges)
+#         fig.canvas.draw()
+#         f3.set_data(seg.clusters)
+#         fig.canvas.draw()
+#         f4.set_data(seg.phases)
+
+#     fig.canvas.draw_idle()
+
+with open(os.path.join('unsegmented', str(0).zfill(3) + '.tif'), 'rb') as fp:
+    image = plt.imread(fp)
+
+seg = Segmentor(image, image_id=0, threshold=0.0325)
+seg.run(rerun=False, clustering=True)
 
 
 def onSelect(val):
     selected_pts = np.array(val, dtype=int)
-
-    seg = Segmentor(image, image_id=int(img_id_input.text), threshold=threshold_slider.val)
-    seg.run(rerun=False)
-
     cluster_vals = [int(v) for v in np.unique([seg.clusters[iy, ix] for ix, iy in selected_pts]) if v > -1]
 
     for v in cluster_vals:
         coords = np.where(seg.clusters == v)
-        seg.run(selection=coords, phase=phases[radio.value_selected])
+        seg.run(selection=coords, phase=phases[radio.value_selected], segmentation=True)
 
-    f4.set_data(seg.phases)
-    fig.canvas.draw_idle()
+        f4.set_data(seg.phases)
+        fig.canvas.draw_idle()
 
 
 axcolor = 'lightgoldenrodyellow'
@@ -283,7 +274,7 @@ rax = fig.add_axes([0.45, 0.8, 0.1, 0.1], facecolor=axcolor)
 img_id_ax = fig.add_axes([0.525, 0.925, 0.025, 0.025])
 threshold_ax = fig.add_axes([0.475, 0.4, 0.025, 0.25])
 img_id_input = TextBox(img_id_ax, "Image Number :  ", textalignment="right", initial=0)
-img_id_input.on_text_change(switch_images)
+# img_id_input.on_text_change(switch_images)
 
 threshold_slider = Slider(
     ax=threshold_ax,
@@ -305,17 +296,12 @@ radio = RadioButtons(
                  },
     )
 
-with open(os.path.join('unsegmented', str(img_id_input.text).zfill(3) + '.tif'), 'rb') as fp:
-    image = plt.imread(fp)
+
 
 f1 = ax[0, 0].imshow(image, cmap='gray')
 ax[0, 0].set_title('Original')
 ax[0, 0].set_aspect('equal', 'box')
 fig.canvas.draw_idle()
-
-seg = Segmentor(image, image_id=int(img_id_input.text), threshold=threshold_slider.val)
-seg.run(rerun=False)
-
 
 f2 = ax[0, 1].imshow(seg.edges, cmap='magma')
 ax[0, 1].set_title('Edges')
@@ -330,7 +316,7 @@ ax[1, 1].set_title("Segmented")
 ax[1, 1].set_aspect('equal', 'box')
 
 selector = LassoSelector(ax=ax[0, 0], onselect=onSelect)
-threshold_slider.on_changed(switch_threshold)
+# threshold_slider.on_changed(switch_threshold)
 
 fig.canvas.draw_idle()
 plt.tight_layout()
