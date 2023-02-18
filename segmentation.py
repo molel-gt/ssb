@@ -2,16 +2,13 @@
 import itertools
 import os
 
-import cv2
 import hdbscan
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
 import warnings
 
-from matplotlib.image import AxesImage
 from matplotlib.widgets import Slider, LassoSelector, RadioButtons, TextBox
-from matplotlib.path import Path
 
 from skimage import filters
 from sklearn.ensemble import RandomForestClassifier
