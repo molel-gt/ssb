@@ -220,6 +220,7 @@ def onSelect(val):
 
         f4.set_data(seg.phases)
         fig.canvas.draw_idle()
+        fig.canvas.flush_events()
 
 
 def switch_threshold(val):
@@ -229,6 +230,7 @@ def switch_threshold(val):
     f2.set_data(seg.edges)
     f3.set_data(seg.clusters)
     fig.canvas.draw_idle()
+    fig.canvas.flush_events()
 
 
 def switch_images(val):
@@ -244,6 +246,7 @@ def switch_images(val):
     f3.set_data(seg.clusters)
     f4.set_data(seg.phases)
     fig.canvas.draw_idle()
+    fig.canvas.flush_events()
 
 
 axcolor = 'lightgoldenrodyellow'
@@ -294,5 +297,6 @@ selector = LassoSelector(ax=ax[0, 0], onselect=onSelect)
 threshold_slider.on_changed(switch_threshold)
 
 fig.canvas.draw_idle()
+fig.canvas.flush_events()
 plt.tight_layout()
 plt.show()
