@@ -214,7 +214,7 @@ plotter.add_slider_widget(
     callback=lambda value: engine('kappa', value),
     rng=[0, 10],
     value=0.5,
-    title="conductivity",
+    title="kappa",
     pointa=(0.025, 0.925),
     pointb=(0.31, 0.925),
     style='modern',
