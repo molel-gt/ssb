@@ -23,7 +23,6 @@ from ufl import (FacetNormal, Measure, SpatialCoordinate, TestFunction, TrialFun
                  div, dot, dx, grad, inner, lhs, rhs)
 from dolfinx.io import XDMFFile
 from dolfinx.plot import create_vtk_mesh
-# from ufl import ds
 
 
 pyvista.set_plot_theme("paraview")
@@ -215,6 +214,7 @@ class VizRoutine:
         run_model(**self.kwargs)
         return
 
+
 engine = VizRoutine(c=c, r=r, kappa=0.5)
 
 plotter.add_slider_widget(
@@ -226,5 +226,7 @@ plotter.add_slider_widget(
     pointb=(0.31, 0.925),
     style='modern',
 )
+
+plotter.enable_surface_picking(callback=lambda value: engine('c', value), left_clicking=True, show_point=True)
 
 plotter.show()
