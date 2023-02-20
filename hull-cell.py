@@ -23,7 +23,7 @@ from ufl import (FacetNormal, Measure, SpatialCoordinate, TestFunction, TrialFun
                  div, dot, dx, grad, inner, lhs, rhs)
 from dolfinx.io import XDMFFile
 from dolfinx.plot import create_vtk_mesh
-from ufl import ds
+# from ufl import ds
 
 
 pyvista.set_plot_theme("paraview")
@@ -38,10 +38,9 @@ L2 = 2
 L = L1 + L2
 W = 5
 
-insulated_bottom_marker = 2
-insulated_top_marker = 4
+insulated_marker = 2
 left_cc_marker = 3
-right_cc_marker = 5
+right_cc_marker = 4
 
 # starting
 c = [2.5, 2.5, 0]
@@ -117,6 +116,8 @@ def run_model(kappa=0.5, r=r, c=c):
 
     with dolfinx.io.XDMFFile(comm, 'facet_mesh.xdmf', "r") as xdmf:
         ft = xdmf.read_meshtags(mesh, name="Grid")
+    
+    ft_tag = meshtags(mesh, mesh.topology.dim - 1, ft.indices, ft.values)
 
     x = SpatialCoordinate(mesh)
 
@@ -124,6 +125,7 @@ def run_model(kappa=0.5, r=r, c=c):
     s = Constant(mesh, ScalarType(0.005))
     f = Constant(mesh, ScalarType(0.0))
     n = FacetNormal(mesh)
+    ds = Measure("ds", domain=mesh, subdomain_data=ft_tag)
 
     g = Constant(mesh, ScalarType(0.0))
     kappa = Constant(mesh, ScalarType(kappa))
@@ -136,13 +138,13 @@ def run_model(kappa=0.5, r=r, c=c):
 
     # boundaries
     # Dirichlet BCs
-    u0 = dolfinx.fem.Function(V)
-    with u0.vector.localForm() as u0_loc:
-        u0_loc.set(1)
-
     u1 = dolfinx.fem.Function(V)
     with u1.vector.localForm() as u1_loc:
-        u1_loc.set(0.005)
+        u1_loc.set(1)
+
+    # u1 = dolfinx.fem.Function(V)
+    # with u1.vector.localForm() as u1_loc:
+    #     u1_loc.set(0.005)
 
     # x0facet = np.array(ft.indices[ft.values == left_cc_marker])
     x1facet = np.array(ft.indices[ft.values == right_cc_marker])
