@@ -161,11 +161,17 @@ class Segmentor:
             pickle.dump(self.phases, fp)
 
     def set_edges(self):
-        img_11 = neighborhood_average(self.image)
-        for i in range(25):
-            img_11 = neighborhood_average(img_11)
-        img_2 = filters.meijering(img_11)
-        self.edges = img_2
+        if not self.rerun and os.path.exists(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}')):
+            with open(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}'), 'rb') as fp:
+                self.edges = pickle.load(fp)
+        else:
+            img_11 = neighborhood_average(self.image)
+            for i in range(25):
+                img_11 = neighborhood_average(img_11)
+            img_2 = filters.meijering(img_11)
+            self.edges = img_2
+            with open(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
+                pickle.dump(self.edges, fp)
 
     def clustering(self):
         self.set_edges()
@@ -254,7 +260,6 @@ rax = fig.add_axes([0.45, 0.8, 0.1, 0.1], facecolor=axcolor)
 img_id_ax = fig.add_axes([0.525, 0.925, 0.025, 0.025])
 threshold_ax = fig.add_axes([0.475, 0.4, 0.025, 0.25])
 img_id_input = TextBox(img_id_ax, "Image Number :  ", textalignment="right", initial=10)
-img_id_input.on_text_change(switch_images)
 
 threshold_slider = Slider(
     ax=threshold_ax,
@@ -294,7 +299,6 @@ ax[1, 1].set_title("Segmented")
 ax[1, 1].set_aspect('equal', 'box')
 
 selector = LassoSelector(ax=ax[0, 0], onselect=onSelect)
-threshold_slider.on_changed(switch_threshold)
 
 fig.canvas.draw_idle()
 fig.canvas.flush_events()
