@@ -59,7 +59,7 @@ def create_mesh(mesh, cell_type, prune_z=False):
     return out_mesh
 
 
-def create_geometry(r, c):
+def create_geometry(c, r):
     # Initialize empty geometry using the build in kernel in GMSH
     geometry = pygmsh.geo.Geometry()
     
@@ -102,9 +102,9 @@ def create_geometry(r, c):
 
 
 ######################## MODEL ####################################
-def run_model(kappa=0.5, r=r, c=c):
+def run_model(c=c, r=r, kappa=0.5):
     """Wrapper to allow value update on parameter change"""
-    create_geometry(r, c)
+    create_geometry(c, r)
     with dolfinx.io.XDMFFile(comm, "mesh.xdmf", "r") as infile2:
         mesh = infile2.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
     mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim - 1)
@@ -114,12 +114,13 @@ def run_model(kappa=0.5, r=r, c=c):
     
     ft_tag = meshtags(mesh, mesh.topology.dim - 1, ft.indices, ft.values)
 
-    x = SpatialCoordinate(mesh)
+    # x = SpatialCoordinate(mesh)
+    # n = FacetNormal(mesh)
 
     # Define physical parameters and boundary conditions
     s = Constant(mesh, ScalarType(0.005))
     f = Constant(mesh, ScalarType(0.0))
-    n = FacetNormal(mesh)
+   
     ds = Measure("ds", domain=mesh, subdomain_data=ft_tag)
 
     g = Constant(mesh, ScalarType(0.0))
