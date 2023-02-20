@@ -13,19 +13,16 @@ import pygmsh
 import pyvista
 import ufl
 
-from dolfinx.fem import (Constant,  Function, FunctionSpace, assemble_scalar, 
-                         dirichletbc, form, locate_dofs_topological)
+from dolfinx.fem import (Constant, FunctionSpace)
 from dolfinx.fem.petsc import LinearProblem
-from dolfinx.mesh import create_unit_square, locate_entities, meshtags
+from dolfinx.mesh import meshtags
 from mpi4py import MPI
 from petsc4py.PETSc import ScalarType
 from ufl import (FacetNormal, Measure, SpatialCoordinate, TestFunction, TrialFunction, 
-                 div, dot, dx, grad, inner, lhs, rhs)
-from dolfinx.io import XDMFFile
+                 dx, grad, inner, lhs, rhs)
 from dolfinx.plot import create_vtk_mesh
 
 
-pyvista.set_plot_theme("paraview")
 plotter = pyvista.Plotter()
 comm = MPI.COMM_WORLD
 
@@ -104,13 +101,12 @@ def create_geometry(r, c):
     meshio.write("mesh.xdmf", triangle_mesh)
 
 
-## MODEL ####
+######################## MODEL ####################################
 def run_model(kappa=0.5, r=r, c=c):
     """Wrapper to allow value update on parameter change"""
     create_geometry(r, c)
     with dolfinx.io.XDMFFile(comm, "mesh.xdmf", "r") as infile2:
         mesh = infile2.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
-        # _ = infile2.read_meshtags(mesh, name="Grid")
     mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim - 1)
 
     with dolfinx.io.XDMFFile(comm, 'facet_mesh.xdmf', "r") as xdmf:
@@ -141,13 +137,7 @@ def run_model(kappa=0.5, r=r, c=c):
     with u1.vector.localForm() as u1_loc:
         u1_loc.set(1)
 
-    # u1 = dolfinx.fem.Function(V)
-    # with u1.vector.localForm() as u1_loc:
-    #     u1_loc.set(0.005)
-
-    # x0facet = np.array(ft.indices[ft.values == left_cc_marker])
     x1facet = np.array(ft.indices[ft.values == right_cc_marker])
-    # x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 1, x0facet))
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 1, x1facet))
 
     bcs = [x1bc]
@@ -198,6 +188,8 @@ def run_model(kappa=0.5, r=r, c=c):
     plotter.view_xy()
 
 
+######################## INTERACTIVITY ####################################
+
 class VizRoutine:
     def __init__(self, c, r, kappa):
         self.kwargs = {
@@ -226,7 +218,5 @@ plotter.add_slider_widget(
     pointb=(0.31, 0.925),
     style='modern',
 )
-
-plotter.enable_surface_picking(callback=lambda value: engine('c', value), left_clicking=True, show_point=True)
 
 plotter.show()
