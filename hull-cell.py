@@ -18,7 +18,7 @@ from dolfinx.fem.petsc import LinearProblem
 from dolfinx.mesh import meshtags
 from mpi4py import MPI
 from petsc4py.PETSc import ScalarType
-from ufl import (FacetNormal, Measure, SpatialCoordinate, TestFunction, TrialFunction, 
+from ufl import (Measure, TestFunction, TrialFunction, 
                  dx, grad, inner, lhs, rhs)
 from dolfinx.plot import create_vtk_mesh
 
@@ -113,9 +113,6 @@ def run_model(c=c, r=r, kappa=0.5):
         ft = xdmf.read_meshtags(mesh, name="Grid")
     
     ft_tag = meshtags(mesh, mesh.topology.dim - 1, ft.indices, ft.values)
-
-    # x = SpatialCoordinate(mesh)
-    # n = FacetNormal(mesh)
 
     # Define physical parameters and boundary conditions
     s = Constant(mesh, ScalarType(0.005))
