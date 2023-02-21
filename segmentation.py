@@ -128,7 +128,7 @@ class Segmentor:
         self.image = image
         self.clusters = None
         self.edges = None
-        self._phases = None  # np.zeros(self.image.shape, dtype=np.uint8)
+        self._phases = np.zeros(self.image.shape, dtype=np.uint8)
         self.residual = -1 * np.ones(self.image.shape, dtype=int)
         self.rerun = False
         self.use_residuals = False
@@ -207,7 +207,7 @@ class Segmentor:
         self.clusters = img_cluster_enhanced
 
         if os.path.exists(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}')):
-            self._phases = None
+            self._phases = np.zeros(self.image.shape, dtype=np.uint8)
             with open(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}'), 'rb') as fp:
                 self._phases = pickle.load(fp)
         
