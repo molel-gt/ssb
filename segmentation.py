@@ -8,7 +8,8 @@ import numpy as np
 import pickle
 import warnings
 
-from matplotlib.widgets import Slider, LassoSelector, RadioButtons, TextBox
+from matplotlib.widgets import Button, Slider, LassoSelector, RadioButtons, TextBox
+from mpl_toolkits.axes_grid.inset_locator import inset_axes
 
 from skimage import filters
 from sklearn.ensemble import RandomForestClassifier
@@ -32,11 +33,15 @@ phases = {
     "Active Material": 2,
     }
 
-fig, ax = plt.subplots(2, 2)
+training_images = np.linspace(0, 200, num=41)
+fig, ax = plt.subplots(2, 3)
+fig.subplots_adjust(left=0)
 ax[0, 0].grid(which='both')
 ax[1, 0].grid(which='both')
 ax[0, 1].grid(which='both')
 ax[1, 1].grid(which='both')
+ax[0, 2].set_axis_off()
+ax[1, 2].set_axis_off()
 
 
 def make_dir_if_missing(f_path):
@@ -124,8 +129,9 @@ class Segmentor:
         self.clusters = None
         self.edges = None
         self.phases = np.zeros(self.image.shape, dtype=np.uint8)
-        self.residual = np.zeros(self.image.shape, dtype=np.uint8)
+        self.residual = -1 * np.ones(self.image.shape, dtype=int)
         self.rerun = False
+        self.use_residuals = False
 
     @property
     def output_dir(self):
@@ -179,6 +185,9 @@ class Segmentor:
         for i in range(5):
             img_3 = neighborhood_average(img_3)
         img = img_3 / np.max(img_3)
+        if self.use_residuals:
+            coords = np.where(self.residual > -1)
+            img[coords] = -1
         X_2d = build_features_matrix(img, self.image, self.threshold)
         y_predict = get_clustering_results(X_2d, **hdbscan_kwargs)
         img_cluster_raw = -2 * np.ones(img.shape)  # -2, -1 are residual non-clustered
@@ -198,8 +207,9 @@ class Segmentor:
                 self.phases = pickle.load(fp)
         
 
-    def run(self, selection=None, phase=None, rerun=False, clustering=False, segmentation=False):
+    def run(self, selection=None, phase=None, rerun=False, clustering=False, segmentation=False, use_residuals=False):
         self.rerun = rerun
+        self.use_residuals = use_residuals
         self.create_dirs()
 
         if clustering:
@@ -214,6 +224,48 @@ with open(os.path.join('unsegmented', str(10).zfill(3) + '.tif'), 'rb') as fp:
 
 seg = Segmentor(image, image_id=10, threshold=0.0325)
 seg.run(rerun=False, clustering=True)
+
+
+class Index:
+    ind = 0
+    
+    @property
+    def image_id(self):
+        return int(training_images[self.ind])
+
+    def next(self, event):
+        self.ind += 1
+        self.ind = int(self.ind)
+        with open(os.path.join('unsegmented', str(self.image_id).zfill(3) + '.tif'), 'rb') as fp:
+            image = plt.imread(fp)
+
+        seg.image = image
+        seg.image_id = int(self.image_id)
+        seg.threshold = threshold_slider.val
+        seg.run(rerun=False, clustering=True)
+        f1.set_data(image)
+        f2.set_data(seg.edges)
+        f3.set_data(seg.clusters)
+        f4.set_data(seg.phases)
+        fig.canvas.draw_idle()
+        fig.canvas.flush_events()
+
+    def prev(self, event):
+        self.ind -= 1
+        self.ind = int(self.ind)
+        with open(os.path.join('unsegmented', str(self.image_id).zfill(3) + '.tif'), 'rb') as fp:
+            image = plt.imread(fp)
+
+        seg.image = image
+        seg.image_id = int(self.image_id)
+        seg.threshold = threshold_slider.val
+        seg.run(rerun=False, clustering=True)
+        f1.set_data(image)
+        f2.set_data(seg.edges)
+        f3.set_data(seg.clusters)
+        f4.set_data(seg.phases)
+        fig.canvas.draw_idle()
+        fig.canvas.flush_events()
 
 
 def onSelect(val):
@@ -239,28 +291,41 @@ def switch_threshold(val):
     fig.canvas.flush_events()
 
 
-def switch_images(val):
-    with open(os.path.join('unsegmented', str(img_id_input.text).zfill(3) + '.tif'), 'rb') as fp:
-        image = plt.imread(fp)
+# def switch_images(val):
+#     with open(os.path.join('unsegmented', str(img_id_input.text).zfill(3) + '.tif'), 'rb') as fp:
+#         image = plt.imread(fp)
 
-    seg.image = image
-    seg.image_id = int(img_id_input.text)
-    seg.threshold = threshold_slider.val
-    seg.run(rerun=False, clustering=True)
-    f1.set_data(image)
-    f2.set_data(seg.edges)
-    f3.set_data(seg.clusters)
-    f4.set_data(seg.phases)
-    fig.canvas.draw_idle()
-    fig.canvas.flush_events()
+#     seg.image = image
+#     seg.image_id = int(img_id_input.text)
+#     seg.threshold = threshold_slider.val
+#     seg.run(rerun=False, clustering=True)
+#     f1.set_data(image)
+#     f2.set_data(seg.edges)
+#     f3.set_data(seg.clusters)
+#     f4.set_data(seg.phases)
+#     fig.canvas.draw_idle()
+#     fig.canvas.flush_events()
 
-
+callback = Index()
 axcolor = 'lightgoldenrodyellow'
-rax = fig.add_axes([0.45, 0.8, 0.1, 0.1], facecolor=axcolor)
-img_id_ax = fig.add_axes([0.525, 0.925, 0.025, 0.025])
-threshold_ax = fig.add_axes([0.475, 0.4, 0.025, 0.25])
-img_id_input = TextBox(img_id_ax, "Image Number :  ", textalignment="right", initial=10)
+# rax = fig.add_axes([0.45, 0.8, 0.1, 0.1], facecolor=axcolor)
+rax = inset_axes(ax[0, 2], width="100%", height='70%', loc=6)
+# img_id_ax = fig.add_axes([0.525, 0.925, 0.025, 0.025])
+img_id_ax = inset_axes(ax[0, 2], width="100%", height='10%', loc=1)
+# threshold_ax = fig.add_axes([0.475, 0.4, 0.025, 0.25])
+threshold_ax = inset_axes(ax[1, 2], width="10%", height='50%', loc=2)
+# axprev = fig.add_axes([0.85, 0.05, 0.05, 0.05])
+# axnext = fig.add_axes([0.925, 0.05, 0.05, 0.05])
+axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=3)
+axnext = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=4)
+rax.set_axis_off()
+img_id_ax.set_axis_off()
+threshold_ax.set_axis_off()
+# axnext.set_axis_off()
+# axprev.set_axis_off()
 
+# img_id_input = TextBox(img_id_ax, "Image Number :  ", textalignment="right", initial=10)
+img_id_ax.text(0, 1, f"File: unsegmented/{str(callback.image_id).zfill(3)}.tif", fontsize=14, verticalalignment='top')
 threshold_slider = Slider(
     ax=threshold_ax,
     label='Threshold',
@@ -272,13 +337,13 @@ threshold_slider = Slider(
 )
 
 radio = RadioButtons(
-    rax,
+    ax[0, 2],
     ('Void', 'Solid Electrolyte', 'Active Material'),
     active=0,
-    label_props={'color': ['blue', 'red' , 'green']},
-    radio_props={'edgecolor': ['darkblue', 'darkred', 'darkgreen'],
-                 'facecolor': ['blue', 'red', 'green'],
-                 },
+    # label_props={'color': ['blue', 'red' , 'green']},
+    # radio_props={'edgecolor': ['darkblue', 'darkred', 'darkgreen'],
+    #              'facecolor': ['blue', 'red', 'green'],
+    #              },
     )
 
 f1 = ax[0, 0].imshow(image, cmap='gray')
@@ -300,6 +365,11 @@ ax[1, 1].set_aspect('equal', 'box')
 
 selector = LassoSelector(ax=ax[0, 0], onselect=onSelect)
 
+
+bnext = Button(axnext, 'Next')
+bprev = Button(axprev, 'Previous')
+bnext.on_clicked(callback.next)
+bprev.on_clicked(callback.prev)
 fig.canvas.draw_idle()
 fig.canvas.flush_events()
 plt.tight_layout()
