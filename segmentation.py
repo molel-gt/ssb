@@ -219,14 +219,10 @@ class Segmentor:
             self.update_phases(selection, phase)
 
 
-
-
-
 class App:
-    ind = 0
-    
     def __init__(self, seg):
         self.seg = seg
+        self.ind = 0
     
     @property
     def image_id(self):
