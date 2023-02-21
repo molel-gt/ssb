@@ -239,7 +239,6 @@ class App:
         self.ind += 1
         self.ind = int(self.ind)
         fig.suptitle(f"File: unsegmented/{str(self.image_id).zfill(3)}.tif")
-        # ft.set_text(f"File: unsegmented/{str(self.image_id).zfill(3)}.tif")
         with open(os.path.join('unsegmented', str(self.image_id).zfill(3) + '.tif'), 'rb') as fp:
             image = plt.imread(fp)
 
@@ -259,7 +258,6 @@ class App:
         self.ind -= 1
         self.ind = int(self.ind)
         fig.suptitle(f"File: unsegmented/{str(self.image_id).zfill(3)}.tif")
-        # ft.set_text(f"File: unsegmented/{str(self.image_id).zfill(3)}.tif")
         with open(os.path.join('unsegmented', str(self.image_id).zfill(3) + '.tif'), 'rb') as fp:
             image = plt.imread(fp)
 
