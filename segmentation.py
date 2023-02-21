@@ -122,7 +122,7 @@ def get_clustering_results(X_2d, **hdbscan_kwargs):
 
 
 class Segmentor:
-    def __init__(self, image, image_id=0, threshold=0.0325, output_dir='segmentation'):
+    def __init__(self, image, image_id=0, threshold=0.03, output_dir='segmentation'):
         self.image_id = image_id
         self.threshold = threshold
         self._output_dir = output_dir
