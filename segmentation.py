@@ -8,6 +8,7 @@ import numpy as np
 import pickle
 import warnings
 
+from ipywidgets import widgets, interactive
 from matplotlib.widgets import Button, Slider, LassoSelector, RadioButtons, TextBox
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
@@ -300,7 +301,7 @@ image_id = 0
 with open(os.path.join('unsegmented', str(image_id).zfill(3) + '.tif'), 'rb') as fp:
     image = plt.imread(fp)
 
-seg = Segmentor(image, image_id=image_id, threshold=0.0325)
+seg = Segmentor(image, image_id=image_id, threshold=0.03)
 seg.run(rerun=False, clustering=True)
 fig.suptitle(f"Image: unsegmented/{str(image_id).zfill(3)}.tif")
 callback = App(seg)
@@ -315,10 +316,10 @@ threshold_slider = Slider(
     ax=threshold_ax,
     label='Threshold',
     orientation='vertical',
-    valmin=0,
-    valmax=0.2,
-    valinit=0.0325,
-    valstep=np.linspace(0, 0.2, num=201),
+    valmin=0.01,
+    valmax=0.075,
+    valinit=0.03,
+    valstep=np.linspace(0.01, 0.075, num=13),
 )
 
 radio = RadioButtons(
@@ -355,5 +356,6 @@ bprev = Button(axprev, 'Previous Image')
 bnext.on_clicked(callback.next)
 bprev.on_clicked(callback.prev)
 radio.on_clicked(callback.select_phase)
+threshold_slider.on_changed(callback.switch_threshold)
 plt.tight_layout()
 plt.show()
