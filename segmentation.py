@@ -310,13 +310,8 @@ rax = inset_axes(ax[0, 2], width="100%", height='70%', loc=3)
 threshold_ax = inset_axes(ax[1, 2], width="10%", height='50%', loc=2)
 axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
 axnext = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=1)
-# rax.set_axis_off()
-# img_id_ax.set_axis_off()
 threshold_ax.set_axis_off()
-# axnext.set_axis_off()
-# axprev.set_axis_off()
 
-# ft = img_id_ax.text(0, 1, f"File: unsegmented/{str(callback.image_id).zfill(3)}.tif", fontsize=14, verticalalignment='top')
 threshold_slider = Slider(
     ax=threshold_ax,
     label='Threshold',
@@ -361,7 +356,5 @@ bprev = Button(axprev, 'Previous Image')
 bnext.on_clicked(callback.next)
 bprev.on_clicked(callback.prev)
 radio.on_clicked(callback.select_phase)
-# fig.canvas.draw_idle()
-# fig.canvas.flush_events()
 plt.tight_layout()
 plt.show()
