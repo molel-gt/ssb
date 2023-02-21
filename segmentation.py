@@ -307,9 +307,12 @@ fig.suptitle(f"Image: unsegmented/{str(image_id).zfill(3)}.tif")
 callback = App(seg)
 axcolor = 'lightgoldenrodyellow'
 rax = inset_axes(ax[0, 2], width="100%", height='70%', loc=3)
+rax.set_facecolor(axcolor)
 threshold_ax = inset_axes(ax[1, 2], width="10%", height='50%', loc=2)
 axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
 axnext = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=1)
+# axprev.set_facecolor(axcolor)
+# axnext.set_facecolor(axcolor)
 threshold_ax.set_axis_off()
 
 threshold_slider = Slider(
@@ -326,10 +329,10 @@ radio = RadioButtons(
     rax,
     ('Void', 'Solid Electrolyte', 'Active Material'),
     active=0,
-    # label_props={'color': ['blue', 'red' , 'green']},
-    # radio_props={'edgecolor': ['darkblue', 'darkred', 'darkgreen'],
-    #              'facecolor': ['blue', 'red', 'green'],
-    #              },
+    label_props={'color': ['blue', 'red' , 'green']},
+    radio_props={'edgecolor': ['darkblue', 'darkred', 'darkgreen'],
+                  'facecolor': ['blue', 'red', 'green'],
+                  },
     )
 
 f1 = ax[0, 0].imshow(image, cmap='gray')
