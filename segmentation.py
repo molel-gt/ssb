@@ -128,7 +128,7 @@ class Segmentor:
         self.image = image
         self.clusters = None
         self.edges = None
-        self.phases = np.zeros(self.image.shape, dtype=np.uint8)
+        self._phases = None  # np.zeros(self.image.shape, dtype=np.uint8)
         self.residual = -1 * np.ones(self.image.shape, dtype=int)
         self.rerun = False
         self.use_residuals = False
@@ -136,6 +136,10 @@ class Segmentor:
     @property
     def output_dir(self):
         return self._output_dir
+    
+    @property
+    def phases(self):
+        return self._phases
 
     @property
     def edges_dir(self):
@@ -160,7 +164,7 @@ class Segmentor:
         self.residual[coords] = self.image[coords]
     
     def update_phases(self, selection, phase):
-        self.phases[selection] = phase
+        self._phases[selection] = phase
         self.update_residuals()
 
         with open(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
@@ -203,8 +207,9 @@ class Segmentor:
         self.clusters = img_cluster_enhanced
 
         if os.path.exists(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}')):
+            self._phases = None
             with open(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}'), 'rb') as fp:
-                self.phases = pickle.load(fp)
+                self._phases = pickle.load(fp)
         
 
     def run(self, selection=None, phase=None, rerun=False, clustering=False, segmentation=False, use_residuals=False):
@@ -223,6 +228,7 @@ class App:
     def __init__(self, seg):
         self.seg = seg
         self.ind = 0
+        self.selected_phase = 0
     
     @property
     def image_id(self):
@@ -231,7 +237,8 @@ class App:
     def next(self, event):
         self.ind += 1
         self.ind = int(self.ind)
-        ft.set_text(f"File: unsegmented/{str(self.image_id).zfill(3)}.tif")
+        fig.suptitle(f"File: unsegmented/{str(self.image_id).zfill(3)}.tif")
+        # ft.set_text(f"File: unsegmented/{str(self.image_id).zfill(3)}.tif")
         with open(os.path.join('unsegmented', str(self.image_id).zfill(3) + '.tif'), 'rb') as fp:
             image = plt.imread(fp)
 
@@ -244,17 +251,18 @@ class App:
         f2.set_data(self.seg.edges)
         f3.set_data(self.seg.clusters)
         f4.set_data(self.seg.phases)
-        fig.canvas.draw_idle()
+        fig.canvas.draw()
         fig.canvas.flush_events()
 
     def prev(self, event):
         self.ind -= 1
         self.ind = int(self.ind)
-        ft.set_text(f"File: unsegmented/{str(self.image_id).zfill(3)}.tif")
+        fig.suptitle(f"File: unsegmented/{str(self.image_id).zfill(3)}.tif")
+        # ft.set_text(f"File: unsegmented/{str(self.image_id).zfill(3)}.tif")
         with open(os.path.join('unsegmented', str(self.image_id).zfill(3) + '.tif'), 'rb') as fp:
             image = plt.imread(fp)
 
-        self. seg.image = image
+        self.seg.image = image
         self.seg.image_id = int(self.image_id)
         self.seg.threshold = threshold_slider.val
         self.seg.run(rerun=False, clustering=True)
@@ -262,51 +270,53 @@ class App:
         f2.set_data(self.seg.edges)
         f3.set_data(self.seg.clusters)
         f4.set_data(self.seg.phases)
-        fig.canvas.draw_idle()
+        fig.canvas.draw()
         fig.canvas.flush_events()
 
-    def onSelect(val):
+    def onSelect(self, val):
         selected_pts = np.array(val, dtype=int)
-        cluster_vals = [int(v) for v in np.unique([seg.clusters[iy, ix] for ix, iy in selected_pts]) if v > -1]
+        cluster_vals = [int(v) for v in np.unique([self.seg.clusters[iy, ix] for ix, iy in selected_pts]) if v > -1]
     
         for v in cluster_vals:
-            coords = np.where(seg.clusters == v)
-            seg.run(selection=coords, phase=phases[radio.value_selected], segmentation=True)
+            coords = np.where(self.seg.clusters == v)
+            self.seg.run(selection=coords, phase=self.selected_phase, segmentation=True)
     
-            f4.set_data(seg.phases)
+            f4.set_data(self.seg.phases)
             fig.canvas.draw_idle()
             fig.canvas.flush_events()
 
-    def switch_threshold(val):
-        seg.threshold = threshold_slider.val
-        seg.run(rerun=False, clustering=True)
+    def switch_threshold(self, val):
+        self.seg.threshold = threshold_slider.val
+        self.seg.run(rerun=False, clustering=True)
         
-        f2.set_data(seg.edges)
-        f3.set_data(seg.clusters)
+        f2.set_data(self.seg.edges)
+        f3.set_data(self.seg.clusters)
         fig.canvas.draw_idle()
         fig.canvas.flush_events()
+    
+    def select_phase(self, val):
+        self.selected_phase = phases[radio.value_selected]
 
-
-with open(os.path.join('unsegmented', str(0).zfill(3) + '.tif'), 'rb') as fp:
+image_id = 0
+with open(os.path.join('unsegmented', str(image_id).zfill(3) + '.tif'), 'rb') as fp:
     image = plt.imread(fp)
 
-seg = Segmentor(image, image_id=0, threshold=0.0325)
+seg = Segmentor(image, image_id=image_id, threshold=0.0325)
 seg.run(rerun=False, clustering=True)
-
+fig.suptitle(f"Image: unsegmented/{str(image_id).zfill(3)}.tif")
 callback = App(seg)
 axcolor = 'lightgoldenrodyellow'
-rax = inset_axes(ax[0, 2], width="100%", height='70%', loc=6)
-img_id_ax = inset_axes(ax[0, 2], width="100%", height='10%', loc=1)
+rax = inset_axes(ax[0, 2], width="100%", height='70%', loc=3)
 threshold_ax = inset_axes(ax[1, 2], width="10%", height='50%', loc=2)
-axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=3)
-axnext = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=4)
+axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=1)
+axnext = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
 # rax.set_axis_off()
-img_id_ax.set_axis_off()
+# img_id_ax.set_axis_off()
 threshold_ax.set_axis_off()
 # axnext.set_axis_off()
 # axprev.set_axis_off()
 
-ft = img_id_ax.text(0, 1, f"File: unsegmented/{str(callback.image_id).zfill(3)}.tif", fontsize=14, verticalalignment='top')
+# ft = img_id_ax.text(0, 1, f"File: unsegmented/{str(callback.image_id).zfill(3)}.tif", fontsize=14, verticalalignment='top')
 threshold_slider = Slider(
     ax=threshold_ax,
     label='Threshold',
@@ -345,12 +355,13 @@ ax[1, 1].set_title("Segmented")
 ax[1, 1].set_aspect('equal', 'box')
 
 selector = LassoSelector(ax=ax[0, 0], onselect=callback.onSelect)
-bnext = Button(axnext, 'Next')
-bprev = Button(axprev, 'Previous')
+bnext = Button(axnext, 'Next Image')
+bprev = Button(axprev, 'Previous Image')
 
 bnext.on_clicked(callback.next)
 bprev.on_clicked(callback.prev)
-fig.canvas.draw_idle()
-fig.canvas.flush_events()
+radio.on_clicked(callback.select_phase)
+# fig.canvas.draw_idle()
+# fig.canvas.flush_events()
 plt.tight_layout()
 plt.show()
