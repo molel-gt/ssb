@@ -210,7 +210,8 @@ class Segmentor:
             self._phases = np.zeros(self.image.shape, dtype=np.uint8)
             with open(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}'), 'rb') as fp:
                 self._phases = pickle.load(fp)
-        
+        else:
+            self._phases = np.zeros(self.image.shape, dtype=np.uint8)
 
     def run(self, selection=None, phase=None, rerun=False, clustering=False, segmentation=False, use_residuals=False):
         self.rerun = rerun
