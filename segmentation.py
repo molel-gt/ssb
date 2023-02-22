@@ -213,8 +213,6 @@ class Segmentor:
 
         self.clusters = img_cluster_enhanced
 
-        
-
     def run(self, selection=None, phase=None, rerun=False, clustering=False, segmentation=False, use_residuals=True):
         self.rerun = rerun
         self.use_residuals = use_residuals
@@ -312,8 +310,6 @@ rax.set_facecolor(axcolor)
 threshold_ax = inset_axes(ax[1, 2], width="10%", height='50%', loc=2)
 axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
 axnext = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=1)
-# axprev.set_facecolor(axcolor)
-# axnext.set_facecolor(axcolor)
 threshold_ax.set_axis_off()
 
 threshold_slider = Slider(
@@ -343,7 +339,7 @@ fig.canvas.draw_idle()
 
 f2 = ax[0, 1].imshow(seg.edges, cmap='gray')
 ax[0, 1].set_title('Edges')
-ax[0, 1].set_box_aspect(1)
+ax[0, 1].set_aspect('equal', 'box')
 
 f3 = ax[1, 0].imshow(seg.clusters, cmap='magma')
 ax[1, 0].set_title("Clusters")
