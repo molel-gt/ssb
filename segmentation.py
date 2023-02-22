@@ -185,13 +185,19 @@ class Segmentor:
                 pickle.dump(self.edges, fp)
 
     def clustering(self):
+        if os.path.exists(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}')):
+            self._phases = np.zeros(self.image.shape, dtype=np.uint8)
+            with open(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}'), 'rb') as fp:
+                self._phases = pickle.load(fp)
+        else:
+            self._phases = np.zeros(self.image.shape, dtype=np.uint8)
         self.set_edges()
         img_3 = neighborhood_average(self.edges)
         for i in range(5):
             img_3 = neighborhood_average(img_3)
         img = img_3 / np.max(img_3)
         if self.use_residuals:
-            coords = np.where(self.residual > -1)
+            coords = np.where(self.phases > 0)
             img[coords] = -1
         X_2d = build_features_matrix(img, self.image, self.threshold)
         y_predict = get_clustering_results(X_2d, **hdbscan_kwargs)
@@ -207,14 +213,9 @@ class Segmentor:
 
         self.clusters = img_cluster_enhanced
 
-        if os.path.exists(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}')):
-            self._phases = np.zeros(self.image.shape, dtype=np.uint8)
-            with open(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}'), 'rb') as fp:
-                self._phases = pickle.load(fp)
-        else:
-            self._phases = np.zeros(self.image.shape, dtype=np.uint8)
+        
 
-    def run(self, selection=None, phase=None, rerun=False, clustering=False, segmentation=False, use_residuals=False):
+    def run(self, selection=None, phase=None, rerun=False, clustering=False, segmentation=False, use_residuals=True):
         self.rerun = rerun
         self.use_residuals = use_residuals
         self.create_dirs()
@@ -340,7 +341,7 @@ ax[0, 0].set_title('Original')
 ax[0, 0].set_aspect('equal', 'box')
 fig.canvas.draw_idle()
 
-f2 = ax[0, 1].imshow(seg.edges, cmap='magma')
+f2 = ax[0, 1].imshow(seg.edges, cmap='gray')
 ax[0, 1].set_title('Edges')
 ax[0, 1].set_box_aspect(1)
 
