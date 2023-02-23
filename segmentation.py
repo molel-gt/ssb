@@ -35,7 +35,7 @@ phases = {
     }
 
 training_images = np.linspace(0, 200, num=41)
-thresholds = ['-0.90', '-0.80', '-0.03', '-0.02', '0.02', '0.03', '0.05', '0.10', '0.20', '0.50', '0.80', '0.90']
+thresholds = ['-0.95', '-0.80', '-0.03', '-0.02', '0.02', '0.03', '0.05', '0.10', '0.20', '0.50', '0.80', '0.95']
 fig, ax = plt.subplots(2, 3)
 fig.subplots_adjust(left=0)
 ax[0, 0].grid(which='both')
