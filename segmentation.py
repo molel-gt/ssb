@@ -384,7 +384,7 @@ class StackSegmentation:
         self._y_test = self.model.predict(self.X_test)
 
         
-image_id = 50
+image_id = 0
 with open(os.path.join('unsegmented', str(image_id).zfill(3) + '.tif'), 'rb') as fp:
     image = plt.imread(fp)
 
