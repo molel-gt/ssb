@@ -35,7 +35,7 @@ phases = {
     }
 
 training_images = np.linspace(0, 200, num=41)
-thresholds = ['-0.95', '-0.80', '-0.03', '-0.02', '0.02', '0.03', '0.05', '0.10', '0.20', '0.50', '0.80', '0.95']
+thresholds = ['-0.99', '-0.95', '-0.80', '-0.03', '-0.02', '0.00', '0.02', '0.03', '0.05', '0.10', '0.20', '0.50', '0.80', '0.95', '0.99']
 fig, ax = plt.subplots(2, 3)
 fig.subplots_adjust(left=0)
 ax[0, 0].grid(which='both')
@@ -241,7 +241,7 @@ class App:
         self.seg = seg
         self.ind = 0
         self._selected_phase = selected_phase
-        self._threshold_index = 5
+        self._threshold_index = 7
     
     @property
     def image_id(self):
@@ -347,11 +347,11 @@ class StackSegmentation:
     def test(self):
         pass
         
-image_id = 40
+image_id = 0
 with open(os.path.join('unsegmented', str(image_id).zfill(3) + '.tif'), 'rb') as fp:
     image = plt.imread(fp)
 
-seg = Segmentor(image, image_id=image_id, threshold=float(thresholds[5]))
+seg = Segmentor(image, image_id=image_id, threshold=float(thresholds[7]))
 seg.run(rerun=False, clustering=True)
 fig.suptitle(f"Image: unsegmented/{str(image_id).zfill(3)}.tif")
 callback = App(seg)
@@ -360,7 +360,7 @@ rax = inset_axes(ax[0, 2], width="100%", height='70%', loc=3)
 rax.set_facecolor(axcolor)
 
 # checkbuttons
-check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0])
+check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0])
 
 # next and previous buttons
 axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
