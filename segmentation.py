@@ -347,7 +347,7 @@ class StackSegmentation:
     def test(self):
         pass
         
-image_id = 0
+image_id = 50
 with open(os.path.join('unsegmented', str(image_id).zfill(3) + '.tif'), 'rb') as fp:
     image = plt.imread(fp)
 
