@@ -9,7 +9,7 @@ import pickle
 import warnings
 
 from ipywidgets import widgets, interactive
-from matplotlib.widgets import Button, Slider, LassoSelector, RadioButtons, TextBox
+from matplotlib.widgets import CheckButtons, Button, Slider, LassoSelector, RadioButtons, TextBox
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 from skimage import filters
@@ -35,7 +35,7 @@ phases = {
     }
 
 training_images = np.linspace(0, 200, num=41)
-thresholds = [-0.75, -0.03, 0.02, 0.02, 0.03, 0.75]
+thresholds = ['-0.75', '-0.03', '-0.02', '0.02', '0.03', '0.75']
 fig, ax = plt.subplots(2, 3)
 fig.subplots_adjust(left=0)
 ax[0, 0].grid(which='both')
@@ -241,11 +241,15 @@ class App:
         self.seg = seg
         self.ind = 0
         self._selected_phase = selected_phase
-        self.threshold = 0.03
+        self._threshold_index = 4
     
     @property
     def image_id(self):
         return int(training_images[self.ind])
+    
+    @property
+    def threshold(self):
+        return float(thresholds[int(self._threshold_index)])
     
     @property
     def selected_phase(self):
@@ -300,6 +304,21 @@ class App:
             f4.set_data(self.seg.phases)
             fig.canvas.draw_idle()
             fig.canvas.flush_events()
+    
+    def check_threshold(self, label):
+        # uncheck previous
+        index = thresholds.index(label)
+        if index != int(self._threshold_index):
+            check.set_active(int(self._threshold_index))
+        self._threshold_index = index
+
+        self.seg.threshold = self.threshold
+        self.seg.run(rerun=False, clustering=True)
+
+        f2.set_data(self.seg.edges)
+        f3.set_data(self.seg.clusters)
+        fig.canvas.draw_idle()
+        fig.canvas.flush_events()
 
     def switch_threshold(self, val):
         self.threshold = val
@@ -332,34 +351,20 @@ image_id = 40
 with open(os.path.join('unsegmented', str(image_id).zfill(3) + '.tif'), 'rb') as fp:
     image = plt.imread(fp)
 
-seg = Segmentor(image, image_id=image_id, threshold=0.03)
+seg = Segmentor(image, image_id=image_id, threshold=float(thresholds[4]))
 seg.run(rerun=False, clustering=True)
 fig.suptitle(f"Image: unsegmented/{str(image_id).zfill(3)}.tif")
 callback = App(seg)
 axcolor = 'lightgoldenrodyellow'
 rax = inset_axes(ax[0, 2], width="100%", height='70%', loc=3)
 rax.set_facecolor(axcolor)
-# threshold_ax = inset_axes(ax[1, 2], width="10%", height='50%', loc=2)
 
-tax1 = inset_axes(ax[1, 2], width="50%", height='20%', loc=6)
-tax2 = inset_axes(ax[1, 2], width="50%", height='20%', loc=3)
-tax3 = inset_axes(ax[1, 2], width="50%", height='20%', loc=2)
-tax4 = inset_axes(ax[1, 2], width="50%", height='20%', loc=1)
-tax5 = inset_axes(ax[1, 2], width="50%", height='20%', loc=4)
-tax6 = inset_axes(ax[1, 2], width="50%", height='20%', loc=5)
+# checkbuttons
+check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 1, 0])
 
+# next and previous buttons
 axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
 axnext = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=1)
-# threshold_ax.set_axis_off()
-
-# threshold_slider = Slider(
-#     ax=threshold_ax,
-#     label='Threshold',
-#     orientation='vertical',
-#     valmin=-0.05,
-#     valinit=0.03,
-#     valstep=[-0.05, -0.03, -0.01, 0, 0.01, 0.03, 0.05], #np.linspace(0.01, 0.075, num=13),
-# )
 
 radio = RadioButtons(
     rax,
@@ -389,24 +394,16 @@ ax[1, 1].set_title("Segmented")
 ax[1, 1].set_aspect('equal', 'box')
 
 selector = LassoSelector(ax=ax[0, 0], onselect=callback.onSelect)
+
 # file selection
 bnext = Button(axnext, 'Next Image')
 bprev = Button(axprev, 'Previous Image')
 
 # threshold selection
-taxb02n = Button(tax2, '-0.02')
-taxb02p = Button(tax5, '0.02')
-taxb03n = Button(tax3, '-0.03')
-taxb03p = Button(tax4, '0.03')
-taxb75n = Button(tax1, '-0.75')
-taxb75p = Button(tax6, '0.75')
-
-
+check.on_clicked(callback.check_threshold)
 
 bnext.on_clicked(callback.next)
 bprev.on_clicked(callback.prev)
 radio.on_clicked(callback.select_phase)
-taxb03p.on_clicked(callback.switch_threshold(val=0.03))
-# threshold_slider.on_changed(callback.switch_threshold)
 plt.tight_layout()
 plt.show()
