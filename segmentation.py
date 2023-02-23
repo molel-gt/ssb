@@ -23,7 +23,7 @@ rerun = False
 image = None
 
 hdbscan_kwargs = {
-    "min_cluster_size": 25,
+    "min_cluster_size": 100,
     "cluster_selection_epsilon": 5,
     "gen_min_span_tree": True
     }
@@ -337,17 +337,52 @@ class App:
 
 
 class StackSegmentation:
-    def __init__(self, training_images):
-        pass
+    def __init__(self, training_images, X_train, y_train, X_test=None, y_test=None, X_validate=None, y_validate=None):
+        self._model = RandomForestClassifier()
+        self._X_train = X_train
+        self._y_train = y_train
+        self._X_test = X_test
+        self._y_test = y_test
+        self._X_validate = X_validate
+        self._y_validate = y_validate
+        
+    @property
+    def model(self):
+        return self._model
+
+    @property
+    def X_train(self):
+        return self._X_train
+    
+    @property
+    def X_test(self):
+        return self._X_test
+    
+    @property
+    def X_validate(self):
+        return self._X_validate
+    
+    @property
+    def y_train(self):
+        return self._y_train
+    
+    @property
+    def y_test(self):
+        return self._y_test
+    
+    @property
+    def y_validate(self):
+        return self._y_validate
 
     def train(self):
-        pass
-    
+        self.model.fit(self.X_train, self.y_train)
+
     def validate(self):
-        pass
+        self._y_validate = self.model.predict(self.X_validate)
     
     def test(self):
-        pass
+        self._y_test = self.model.predict(self.X_test)
+
         
 image_id = 50
 with open(os.path.join('unsegmented', str(image_id).zfill(3) + '.tif'), 'rb') as fp:
