@@ -197,6 +197,8 @@ class Segmentor:
         if os.path.exists(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}')):
             with open(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}'), 'rb') as fp:
                 self._phases = pickle.load(fp)
+        else:
+            self._phases = -1 * np.ones(self.image.shape, dtype=np.intc)
 
         self.set_edges()
         img_3 = neighborhood_average(self.edges)
