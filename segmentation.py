@@ -35,6 +35,7 @@ phases = {
     }
 
 training_images = np.linspace(0, 200, num=41)
+thresholds = [-0.75, -0.03, 0.02, 0.02, 0.03, 0.75]
 fig, ax = plt.subplots(2, 3)
 fig.subplots_adjust(left=0)
 ax[0, 0].grid(which='both')
@@ -106,7 +107,10 @@ def neighborhood_average(arr, d=(1, 1), n_min=(0, 0), n_max=(501, 501)):
 
 def build_features_matrix(img, img_1, threshold):
     """"""
-    coords = np.asarray(np.where(np.logical_and(np.greater_equal(img, 0), np.less_equal(img, threshold)))).T
+    if threshold < 0:
+        coords = np.asarray(np.where(np.logical_and(np.greater_equal(1 - img, 0), np.less_equal(1 - img, np.abs(threshold))))).T
+    else:
+        coords = np.asarray(np.where(np.logical_and(np.greater_equal(img, 0), np.less_equal(img, threshold)))).T
     y = np.array([img_1[ix, iy] for (ix, iy) in coords]).reshape(-1, 1) / 255
     y_ = np.array([img[ix, iy] for (ix, iy) in coords]).reshape(-1, 1)
     X_2d = np.hstack((coords, y, y_))
@@ -127,16 +131,20 @@ class Segmentor:
         self.threshold = threshold
         self._output_dir = output_dir
         self.image = image
-        self.clusters = None
+        self._clusters = -2 * np.ones(image.shape) 
         self.edges = None
-        self._phases = np.zeros(self.image.shape, dtype=np.uint8)
-        self.residual = -1 * np.ones(self.image.shape, dtype=int)
+        self._phases = -1 * np.ones(self.image.shape, dtype=np.intc)
+        self.residual = -1 * np.ones(self.image.shape, dtype=np.intc)
         self.rerun = False
         self.use_residuals = False
 
     @property
     def output_dir(self):
         return self._output_dir
+    
+    @property
+    def clusters(self):
+        return self._clusters
     
     @property
     def phases(self):
@@ -161,11 +169,12 @@ class Segmentor:
         make_dir_if_missing(self.phases_dir)
     
     def update_residuals(self):
-        coords = np.where(self.phases < 1)
+        coords = np.where(self.phases < 0)
         self.residual[coords] = self.image[coords]
     
     def update_phases(self, selection, phase):
         self._phases[selection] = phase
+        self._clusters[selection] = -2
         self.update_residuals()
 
         with open(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
@@ -186,24 +195,26 @@ class Segmentor:
 
     def clustering(self):
         if os.path.exists(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}')):
-            self._phases = np.zeros(self.image.shape, dtype=np.uint8)
             with open(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}'), 'rb') as fp:
                 self._phases = pickle.load(fp)
-        else:
-            self._phases = np.zeros(self.image.shape, dtype=np.uint8)
+
         self.set_edges()
         img_3 = neighborhood_average(self.edges)
         for i in range(5):
             img_3 = neighborhood_average(img_3)
         img = img_3 / np.max(img_3)
         if self.use_residuals:
-            coords = np.where(self.phases > 0)
+            coords = np.where(self.phases > -1)
             img[coords] = -1
         X_2d = build_features_matrix(img, self.image, self.threshold)
+        if not np.all(np.array(X_2d.shape) > 0):
+            return
         y_predict = get_clustering_results(X_2d, **hdbscan_kwargs)
         img_cluster_raw = -2 * np.ones(img.shape)  # -2, -1 are residual non-clustered
 
         for v in np.unique(y_predict):
+            if v < 0:
+                continue
             X_v = np.where(y_predict == v)[0]
             coords = np.array([X_2d[ix, :2] for ix in X_v])
             for (ix, iy) in coords:
@@ -211,7 +222,7 @@ class Segmentor:
 
         img_cluster_enhanced = enhance_clusters(img_cluster_raw)
 
-        self.clusters = img_cluster_enhanced
+        self._clusters = img_cluster_enhanced
 
     def run(self, selection=None, phase=None, rerun=False, clustering=False, segmentation=False, use_residuals=True):
         self.rerun = rerun
@@ -226,14 +237,19 @@ class Segmentor:
 
 
 class App:
-    def __init__(self, seg):
+    def __init__(self, seg, selected_phase=1):
         self.seg = seg
         self.ind = 0
-        self.selected_phase = 0
+        self._selected_phase = selected_phase
+        self.threshold = 0.03
     
     @property
     def image_id(self):
         return int(training_images[self.ind])
+    
+    @property
+    def selected_phase(self):
+        return self._selected_phase
 
     def next(self, event):
         self.ind += 1
@@ -244,7 +260,7 @@ class App:
 
         self.seg.image = image
         self.seg.image_id = int(self.image_id)
-        self.seg.threshold = threshold_slider.val
+        self.seg.threshold = self.threshold
         self.seg.run(rerun=False, clustering=True)
         
         f1.set_data(image)
@@ -263,7 +279,7 @@ class App:
 
         self.seg.image = image
         self.seg.image_id = int(self.image_id)
-        self.seg.threshold = threshold_slider.val
+        self.seg.threshold = self.threshold
         self.seg.run(rerun=False, clustering=True)
         f1.set_data(image)
         f2.set_data(self.seg.edges)
@@ -280,23 +296,39 @@ class App:
             coords = np.where(self.seg.clusters == v)
             self.seg.run(selection=coords, phase=self.selected_phase, segmentation=True)
     
+            f3.set_data(self.seg.clusters)      
             f4.set_data(self.seg.phases)
             fig.canvas.draw_idle()
             fig.canvas.flush_events()
 
     def switch_threshold(self, val):
-        self.seg.threshold = threshold_slider.val
+        self.threshold = val
+        self.seg.threshold = self.threshold
         self.seg.run(rerun=False, clustering=True)
-        
+
         f2.set_data(self.seg.edges)
         f3.set_data(self.seg.clusters)
         fig.canvas.draw_idle()
         fig.canvas.flush_events()
     
     def select_phase(self, val):
-        self.selected_phase = phases[radio.value_selected]
+        self._selected_phase = phases[radio.value_selected]
 
-image_id = 0
+
+class StackSegmentation:
+    def __init__(self, training_images):
+        pass
+
+    def train(self):
+        pass
+    
+    def validate(self):
+        pass
+    
+    def test(self):
+        pass
+        
+image_id = 40
 with open(os.path.join('unsegmented', str(image_id).zfill(3) + '.tif'), 'rb') as fp:
     image = plt.imread(fp)
 
@@ -307,25 +339,32 @@ callback = App(seg)
 axcolor = 'lightgoldenrodyellow'
 rax = inset_axes(ax[0, 2], width="100%", height='70%', loc=3)
 rax.set_facecolor(axcolor)
-threshold_ax = inset_axes(ax[1, 2], width="10%", height='50%', loc=2)
+# threshold_ax = inset_axes(ax[1, 2], width="10%", height='50%', loc=2)
+
+tax1 = inset_axes(ax[1, 2], width="50%", height='20%', loc=6)
+tax2 = inset_axes(ax[1, 2], width="50%", height='20%', loc=3)
+tax3 = inset_axes(ax[1, 2], width="50%", height='20%', loc=2)
+tax4 = inset_axes(ax[1, 2], width="50%", height='20%', loc=1)
+tax5 = inset_axes(ax[1, 2], width="50%", height='20%', loc=4)
+tax6 = inset_axes(ax[1, 2], width="50%", height='20%', loc=5)
+
 axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
 axnext = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=1)
-threshold_ax.set_axis_off()
+# threshold_ax.set_axis_off()
 
-threshold_slider = Slider(
-    ax=threshold_ax,
-    label='Threshold',
-    orientation='vertical',
-    valmin=0.01,
-    valmax=0.075,
-    valinit=0.03,
-    valstep=np.linspace(0.01, 0.075, num=13),
-)
+# threshold_slider = Slider(
+#     ax=threshold_ax,
+#     label='Threshold',
+#     orientation='vertical',
+#     valmin=-0.05,
+#     valinit=0.03,
+#     valstep=[-0.05, -0.03, -0.01, 0, 0.01, 0.03, 0.05], #np.linspace(0.01, 0.075, num=13),
+# )
 
 radio = RadioButtons(
     rax,
     ('Void', 'Solid Electrolyte', 'Active Material'),
-    active=0,
+    active=1,
     label_props={'color': ['blue', 'red' , 'green']},
     radio_props={'edgecolor': ['darkblue', 'darkred', 'darkgreen'],
                   'facecolor': ['blue', 'red', 'green'],
@@ -350,12 +389,24 @@ ax[1, 1].set_title("Segmented")
 ax[1, 1].set_aspect('equal', 'box')
 
 selector = LassoSelector(ax=ax[0, 0], onselect=callback.onSelect)
+# file selection
 bnext = Button(axnext, 'Next Image')
 bprev = Button(axprev, 'Previous Image')
+
+# threshold selection
+taxb02n = Button(tax2, '-0.02')
+taxb02p = Button(tax5, '0.02')
+taxb03n = Button(tax3, '-0.03')
+taxb03p = Button(tax4, '0.03')
+taxb75n = Button(tax1, '-0.75')
+taxb75p = Button(tax6, '0.75')
+
+
 
 bnext.on_clicked(callback.next)
 bprev.on_clicked(callback.prev)
 radio.on_clicked(callback.select_phase)
-threshold_slider.on_changed(callback.switch_threshold)
+taxb03p.on_clicked(callback.switch_threshold(val=0.03))
+# threshold_slider.on_changed(callback.switch_threshold)
 plt.tight_layout()
 plt.show()
