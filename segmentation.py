@@ -360,7 +360,7 @@ rax = inset_axes(ax[0, 2], width="100%", height='70%', loc=3)
 rax.set_facecolor(axcolor)
 
 # checkbuttons
-check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0])
+check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0], label_props={'color': 'g'})
 
 # next and previous buttons
 axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
