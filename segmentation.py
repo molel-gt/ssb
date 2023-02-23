@@ -35,7 +35,7 @@ phases = {
     }
 
 training_images = np.linspace(0, 200, num=41)
-thresholds = ['-0.75', '-0.03', '-0.02', '0.02', '0.03', '0.75']
+thresholds = ['-0.8', '-0.03', '-0.02', '0.02', '0.03', '0.05', '0.1', '0.2', '0.5', '0.8', '0.9']
 fig, ax = plt.subplots(2, 3)
 fig.subplots_adjust(left=0)
 ax[0, 0].grid(which='both')
@@ -360,7 +360,7 @@ rax = inset_axes(ax[0, 2], width="100%", height='70%', loc=3)
 rax.set_facecolor(axcolor)
 
 # checkbuttons
-check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 1, 0])
+check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0])
 
 # next and previous buttons
 axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
