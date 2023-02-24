@@ -337,15 +337,17 @@ class App:
 
 
 class StackSegmentation:
-    def __init__(self, training_images, X_train, y_train, X_test=None, y_test=None, X_validate=None, y_validate=None):
+    def __init__(self, training_images, testing_images=None):
         self._model = RandomForestClassifier()
-        self._X_train = X_train
-        self._y_train = y_train
-        self._X_test = X_test
-        self._y_test = y_test
-        self._X_validate = X_validate
-        self._y_validate = y_validate
-        
+        self._X_train = None
+        self._y_train = None
+        self._X_test = None
+        self._y_test = None
+        self._X_validate = None
+        self._y_validate = None
+        self._training_images = training_images
+        self._data = None
+
     @property
     def model(self):
         return self._model
@@ -373,9 +375,34 @@ class StackSegmentation:
     @property
     def y_validate(self):
         return self._y_validate
+    
+    @property
+    def data(self):
+        return self._data
+
+    @property
+    def training_images(self):
+        return self._training_images
+
+    def build_features_matrix(self):
+        self._data = np.zeros((501 * 501 * len(self._training_images), 4), dtype=np.intc)
+        counter = 0
+        for img in self.training_images:
+            with open(f'segmentation/phases/{str(int(img)).zfill(3)}', 'rb') as fp:
+                image = pickle.load(fp)
+                coords = np.array(np.where(image > -1), dtype=np.intc).T
+                for (iy, ix) in coords:
+                    counter += 1
+                    coord = (ix, iy)
+                    p = image[coord]
+                    self._data[int(counter), :] = (int(coord[0]), int(coord[1]), int(img), p)
+        self._X_train = self.data[:, :3]
+        self._y_train = self.data[:, 3]
+        
 
     def train(self):
         self.model.fit(self.X_train, self.y_train)
+        print(self.model.score(self.X_train, self.y_train))
 
     def validate(self):
         self._y_validate = self.model.predict(self.X_validate)
