@@ -445,7 +445,6 @@ class StackSegmentation:
         self._y_validate = self.model.predict(self.X_validate)
     
     def test(self):
-        # self._y_test = self.model.predict(self.X_test)
         print("Testing Score:", self.model.score(self.X_test, self.y_test))
 
 
@@ -521,4 +520,5 @@ if __name__ == '__main__':
     bprev.on_clicked(callback.prev)
     radio.on_clicked(callback.select_phase)
     plt.tight_layout()
+    plt.minorticks_on()
     plt.show()
