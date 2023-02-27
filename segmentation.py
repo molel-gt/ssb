@@ -385,20 +385,28 @@ class StackSegmentation:
         return self._training_images
 
     def build_features_matrix(self):
-        self._data = np.zeros((501 * 501 * len(self._training_images), 4), dtype=np.intc)
-        counter = 0
-        for img in self.training_images:
-            with open(f'segmentation/phases/{str(int(img)).zfill(3)}', 'rb') as fp:
+        self._data = np.zeros((501 * 501 * len(self._training_images), 5), dtype=np.intc)
+        train_data = np.zeros((0, 5), dtype=np.intc)
+        test_data = np.zeros((0, 5), dtype=np.intc)
+
+        for img_no in self.training_images:
+            raw_img = plt.imread(f'unsegmented/{str(int(img_no)).zfill(3)}.tif')
+            with open(f'segmentation/phases/{str(int(img_no)).zfill(3)}', 'rb') as fp:
                 image = pickle.load(fp)
                 coords = np.array(np.where(image > -1), dtype=np.intc).T
-                for (iy, ix) in coords:
-                    counter += 1
+                for (ix, iy) in coords:
                     coord = (ix, iy)
                     p = image[coord]
-                    self._data[int(counter), :] = (int(coord[0]), int(coord[1]), int(img), p)
-        self._X_train = self.data[:, :3]
-        self._y_train = self.data[:, 3]
-        
+
+                    row = np.array((int(coord[0]), int(coord[1]), int(img_no), raw_img[int(coord[0]), int(coord[1])], p)).reshape(1, 5)
+                if int(int(img_no) % 10) == 0:
+                    train_data = np.vstack((train_data, row))
+                else:
+                    test_data = np.vstack((test_data, row))
+        self._X_train = train_data[:, :4]
+        self._y_train = train_data[:, 4]
+        self._X_test = test_data[:, :4]
+        self._y_test = test_data[:, 4]
 
     def train(self):
         self.model.fit(self.X_train, self.y_train)
@@ -409,6 +417,7 @@ class StackSegmentation:
     
     def test(self):
         self._y_test = self.model.predict(self.X_test)
+        print(self.model.score(self.X_test, self.y_test))
 
         
 image_id = 0
@@ -424,7 +433,7 @@ rax = inset_axes(ax[0, 2], width="100%", height='70%', loc=3)
 rax.set_facecolor(axcolor)
 
 # checkbuttons
-check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0], label_props={'color': 'g'})
+check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0])
 
 # next and previous buttons
 axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
@@ -434,10 +443,10 @@ radio = RadioButtons(
     rax,
     ('Void', 'Solid Electrolyte', 'Active Material'),
     active=1,
-    label_props={'color': ['blue', 'red' , 'green']},
-    radio_props={'edgecolor': ['darkblue', 'darkred', 'darkgreen'],
-                  'facecolor': ['blue', 'red', 'green'],
-                  },
+    # label_props={'color': ['blue', 'red' , 'green']},
+    # radio_props={'edgecolor': ['darkblue', 'darkred', 'darkgreen'],
+    #               'facecolor': ['blue', 'red', 'green'],
+    #               },
     )
 
 f1 = ax[0, 0].imshow(image, cmap='gray')
