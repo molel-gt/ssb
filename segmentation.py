@@ -36,14 +36,7 @@ phases = {
 
 training_images = np.linspace(0, 200, num=41)
 thresholds = ['-0.99', '-0.95', '-0.80', '-0.03', '-0.02', '0.00', '0.02', '0.03', '0.05', '0.10', '0.20', '0.50', '0.80', '0.95', '0.99']
-fig, ax = plt.subplots(2, 3)
-fig.subplots_adjust(left=0)
-ax[0, 0].grid(which='both')
-ax[1, 0].grid(which='both')
-ax[0, 1].grid(which='both')
-ax[1, 1].grid(which='both')
-ax[0, 2].set_axis_off()
-ax[1, 2].set_axis_off()
+
 
 
 def make_dir_if_missing(f_path):
@@ -239,11 +232,13 @@ class Segmentor:
 
 
 class App:
-    def __init__(self, seg, selected_phase=1):
+    def __init__(self, seg, selected_phase=1, fs=None, fig=None):
         self.seg = seg
         self.ind = 0
         self._selected_phase = selected_phase
         self._threshold_index = 7
+        self._fs = fs
+        self._fig = fig
     
     @property
     def image_id(self):
@@ -268,13 +263,14 @@ class App:
         self.seg.image_id = int(self.image_id)
         self.seg.threshold = self.threshold
         self.seg.run(rerun=False, clustering=True)
+        f1, f2, f3, f4 = self._fs
         
         f1.set_data(image)
         f2.set_data(self.seg.edges)
         f3.set_data(self.seg.clusters)
         f4.set_data(self.seg.phases)
-        fig.canvas.draw()
-        fig.canvas.flush_events()
+        self._fig.canvas.draw()
+        self._fig.canvas.flush_events()
 
     def prev(self, event):
         self.ind -= 1
@@ -287,25 +283,26 @@ class App:
         self.seg.image_id = int(self.image_id)
         self.seg.threshold = self.threshold
         self.seg.run(rerun=False, clustering=True)
+        f1, f2, f3, f4 = self._fs
         f1.set_data(image)
         f2.set_data(self.seg.edges)
         f3.set_data(self.seg.clusters)
         f4.set_data(self.seg.phases)
-        fig.canvas.draw()
-        fig.canvas.flush_events()
+        self._fig.canvas.draw()
+        self._fig.canvas.flush_events()
 
     def onSelect(self, val):
         selected_pts = np.array(val, dtype=int)
         cluster_vals = [int(v) for v in np.unique([self.seg.clusters[iy, ix] for ix, iy in selected_pts]) if v > -1]
-    
+        f1, f2, f3, f4 = self._fs
         for v in cluster_vals:
             coords = np.where(self.seg.clusters == v)
             self.seg.run(selection=coords, phase=self.selected_phase, segmentation=True)
     
             f3.set_data(self.seg.clusters)      
             f4.set_data(self.seg.phases)
-            fig.canvas.draw_idle()
-            fig.canvas.flush_events()
+            self._fig.canvas.draw_idle()
+            self._fig.canvas.flush_events()
     
     def check_threshold(self, label):
         # uncheck previous
@@ -326,13 +323,15 @@ class App:
         self.threshold = val
         self.seg.threshold = self.threshold
         self.seg.run(rerun=False, clustering=True)
+        f1, f2, f3, f4 = self._fs
 
         f2.set_data(self.seg.edges)
         f3.set_data(self.seg.clusters)
-        fig.canvas.draw_idle()
-        fig.canvas.flush_events()
+        self._fig.canvas.draw_idle()
+        self._fig.canvas.flush_events()
     
     def select_phase(self, val):
+        print(val)
         self._selected_phase = phases[radio.value_selected]
 
 
@@ -420,63 +419,76 @@ class StackSegmentation:
         print("Testing Score:", self.model.score(self.X_test, self.y_test))
 
         
-image_id = 0
-with open(os.path.join('unsegmented', str(image_id).zfill(3) + '.tif'), 'rb') as fp:
-    image = plt.imread(fp)
 
-seg = Segmentor(image, image_id=image_id, threshold=float(thresholds[7]))
-seg.run(rerun=False, clustering=True)
-fig.suptitle(f"Image: unsegmented/{str(image_id).zfill(3)}.tif")
-callback = App(seg)
-axcolor = 'lightgoldenrodyellow'
-rax = inset_axes(ax[0, 2], width="100%", height='70%', loc=3)
-rax.set_facecolor(axcolor)
 
-# checkbuttons
-check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0])
+if __name__ == '__main__':
+    fig, ax = plt.subplots(2, 3)
+    fig.subplots_adjust(left=0)
+    ax[0, 0].grid(which='both')
+    ax[1, 0].grid(which='both')
+    ax[0, 1].grid(which='both')
+    ax[1, 1].grid(which='both')
+    ax[0, 2].set_axis_off()
+    ax[1, 2].set_axis_off()
 
-# next and previous buttons
-axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
-axnext = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=1)
+    image_id = 0
+    with open(os.path.join('unsegmented', str(image_id).zfill(3) + '.tif'), 'rb') as fp:
+        image = plt.imread(fp)
 
-radio = RadioButtons(
-    rax,
-    ('Void', 'Solid Electrolyte', 'Active Material'),
-    active=1,
-    # label_props={'color': ['blue', 'red' , 'green']},
-    # radio_props={'edgecolor': ['darkblue', 'darkred', 'darkgreen'],
-    #               'facecolor': ['blue', 'red', 'green'],
-    #               },
-    )
+    seg = Segmentor(image, image_id=image_id, threshold=float(thresholds[7]))
+    seg.run(rerun=False, clustering=True)
+    fig.suptitle(f"Image: unsegmented/{str(image_id).zfill(3)}.tif")
 
-f1 = ax[0, 0].imshow(image, cmap='gray')
-ax[0, 0].set_title('Original')
-ax[0, 0].set_aspect('equal', 'box')
-fig.canvas.draw_idle()
+    axcolor = 'lightgoldenrodyellow'
+    rax = inset_axes(ax[0, 2], width="100%", height='70%', loc=3)
+    rax.set_facecolor(axcolor)
 
-f2 = ax[0, 1].imshow(seg.edges, cmap='gray')
-ax[0, 1].set_title('Edges')
-ax[0, 1].set_aspect('equal', 'box')
+    # checkbuttons
+    check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0])
 
-f3 = ax[1, 0].imshow(seg.clusters, cmap='magma')
-ax[1, 0].set_title("Clusters")
-ax[1, 0].set_aspect('equal', 'box')
+    # next and previous buttons
+    axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
+    axnext = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=1)
 
-f4 = ax[1, 1].imshow(seg.phases, cmap='brg')
-ax[1, 1].set_title("Segmented")
-ax[1, 1].set_aspect('equal', 'box')
+    radio = RadioButtons(
+        rax,
+        ('Void', 'Solid Electrolyte', 'Active Material'),
+        active=1,
+        # label_props={'color': ['blue', 'red' , 'green']},
+        # radio_props={'edgecolor': ['darkblue', 'darkred', 'darkgreen'],
+        #               'facecolor': ['blue', 'red', 'green'],
+        #               },
+        )
 
-selector = LassoSelector(ax=ax[0, 0], onselect=callback.onSelect)
+    f1 = ax[0, 0].imshow(image, cmap='gray')
+    ax[0, 0].set_title('Original')
+    ax[0, 0].set_aspect('equal', 'box')
+    fig.canvas.draw_idle()
 
-# file selection
-bnext = Button(axnext, 'Next Image')
-bprev = Button(axprev, 'Previous Image')
+    f2 = ax[0, 1].imshow(seg.edges, cmap='gray')
+    ax[0, 1].set_title('Edges')
+    ax[0, 1].set_aspect('equal', 'box')
 
-# threshold selection
-check.on_clicked(callback.check_threshold)
+    f3 = ax[1, 0].imshow(seg.clusters, cmap='magma')
+    ax[1, 0].set_title("Clusters")
+    ax[1, 0].set_aspect('equal', 'box')
 
-bnext.on_clicked(callback.next)
-bprev.on_clicked(callback.prev)
-radio.on_clicked(callback.select_phase)
-plt.tight_layout()
-plt.show()
+    f4 = ax[1, 1].imshow(seg.phases, cmap='brg')
+    ax[1, 1].set_title("Segmented")
+    ax[1, 1].set_aspect('equal', 'box')
+
+    callback = App(seg, fs=[f1, f2, f3, f4], fig=fig)
+    selector = LassoSelector(ax=ax[0, 0], onselect=callback.onSelect)
+
+    # file selection
+    bnext = Button(axnext, 'Next Image')
+    bprev = Button(axprev, 'Previous Image')
+
+    # threshold selection
+    check.on_clicked(callback.check_threshold)
+
+    bnext.on_clicked(callback.next)
+    bprev.on_clicked(callback.prev)
+    radio.on_clicked(callback.select_phase)
+    plt.tight_layout()
+    plt.show()
