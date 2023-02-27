@@ -32,6 +32,7 @@ hdbscan_kwargs = {
     }
 
 phases = {
+    "None": -1,
     "Void": 0,
     "Solid Electrolyte": 1,
     "Active Material": 2,
@@ -479,7 +480,7 @@ if __name__ == '__main__':
 
     radio = RadioButtons(
         rax,
-        ('Void', 'Solid Electrolyte', 'Active Material'),
+        ('None', 'Void', 'Solid Electrolyte', 'Active Material'),
         active=1,
         # label_props={'color': ['blue', 'red' , 'green']},
         # radio_props={'edgecolor': ['darkblue', 'darkred', 'darkgreen'],
