@@ -9,11 +9,14 @@ import pickle
 import warnings
 
 from ipywidgets import widgets, interactive
-from matplotlib.widgets import CheckButtons, Button, Slider, LassoSelector, RadioButtons, TextBox
+from matplotlib.widgets import CheckButtons, Button, Slider, LassoSelector, RadioButtons, TextBox, RectangleSelector
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 from skimage import filters
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.mixture import GaussianMixture
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
 
 
 warnings.simplefilter("ignore")
@@ -35,7 +38,7 @@ phases = {
     }
 
 training_images = np.linspace(0, 200, num=41)
-thresholds = ['-0.99', '-0.95', '-0.80', '-0.03', '-0.02', '0.00', '0.02', '0.03', '0.05', '0.10', '0.20', '0.50', '0.80', '0.95', '0.99']
+thresholds = ['-0.99', '-0.95', '-0.90', '-0.85','-0.80', '-0.03', '-0.02', '0.00', '0.02', '0.025','0.03', '0.04', '0.05', '0.10', '0.20', '0.50', '0.80', '0.95', '0.99']
 
 
 
@@ -119,7 +122,7 @@ def get_clustering_results(X_2d, **hdbscan_kwargs):
 
 
 class Segmentor:
-    def __init__(self, image, image_id=0, threshold=0.03, output_dir='segmentation'):
+    def __init__(self, image, image_id=0, threshold=0.025, output_dir='segmentation'):
         self.image_id = image_id
         self.threshold = threshold
         self._output_dir = output_dir
@@ -236,7 +239,7 @@ class App:
         self.seg = seg
         self.ind = 0
         self._selected_phase = selected_phase
-        self._threshold_index = 7
+        self._threshold_index = 9
         self._fs = fs
         self._fig = fig
     
@@ -291,9 +294,17 @@ class App:
         self._fig.canvas.draw()
         self._fig.canvas.flush_events()
 
-    def onSelect(self, val):
-        selected_pts = np.array(val, dtype=int)
+    def onSelect(self, eclick, erelease):
+        x1, y1 = int(eclick.xdata), int(eclick.ydata)
+        x2, y2 = int(erelease.xdata), int(erelease.ydata)
+
+        selected_pts = []
+        for ix in range(x1, x2 + 1):
+            for iy in range(y1, y2 + 1):
+                selected_pts.append((ix, iy))
+        selected_pts = np.array(selected_pts, dtype=int)
         cluster_vals = [int(v) for v in np.unique([self.seg.clusters[iy, ix] for ix, iy in selected_pts]) if v > -1]
+
         f1, f2, f3, f4 = self._fs
         for v in cluster_vals:
             coords = np.where(self.seg.clusters == v)
@@ -331,13 +342,12 @@ class App:
         self._fig.canvas.flush_events()
     
     def select_phase(self, val):
-        print(val)
-        self._selected_phase = phases[radio.value_selected]
+        self._selected_phase = phases[val]
 
 
 class StackSegmentation:
     def __init__(self, training_images, testing_images=None):
-        self._model = RandomForestClassifier()
+        self._model = RandomForestClassifier(n_estimators=500, criterion='gini', warm_start=True)
         self._X_train = None
         self._y_train = None
         self._X_test = None
@@ -415,10 +425,8 @@ class StackSegmentation:
         self._y_validate = self.model.predict(self.X_validate)
     
     def test(self):
-        self._y_test = self.model.predict(self.X_test)
+        # self._y_test = self.model.predict(self.X_test)
         print("Testing Score:", self.model.score(self.X_test, self.y_test))
-
-        
 
 
 if __name__ == '__main__':
@@ -435,7 +443,7 @@ if __name__ == '__main__':
     with open(os.path.join('unsegmented', str(image_id).zfill(3) + '.tif'), 'rb') as fp:
         image = plt.imread(fp)
 
-    seg = Segmentor(image, image_id=image_id, threshold=float(thresholds[7]))
+    seg = Segmentor(image, image_id=image_id, threshold=float(thresholds[9]))
     seg.run(rerun=False, clustering=True)
     fig.suptitle(f"Image: unsegmented/{str(image_id).zfill(3)}.tif")
 
@@ -444,7 +452,7 @@ if __name__ == '__main__':
     rax.set_facecolor(axcolor)
 
     # checkbuttons
-    check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0])
+    check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
     # next and previous buttons
     axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
@@ -478,7 +486,8 @@ if __name__ == '__main__':
     ax[1, 1].set_aspect('equal', 'box')
 
     callback = App(seg, fs=[f1, f2, f3, f4], fig=fig)
-    selector = LassoSelector(ax=ax[0, 0], onselect=callback.onSelect)
+    # selector = LassoSelector(ax=ax[0, 0], onselect=callback.onSelect)
+    selector = RectangleSelector(ax=ax[0, 0], onselect=callback.onSelect)
 
     # file selection
     bnext = Button(axnext, 'Next Image')
