@@ -26,7 +26,7 @@ rerun = False
 image = None
 
 hdbscan_kwargs = {
-    "min_cluster_size": 100,
+    "min_cluster_size": 10,
     "cluster_selection_epsilon": 5,
     "gen_min_span_tree": True
     }
@@ -38,7 +38,7 @@ phases = {
     }
 
 training_images = np.linspace(0, 200, num=41)
-thresholds = ['-0.99', '-0.95', '-0.90', '-0.85','-0.80', '-0.03', '-0.02', '0.00', '0.02', '0.025','0.03', '0.04', '0.05', '0.10', '0.20', '0.50', '0.80', '0.95', '0.99']
+thresholds = ['-0.9995', '-0.95', '-0.90', '-0.85','-0.80', '-0.03', '-0.02', '0.00', '0.02', '0.025','0.03', '0.04', '0.05', '0.10', '0.20', '0.50', '0.80', '0.95', '0.99']
 
 
 
@@ -314,6 +314,26 @@ class App:
             f4.set_data(self.seg.phases)
             self._fig.canvas.draw_idle()
             self._fig.canvas.flush_events()
+
+    def onCorrect(self, eclick, erelease):
+        x1, y1 = int(eclick.xdata), int(eclick.ydata)
+        x2, y2 = int(erelease.xdata), int(erelease.ydata)
+
+        selected_pts = []
+        count = 0
+        for ix in range(x1, x2 + 1):
+            for iy in range(y1, y2 + 1):
+                selected_pts.append((ix, iy))
+                count += 1
+        selected_pts = np.array(selected_pts, dtype=int).reshape(count, 2)
+        selection = (selected_pts[:, 1], selected_pts[:, 0])
+        self.seg.run(selection=selection, phase=self.selected_phase, segmentation=True)
+
+        f1, f2, f3, f4 = self._fs
+        f3.set_data(self.seg.clusters)      
+        f4.set_data(self.seg.phases)
+        self._fig.canvas.draw_idle()
+        self._fig.canvas.flush_events()
     
     def check_threshold(self, label):
         # uncheck previous
@@ -488,6 +508,7 @@ if __name__ == '__main__':
     callback = App(seg, fs=[f1, f2, f3, f4], fig=fig)
     # selector = LassoSelector(ax=ax[0, 0], onselect=callback.onSelect)
     selector = RectangleSelector(ax=ax[0, 0], onselect=callback.onSelect)
+    corrector = RectangleSelector(ax=ax[1, 1], onselect=callback.onCorrect)
 
     # file selection
     bnext = Button(axnext, 'Next Image')
