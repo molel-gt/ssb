@@ -410,14 +410,14 @@ class StackSegmentation:
 
     def train(self):
         self.model.fit(self.X_train, self.y_train)
-        print(self.model.score(self.X_train, self.y_train))
+        print("Training Score:", self.model.score(self.X_train, self.y_train))
 
     def validate(self):
         self._y_validate = self.model.predict(self.X_validate)
     
     def test(self):
         self._y_test = self.model.predict(self.X_test)
-        print(self.model.score(self.X_test, self.y_test))
+        print("Testing Score:", self.model.score(self.X_test, self.y_test))
 
         
 image_id = 0
