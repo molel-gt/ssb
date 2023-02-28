@@ -434,10 +434,10 @@ class StackSegmentation:
                     coord = (ix, iy)
                     p = image[coord]
                     row = np.array((int(coord[0]), int(coord[1]), int(img_no), raw_img[int(coord[0]), int(coord[1])], p)).reshape(1, 5)
-                if int(int(img_no) % 10) == 0:
-                    train_data = np.vstack((train_data, row))
-                else:
-                    test_data = np.vstack((test_data, row))
+                    if int(int(img_no) % 10) == 0:
+                        train_data = np.vstack((train_data, row))
+                    else:
+                        test_data = np.vstack((test_data, row))
                 # coords2 = np.array(np.where(image < 0), dtype=np.intc).T
                 # for (ix, iy) in coords2:
                 #     row = np.array((int(coord[0]), int(coord[1]), int(img_no), raw_img[int(coord[0]), int(coord[1])], -1)).reshape(1, 5)
