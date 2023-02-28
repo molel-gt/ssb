@@ -14,9 +14,6 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 from skimage import filters
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.mixture import GaussianMixture
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.neural_network import MLPClassifier
 
 
 warnings.simplefilter("ignore")
