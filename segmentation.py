@@ -138,11 +138,11 @@ class Segmentor:
     @property
     def output_dir(self):
         return self._output_dir
-    
+
     @property
     def clusters(self):
         return self._clusters
-    
+
     @property
     def phases(self):
         return self._phases
@@ -164,7 +164,7 @@ class Segmentor:
         make_dir_if_missing(self.edges_dir)
         make_dir_if_missing(self.clusters_dir)
         make_dir_if_missing(self.phases_dir)
-    
+
     def update_residuals(self):
         coords = np.where(self.phases < 0)
         self.residual[coords] = self.image[coords]
@@ -243,15 +243,15 @@ class App:
         self._threshold_index = 9
         self._fs = fs
         self._fig = fig
-    
+
     @property
     def image_id(self):
         return int(training_images[self.ind])
-    
+
     @property
     def threshold(self):
         return float(thresholds[int(self._threshold_index)])
-    
+
     @property
     def selected_phase(self):
         return self._selected_phase
@@ -310,7 +310,7 @@ class App:
         for v in cluster_vals:
             coords = np.where(self.seg.clusters == v)
             self.seg.run(selection=coords, phase=self.selected_phase, segmentation=True)
-    
+
             f3.set_data(self.seg.clusters)      
             f4.set_data(self.seg.phases)
             self._fig.canvas.draw_idle()
@@ -361,7 +361,7 @@ class App:
         f3.set_data(self.seg.clusters)
         self._fig.canvas.draw_idle()
         self._fig.canvas.flush_events()
-    
+
     def select_phase(self, val):
         self._selected_phase = phases[val]
 
