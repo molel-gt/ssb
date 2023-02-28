@@ -418,6 +418,7 @@ class StackSegmentation:
         self._data = np.zeros((501 * 501 * len(self._training_images), 5), dtype=np.intc)
         train_data = np.zeros((0, 5), dtype=np.intc)
         test_data = np.zeros((0, 5), dtype=np.intc)
+        validate_data = np.zeros((0, 5), dtype=np.intc)
 
         for img_no in self.training_images:
             raw_img = plt.imread(f'unsegmented/{str(int(img_no)).zfill(3)}.tif')
@@ -427,16 +428,20 @@ class StackSegmentation:
                 for (ix, iy) in coords:
                     coord = (ix, iy)
                     p = image[coord]
-
                     row = np.array((int(coord[0]), int(coord[1]), int(img_no), raw_img[int(coord[0]), int(coord[1])], p)).reshape(1, 5)
                 if int(int(img_no) % 10) == 0:
                     train_data = np.vstack((train_data, row))
                 else:
                     test_data = np.vstack((test_data, row))
+                coords2 = np.array(np.where(image < 0), dtype=np.intc).T
+                for (ix, iy) in coords2:
+                    row = np.array((int(coord[0]), int(coord[1]), int(img_no), raw_img[int(coord[0]), int(coord[1])], -1)).reshape(1, 5)
+                    validate_data = np.vstack((validate_data, row))
         self._X_train = train_data[:, :4]
         self._y_train = train_data[:, 4]
         self._X_test = test_data[:, :4]
         self._y_test = test_data[:, 4]
+        self._X_validate = validate_data[:, :4]
 
     def train(self):
         self.model.fit(self.X_train, self.y_train)
@@ -459,7 +464,7 @@ if __name__ == '__main__':
     ax[0, 2].set_axis_off()
     ax[1, 2].set_axis_off()
 
-    image_id = 0
+    image_id = 105
     with open(os.path.join('unsegmented', str(image_id).zfill(3) + '.tif'), 'rb') as fp:
         image = plt.imread(fp)
 
