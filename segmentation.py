@@ -268,7 +268,7 @@ class App:
         self.seg.threshold = self.threshold
         self.seg.run(rerun=False, clustering=True)
         f1, f2, f3, f4 = self._fs
-        
+
         f1.set_data(image)
         f2.set_data(self.seg.edges)
         f3.set_data(self.seg.clusters)
@@ -335,7 +335,7 @@ class App:
         f4.set_data(self.seg.phases)
         self._fig.canvas.draw_idle()
         self._fig.canvas.flush_events()
-    
+
     def check_threshold(self, label):
         # uncheck previous
         index = thresholds.index(label)
@@ -373,6 +373,7 @@ class StackSegmentation:
         self._y_train = None
         self._X_test = None
         self._y_test = None
+        self._y_test_pred = None
         self._X_validate = None
         self._y_validate = None
         self._training_images = training_images
@@ -385,27 +386,31 @@ class StackSegmentation:
     @property
     def X_train(self):
         return self._X_train
-    
+
     @property
     def X_test(self):
         return self._X_test
-    
+
     @property
     def X_validate(self):
         return self._X_validate
-    
+
     @property
     def y_train(self):
         return self._y_train
-    
+
     @property
     def y_test(self):
         return self._y_test
-    
+
+    @property
+    def y_test_pred(self):
+        return self._y_test_pred
+
     @property
     def y_validate(self):
         return self._y_validate
-    
+
     @property
     def data(self):
         return self._data
@@ -418,7 +423,7 @@ class StackSegmentation:
         self._data = np.zeros((501 * 501 * len(self._training_images), 5), dtype=np.intc)
         train_data = np.zeros((0, 5), dtype=np.intc)
         test_data = np.zeros((0, 5), dtype=np.intc)
-        validate_data = np.zeros((0, 5), dtype=np.intc)
+        # validate_data = np.zeros((0, 5), dtype=np.intc)
 
         for img_no in self.training_images:
             raw_img = plt.imread(f'unsegmented/{str(int(img_no)).zfill(3)}.tif')
@@ -433,15 +438,15 @@ class StackSegmentation:
                     train_data = np.vstack((train_data, row))
                 else:
                     test_data = np.vstack((test_data, row))
-                coords2 = np.array(np.where(image < 0), dtype=np.intc).T
-                for (ix, iy) in coords2:
-                    row = np.array((int(coord[0]), int(coord[1]), int(img_no), raw_img[int(coord[0]), int(coord[1])], -1)).reshape(1, 5)
-                    validate_data = np.vstack((validate_data, row))
+                # coords2 = np.array(np.where(image < 0), dtype=np.intc).T
+                # for (ix, iy) in coords2:
+                #     row = np.array((int(coord[0]), int(coord[1]), int(img_no), raw_img[int(coord[0]), int(coord[1])], -1)).reshape(1, 5)
+                #     validate_data = np.vstack((validate_data, row))
         self._X_train = train_data[:, :4]
         self._y_train = train_data[:, 4]
         self._X_test = test_data[:, :4]
         self._y_test = test_data[:, 4]
-        self._X_validate = validate_data[:, :4]
+        # self._X_validate = validate_data[:, :4]
 
     def train(self):
         self.model.fit(self.X_train, self.y_train)
@@ -451,6 +456,7 @@ class StackSegmentation:
         self._y_validate = self.model.predict(self.X_validate)
     
     def test(self):
+        self._y_test_pred = self.model.predict(self.X_test)
         print("Testing Score:", self.model.score(self.X_test, self.y_test))
 
 
