@@ -421,7 +421,7 @@ class StackSegmentation:
         return self._training_images
 
     def build_features_matrix(self):
-        self._data = np.zeros((501 * 501 * len(self._training_images), 5), dtype=np.intc)
+        self._data = np.zeros((501 * 501 * self.training_images.size, 5), dtype=np.intc)
         train_data = np.zeros((0, 5), dtype=np.intc)
         test_data = np.zeros((0, 5), dtype=np.intc)
 
@@ -430,19 +430,23 @@ class StackSegmentation:
             raw_img = plt.imread(f'unsegmented/{str(int(img_no)).zfill(3)}.tif')
             with open(f'segmentation/phases/{str(int(img_no)).zfill(3)}', 'rb') as fp:
                 image = pickle.load(fp)
-                coords = np.array(np.where(image > -1), dtype=np.intc).T
-                for (ix, iy) in coords:
-                    coord = (ix, iy)
-                    p = image[coord]
-                    row = np.array((int(coord[0]), int(coord[1]), int(img_no), raw_img[int(coord[0]), int(coord[1])], p),dtype=np.intc).reshape(1, 5)
-                    if int(int(img_no) % 10) == 0:
-                        train_data = np.vstack((train_data, row))
-                    else:
-                        test_data = np.vstack((test_data, row))
+                coords = np.where(image > -1)
+                rows = np.zeros((coords[0].size, 5), dtype=np.intc)
+                rows[:, 0] = coords[0]
+                rows[:, 1] = coords[1]
+                rows[:, 2] = img_no * np.ones(coords[0].shape)
+                rows[:, 3] = raw_img[coords]
+                rows[:, 4] = image[coords]
+                if int(int(img_no) % 10) == 0:
+                    train_data = np.vstack((train_data, rows))
+                else:
+                    test_data = np.vstack((test_data, rows))
+        print("Building features..")
         self._X_train = train_data[:, :4]
         self._y_train = train_data[:, 4].reshape(-1, 1)
         self._X_test = test_data[:, :4]
         self._y_test = test_data[:, 4].reshape(-1, 1)
+        print("Built features.")
 
     def train(self):
         self.model.fit(self.X_train, self.y_train)
@@ -460,7 +464,9 @@ class StackSegmentation:
         #     self._model = pickle.load(fp)
         X_train = np.vstack((self.X_train, self.X_test))
         y_train = np.vstack((self.y_train, self.y_test))
+        print("Starting model training..")
         self.model.fit(X_train, y_train)
+        print("Done training model")
         # with open("segmentation/model", 'wb') as fp:
         #     pickle.dump(self.model, fp)
 
