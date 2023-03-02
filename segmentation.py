@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import itertools
 import os
+import time
 
 import hdbscan
 import matplotlib.pyplot as plt
@@ -27,7 +28,8 @@ NZ = 202
 hdbscan_kwargs = {
     "min_cluster_size": 10,
     "cluster_selection_epsilon": 5,
-    "gen_min_span_tree": True
+    "gen_min_span_tree": True,
+    'cluster_selection_method': 'leaf',
     }
 
 phases = {
@@ -38,7 +40,7 @@ phases = {
     }
 
 training_images = np.linspace(0, 200, num=41)
-thresholds = ['-0.9995', '-0.95', '-0.90', '-0.85','-0.80', '-0.03', '-0.02', '0.00', '0.02', '0.025','0.03', '0.04', '0.05', '0.10', '0.20', '0.50', '0.80', '0.95', '0.99']
+thresholds = ['-0.99995', '-0.95', '-0.90', '-0.85','-0.70', '-0.50', '-0.30', '0.00', '0.02', '0.025','0.03', '0.04', '0.05', '0.10', '0.20', '0.50', '0.80', '0.95', '0.99']
 
 
 
@@ -153,7 +155,7 @@ class Segmentor:
     @property
     def clusters_dir(self):
         return os.path.join(self.output_dir, 'clusters')
-    
+
     @property
     def phases_dir(self):
         return os.path.join(self.output_dir, 'phases')
@@ -167,7 +169,7 @@ class Segmentor:
     def update_residuals(self):
         coords = np.where(self.phases < 0)
         self.residual[coords] = self.image[coords]
-    
+
     def update_phases(self, selection, phase):
         self._phases[selection] = phase
         self._clusters[selection] = -2
@@ -235,9 +237,9 @@ class Segmentor:
 
 
 class App:
-    def __init__(self, seg, selected_phase=1, fs=None, fig=None):
+    def __init__(self, seg, selected_phase=-1, fs=None, fig=None, radio=None):
         self.seg = seg
-        self.ind = 0
+        self.ind = 20
         self._selected_phase = selected_phase
         self._threshold_index = 9
         self._fs = fs
@@ -437,9 +439,9 @@ class StackSegmentation:
                     else:
                         test_data = np.vstack((test_data, row))
         self._X_train = train_data[:, :4]
-        self._y_train = train_data[:, 4]
+        self._y_train = train_data[:, 4].reshape(-1, 1)
         self._X_test = test_data[:, :4]
-        self._y_test = test_data[:, 4]
+        self._y_test = test_data[:, 4].reshape(-1, 1)
 
     def train(self):
         self.model.fit(self.X_train, self.y_train)
@@ -453,15 +455,21 @@ class StackSegmentation:
         print("Testing Score:", self.model.score(self.X_test, self.y_test))
 
     def retrain(self):
-        X_train = np.vstack((self.X_train, self.X_test))
-        y_train = np.vstack((self.y_train, self.y_test))
-        self.model.fit(X_train, y_train)
+        with open("segmentation/model", 'rb') as fp:
+            self.model = pickle.load(fp)
+        # X_train = np.vstack((self.X_train, self.X_test))
+        # y_train = np.vstack((self.y_train, self.y_test))
+        # self.model.fit(X_train, y_train)
+        # with open("segmentation/model", 'wb') as fp:
+        #     pickle.dump(self.model, fp)
 
     def create_output(self):
         print("Retraining Model")
+        start = time.time()
         self.build_features_matrix()
         self.retrain()
-        print("Finished training")
+        stop = time.time()
+        print("Training took {:,} minutes".format(int(int(stop - start)/60)))
         for z in range(NZ + 1):
             print(f"Segmenting image {z}")
             img =  plt.imread(f'unsegmented/{str(int(z)).zfill(3)}.tif')
@@ -474,7 +482,7 @@ class StackSegmentation:
                     count += 1
             output = self.model.predict(features)
             img_out = np.array((NX, NY), dtype=np.uint8)
-            for i in len(output):
+            for i in range(output.size):
                 img_out[features[i, 0], features[i, 1]] = output[int(i)]
             new_img = Image.fromarray(img_out)
             new_img.save(f'segmented/{str(int(z)).zfill(3)}.tif')
@@ -512,7 +520,7 @@ if __name__ == '__main__':
     radio = RadioButtons(
         rax,
         ('None', 'Void', 'Solid Electrolyte', 'Active Material'),
-        active=1,
+        active=0,
         # label_props={'color': ['blue', 'red' , 'green']},
         # radio_props={'edgecolor': ['darkblue', 'darkred', 'darkgreen'],
         #               'facecolor': ['blue', 'red', 'green'],
@@ -536,7 +544,7 @@ if __name__ == '__main__':
     ax[1, 1].set_title("Segmented")
     ax[1, 1].set_aspect('equal', 'box')
 
-    callback = App(seg, fs=[f1, f2, f3, f4], fig=fig)
+    callback = App(seg, fs=[f1, f2, f3, f4], fig=fig, radio=radio)
     # selector = LassoSelector(ax=ax[0, 0], onselect=callback.onSelect)
     selector = RectangleSelector(ax=ax[0, 0], onselect=callback.onSelect)
     corrector = RectangleSelector(ax=ax[1, 1], onselect=callback.onCorrect)
