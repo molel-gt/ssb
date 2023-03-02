@@ -426,6 +426,7 @@ class StackSegmentation:
         test_data = np.zeros((0, 5), dtype=np.intc)
 
         for img_no in self.training_images:
+            print(f"Loading image {int(img_no)}")
             raw_img = plt.imread(f'unsegmented/{str(int(img_no)).zfill(3)}.tif')
             with open(f'segmentation/phases/{str(int(img_no)).zfill(3)}', 'rb') as fp:
                 image = pickle.load(fp)
@@ -460,8 +461,8 @@ class StackSegmentation:
         X_train = np.vstack((self.X_train, self.X_test))
         y_train = np.vstack((self.y_train, self.y_test))
         self.model.fit(X_train, y_train)
-        with open("segmentation/model", 'wb') as fp:
-            pickle.dump(self.model, fp)
+        # with open("segmentation/model", 'wb') as fp:
+        #     pickle.dump(self.model, fp)
 
     def create_output(self):
         print("Retraining Model")
@@ -483,7 +484,8 @@ class StackSegmentation:
             output = self.model.predict(features)
             img_out = np.array((NX, NY), dtype=np.uint8)
             for i in range(output.size):
-                img_out[features[i, 0], features[i, 1]] = output[int(i)]
+                x, y, _, _= features[i, :].tolist()
+                img_out[int(x), int(y)] = output[int(i)]
             new_img = Image.fromarray(img_out)
             new_img.save(f'segmented/{str(int(z)).zfill(3)}.tif')
 
