@@ -367,9 +367,9 @@ class App:
         self._selected_phase = phases[val]
 
 
-class StackSegmentation:
+class StackSeg:
     def __init__(self, training_images, testing_images=None):
-        self._model = RandomForestClassifier(n_estimators=500, criterion='gini', warm_start=True)
+        self._model = RandomForestClassifier()
         self._X_train = None
         self._y_train = None
         self._X_test = None
@@ -449,6 +449,7 @@ class StackSegmentation:
         print("Built features.")
 
     def train(self):
+        print("Training..")
         self.model.fit(self.X_train, self.y_train)
         print("Training Score:", self.model.score(self.X_train, self.y_train))
 
@@ -456,6 +457,7 @@ class StackSegmentation:
         self._y_validate = self.model.predict(self.X_validate)
 
     def test(self):
+        print("Testing..")
         self._y_test_pred = self.model.predict(self.X_test)
         print("Testing Score:", self.model.score(self.X_test, self.y_test))
 
