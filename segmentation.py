@@ -455,13 +455,13 @@ class StackSegmentation:
         print("Testing Score:", self.model.score(self.X_test, self.y_test))
 
     def retrain(self):
-        with open("segmentation/model", 'rb') as fp:
-            self.model = pickle.load(fp)
-        # X_train = np.vstack((self.X_train, self.X_test))
-        # y_train = np.vstack((self.y_train, self.y_test))
-        # self.model.fit(X_train, y_train)
-        # with open("segmentation/model", 'wb') as fp:
-        #     pickle.dump(self.model, fp)
+        # with open("segmentation/model", 'rb') as fp:
+        #     self._model = pickle.load(fp)
+        X_train = np.vstack((self.X_train, self.X_test))
+        y_train = np.vstack((self.y_train, self.y_test))
+        self.model.fit(X_train, y_train)
+        with open("segmentation/model", 'wb') as fp:
+            pickle.dump(self.model, fp)
 
     def create_output(self):
         print("Retraining Model")
