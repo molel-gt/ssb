@@ -11,7 +11,7 @@ import warnings
 from ipywidgets import widgets, interactive
 from matplotlib.widgets import CheckButtons, Button, Slider, LassoSelector, RadioButtons, TextBox, RectangleSelector
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-
+from PIL import Image
 from skimage import filters
 from sklearn.ensemble import RandomForestClassifier
 
@@ -21,7 +21,9 @@ warnings.simplefilter("ignore")
 
 rerun = False
 image = None
-
+NX = 501
+NY = 501
+NZ = 202
 hdbscan_kwargs = {
     "min_cluster_size": 10,
     "cluster_selection_epsilon": 5,
@@ -420,7 +422,6 @@ class StackSegmentation:
         self._data = np.zeros((501 * 501 * len(self._training_images), 5), dtype=np.intc)
         train_data = np.zeros((0, 5), dtype=np.intc)
         test_data = np.zeros((0, 5), dtype=np.intc)
-        # validate_data = np.zeros((0, 5), dtype=np.intc)
 
         for img_no in self.training_images:
             raw_img = plt.imread(f'unsegmented/{str(int(img_no)).zfill(3)}.tif')
@@ -430,20 +431,15 @@ class StackSegmentation:
                 for (ix, iy) in coords:
                     coord = (ix, iy)
                     p = image[coord]
-                    row = np.array((int(coord[0]), int(coord[1]), int(img_no), raw_img[int(coord[0]), int(coord[1])], p)).reshape(1, 5)
+                    row = np.array((int(coord[0]), int(coord[1]), int(img_no), raw_img[int(coord[0]), int(coord[1])], p),dtype=np.intc).reshape(1, 5)
                     if int(int(img_no) % 10) == 0:
                         train_data = np.vstack((train_data, row))
                     else:
                         test_data = np.vstack((test_data, row))
-                # coords2 = np.array(np.where(image < 0), dtype=np.intc).T
-                # for (ix, iy) in coords2:
-                #     row = np.array((int(coord[0]), int(coord[1]), int(img_no), raw_img[int(coord[0]), int(coord[1])], -1)).reshape(1, 5)
-                #     validate_data = np.vstack((validate_data, row))
         self._X_train = train_data[:, :4]
         self._y_train = train_data[:, 4]
         self._X_test = test_data[:, :4]
         self._y_test = test_data[:, 4]
-        # self._X_validate = validate_data[:, :4]
 
     def train(self):
         self.model.fit(self.X_train, self.y_train)
@@ -451,10 +447,37 @@ class StackSegmentation:
 
     def validate(self):
         self._y_validate = self.model.predict(self.X_validate)
-    
+
     def test(self):
         self._y_test_pred = self.model.predict(self.X_test)
         print("Testing Score:", self.model.score(self.X_test, self.y_test))
+
+    def retrain(self):
+        X_train = np.vstack((self.X_train, self.X_test))
+        y_train = np.vstack((self.y_train, self.y_test))
+        self.model.fit(X_train, y_train)
+
+    def create_output(self):
+        print("Retraining Model")
+        self.build_features_matrix()
+        self.retrain()
+        print("Finished training")
+        for z in range(NZ + 1):
+            print(f"Segmenting image {z}")
+            img =  plt.imread(f'unsegmented/{str(int(z)).zfill(3)}.tif')
+            features = np.zeros((NX * NY, 4), dtype=np.intc)
+            features[:, 2] = int(z)
+            count = 0
+            for x in range(NX):
+                for y in range(NY):
+                    features[count, :] = np.array((int(x), int(y), int(z), img[int(x), int(y)]))
+                    count += 1
+            output = self.model.predict(features)
+            img_out = np.array((NX, NY), dtype=np.uint8)
+            for i in len(output):
+                img_out[features[i, 0], features[i, 1]] = output[int(i)]
+            new_img = Image.fromarray(img_out)
+            new_img.save(f'segmented/{str(int(z)).zfill(3)}.tif')
 
 
 if __name__ == '__main__':
