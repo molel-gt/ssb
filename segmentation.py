@@ -369,7 +369,7 @@ class App:
 
 class StackSeg:
     def __init__(self, training_images, testing_images=None):
-        self._model = RandomForestClassifier()
+        self._model = RandomForestClassifier(n_estimators=500, criterion='entropy', n_jobs=4, warm_start=True)
         self._X_train = None
         self._y_train = None
         self._X_test = None
@@ -483,17 +483,14 @@ class StackSeg:
             print(f"Segmenting image {z}")
             img =  plt.imread(f'unsegmented/{str(int(z)).zfill(3)}.tif')
             features = np.zeros((NX * NY, 4), dtype=np.intc)
+            coords = np.where(img > -1)
+            features[:, 0] = coords[0]
+            features[:, 1] = coords[1]
             features[:, 2] = int(z)
-            count = 0
-            for x in range(NX):
-                for y in range(NY):
-                    features[count, :] = np.array((int(x), int(y), int(z), img[int(x), int(y)]))
-                    count += 1
+            features[:, 3] = img[coords]
             output = self.model.predict(features)
-            img_out = np.array((NX, NY), dtype=np.uint8)
-            for i in range(output.size):
-                x, y, _, _= features[i, :].tolist()
-                img_out[int(x), int(y)] = output[int(i)]
+            img_out = np.zeros(img.shape, dtype=np.uint8)
+            img_out[coords] = output
             new_img = Image.fromarray(img_out)
             new_img.save(f'segmented/{str(int(z)).zfill(3)}.tif')
 
