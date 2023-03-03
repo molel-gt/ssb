@@ -3,6 +3,7 @@ import itertools
 import os
 import time
 
+import cv2
 import hdbscan
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,6 +16,8 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from PIL import Image
 from skimage import filters
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
 
 
 warnings.simplefilter("ignore")
@@ -40,7 +43,7 @@ phases = {
     }
 
 training_images = np.linspace(0, 200, num=41)
-thresholds = ['-0.99995', '-0.95', '-0.90', '-0.50','-0.40', '-0.30', '-0.20', '0.00', '0.02', '0.025','0.03', '0.04', '0.05', '0.10', '0.20', '0.50', '0.80', '0.95', '0.99']
+thresholds = ['-0.99', '-0.50','-0.40', '-0.30', '-0.20', '-0.01', '0.00', '0.01', '0.02','0.03', '0.04', '0.05', '0.10', '0.20', '0.30', '0.40', '0.50', '0.99']
 
 
 
@@ -124,7 +127,7 @@ def get_clustering_results(X_2d, **hdbscan_kwargs):
 
 
 class Segmentor:
-    def __init__(self, image, image_id=0, threshold=0.025, output_dir='segmentation'):
+    def __init__(self, image, image_id=0, threshold=0.03, output_dir='segmentation'):
         self.image_id = image_id
         self.threshold = threshold
         self._output_dir = output_dir
@@ -239,7 +242,7 @@ class Segmentor:
 class App:
     def __init__(self, seg, selected_phase=-1, fs=None, fig=None, radio=None):
         self.seg = seg
-        self.ind = 20
+        self.ind = 0
         self._selected_phase = selected_phase
         self._threshold_index = 9
         self._fs = fs
@@ -369,7 +372,8 @@ class App:
 
 class StackSeg:
     def __init__(self, training_images, testing_images=None):
-        self._model = RandomForestClassifier(n_estimators=500, criterion='entropy', n_jobs=4, warm_start=True)
+        self._model = RandomForestClassifier(n_jobs=8, n_estimators=500)
+        # self._model = MLPClassifier() #KNeighborsClassifier()
         self._X_train = None
         self._y_train = None
         self._X_test = None
@@ -479,9 +483,13 @@ class StackSeg:
         self.retrain()
         stop = time.time()
         print("Training took {:,} minutes".format(int(int(stop - start)/60)))
-        for z in range(NZ + 1):
+        for z in range(NZ):
             print(f"Segmenting image {z}")
             img =  plt.imread(f'unsegmented/{str(int(z)).zfill(3)}.tif')
+            # img_11 = neighborhood_average(img)
+            # for i in range(5):
+            #     img_11 = neighborhood_average(img_11)
+            # img = img_11
             features = np.zeros((NX * NY, 4), dtype=np.intc)
             coords = np.where(img > -1)
             features[:, 0] = coords[0]
@@ -491,8 +499,9 @@ class StackSeg:
             output = self.model.predict(features)
             img_out = np.zeros(img.shape, dtype=np.uint8)
             img_out[coords] = output
-            new_img = Image.fromarray(img_out)
-            new_img.save(f'segmented/{str(int(z)).zfill(3)}.tif')
+            # print(np.unique(img_out))
+            # new_img = Image.fromarray(img_out, mode='P')
+            cv2.imwrite(f'segmented/{str(int(z)).zfill(3)}.tif', img_out)
 
 
 if __name__ == '__main__':
@@ -505,7 +514,7 @@ if __name__ == '__main__':
     ax[0, 2].set_axis_off()
     ax[1, 2].set_axis_off()
 
-    image_id = 105
+    image_id = 0
     with open(os.path.join('unsegmented', str(image_id).zfill(3) + '.tif'), 'rb') as fp:
         image = plt.imread(fp)
 
