@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+import datetime
 import itertools
 import os
 import time
 
+import argparse
 import cv2
 import hdbscan
 import matplotlib.pyplot as plt
@@ -29,7 +31,7 @@ NX = 501
 NY = 501
 NZ = 202
 hdbscan_kwargs = {
-    "min_cluster_size": 10,
+    "min_cluster_size": 5,
     "cluster_selection_epsilon": 5,
     "gen_min_span_tree": True,
     'cluster_selection_method': 'leaf',
@@ -43,7 +45,7 @@ phases = {
     }
 
 training_images = np.linspace(0, 200, num=41)
-thresholds = ['-0.99', '-0.50','-0.40', '-0.30', '-0.20', '-0.01', '0.00', '0.01', '0.02','0.03', '0.04', '0.05', '0.10', '0.20', '0.30', '0.40', '0.50', '0.99']
+thresholds = ['-0.80', '-0.50','-0.40', '-0.30', '-0.20', '-0.01', '0.00', '0.01', '0.02','0.03', '0.04', '0.05', '0.10', '0.20', '0.30', '0.40', '0.50', '0.99']
 
 
 
@@ -134,7 +136,7 @@ class Segmentor:
         self.image = image
         self._clusters = -2 * np.ones(image.shape) 
         self.edges = None
-        self._phases = -1 * np.ones(self.image.shape, dtype=np.intc)
+        self._phases = np.ones(self.image.shape, dtype=np.intc)
         self.residual = -1 * np.ones(self.image.shape, dtype=np.intc)
         self.rerun = False
         self.use_residuals = False
@@ -170,7 +172,7 @@ class Segmentor:
         make_dir_if_missing(self.phases_dir)
 
     def update_residuals(self):
-        coords = np.where(self.phases < 0)
+        coords = np.where(self.phases != 1)
         self.residual[coords] = self.image[coords]
 
     def update_phases(self, selection, phase):
@@ -187,7 +189,7 @@ class Segmentor:
                 self.edges = pickle.load(fp)
         else:
             img_11 = neighborhood_average(self.image)
-            for i in range(25):
+            for i in range(5):
                 img_11 = neighborhood_average(img_11)
             img_2 = filters.meijering(img_11)
             self.edges = img_2
@@ -199,7 +201,7 @@ class Segmentor:
             with open(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}'), 'rb') as fp:
                 self._phases = pickle.load(fp)
         else:
-            self._phases = -1 * np.ones(self.image.shape, dtype=np.intc)
+            self._phases = np.ones(self.image.shape, dtype=np.intc)
 
         self.set_edges()
         img_3 = neighborhood_average(self.edges)
@@ -207,7 +209,7 @@ class Segmentor:
             img_3 = neighborhood_average(img_3)
         img = img_3 / np.max(img_3)
         if self.use_residuals:
-            coords = np.where(self.phases > -1)
+            coords = np.where(self.phases != 1)
             img[coords] = -1
         X_2d = build_features_matrix(img, self.image, self.threshold)
         if not np.all(np.array(X_2d.shape) > 0):
@@ -371,9 +373,14 @@ class App:
 
 
 class StackSeg:
-    def __init__(self, training_images, testing_images=None):
-        self._model = RandomForestClassifier(n_jobs=8, n_estimators=500)
-        # self._model = MLPClassifier() #KNeighborsClassifier()
+    def __init__(self, training_images, testing_images=None, output_dir='2023-03-04'):
+        self._model = RandomForestClassifier(n_jobs=8,
+                                                criterion='entropy',
+                                                oob_score=True,
+                                                # class_weight='balanced',
+                                                n_estimators=202,
+                                                # bootstrap=False,
+                                                )
         self._X_train = None
         self._y_train = None
         self._X_test = None
@@ -383,6 +390,7 @@ class StackSeg:
         self._y_validate = None
         self._training_images = training_images
         self._data = None
+        self._output_dir = output_dir
 
     @property
     def model(self):
@@ -424,6 +432,10 @@ class StackSeg:
     def training_images(self):
         return self._training_images
 
+    @property
+    def output_dir(self):
+        return self._output_dir
+
     def build_features_matrix(self):
         self._data = np.zeros((501 * 501 * self.training_images.size, 5), dtype=np.intc)
         train_data = np.zeros((0, 5), dtype=np.intc)
@@ -432,14 +444,16 @@ class StackSeg:
         for img_no in self.training_images:
             print(f"Loading image {int(img_no)}")
             raw_img = plt.imread(f'unsegmented/{str(int(img_no)).zfill(3)}.tif')
-            with open(f'segmentation/phases/{str(int(img_no)).zfill(3)}', 'rb') as fp:
+            # raw_img = (raw_img / 255) * filters.meijering(raw_img)
+            # raw_img = filters.gaussian(raw_img)
+            with open(f'{self.output_dir}/phases/{str(int(img_no)).zfill(3)}', 'rb') as fp:
                 image = pickle.load(fp)
                 coords = np.where(image > -1)
                 rows = np.zeros((coords[0].size, 5), dtype=np.intc)
                 rows[:, 0] = coords[0]
                 rows[:, 1] = coords[1]
                 rows[:, 2] = img_no * np.ones(coords[0].shape)
-                rows[:, 3] = raw_img[coords]
+                rows[:, 3] = raw_img[coords] / 255
                 rows[:, 4] = image[coords]
                 if int(int(img_no) % 10) == 0:
                     train_data = np.vstack((train_data, rows))
@@ -486,11 +500,11 @@ class StackSeg:
         for z in range(NZ):
             print(f"Segmenting image {z}")
             img =  plt.imread(f'unsegmented/{str(int(z)).zfill(3)}.tif')
-            # img_11 = neighborhood_average(img)
-            # for i in range(5):
-            #     img_11 = neighborhood_average(img_11)
-            # img = img_11
-            features = np.zeros((NX * NY, 4), dtype=np.intc)
+            img_11 = neighborhood_average(img)
+            for i in range(5):
+                img_11 = neighborhood_average(img_11)
+            img = img_11 / 255
+            features = np.zeros((NX * NY, 4))
             coords = np.where(img > -1)
             features[:, 0] = coords[0]
             features[:, 1] = coords[1]
@@ -505,6 +519,10 @@ class StackSeg:
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Segmentation')
+    parser.add_argument('--output_dir', help='working directory for output, e.g. YYYY-mm-dd', default=datetime.datetime.now().strftime('%Y-%m-%d'))
+
+    args = parser.parse_args()
     fig, ax = plt.subplots(2, 3)
     fig.subplots_adjust(left=0)
     ax[0, 0].grid(which='both')
@@ -518,8 +536,8 @@ if __name__ == '__main__':
     with open(os.path.join('unsegmented', str(image_id).zfill(3) + '.tif'), 'rb') as fp:
         image = plt.imread(fp)
 
-    seg = Segmentor(image, image_id=image_id, threshold=float(thresholds[9]))
-    seg.run(rerun=False, clustering=True)
+    seg = Segmentor(image, image_id=image_id, threshold=float(thresholds[9]), output_dir=args.output_dir)
+    seg.run(rerun=False, clustering=True)#, use_residuals=False)
     fig.suptitle(f"Image: unsegmented/{str(image_id).zfill(3)}.tif")
 
     axcolor = 'lightgoldenrodyellow'
