@@ -11,10 +11,8 @@ import meshio
 import numpy as np
 import pygmsh
 import pyvista
-# import pyvistaqt
 import ufl
 
-from PyQt5.QtWidgets import QApplication
 from dolfinx.fem import (Constant, FunctionSpace)
 from dolfinx.fem.petsc import LinearProblem
 from dolfinx.mesh import meshtags
@@ -24,10 +22,9 @@ from ufl import (Measure, TestFunction, TrialFunction,
                  dx, grad, inner, lhs, rhs)
 from dolfinx.plot import create_vtk_mesh
 
-app = QApplication([])
-pyvista.set_jupyter_backend("pythreejs")
+
+# pyvista.set_jupyter_backend("pythreejs")
 plotter = pyvista.Plotter()
-# plotter =  pyvistaqt.BackgroundPlotter()
 comm = MPI.COMM_WORLD
 
 resolution = 0.1
@@ -107,7 +104,6 @@ def create_geometry(c, r):
 
 ######################## MODEL ####################################
 def run_model(c=c, r=r, kappa=0.5):
-    print(c)
     """Wrapper to allow value update on parameter change"""
     create_geometry(c, r)
     with dolfinx.io.XDMFFile(comm, "mesh.xdmf", "r") as infile2:
@@ -179,14 +175,15 @@ def run_model(c=c, r=r, kappa=0.5):
         file.write_function(current_h)
 
     # Visualize solution
-    plotter.clear()
     pyvista_cells, cell_types, geometry = create_vtk_mesh(V)
     grid = pyvista.UnstructuredGrid(pyvista_cells, cell_types, geometry)
     grid.point_data["u"] = uh.x.array
     grid.set_active_scalars("u")
 
     plotter.add_text("potential", position="lower_edge", font_size=14, color="black")
-    plotter.add_mesh(grid, show_edges=True, pickable=True)
+    plotter.add_mesh(grid, pickable=True, opacity=1)
+    contours = grid.contour()
+    plotter.add_mesh(contours, color="black", line_width=1)
     plotter.view_xy()
 
 
@@ -209,12 +206,12 @@ class VizRoutine:
         return
 
 
-engine = VizRoutine(c=c, r=r, kappa=0.5)
+engine = VizRoutine(c=c, r=r, kappa=0.1)
 plotter.enable_point_picking(pickable_window=False, callback=lambda value: engine('c', value.tolist()))
 plotter.add_slider_widget(
     callback=lambda value: engine('kappa', value),
     rng=[0, 10],
-    value=0.5,
+    value=0.1,
     title="kappa",
     pointa=(0.025, 0.925),
     pointb=(0.31, 0.925),
@@ -222,4 +219,3 @@ plotter.add_slider_widget(
 )
 
 plotter.show()
-app.exec()
