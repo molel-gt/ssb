@@ -100,7 +100,7 @@ if __name__ == "__main__":
     gc.collect()
 
     # TetGen
-    retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -rkQF", shell=True)
+    retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -rkQFR", shell=True)
 
     # GMSH
     counter = 0
