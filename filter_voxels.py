@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 
@@ -13,7 +14,7 @@ def load_images(files_list, shape):
     Nx, Ny, Nz = shape
     data = np.zeros([int(Nx), int(Ny), int(Nz)], dtype=np.uint8)
     for i, img_file in enumerate(sorted(files_list)):
-        img = io.imread(img_file)
+        img = plt.imread(img_file)
         data[:, :, i] = img
 
     return data
