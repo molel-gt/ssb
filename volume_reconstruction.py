@@ -9,6 +9,7 @@ import time
 import argparse
 import gmsh
 import logging
+import matplotlib.pyplot as plt
 import meshio
 import numpy as np
 
@@ -57,7 +58,7 @@ if __name__ == "__main__":
 
     start_time = time.time()
 
-    shape = [*io.imread(im_files[0]).shape, n_files]
+    shape = [*plt.imread(im_files[0]).shape, n_files]
     voxels_raw = filter_voxels.load_images(im_files, shape)[origin[0]:Nx+origin[0], origin[1]:Ny+origin[1], origin[2]:Nz+origin[2]]
     voxels_filtered = filter_voxels.get_filtered_voxels(voxels_raw)
     voxels = np.isclose(voxels_filtered, phase)
