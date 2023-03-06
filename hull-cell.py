@@ -207,7 +207,7 @@ class VizRoutine:
 
 
 engine = VizRoutine(c=c, r=r, kappa=0.1)
-plotter.enable_point_picking(pickable_window=False, callback=lambda value: engine('c', value.tolist()))
+# plotter.enable_point_picking(pickable_window=False, callback=lambda value: engine('c', value.tolist()))
 plotter.add_slider_widget(
     callback=lambda value: engine('kappa', value),
     rng=[0, 10],
