@@ -205,11 +205,9 @@ def run_model(c=c, r=r, Wa=0.1, W=W):
     grid.set_active_vectors("i")
     plotter.add_mesh(grid, pickable=True, opacity=1, name='mesh')
     plotter.view_xy()
-    
 
 
 ######################## INTERACTIVITY ####################################
-
 class VizRoutine:
     def __init__(self, c, r, Wa):
         self.kwargs = {
