@@ -181,9 +181,9 @@ def run_model(c=c, r=r, kappa=0.5):
     grid.set_active_scalars("u")
 
     plotter.add_text("potential", position="lower_edge", font_size=14, color="black")
-    plotter.add_mesh(grid, pickable=True, opacity=1)
+    plotter.add_mesh(grid, pickable=True, opacity=1, name='mesh')
     contours = grid.contour()
-    plotter.add_mesh(contours, color="black", line_width=1)
+    plotter.add_mesh(contours, color="black", line_width=1, name='contours')
     plotter.view_xy()
 
 
@@ -207,7 +207,7 @@ class VizRoutine:
 
 
 engine = VizRoutine(c=c, r=r, kappa=0.1)
-# plotter.enable_point_picking(pickable_window=False, callback=lambda value: engine('c', value.tolist()))
+plotter.enable_point_picking(pickable_window=False, callback=lambda value: engine('c', value.tolist()))
 plotter.add_slider_widget(
     callback=lambda value: engine('kappa', value),
     rng=[0, 10],
