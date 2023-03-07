@@ -188,7 +188,7 @@ def run_model(c=c, r=r, Wa=0.1, W=W):
     grid.set_active_scalars("u")
 
     plotter.subplot(0, 0)
-    plotter.add_text("potential", position="lower_edge", font_size=14, color="black")
+    plotter.add_text("Potential", position="lower_edge", font_size=14, color="black")
     plotter.add_mesh(grid, pickable=True, opacity=1, name='mesh')
     contours = grid.contour(compute_normals=True)
     plotter.add_mesh(contours, color="white", line_width=1, name='contours')
@@ -204,6 +204,7 @@ def run_model(c=c, r=r, Wa=0.1, W=W):
     # plotter.add_mesh(warped)
     grid.set_active_vectors("i")
     plotter.add_mesh(grid, pickable=True, opacity=1, name='mesh')
+    plotter.add_text("Current Density", position="lower_edge", font_size=14, color="black")
     plotter.view_xy()
 
 
