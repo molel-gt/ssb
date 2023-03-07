@@ -203,21 +203,6 @@ def run_model(c=c, r=r, Wa=0.1, W=W):
     warped = grid.warp_by_scalar()
     # plotter.add_mesh(warped)
     grid.set_active_vectors("i")
-    # glyph = grid.glyph()
-    # plotter.add_mesh(glyph)
-    # streamlines = grid.streamlines(vectors=vectors)
-    # plotter.add_mesh(streamlines)
-    # streamlines, src = grid.streamlines(
-    # return_source=True,
-    # max_time=100.0,
-    # initial_step_length=2.0,
-    # terminal_speed=0.1,
-    # n_points=25,
-    # source_radius=2.0,
-    # source_center=(133.1, 116.3, 5.0),
-    # )
-    # plotter.add_mesh(streamlines.tube(radius=0.15))
-    # plotter.add_mesh(src)
     plotter.add_mesh(grid, pickable=True, opacity=1, name='mesh')
     plotter.view_xy()
     
