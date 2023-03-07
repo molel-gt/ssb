@@ -24,10 +24,10 @@ from dolfinx.plot import create_vtk_mesh
 
 
 # pyvista.set_jupyter_backend("pythreejs")
-plotter = pyvista.Plotter()
+plotter = pyvista.Plotter(shape=(1, 2))
 comm = MPI.COMM_WORLD
 
-resolution = 0.1
+resolution = 0.05
 
 # Channel parameters
 L1 = 3
@@ -49,7 +49,9 @@ R = 8.314 # J/K/mol
 T = 298 # K
 z = 1  # number of electrons involved
 F_farad = 96485  # C/mol
-i0 = 10  # A/m^2
+i_exch = 10  # A/m^2
+alpha_a = 0.5
+alpha_c = 0.5
 
 
 def create_mesh(mesh, cell_type, prune_z=False):
@@ -103,7 +105,7 @@ def create_geometry(c, r):
 
 
 ######################## MODEL ####################################
-def run_model(c=c, r=r, kappa=0.5):
+def run_model(c=c, r=r, Wa=0.1, W=W):
     """Wrapper to allow value update on parameter change"""
     create_geometry(c, r)
     with dolfinx.io.XDMFFile(comm, "mesh.xdmf", "r") as infile2:
@@ -116,14 +118,18 @@ def run_model(c=c, r=r, kappa=0.5):
     ft_tag = meshtags(mesh, mesh.topology.dim - 1, ft.indices, ft.values)
 
     # Define physical parameters and boundary conditions
-    s = Constant(mesh, ScalarType(0.005))
+    phi_m_n = Constant(mesh, ScalarType(0))
+    phi_m_p = Constant(mesh, ScalarType(1))
     f = Constant(mesh, ScalarType(0.0))
+
+    # Linear Butler-Volmer Kinetics
+    # kappa = Wa * W * F_farad * i_exch * (alpha_a + alpha_c) / R / T
    
     ds = Measure("ds", domain=mesh, subdomain_data=ft_tag)
 
     g = Constant(mesh, ScalarType(0.0))
-    kappa = Constant(mesh, ScalarType(kappa))
-    r = Constant(mesh, ScalarType(i0 * z * F_farad / (R * T)))
+    kappa = Constant(mesh, ScalarType(Wa * W * F_farad * i_exch * (alpha_a + alpha_c) / R / T))
+    r = Constant(mesh, ScalarType(i_exch * z * F_farad / (R * T)))
 
     # Define function space and standard part of variational form
     V = FunctionSpace(mesh, ("CG", 1))
@@ -132,20 +138,21 @@ def run_model(c=c, r=r, kappa=0.5):
 
     # boundaries
     # Dirichlet BCs
-    u1 = dolfinx.fem.Function(V)
-    with u1.vector.localForm() as u1_loc:
-        u1_loc.set(1)
+    # u1 = dolfinx.fem.Function(V)
+    # with u1.vector.localForm() as u1_loc:
+    #     u1_loc.set(1)
 
-    x1facet = np.array(ft.indices[ft.values == right_cc_marker])
-    x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 1, x1facet))
+    # x1facet = np.array(ft.indices[ft.values == right_cc_marker])
+    # x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 1, x1facet))
 
-    bcs = [x1bc]
+    bcs = []
 
     # Neumann boundary - insulated
-    F += inner(g, v) * ds(2)
+    F += inner(g, v) * ds(insulated_marker)
 
     # Robin boundary - variable area - set kinetics expression
-    F += r * inner(u - s, v) * ds(3)
+    F += r * inner(u - phi_m_n, v) * ds(left_cc_marker)
+    F += r * inner(u - phi_m_p, v) * ds(right_cc_marker)
 
     # Solve linear variational problem
     options = {
@@ -165,8 +172,8 @@ def run_model(c=c, r=r, kappa=0.5):
 
     grad_u = ufl.grad(uh)
 
-    W = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 1))
-    current_expr = dolfinx.fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
+    W = dolfinx.fem.VectorFunctionSpace(mesh, ("Lagrange", 1))
+    current_expr = dolfinx.fem.Expression(kappa * grad_u, W.element.interpolation_points())
     current_h = dolfinx.fem.Function(W)
     current_h.interpolate(current_expr)
 
@@ -182,19 +189,47 @@ def run_model(c=c, r=r, kappa=0.5):
 
     plotter.add_text("potential", position="lower_edge", font_size=14, color="black")
     plotter.add_mesh(grid, pickable=True, opacity=1, name='mesh')
-    contours = grid.contour()
+    contours = grid.contour(compute_normals=True)
     plotter.add_mesh(contours, color="white", line_width=1, name='contours')
     plotter.view_xy()
+
+    plotter.subplot(0, 1)
+    grid = pyvista.UnstructuredGrid(pyvista_cells, cell_types, geometry)
+    vectors = current_h.x.array.real.reshape(-1, 2)
+    vectors = np.hstack((vectors, np.zeros((vectors.shape[0], 1))))
+
+    grid.point_data.set_vectors(vectors, 'i')
+    grid.set_active_vectors("i")
+    plotter.add_mesh(grid, pickable=True, opacity=1, name='mesh')
+    plotter.view_xy()
+
+    # glyph = grid.glyph()
+    # plotter.add_mesh(glyph)
+    # streamlines = grid.streamlines(vectors=vectors)
+    # plotter.add_mesh(streamlines)
+    # streamlines, src = grid.streamlines(
+    # return_source=True,
+    # max_time=100.0,
+    # initial_step_length=2.0,
+    # terminal_speed=0.1,
+    # n_points=25,
+    # source_radius=2.0,
+    # source_center=(133.1, 116.3, 5.0),
+    # )
+    # plotter.add_mesh(streamlines.tube(radius=0.15))
+    # plotter.add_mesh(src)
+    
+    
 
 
 ######################## INTERACTIVITY ####################################
 
 class VizRoutine:
-    def __init__(self, c, r, kappa):
+    def __init__(self, c, r, Wa):
         self.kwargs = {
             'c': c,
             'r': r,
-            'kappa': kappa,
+            'Wa': Wa,
         }
 
     def __call__(self, param, value):
@@ -206,15 +241,15 @@ class VizRoutine:
         return
 
 
-engine = VizRoutine(c=c, r=r, kappa=0.1)
+engine = VizRoutine(c=c, r=r, Wa=0.1)
 plotter.enable_point_picking(pickable_window=False, callback=lambda value: engine('c', value.tolist()))
 plotter.add_slider_widget(
-    callback=lambda value: engine('kappa', value),
-    rng=[0, 10],
+    callback=lambda value: engine('Wa', value),
+    rng=[1e-12, 100],
     value=0.1,
-    title="kappa",
-    pointa=(0.025, 0.925),
-    pointb=(0.31, 0.925),
+    title="Wagner Number",
+    pointa=(0.6, 0.825),
+    pointb=(0.9, 0.825),
     style='modern',
 )
 
