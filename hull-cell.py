@@ -187,6 +187,7 @@ def run_model(c=c, r=r, Wa=0.1, W=W):
     grid.point_data["u"] = uh.x.array
     grid.set_active_scalars("u")
 
+    plotter.subplot(0, 0)
     plotter.add_text("potential", position="lower_edge", font_size=14, color="black")
     plotter.add_mesh(grid, pickable=True, opacity=1, name='mesh')
     contours = grid.contour(compute_normals=True)
@@ -199,10 +200,9 @@ def run_model(c=c, r=r, Wa=0.1, W=W):
     vectors = np.hstack((vectors, np.zeros((vectors.shape[0], 1))))
 
     grid.point_data.set_vectors(vectors, 'i')
+    warped = grid.warp_by_scalar()
+    # plotter.add_mesh(warped)
     grid.set_active_vectors("i")
-    plotter.add_mesh(grid, pickable=True, opacity=1, name='mesh')
-    plotter.view_xy()
-
     # glyph = grid.glyph()
     # plotter.add_mesh(glyph)
     # streamlines = grid.streamlines(vectors=vectors)
@@ -218,7 +218,8 @@ def run_model(c=c, r=r, Wa=0.1, W=W):
     # )
     # plotter.add_mesh(streamlines.tube(radius=0.15))
     # plotter.add_mesh(src)
-    
+    plotter.add_mesh(grid, pickable=True, opacity=1, name='mesh')
+    plotter.view_xy()
     
 
 
