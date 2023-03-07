@@ -183,7 +183,7 @@ def run_model(c=c, r=r, kappa=0.5):
     plotter.add_text("potential", position="lower_edge", font_size=14, color="black")
     plotter.add_mesh(grid, pickable=True, opacity=1, name='mesh')
     contours = grid.contour()
-    plotter.add_mesh(contours, color="black", line_width=1, name='contours')
+    plotter.add_mesh(contours, color="white", line_width=1, name='contours')
     plotter.view_xy()
 
 
