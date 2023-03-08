@@ -47,11 +47,11 @@ r = 0.5
 # parameters
 R = 8.314 # J/K/mol
 T = 298 # K
-z = 1  # number of electrons involved
+n = 1  # number of electrons involved
 F_farad = 96485  # C/mol
 i_exch = 10  # A/m^2
 alpha_a = 0.5
-alpha_c = 0.5
+alpha_c = n - alpha_a
 
 
 def create_mesh(mesh, cell_type, prune_z=False):
@@ -129,7 +129,8 @@ def run_model(c=c, r=r, Wa=0.1, W=W):
 
     g = Constant(mesh, ScalarType(0.0))
     kappa = Constant(mesh, ScalarType(Wa * W * F_farad * i_exch * (alpha_a + alpha_c) / R / T))
-    r = Constant(mesh, ScalarType(i_exch * z * F_farad / (R * T)))
+    # linear kinetics
+    r = Constant(mesh, ScalarType(i_exch * n * F_farad / (R * T)))
 
     # Define function space and standard part of variational form
     V = FunctionSpace(mesh, ("CG", 1))
