@@ -204,6 +204,8 @@ def run_model(c=c, r=r, Wa=0.1, W=W):
     warped = grid.warp_by_scalar()
     # plotter.add_mesh(warped)
     grid.set_active_vectors("i")
+    glyphs = grid.glyph(orient="i", geom=grid.cast_to_poly_points())
+    plotter.add_mesh(glyphs, name='glyphs')
     plotter.add_mesh(grid, pickable=True, opacity=1, name='mesh')
     plotter.add_text("Current Density", position="lower_edge", font_size=14, color="black")
     plotter.view_xy()
