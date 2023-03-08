@@ -189,13 +189,15 @@ def run_model(c=c, r=r, Wa=0.1, W=W):
     grid.set_active_scalars("u")
 
     plotter.subplot(0, 0)
-    plotter.add_text("Potential", position="lower_edge", font_size=14, color="black")
+    plotter.add_title('Potential')
+    # plotter.add_text("Potential", position="lower_edge", font_size=14, color="black")
     plotter.add_mesh(grid, pickable=True, opacity=1, name='mesh')
     contours = grid.contour(compute_normals=True)
     plotter.add_mesh(contours, color="white", line_width=1, name='contours')
     plotter.view_xy()
 
     plotter.subplot(0, 1)
+    plotter.add_title('Current Density')
     grid = pyvista.UnstructuredGrid(pyvista_cells, cell_types, geometry)
     vectors = current_h.x.array.real.reshape(-1, 2)
     vectors = np.hstack((vectors, np.zeros((vectors.shape[0], 1))))
@@ -206,8 +208,16 @@ def run_model(c=c, r=r, Wa=0.1, W=W):
     grid.set_active_vectors("i")
     glyphs = grid.glyph(orient="i", factor=0.005)
     plotter.add_mesh(glyphs, name='i')
+    # line_streamlines = grid.streamlines(
+    # pointa=(0, -5, 0),
+    # pointb=(0, 5, 0),
+    # n_points=25,
+    # max_time=100.0,
+    # compute_vorticity=True,  # vorticity already exists in dataset
+    # )
+    # plotter.add_mesh(line_streamlines.tube(radius=0.05), scalars=vectors)
     # plotter.add_mesh(grid, pickable=True, opacity=0.5, name='mesh')
-    plotter.add_text("Current Density", position="lower_edge", font_size=14, color="black")
+    # plotter.add_text("Current Density", position="lower_edge", font_size=14, color="black")
     plotter.view_xy()
 
 
@@ -240,5 +250,4 @@ plotter.add_slider_widget(
     pointb=(0.9, 0.825),
     style='modern',
 )
-
 plotter.show()
