@@ -20,6 +20,8 @@ from skimage import filters
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.cluster import AgglomerativeClustering, SpectralClustering, MeanShift, OPTICS, Birch, AffinityPropagation, KMeans, FeatureAgglomeration
 
 
 warnings.simplefilter("ignore")
@@ -31,7 +33,7 @@ NX = 501
 NY = 501
 NZ = 202
 hdbscan_kwargs = {
-    "min_cluster_size": 5,
+    "min_cluster_size": 25,
     "cluster_selection_epsilon": 5,
     "gen_min_span_tree": True,
     'cluster_selection_method': 'leaf',
@@ -121,15 +123,43 @@ def build_features_matrix(img, img_1, threshold):
     return X_2d
 
 
+def chunk_array(arr_shape, arr, size=100):
+    x_points = list(range(0, arr_shape[0], size))
+    y_points = list(range(0, arr_shape[1], size))
+    if arr_shape[0] > x_points[-1] + 1:
+        x_points += [-1]
+    if arr_shape[1] > y_points[-1] + 1:
+        y_points += [-1]
+    for ix, x in enumerate(x_points[:-1]):
+        for iy, y in enumerate(y_points[:-1]):
+            coords = np.where(
+                np.logical_and(
+                    np.logical_and(np.greater_equal(arr[:, 0], x), np.less(arr[:, 0], x_points[ix+1])),
+                    np.logical_and(np.greater_equal(arr[:, 1], y), np.less(arr[:, 1], y_points[iy+1])),
+                    )
+                )
+            yield coords
+
+
 def get_clustering_results(X_2d, **hdbscan_kwargs):
     clusterer = hdbscan.HDBSCAN(**hdbscan_kwargs)
-    y_predict = clusterer.fit_predict(X_2d).reshape(-1, 1)
+    # y_predict = clusterer.fit_predict(X_2d).reshape(-1, 1)
+    y_predict = np.zeros((X_2d.shape[0], ), dtype=np.intc)
+    max_cluster_id = 0
+    for coords in chunk_array((501, 501), X_2d):
+        features = X_2d[coords[0], :]
+        predictions = clusterer.fit_predict(features)
+        new_c = np.where(predictions < 0)
+        new_c2 = np.where(predictions > -1)
+        predictions[new_c2] = predictions[new_c2] + max_cluster_id
+        y_predict[coords] = predictions
+        max_cluster_id = np.max(y_predict) + 1
 
     return y_predict
 
 
 class Segmentor:
-    def __init__(self, image, image_id=0, threshold=0.03, output_dir='segmentation'):
+    def __init__(self, image, image_id=0, threshold=0.10, output_dir='segmentation'):
         self.image_id = image_id
         self.threshold = threshold
         self._output_dir = output_dir
@@ -246,7 +276,7 @@ class App:
         self.seg = seg
         self.ind = 0
         self._selected_phase = selected_phase
-        self._threshold_index = 9
+        self._threshold_index = 12
         self._fs = fs
         self._fig = fig
 
@@ -375,10 +405,10 @@ class App:
 class StackSeg:
     def __init__(self, training_images, testing_images=None, output_dir='2023-03-04'):
         self._model = RandomForestClassifier(n_jobs=8,
-                                                criterion='entropy',
+                                                criterion='gini',
                                                 oob_score=True,
-                                                # class_weight='balanced',
-                                                n_estimators=202,
+                                                class_weight='balanced_subsample',
+                                                # n_estimators=500,
                                                 # bootstrap=False,
                                                 )
         self._X_train = None
@@ -480,15 +510,11 @@ class StackSeg:
         print("Testing Score:", self.model.score(self.X_test, self.y_test))
 
     def retrain(self):
-        # with open("segmentation/model", 'rb') as fp:
-        #     self._model = pickle.load(fp)
         X_train = np.vstack((self.X_train, self.X_test))
         y_train = np.vstack((self.y_train, self.y_test))
         print("Starting model training..")
         self.model.fit(X_train, y_train)
         print("Done training model")
-        # with open("segmentation/model", 'wb') as fp:
-        #     pickle.dump(self.model, fp)
 
     def create_output(self):
         print("Retraining Model")
@@ -513,7 +539,6 @@ class StackSeg:
             output = self.model.predict(features)
             img_out = np.zeros(img.shape, dtype=np.uint8)
             img_out[coords] = output
-            # print(np.unique(img_out))
             # new_img = Image.fromarray(img_out, mode='P')
             cv2.imwrite(f'segmented/{str(int(z)).zfill(3)}.tif', img_out)
 
@@ -536,7 +561,7 @@ if __name__ == '__main__':
     with open(os.path.join('unsegmented', str(image_id).zfill(3) + '.tif'), 'rb') as fp:
         image = plt.imread(fp)
 
-    seg = Segmentor(image, image_id=image_id, threshold=float(thresholds[9]), output_dir=args.output_dir)
+    seg = Segmentor(image, image_id=image_id, threshold=float(thresholds[12]), output_dir=args.output_dir)
     seg.run(rerun=False, clustering=True)#, use_residuals=False)
     fig.suptitle(f"Image: unsegmented/{str(image_id).zfill(3)}.tif")
 
@@ -545,7 +570,7 @@ if __name__ == '__main__':
     rax.set_facecolor(axcolor)
 
     # checkbuttons
-    check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0])
 
     # next and previous buttons
     axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
