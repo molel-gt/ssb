@@ -108,6 +108,7 @@ def create_geometry(c, r):
 def run_model(c=c, r=r, Wa=0.1, W=W):
     """Wrapper to allow value update on parameter change"""
     create_geometry(c, r)
+
     with dolfinx.io.XDMFFile(comm, "mesh.xdmf", "r") as infile2:
         mesh = infile2.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
     mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim - 1)
@@ -123,8 +124,6 @@ def run_model(c=c, r=r, Wa=0.1, W=W):
     f = Constant(mesh, ScalarType(0.0))
 
     # Linear Butler-Volmer Kinetics
-    # kappa = Wa * W * F_farad * i_exch * (alpha_a + alpha_c) / R / T
-   
     ds = Measure("ds", domain=mesh, subdomain_data=ft_tag)
 
     g = Constant(mesh, ScalarType(0.0))
@@ -136,15 +135,6 @@ def run_model(c=c, r=r, Wa=0.1, W=W):
     V = FunctionSpace(mesh, ("CG", 1))
     u, v = TrialFunction(V), TestFunction(V)
     F = kappa * inner(grad(u), grad(v)) * dx - inner(f, v) * dx
-
-    # boundaries
-    # Dirichlet BCs
-    # u1 = dolfinx.fem.Function(V)
-    # with u1.vector.localForm() as u1_loc:
-    #     u1_loc.set(1)
-
-    # x1facet = np.array(ft.indices[ft.values == right_cc_marker])
-    # x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 1, x1facet))
 
     bcs = []
 
@@ -192,7 +182,7 @@ def run_model(c=c, r=r, Wa=0.1, W=W):
     plotter.add_title('Potential')
     # plotter.add_text("Potential", position="lower_edge", font_size=14, color="black")
     plotter.add_mesh(grid, pickable=True, opacity=1, name='mesh')
-    contours = grid.contour(compute_normals=True)
+    contours = grid.contour(20, compute_normals=True)
     plotter.add_mesh(contours, color="white", line_width=1, name='contours')
     plotter.view_xy()
 
@@ -206,8 +196,8 @@ def run_model(c=c, r=r, Wa=0.1, W=W):
     warped = grid.warp_by_scalar()
     # plotter.add_mesh(warped)
     grid.set_active_vectors("i")
-    glyphs = grid.glyph(orient="i", factor=0.005)
-    plotter.add_mesh(glyphs, name='i')
+    glyphs = grid.glyph(orient="i", factor=0.001, tolerance=0.05)
+    plotter.add_mesh(glyphs, name='i', color='white')
     # line_streamlines = grid.streamlines(
     # pointa=(0, -5, 0),
     # pointb=(0, 5, 0),
@@ -216,7 +206,7 @@ def run_model(c=c, r=r, Wa=0.1, W=W):
     # compute_vorticity=True,  # vorticity already exists in dataset
     # )
     # plotter.add_mesh(line_streamlines.tube(radius=0.05), scalars=vectors)
-    # plotter.add_mesh(grid, pickable=True, opacity=0.5, name='mesh')
+    plotter.add_mesh(grid, pickable=False, opacity=0.5, name='mesh')
     # plotter.add_text("Current Density", position="lower_edge", font_size=14, color="black")
     plotter.view_xy()
 
@@ -239,12 +229,12 @@ class VizRoutine:
         return
 
 
-engine = VizRoutine(c=c, r=r, Wa=0.1)
+engine = VizRoutine(c=c, r=r, Wa=10)
 plotter.enable_point_picking(pickable_window=False, callback=lambda value: engine('c', value.tolist()))
 plotter.add_slider_widget(
     callback=lambda value: engine('Wa', value),
     rng=[1e-12, 100],
-    value=0.1,
+    value=10,
     title="Wagner Number",
     pointa=(0.6, 0.825),
     pointb=(0.9, 0.825),
