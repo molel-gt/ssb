@@ -4,7 +4,9 @@ import itertools
 import os
 import time
 
+import alphashape
 import argparse
+import cartopy.crs as ccrs
 import cv2
 import hdbscan
 import matplotlib.pyplot as plt
@@ -12,6 +14,9 @@ import numpy as np
 import pickle
 import warnings
 
+from shapely import Polygon, MultiPoint
+from shapely.plotting import plot_polygon
+from descartes import PolygonPatch
 from ipywidgets import widgets, interactive
 from matplotlib.widgets import CheckButtons, Button, Slider, LassoSelector, RadioButtons, TextBox, RectangleSelector
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
@@ -37,6 +42,7 @@ hdbscan_kwargs = {
     "cluster_selection_epsilon": 5,
     "gen_min_span_tree": True,
     'cluster_selection_method': 'leaf',
+    'min_samples': 5,
     }
 
 phases = {
@@ -143,19 +149,55 @@ def chunk_array(arr_shape, arr, size=100):
 
 def get_clustering_results(X_2d, **hdbscan_kwargs):
     clusterer = hdbscan.HDBSCAN(**hdbscan_kwargs)
-    # y_predict = clusterer.fit_predict(X_2d).reshape(-1, 1)
-    y_predict = np.zeros((X_2d.shape[0], ), dtype=np.intc)
-    max_cluster_id = 0
-    for coords in chunk_array((501, 501), X_2d):
-        features = X_2d[coords[0], :]
-        predictions = clusterer.fit_predict(features)
-        new_c = np.where(predictions < 0)
-        new_c2 = np.where(predictions > -1)
-        predictions[new_c2] = predictions[new_c2] + max_cluster_id
-        y_predict[coords] = predictions
-        max_cluster_id = np.max(y_predict) + 1
+    y_predict = clusterer.fit_predict(X_2d).reshape(-1, 1)
+    # y_predict = np.zeros((X_2d.shape[0], ), dtype=np.intc)
+    # max_cluster_id = 0
+    # for coords in chunk_array((501, 501), X_2d):
+    #     features = X_2d[coords[0], :]
+    #     predictions = clusterer.fit_predict(features)
+    #     new_c = np.where(predictions < 0)
+    #     new_c2 = np.where(predictions > -1)
+    #     predictions[new_c2] = predictions[new_c2] + max_cluster_id
+    #     y_predict[coords] = predictions
+    #     max_cluster_id = np.max(y_predict) + 1
 
     return y_predict
+
+
+def get_polygon(clusters, ax):
+    for v in np.unique(clusters):
+        if v < 0:
+            continue
+        coords = np.where(np.isclose(clusters, v))
+        if coords[0].shape[0] > 50:
+            # if coords[0].shape[0] < 1000:
+            #     continue
+            points = [(coords[0][i], coords[1][i]) for i in range(coords[0].shape[0])]
+            set_points = set(points)
+            ext = []
+            for (x, y) in set_points:
+                count = 0
+                chek_pts = [(x, int(y + 1)), (x, int(y -1)), (int(x + 1), y), (int(x - 1), y)]
+                for p in chek_pts:
+                    if p in set_points:
+                        count += 1
+                if count == 3:
+                    ext.append((y, x))
+            polygon = Polygon(sorted(ext))
+            print(polygon.boundary)
+            # print(v, polygon.area, coords[0].shape[0], polygon.area/coords[0].shape[0] ** 2)
+            error = np.linalg.norm(np.array([polygon.centroid.x, polygon.centroid.y, 0]) - np.array([np.average(coords[1]), np.average(coords[0]), 0]))
+            print(v, np.linalg.norm(np.array([polygon.centroid.x, polygon.centroid.y, 0]) - np.array([np.average(coords[1]), np.average(coords[0]), 0])))
+            if error > 150:
+                continue
+            plot_polygon(polygon, ax=ax, add_points=False, alpha=0.5, edgecolor='red')
+            # points = np.array(points).reshape(-1, 2)
+            # alpha_shape = alphashape.alphashape(points, 2)
+            # alpha_shape.show()
+            # ax.add_geometry(
+            #     alpha_shape['geometry'],
+            #     crs=ccrs.AlbersEqualArea(), alpha=.2)
+            # ax.add_patch(PolygonPatch(alpha_shape, alpha=0.2))
 
 
 class Segmentor:
@@ -219,12 +261,20 @@ class Segmentor:
                 self.edges = pickle.load(fp)
         else:
             img_11 = neighborhood_average(self.image)
-            for i in range(5):
+            for i in range(2):
                 img_11 = neighborhood_average(img_11)
-            img_2 = filters.meijering(img_11)
-            self.edges = img_2
-            with open(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
-                pickle.dump(self.edges, fp)
+            img_2 = filters.gaussian(img_11, sigma=2)
+            img_2 = neighborhood_average(img_2 / np.max(img_2))
+            img_2 = filters.meijering(img_2 / np.max(img_2))
+            img_2 = neighborhood_average(img_2)
+            self.edges = img_2 / np.max(img_2)
+            self.write_edges_to_file()
+            # with open(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
+            #     pickle.dump(self.edges, fp)
+
+    def write_edges_to_file(self):
+        with open(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
+            pickle.dump(self.edges, fp)
 
     def clustering(self):
         if os.path.exists(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}')):
@@ -234,10 +284,8 @@ class Segmentor:
             self._phases = np.ones(self.image.shape, dtype=np.intc)
 
         self.set_edges()
-        img_3 = neighborhood_average(self.edges)
-        for i in range(5):
-            img_3 = neighborhood_average(img_3)
-        img = img_3 / np.max(img_3)
+
+        img = self.edges
         if self.use_residuals:
             coords = np.where(self.phases != 1)
             img[coords] = -1
@@ -271,14 +319,18 @@ class Segmentor:
             self.update_phases(selection, phase)
 
 
+
+
+
 class App:
-    def __init__(self, seg, selected_phase=-1, fs=None, fig=None, radio=None):
+    def __init__(self, seg, selected_phase=-1, fs=None, fig=None, radio=None, ax=None):
         self.seg = seg
         self.ind = 0
         self._selected_phase = selected_phase
         self._threshold_index = 12
         self._fs = fs
         self._fig = fig
+        self._ax = ax
 
     @property
     def image_id(self):
@@ -309,6 +361,7 @@ class App:
         f2.set_data(self.seg.edges)
         f3.set_data(self.seg.clusters)
         f4.set_data(self.seg.phases)
+        get_polygon(self.seg.clusters, self._ax[0, 0])
         self._fig.canvas.draw()
         self._fig.canvas.flush_events()
 
@@ -328,6 +381,7 @@ class App:
         f2.set_data(self.seg.edges)
         f3.set_data(self.seg.clusters)
         f4.set_data(self.seg.phases)
+        get_polygon(self.seg.clusters, self._ax[0, 0])
         self._fig.canvas.draw()
         self._fig.canvas.flush_events()
 
@@ -349,8 +403,22 @@ class App:
 
             f3.set_data(self.seg.clusters)      
             f4.set_data(self.seg.phases)
+            get_polygon(self.seg.clusters, self._ax[0, 0])
             self._fig.canvas.draw_idle()
             self._fig.canvas.flush_events()
+
+    def newEdges(self, val):
+        selection = list(set([(int(x), int(y)) for x, y in val]))
+        select = (np.array([x[0] for x in selection]).reshape(-1, 1), np.array([y[1] for y in selection]).reshape(-1, 1))
+        self.seg.edges[select] = 1
+        self.seg.write_edges_to_file()
+        self.seg.run(rerun=False, clustering=True)
+        f1, f2, f3, f4 = self._fs
+        f2.set_data(self.seg.edges)
+        f3.set_data(self.seg.clusters)
+        get_polygon(self.seg.clusters, self._ax[0, 0])
+        self._fig.canvas.draw_idle()
+        self._fig.canvas.flush_events()
 
     def onCorrect(self, eclick, erelease):
         x1, y1 = int(eclick.xdata), int(eclick.ydata)
@@ -369,6 +437,7 @@ class App:
         f1, f2, f3, f4 = self._fs
         f3.set_data(self.seg.clusters)      
         f4.set_data(self.seg.phases)
+        get_polygon(self.seg.clusters, self._ax[0, 0])
         self._fig.canvas.draw_idle()
         self._fig.canvas.flush_events()
 
@@ -602,9 +671,10 @@ if __name__ == '__main__':
     f4 = ax[1, 1].imshow(seg.phases, cmap='brg')
     ax[1, 1].set_title("Segmented")
     ax[1, 1].set_aspect('equal', 'box')
+    get_polygon(seg.clusters, ax[0, 0])
 
-    callback = App(seg, fs=[f1, f2, f3, f4], fig=fig, radio=radio)
-    # selector = LassoSelector(ax=ax[0, 0], onselect=callback.onSelect)
+    callback = App(seg, fs=[f1, f2, f3, f4], fig=fig, radio=radio, ax=ax)
+    # edge_selector = LassoSelector(ax=ax[0, 1], onselect=callback.newEdges)
     selector = RectangleSelector(ax=ax[0, 0], onselect=callback.onSelect)
     corrector = RectangleSelector(ax=ax[1, 1], onselect=callback.onCorrect)
 
