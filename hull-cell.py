@@ -108,16 +108,25 @@ def create_geometry(c, r):
 def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
     """Wrapper to allow value update on parameter change"""
     new_c = list(c)
-    new_c[0] = max(r + 2 * resolution, c[0])
-    new_c[1] = max(r + 2 * resolution, c[1])
-    new_c[1] = min(W - r - 2 * resolution, c[1])
-    x_join = (L ** 2/ L2 - c[1] + c[0] * L2 / L)/(L2/L + L/L2)
+    x_join = (L ** 2 / L2 - c[1] + c[0] * L2 / L)/(L2 / L + L / L2)
     y_join = -L / L2 * x_join + L ** 2 / L2
-    if np.linalg.norm([x_join - c[0], y_join - c[1]]) < r:
-        new_c[0] = x_join - r
-        new_c[1] = y_join - r
 
-    create_geometry(tuple(new_c), r)
+    if c[0] > (L1 - r) and np.linalg.norm([x_join - c[0], y_join - c[1]]) < r:
+        new_c[0] = x_join - (r + 5 * resolution) / (2 ** 0.5)
+        new_c[1] = y_join - (r + 5 * resolution) / (2 ** 0.5)
+
+    if c[0] <= r:
+        new_c[0] = r + 5 * resolution
+    new_c[0] = min(new_c[0], L - r / 3 ** 0.5 - 5 * resolution)
+    if c[1] <= r:
+        new_c[1] = r + 5 * resolution
+    if (c[1] + r) > W:
+        new_c[1] = W - r - 5 * resolution
+
+    try:
+        create_geometry(tuple(new_c), r)
+    except AssertionError:
+        create_geometry([2.5, 2.5, 0], r)
 
     with dolfinx.io.XDMFFile(comm, "mesh.xdmf", "r") as infile2:
         mesh = infile2.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
