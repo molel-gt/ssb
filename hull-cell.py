@@ -125,7 +125,7 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
 
     try:
         create_geometry(tuple(new_c), r)
-    except AssertionError:
+    except:
         create_geometry([2.5, 2.5, 0], r)
 
     with dolfinx.io.XDMFFile(comm, "mesh.xdmf", "r") as infile2:
@@ -217,14 +217,6 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
     grid.set_active_vectors("i")
     glyphs = grid.glyph(orient="i", factor=0.0015, tolerance=0.05)
     plotter.add_mesh(glyphs, name='i', color='white')
-    # line_streamlines = grid.streamlines(
-    # pointa=(0, -5, 0),
-    # pointb=(0, 5, 0),
-    # n_points=25,
-    # max_time=100.0,
-    # compute_vorticity=True,  # vorticity already exists in dataset
-    # )
-    # plotter.add_mesh(line_streamlines.tube(radius=0.05), scalars=vectors)
     plotter.add_mesh(grid, pickable=False, opacity=0.5, name='mesh')
     # plotter.add_text("Current Density", position="lower_edge", font_size=14, color="black")
     plotter.view_xy()
@@ -244,19 +236,20 @@ class VizRoutine:
         self.update()
 
     def update(self):
-        run_model(**self.kwargs)
+        with pyvista.VtkErrorCatcher() as error_catcher:
+            run_model(**self.kwargs)
         return
 
-
-engine = VizRoutine(c=c, r=r, Wa=10)
-plotter.enable_point_picking(pickable_window=False,left_clicking=True, callback=lambda value: engine('c', value.tolist()))
-plotter.add_slider_widget(
-    callback=lambda value: engine('Wa', value),
-    rng=[1e-12, 100],
-    value=10,
-    title="Wagner Number",
-    pointa=(0.6, 0.825),
-    pointb=(0.9, 0.825),
-    style='modern',
-)
-plotter.show()
+if __name__ == '__main__':
+    engine = VizRoutine(c=c, r=r, Wa=10)
+    plotter.enable_point_picking(pickable_window=False,left_clicking=True, callback=lambda value: engine('c', value.tolist()))
+    plotter.add_slider_widget(
+        callback=lambda value: engine('Wa', value),
+        rng=[1e-12, 100],
+        value=10,
+        title="Wagner Number",
+        pointa=(0.6, 0.825),
+        pointb=(0.9, 0.825),
+        style='modern',
+    )
+    plotter.show()
