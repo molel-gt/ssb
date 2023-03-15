@@ -12,15 +12,20 @@ import hdbscan
 import matplotlib.pyplot as plt
 import numpy as np
 import pickle
+import polylidar
 import warnings
 
 from shapely import Polygon, MultiPoint
 from shapely.plotting import plot_polygon
 from descartes import PolygonPatch
 from ipywidgets import widgets, interactive
+from matplotlib.colors import LinearSegmentedColormap
+from matplotlib import patches
 from matplotlib.widgets import CheckButtons, Button, Slider, LassoSelector, RadioButtons, TextBox, RectangleSelector
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from PIL import Image
+from polylidar import MatrixDouble, Polylidar3D
+from scipy.spatial import ConvexHull, convex_hull_plot_2d
 from skimage import filters
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
@@ -163,7 +168,7 @@ def get_clustering_results(X_2d, **hdbscan_kwargs):
 
     return y_predict
 
-
+new_plot = None
 def get_polygon(clusters, ax):
     for v in np.unique(clusters):
         if v < 0:
@@ -172,7 +177,14 @@ def get_polygon(clusters, ax):
         if coords[0].shape[0] > 50:
             # if coords[0].shape[0] < 1000:
             #     continue
-            points = [(coords[0][i], coords[1][i]) for i in range(coords[0].shape[0])]
+            points = [(coords[1][i], coords[0][i]) for i in range(coords[0].shape[0])]
+            points_arr = np.array(points).reshape(-1, 2)
+
+            # hull = ConvexHull(points_arr)
+            # ax.plot(points_arr[hull.vertices, 0], points_arr[hull.vertices, 1], 'r--', lw=2)
+            # for simplex in hull.simplices:
+            #     ax.plot(points_arr[simplex, 1], points_arr[simplex, 0], 'k-')
+
             set_points = set(points)
             ext = []
             for (x, y) in set_points:
@@ -181,16 +193,27 @@ def get_polygon(clusters, ax):
                 for p in chek_pts:
                     if p in set_points:
                         count += 1
-                if count == 3:
-                    ext.append((y, x))
+                if 2 <= count <= 3:
+                    ext.append((x - 5, y - 5))
             polygon = Polygon(sorted(ext))
-            print(polygon.boundary)
-            # print(v, polygon.area, coords[0].shape[0], polygon.area/coords[0].shape[0] ** 2)
+            if polygon.area > 1e5:
+                continue
+            # print(v, polygon.area, polygon.convex_hull)
+            # mat_poly = patches.Polygon(polygon.boundary.coords[:], closed=True)
+            # # print(v, polygon.area, coords[0].shape[0], polygon.area/coords[0].shape[0] ** 2)
             error = np.linalg.norm(np.array([polygon.centroid.x, polygon.centroid.y, 0]) - np.array([np.average(coords[1]), np.average(coords[0]), 0]))
-            print(v, np.linalg.norm(np.array([polygon.centroid.x, polygon.centroid.y, 0]) - np.array([np.average(coords[1]), np.average(coords[0]), 0])))
+            # print(v, error)
             if error > 150:
                 continue
-            plot_polygon(polygon, ax=ax, add_points=False, alpha=0.5, edgecolor='red')
+            # ax.add_patch(mat_poly)
+            # ax.add_patch([])
+            # try:
+            #     new_plot.remove()
+            # except:
+            #     pass
+            new_plot = plot_polygon(polygon, ax=ax, add_points=False, alpha=1, edgecolor='red')
+            # time.sleep(15)
+            
             # points = np.array(points).reshape(-1, 2)
             # alpha_shape = alphashape.alphashape(points, 2)
             # alpha_shape.show()
@@ -317,9 +340,6 @@ class Segmentor:
 
         if segmentation:
             self.update_phases(selection, phase)
-
-
-
 
 
 class App:
@@ -464,6 +484,7 @@ class App:
 
         f2.set_data(self.seg.edges)
         f3.set_data(self.seg.clusters)
+        get_polygon(self.seg.clusters, self._ax[0, 0])
         self._fig.canvas.draw_idle()
         self._fig.canvas.flush_events()
 
@@ -644,15 +665,42 @@ if __name__ == '__main__':
     # next and previous buttons
     axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
     axnext = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=1)
+    cmap_name = 'seg'
+    colors = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]
+    cdict = {
+        'gray': (
+            (0.0,  0.0, 0.0),
+            (1.0,  1.0, 1.0),
+            (1.0,  1.0, 1.0),
+            ),
+        'red': (
+            (0.0,  0.0, 0.0),
+            (0.5,  1.0, 1.0),
+            (1.0,  1.0, 1.0),
+            ),
+        'green': (
+            (0.0,  0.0, 0.0),
+            (0.25, 0.0, 0.0),
+            (0.75, 1.0, 1.0),
+            (1.0,  1.0, 1.0),
+        ),
+        'blue': (
+            (0.0,  0.0, 0.0),
+            (0.5,  0.0, 0.0),
+            (1.0,  1.0, 1.0),
+        )
+        }
+
+    cmap = LinearSegmentedColormap.from_list(cmap_name, colors, N=4)
 
     radio = RadioButtons(
         rax,
         ('None', 'Void', 'Solid Electrolyte', 'Active Material'),
         active=0,
-        # label_props={'color': ['blue', 'red' , 'green']},
-        # radio_props={'edgecolor': ['darkblue', 'darkred', 'darkgreen'],
-        #               'facecolor': ['blue', 'red', 'green'],
-        #               },
+        label_props={'color': ['gray', 'blue', 'red' , 'green']},
+        radio_props={'edgecolor': ['gray', 'darkblue', 'darkred', 'darkgreen'],
+                      'facecolor': ['gray', 'blue', 'red', 'green'],
+                      },
         )
 
     f1 = ax[0, 0].imshow(image, cmap='gray')
@@ -668,7 +716,7 @@ if __name__ == '__main__':
     ax[1, 0].set_title("Clusters")
     ax[1, 0].set_aspect('equal', 'box')
 
-    f4 = ax[1, 1].imshow(seg.phases, cmap='brg')
+    f4 = ax[1, 1].imshow(seg.phases, cmap=cmap)
     ax[1, 1].set_title("Segmented")
     ax[1, 1].set_aspect('equal', 'box')
     get_polygon(seg.clusters, ax[0, 0])
