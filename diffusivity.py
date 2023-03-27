@@ -25,8 +25,8 @@ kappa = 1e-1 # S/m
 D = 1e-10  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
-dt = 1.0e-02
-t_iter = 50
+dt = 1.0e-03
+t_iter = 250
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
 c_init = 0.01
 R = 8.314
@@ -148,6 +148,8 @@ if __name__ == '__main__':
         r = rsolver.solve(u)
         print(f"Step {int(t/dt)}: num iterations: {r[0]}")
         u0.x.array[:] = u.x.array
+        if np.any(u0.x.array[:] < 0):
+            break
         file.write_function(u, t)
 
         # Update the plot window
