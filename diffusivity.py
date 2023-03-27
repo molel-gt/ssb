@@ -108,7 +108,7 @@ if __name__ == '__main__':
     F -= dt * ufl.inner(f, q) * ufl.dx
     F -= dt * ufl.inner(g, q) * ds(markers.insulated)
     F -= dt * ufl.inner(g, q) * ds(markers.right_cc)
-    F -= g_exch * ufl.inner(u, q) * ds(markers.left_cc)
+    F -= dt * ufl.inner(g_exch, q) * ds(markers.left_cc)
 
     problem = fem.petsc.NonlinearProblem(F, u)
     solver = nls.petsc.NewtonSolver(comm, problem)
