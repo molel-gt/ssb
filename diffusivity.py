@@ -26,13 +26,12 @@ D = 1e-10  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
 dt = 1.0e-02
-t_iter = 250
+t_iter = 50
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
 c_init = 0.01
 R = 8.314
 T = 298
-# Lx = 1
-# Ly = 5
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
@@ -83,45 +82,41 @@ if __name__ == '__main__':
         new_x = x.T
         values = np.ones(new_x.shape[0])
         for i in range(x.shape[1]):
-            val = c_init
-            if np.isclose(x[0, i], 0):
-                val = 0.0
-            elif np.isclose(x[0, i], 19.9):
-                if np.logical_and(np.less_equal(x[1, i], 17.5), np.greater_equal(x[1, i], 12.5)):
-                    val = 0.0
-                elif np.logical_and(np.less_equal(x[1, i], 7.5), np.greater_equal(x[1, i], 2.5)):
-                    val = 0.0
-            elif np.logical_and(np.less_equal(x[0, i], 19.9), np.isclose(x[1, i], [17.5, 12.5, 7.5, 2.5])).any():
-                val = 0.0
-            values[i] = val
+            values[i] = c_init
         return values
-
-    f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
-    g = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
-    g_exch = dolfinx.fem.Constant(domain, PETSc.ScalarType(1e-3))
 
     u.interpolate(lambda x: set_initial_bc(x))
     u.x.scatter_forward()
-
-    F = ufl.inner(u, q) * ufl.dx - ufl.inner(u0, q) * ufl.dx 
-    F += dt * ufl.inner(D * ufl.grad(u), ufl.grad(q)) * ufl.dx 
-    F -= dt * ufl.inner(f, q) * ufl.dx
-    F += dt * ufl.inner(g, q) * ds(markers.insulated)
-    F += dt * ufl.inner(g, q) * ds(markers.right_cc)
-    F += dt * ufl.inner(g_exch, q) * ds(markers.left_cc)
-
-    problem = fem.petsc.NonlinearProblem(F, u)
-    solver = nls.petsc.NewtonSolver(comm, problem)
-    solver.convergence_criterion = "incremental"
-    solver.maximum_iterations = 50
-    solver.rtol = 1e-12
-    ksp = solver.krylov_solver
-    opts = PETSc.Options()
-    option_prefix = ksp.getOptionsPrefix()
-    opts[f"{option_prefix}ksp_type"] = "gmres"
-    opts[f"{option_prefix}pc_type"] = "hypre"
-    opts[f"{option_prefix}pc_factor_mat_solver_type"] = "mumps"
-    ksp.setFromOptions()
+    def get_solver(t):
+        if t < 25:
+            I = 1e-3
+        else:
+            I = 0
+        f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
+        g1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(I))
+        g2 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
+        g3 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
+        F = ufl.inner(u, q) * ufl.dx 
+        F += dt * ufl.inner(D * ufl.grad(u), ufl.grad(q)) * ufl.dx 
+        F += dt * ufl.inner(f, q) * ufl.dx
+        F += dt * ufl.inner(g1, q) * ds(markers.left_cc)
+        F += dt * ufl.inner(g2, q) * ds(markers.right_cc)
+        F += dt * ufl.inner(g3, q) * ds(markers.insulated)
+        F -= ufl.inner(u0, q) * ufl.dx
+    
+        problem = fem.petsc.NonlinearProblem(F, u)
+        solver = nls.petsc.NewtonSolver(comm, problem)
+        solver.convergence_criterion = "incremental"
+        solver.maximum_iterations = 50
+        solver.rtol = 1e-12
+        ksp = solver.krylov_solver
+        opts = PETSc.Options()
+        option_prefix = ksp.getOptionsPrefix()
+        opts[f"{option_prefix}ksp_type"] = "gmres"
+        opts[f"{option_prefix}pc_type"] = "hypre"
+        opts[f"{option_prefix}pc_factor_mat_solver_type"] = "mumps"
+        ksp.setFromOptions()
+        return solver
 
     # Output file
     file = io.XDMFFile(comm, "concentration.xdmf", "w")
@@ -141,16 +136,16 @@ if __name__ == '__main__':
     grid.set_active_scalars("c")
 
     p = pvqt.BackgroundPlotter(title="concentration", auto_update=True)
-    p.add_mesh(grid, clim=[0, c_init], cmap="hot")
+    p.add_mesh(grid, clim=[0, c_init], cmap="hot", name='mesh')
     p.view_xy(True)
     p.add_text(f"time: {t}", font_size=12, name="timelabel")
 
     u0.x.array[:] = u.x.array
-    solution = fem.petsc.create_vector(problem.L)
 
     while (t < SIM_TIME):
         t += dt
-        r = solver.solve(u)
+        rsolver = get_solver(t)
+        r = rsolver.solve(u)
         print(f"Step {int(t/dt)}: num iterations: {r[0]}")
         u0.x.array[:] = u.x.array
         file.write_function(u, t)
