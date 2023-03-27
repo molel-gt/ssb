@@ -45,17 +45,14 @@ gmsh.model.add("AM/SE")
 points = []
 for i in range(0, 1000, 3):
     if i % 2 == 0:
-        print(i, i+2)
-        tag = gmsh.model.occ.addPoint(L_coating, i * dy, 0, meshSize=resolution)
-        points.append(tag)
-        tag = gmsh.model.occ.addPoint(L_coating, (i + 1) * dy, 0, meshSize=resolution)
-        points.append(tag)
-        tag = gmsh.model.occ.addPoint(0, (i + 1) * dy, 0, meshSize=resolution)
-        points.append(tag)
-        tag = gmsh.model.occ.addPoint(0, (i + 2) * dy, 0, meshSize=resolution)
-        points.append(tag)
-    else:
-        continue
+        for p in [
+                (L_coating, i * dy, 0),
+                (L_coating, (i + 1) * dy, 0),
+                (0, (i + 1) * dy, 0),
+                (0, (i + 2) * dy, 0)
+                ]:
+            tag = gmsh.model.occ.addPoint(*p, meshSize=resolution)
+            points.append(tag)
 
 points.append(gmsh.model.occ.addPoint(L_coating, W - dy, 0, meshSize=resolution))
 points.append(gmsh.model.occ.addPoint(L_coating, W, 0, meshSize=resolution))
