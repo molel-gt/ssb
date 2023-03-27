@@ -26,7 +26,7 @@ D = 1e-10  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
 dt = 1.0e-03
-t_iter = 250
+t_iter = 100
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
 c_init = 0.01
 R = 8.314
@@ -89,7 +89,7 @@ if __name__ == '__main__':
     u.x.scatter_forward()
     def get_solver(t):
         if t < 25:
-            I = 1e-3
+            I = 1e-5
         else:
             I = 0
         f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
@@ -108,19 +108,29 @@ if __name__ == '__main__':
         solver = nls.petsc.NewtonSolver(comm, problem)
         solver.convergence_criterion = "incremental"
         solver.maximum_iterations = 50
-        solver.rtol = 1e-12
+        solver.rtol = 1e-14
         ksp = solver.krylov_solver
         opts = PETSc.Options()
         option_prefix = ksp.getOptionsPrefix()
         opts[f"{option_prefix}ksp_type"] = "gmres"
         opts[f"{option_prefix}pc_type"] = "hypre"
-        opts[f"{option_prefix}pc_factor_mat_solver_type"] = "mumps"
+        # opts[f"{option_prefix}pc_factor_mat_solver_type"] = "mumps"
         ksp.setFromOptions()
         return solver
+    
+    W = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 1))
+    # n = ufl.FacetNormal(domain)
+    flux_expr = dolfinx.fem.Expression(D * ufl.sqrt(ufl.inner(ufl.grad(u), ufl.grad(u))), W.element.interpolation_points())
+    flux_h = dolfinx.fem.Function(W)
+    flux_h.interpolate(flux_expr)
 
+    flux_fp = io.XDMFFile(comm, "flux.xdmf", "w")
+    flux_fp.write_mesh(domain)
+    flux_fp.write_function(flux_h, 0)
     # Output file
     file = io.XDMFFile(comm, "concentration.xdmf", "w")
     file.write_mesh(domain)
+    file.write_function(u, 0)
 
     # Step in time
     t = 0.0
@@ -148,9 +158,15 @@ if __name__ == '__main__':
         r = rsolver.solve(u)
         print(f"Step {int(t/dt)}: num iterations: {r[0]}")
         u0.x.array[:] = u.x.array
-        if np.any(u0.x.array[:] < 0):
+        if np.any(np.isclose(u0.x.array[:],  0)):
             break
         file.write_function(u, t)
+        tot_c = dolfinx.fem.assemble_scalar(dolfinx.fem.form(u * ufl.dx)) 
+        vol = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(domain)))
+        avg_c = tot_c / vol
+        print("δξ:", (c_init - avg_c) / c_init)
+        flux_h.interpolate(flux_expr)
+        flux_fp.write_function(flux_h, t)
 
         # Update the plot window
         p.add_text(f"time: {t:.2e}", font_size=12, name="timelabel")
@@ -158,6 +174,7 @@ if __name__ == '__main__':
         p.app.processEvents()
 
     file.close()
+    flux_fp.close()
 
     # Update ghost entries and plot
     u.x.scatter_forward()
