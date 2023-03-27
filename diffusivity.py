@@ -96,8 +96,9 @@ if __name__ == '__main__':
         g1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(I))
         g2 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
         g3 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
+        u_mid = (1.0 - theta) * u0 + theta * u
         F = ufl.inner(u, q) * ufl.dx 
-        F += dt * ufl.inner(D * ufl.grad(u), ufl.grad(q)) * ufl.dx 
+        F += dt * ufl.inner(D * ufl.grad(u_mid), ufl.grad(q)) * ufl.dx 
         F += dt * ufl.inner(f, q) * ufl.dx
         F += dt * ufl.inner(g1, q) * ds(markers.left_cc)
         F += dt * ufl.inner(g2, q) * ds(markers.right_cc)
@@ -156,7 +157,7 @@ if __name__ == '__main__':
         t += dt
         rsolver = get_solver(t)
         r = rsolver.solve(u)
-        print(f"Step {int(t/dt)}: num iterations: {r[0]}")
+        # print(f"Step {int(t/dt)}: num iterations: {r[0]}")
         u0.x.array[:] = u.x.array
         if np.any(np.isclose(u0.x.array[:],  0)):
             break
@@ -164,7 +165,7 @@ if __name__ == '__main__':
         tot_c = dolfinx.fem.assemble_scalar(dolfinx.fem.form(u * ufl.dx)) 
         vol = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(domain)))
         avg_c = tot_c / vol
-        print("δξ:", (c_init - avg_c) / c_init)
+        print(f"Step {str(int(t/dt)).rjust(3)}: num iterations: {str(r[0]).rjust(3)}, δξ:", (c_init - avg_c) / c_init)
         flux_h.interpolate(flux_expr)
         flux_fp.write_function(flux_h, t)
 
