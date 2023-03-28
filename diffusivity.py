@@ -22,11 +22,11 @@ markers = commons.SurfaceMarkers()
 
 # model parameters
 kappa = 1e-1 # S/m
-D0 = 1e-12  # m^2/s
+D0 = 1e-5  #15  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
 dt = 1.0e-02
-t_iter = 100
+t_iter = 1250
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
 c_init = 0.01
 R = 8.314
@@ -78,11 +78,11 @@ if __name__ == '__main__':
 
     # set diffusivity function
     c = ufl.variable(u)
-    D = D0 * (1 - c / c_init)
+    D = D0 #* (1 - c / c_init)
 
     def get_solver(t):
-        if 0 < t / dt  <= 25:
-            I = 5e-4
+        if 0 < t / dt  <= 50:
+            I = 1e-4
         else:
             I = 0
         f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
@@ -150,13 +150,15 @@ if __name__ == '__main__':
         rsolver = get_solver(t)
         r = rsolver.solve(u)
         u0.x.array[:] = u.x.array
-        if np.any(np.isclose(u0.x.array[:],  0)):
+        if np.any(u0.x.array[:] < 0):
             break
         file.write_function(u, t)
-        tot_c = dolfinx.fem.assemble_scalar(dolfinx.fem.form(u * ufl.dx)) 
+        tot_c = dolfinx.fem.assemble_scalar(dolfinx.fem.form(u * ufl.dx(domain))) 
         vol = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(domain)))
-        avg_c = tot_c / vol
-        print(f"Step {str(int(t/dt)).rjust(3)}: num iterations: {str(r[0]).rjust(3)}, δξ:", np.abs(c_init - avg_c) / c_init)
+        c_avg = tot_c / vol
+        c_surf = dolfinx.fem.assemble_scalar(dolfinx.fem.form(u * ds(markers.left_cc)))
+        l_surf = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(markers.left_cc)))
+        print(f"Step {str(int(t/dt)).rjust(3)}: num iterations: {str(r[0]).rjust(3)}, δξ:", np.abs(c_init - c_avg) / c_init, "c_surf:", np.round(c_surf/l_surf, 7), "c_avg:", np.round(c_avg, 7))
         flux_h.interpolate(flux_expr)
         flux_fp.write_function(flux_h, t)
 
