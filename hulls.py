@@ -6,21 +6,33 @@ from shapely.geometry import Polygon
 
 class ConcaveHull(object):
 
-    def __init__(self, points, k):
+    def __init__(self, points=None, k=3):
         if isinstance(points, np.core.ndarray):
-            self.data_set = points
+            self._data_set = points
         elif isinstance(points, list):
-            self.data_set = np.array(points)
+            self._data_set = np.array(points)
         else:
             raise ValueError('Please provide an [N,2] numpy array or a list of lists.')
 
         # Clean up duplicates
-        self.data_set = np.unique(self.data_set, axis=0)
+        self._data_set = np.unique(self._data_set, axis=0)
 
         # Create the initial index
-        self.indices = np.ones(self.data_set.shape[0], dtype=bool)  # bool of a column of all 1's
+        self._indices = np.ones(self._data_set.shape[0], dtype=bool)  # bool of a column of all 1's
 
-        self.k = k
+        self._k = k
+
+    @property
+    def k(self):
+        return self._k
+
+    @property
+    def data_set(self):
+        return self._data_set
+
+    @property
+    def indices(self):
+        return self._indices
 
     @staticmethod
     def dist_pt_to_group(a, b):  # a is a (n,2) , b is (1,2) arrays
@@ -83,7 +95,7 @@ class ConcaveHull(object):
         :return: Concave hull
         """
         recurse = ConcaveHull(self.data_set, self.k + 1)
-        if recurse.k >= self.data_set.shape[0]:
+        if recurse.k >= 10:  # self.data_set.shape[0]:
             print(" max k reached, at k={0}".format(recurse.k))
             return None
         print("k={0}".format(recurse.k))
@@ -105,7 +117,7 @@ class ConcaveHull(object):
 
         first_point = self.get_lowest_latitude_index(self.data_set)
         current_point = first_point
-        # last_point = current_point # not sure if this is necessary since it wont get used until after step 2
+        last_point = current_point # not sure if this is necessary since it wont get used until after step 2
 
         # Note that hull and test_hull are matrices (N, 2)
         hull = np.reshape(np.array(self.data_set[first_point, :]), (1, 2))
