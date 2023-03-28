@@ -22,11 +22,11 @@ markers = commons.SurfaceMarkers()
 
 # model parameters
 kappa = 1e-1 # S/m
-D = 1e-15  # m^2/s
+D0 = 1e-12  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
-dt = 1.0e-03
-t_iter = 2000
+dt = 1.0e-02
+t_iter = 100
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
 c_init = 0.01
 R = 8.314
@@ -75,9 +75,11 @@ if __name__ == '__main__':
 
     u.interpolate(lambda x: set_initial_bc(x))
     u.x.scatter_forward()
+    c = ufl.variable(u)
+    D = D0 * (1 - c / c_init)
     def get_solver(t):
         if 0 < t / dt  <= 25:
-            I = 1e-3
+            I = 5e-4
         else:
             I = 0
         f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
@@ -97,7 +99,7 @@ if __name__ == '__main__':
         solver = nls.petsc.NewtonSolver(comm, problem)
         solver.convergence_criterion = "incremental"
         solver.maximum_iterations = 50
-        solver.rtol = 1e-6
+        solver.rtol = 1e-12
         ksp = solver.krylov_solver
         opts = PETSc.Options()
         option_prefix = ksp.getOptionsPrefix()
