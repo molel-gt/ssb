@@ -75,8 +75,11 @@ if __name__ == '__main__':
 
     u.interpolate(lambda x: set_initial_bc(x))
     u.x.scatter_forward()
+
+    # set diffusivity function
     c = ufl.variable(u)
     D = D0 * (1 - c / c_init)
+
     def get_solver(t):
         if 0 < t / dt  <= 25:
             I = 5e-4
