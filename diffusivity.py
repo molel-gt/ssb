@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import os
+import time
 import timeit
 
 import argparse
-import dolfinx
 import logging
 import numpy as np
 import pyvista as pv
@@ -17,6 +17,7 @@ from petsc4py import PETSc
 
 import commons, configs, constants
 
+import dolfinx
 
 markers = commons.SurfaceMarkers()
 
@@ -26,7 +27,7 @@ D0 = 1e-5  #15  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
 dt = 1.0e-02
-t_iter = 1250
+t_iter = 3500
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
 c_init = 0.01
 R = 8.314
@@ -40,6 +41,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     comm = MPI.COMM_WORLD
+    start = time.time()
     
     with io.XDMFFile(comm, "mesh/laminate/tria.xdmf", "r") as xdmf:
         domain = xdmf.read_mesh(cpp.mesh.GhostMode.shared_facet, name="Grid")
@@ -90,7 +92,7 @@ if __name__ == '__main__':
         g2 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
         g3 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
         u_mid = (1.0 - theta) * u0 + theta * u
-        F = ufl.inner(u, q) * ufl.dx 
+        F = ufl.inner(u, q) * ufl.dx
         F += dt * ufl.inner(D * ufl.grad(u), ufl.grad(q)) * ufl.dx 
         F += dt * ufl.inner(f, q) * ufl.dx
         F += dt * ufl.inner(g1, q) * ds(markers.left_cc)
@@ -173,3 +175,4 @@ if __name__ == '__main__':
     # Update ghost entries and plot
     u.x.scatter_forward()
     grid.point_data["c"] = u.x.array
+    print("Took {:,} minutes".format(int((time.time() - start)/60)))
