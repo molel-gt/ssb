@@ -27,7 +27,7 @@ D0 = 1e-5  #15  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
 dt = 1.0e-02
-t_iter = 5000
+t_iter = 6000
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
 c_init = 0.01
 R = 8.314
