@@ -22,7 +22,7 @@ markers = commons.SurfaceMarkers()
 
 # model parameters
 kappa = 1e-1 # S/m
-D = 1e-10  # m^2/s
+D = 1e-15  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
 dt = 1.0e-03
@@ -57,18 +57,6 @@ if __name__ == '__main__':
     ds = ufl.Measure("ds", domain=domain, subdomain_data=tags)
     dS = ufl.Measure("dS", domain=domain, subdomain_data=tags)
 
-    # x = ufl.SpatialCoordinate(domain)
-    options = {
-               "ksp_type": "gmres",
-               "pc_type": "hypre",
-               "ksp_rtol": 1.0e-12
-               }
-
-    P1 = ufl.FiniteElement("Lagrange", domain.ufl_cell(), 1)
-    ME = fem.FunctionSpace(domain, P1 * P1)
-    x = ufl.SpatialCoordinate(domain)
-    n = ufl.FacetNormal(domain)
-
     tags = mesh.meshtags(domain, domain.topology.dim - 1, ft.indices, ft.values)
 
     # Trial and test functions of the space `ME` are now defined:
@@ -88,17 +76,17 @@ if __name__ == '__main__':
     u.interpolate(lambda x: set_initial_bc(x))
     u.x.scatter_forward()
     def get_solver(t):
-        if t < 25:
-            I = 1e-5
+        if 0 < t / dt  <= 25:
+            I = 1e-3
         else:
             I = 0
-        f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
+        f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
         g1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(I))
-        g2 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
-        g3 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
+        g2 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
+        g3 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
         u_mid = (1.0 - theta) * u0 + theta * u
         F = ufl.inner(u, q) * ufl.dx 
-        F += dt * ufl.inner(D * ufl.grad(u_mid), ufl.grad(q)) * ufl.dx 
+        F += dt * ufl.inner(D * ufl.grad(u), ufl.grad(q)) * ufl.dx 
         F += dt * ufl.inner(f, q) * ufl.dx
         F += dt * ufl.inner(g1, q) * ds(markers.left_cc)
         F += dt * ufl.inner(g2, q) * ds(markers.right_cc)
@@ -109,18 +97,17 @@ if __name__ == '__main__':
         solver = nls.petsc.NewtonSolver(comm, problem)
         solver.convergence_criterion = "incremental"
         solver.maximum_iterations = 50
-        solver.rtol = 1e-14
+        solver.rtol = 1e-6
         ksp = solver.krylov_solver
         opts = PETSc.Options()
         option_prefix = ksp.getOptionsPrefix()
         opts[f"{option_prefix}ksp_type"] = "gmres"
         opts[f"{option_prefix}pc_type"] = "hypre"
-        # opts[f"{option_prefix}pc_factor_mat_solver_type"] = "mumps"
+        opts[f"{option_prefix}pc_factor_mat_solver_type"] = "mumps"
         ksp.setFromOptions()
         return solver
     
     W = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 1))
-    # n = ufl.FacetNormal(domain)
     flux_expr = dolfinx.fem.Expression(D * ufl.sqrt(ufl.inner(ufl.grad(u), ufl.grad(u))), W.element.interpolation_points())
     flux_h = dolfinx.fem.Function(W)
     flux_h.interpolate(flux_expr)
@@ -128,7 +115,7 @@ if __name__ == '__main__':
     flux_fp = io.XDMFFile(comm, "flux.xdmf", "w")
     flux_fp.write_mesh(domain)
     flux_fp.write_function(flux_h, 0)
-    # Output file
+
     file = io.XDMFFile(comm, "concentration.xdmf", "w")
     file.write_mesh(domain)
     file.write_function(u, 0)
@@ -157,7 +144,6 @@ if __name__ == '__main__':
         t += dt
         rsolver = get_solver(t)
         r = rsolver.solve(u)
-        # print(f"Step {int(t/dt)}: num iterations: {r[0]}")
         u0.x.array[:] = u.x.array
         if np.any(np.isclose(u0.x.array[:],  0)):
             break
@@ -165,7 +151,7 @@ if __name__ == '__main__':
         tot_c = dolfinx.fem.assemble_scalar(dolfinx.fem.form(u * ufl.dx)) 
         vol = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(domain)))
         avg_c = tot_c / vol
-        print(f"Step {str(int(t/dt)).rjust(3)}: num iterations: {str(r[0]).rjust(3)}, δξ:", (c_init - avg_c) / c_init)
+        print(f"Step {str(int(t/dt)).rjust(3)}: num iterations: {str(r[0]).rjust(3)}, δξ:", np.abs(c_init - avg_c) / c_init)
         flux_h.interpolate(flux_expr)
         flux_fp.write_function(flux_h, t)
 
