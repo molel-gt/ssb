@@ -23,11 +23,11 @@ markers = commons.SurfaceMarkers()
 
 # model parameters
 kappa = 1e-1 # S/m
-D0 = 1e-5  #15  # m^2/s
+D0 = 1e-4  #15  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
 dt = 1.0e-02
-t_iter = 6000
+t_iter = 9000
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
 c_init = 0.01
 R = 8.314
@@ -56,6 +56,7 @@ if __name__ == '__main__':
     f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
     g = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
     kappa = dolfinx.fem.Constant(domain, PETSc.ScalarType(constants.KAPPA0))
+    sigma = dolfinx.fem.Constant(domain, PETSc.ScalarType(1e3))
     ds = ufl.Measure("ds", domain=domain, subdomain_data=tags)
     dS = ufl.Measure("dS", domain=domain, subdomain_data=tags)
 
@@ -63,6 +64,7 @@ if __name__ == '__main__':
 
     # Trial and test functions of the space `ME` are now defined:
     q = ufl.TestFunction(V)
+    
 
     u = fem.Function(V)  # current solution
     u0 = fem.Function(V)  # solution from previous converged step
@@ -80,27 +82,37 @@ if __name__ == '__main__':
 
     # set diffusivity function
     c = ufl.variable(u)
-    D = D0 #* (1 - c / c_init)
+    D = D0 * (1 - c / c_init)
 
     def get_solver(t):
         if 0 < t / dt  <= 50:
             I = 1e-4
         else:
             I = 0
-        f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
+        # solve laplace equation to obtain current distribution within the AM
+        V2 = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 2))
+        u2, q2 = ufl.TrialFunction(V2), ufl.TestFunction(V2)
+        F2 = sigma * ufl.inner(ufl.grad(u2), ufl.grad(q2)) * ufl.dx - ufl.inner(f, q2) * ufl.dx
+
+        bcs = []
+
+        # Neumann boundary - insulated
+        F2 += inner(g, q2) * ds(insulated_marker)
+
+        # Solve diffusion problem to obtain material distribution
         g1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(I))
         g2 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
         g3 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
         u_mid = (1.0 - theta) * u0 + theta * u
-        F = ufl.inner(u, q) * ufl.dx
-        F += dt * ufl.inner(D * ufl.grad(u), ufl.grad(q)) * ufl.dx 
-        F += dt * ufl.inner(f, q) * ufl.dx
-        F += dt * ufl.inner(g1, q) * ds(markers.left_cc)
-        F += dt * ufl.inner(g2, q) * ds(markers.right_cc)
-        F += dt * ufl.inner(g3, q) * ds(markers.insulated)
-        F -= ufl.inner(u0, q) * ufl.dx
+        F1 = ufl.inner(u, q) * ufl.dx
+        F1 += dt * ufl.inner(D * ufl.grad(u), ufl.grad(q)) * ufl.dx 
+        F1 += dt * ufl.inner(f, q) * ufl.dx
+        F1 += dt * ufl.inner(g1, q) * ds(markers.left_cc)
+        F1 += dt * ufl.inner(g2, q) * ds(markers.right_cc)
+        F1 += dt * ufl.inner(g3, q) * ds(markers.insulated)
+        F1 -= ufl.inner(u0, q) * ufl.dx
     
-        problem = fem.petsc.NonlinearProblem(F, u)
+        problem = fem.petsc.NonlinearProblem(F1, u)
         solver = nls.petsc.NewtonSolver(comm, problem)
         solver.convergence_criterion = "incremental"
         solver.maximum_iterations = 50
