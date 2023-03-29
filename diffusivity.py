@@ -62,7 +62,7 @@ if __name__ == '__main__':
     f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
     g = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
     kappa = dolfinx.fem.Constant(domain, PETSc.ScalarType(constants.KAPPA0))
-    sigma = dolfinx.fem.Constant(domain, PETSc.ScalarType(1e3))
+    sigma = dolfinx.fem.Constant(domain, PETSc.ScalarType(1e-1))
     ds = ufl.Measure("ds", domain=domain, subdomain_data=tags)
     dS = ufl.Measure("dS", domain=domain, subdomain_data=tags)
 
@@ -90,8 +90,6 @@ if __name__ == '__main__':
     D = D0 * (1 - c / c_init)
     
     def get_current_density(t):
-        # g1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(i_func(t)))
-        
         F2 = sigma * ufl.inner(ufl.grad(u2), ufl.grad(q2)) * ufl.dx 
         F2 -= ufl.inner(f, q2) * ufl.dx
         u_0 = dolfinx.fem.Function(V2)
@@ -126,13 +124,8 @@ if __name__ == '__main__':
 
     def get_solver(t, current=None, potential=None):
         g1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(i_func(t)))
-        tdim = domain.topology.dim
-        cells0 = mesh.locate_entities(domain, tdim, lambda x: np.isclose(x[0], 0))
-        g_new = fem.Function(V2, dtype=PETSc.ScalarType)
-        # g_new.x.array[cells0] = i_func(t)
-        # print(V2.tabulate_dof_coordinates().shape, fem.extract_function_spaces(current.x.array))
-        # print(current.x.shape) #.array[fem.locate_dofs_geometrical(V2, lambda x: np.isclose(x[0], 0))], x.shape)
-        # g_new.interpolate(lambda x: current.x.array[:], cells0)
+        g1 = fem.Function(V2, dtype=PETSc.ScalarType)
+        g1.interpolate(current)
         g2 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
         g3 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
         u_mid = (1.0 - theta) * u0 + theta * u
