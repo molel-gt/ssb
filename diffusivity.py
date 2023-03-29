@@ -23,11 +23,11 @@ markers = commons.SurfaceMarkers()
 
 # model parameters
 kappa = 1e-1 # S/m
-D0 = 1e-11  # m^2/s
+D0 = 1e-5  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
 dt = 1.0e-03
-t_iter = 10
+t_iter = 50
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
 c_init = 0.01
 R = 8.314
@@ -129,15 +129,17 @@ if __name__ == '__main__':
         tdim = domain.topology.dim
         cells0 = mesh.locate_entities(domain, tdim, lambda x: np.isclose(x[0], 0))
         g_new = fem.Function(V2, dtype=PETSc.ScalarType)
-        g_new.x.array[:] = 0
-        g_new.interpolate(current.x.array[:], cells0)
+        # g_new.x.array[cells0] = i_func(t)
+        # print(V2.tabulate_dof_coordinates().shape, fem.extract_function_spaces(current.x.array))
+        # print(current.x.shape) #.array[fem.locate_dofs_geometrical(V2, lambda x: np.isclose(x[0], 0))], x.shape)
+        # g_new.interpolate(lambda x: current.x.array[:], cells0)
         g2 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
         g3 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
         u_mid = (1.0 - theta) * u0 + theta * u
         F1 = ufl.inner(u, q) * ufl.dx
         F1 += dt * ufl.inner(D * ufl.grad(u_mid), ufl.grad(q)) * ufl.dx 
         F1 += dt * ufl.inner(f, q) * ufl.dx
-        F1 += dt * ufl.inner(g_new, q) * ds(markers.left_cc)
+        F1 += dt * ufl.inner(g1, q) * ds(markers.left_cc)
         F1 += dt * ufl.inner(g2, q) * ds(markers.right_cc)
         F1 += dt * ufl.inner(g3, q) * ds(markers.insulated)
         F1 -= ufl.inner(u0, q) * ufl.dx
