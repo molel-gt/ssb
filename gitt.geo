@@ -2,11 +2,11 @@ SetFactory('OpenCASCADE');
 //Mesh.CharacteristicLengthMin = 0.001;
 //Mesh.CharacteristicLengthMax = 0.1;
 // Mesh.SubdivisionAlgorithm  = 1;
-Mesh.Hexahedra = 1;
+//Mesh.Hexahedra = 1;
 Point(1) = {0, 0, 0};
-Point(2) = {1e-2, 0, 0};  // 1 centimeters
-Point(3) = {1e-2, 1e-5, 0};
-Point(4) = {0, 1e-5, 0}; // 10 micrometers
+Point(2) = {1e-4, 0, 0};
+Point(3) = {1e-4, 1e-2, 0};
+Point(4) = {0, 1e-2, 0};
 
 Line(1) = {1, 2};
 Line(2) = {2, 3};
