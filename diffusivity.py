@@ -22,6 +22,8 @@ import dolfinx
 markers = commons.SurfaceMarkers()
 
 # model parameters
+SIGMA = 1e3
+KAPPA = 1e-1
 kappa = 1e-1 # S/m
 D0 = 1e-5  # m^2/s
 F_c = 96485  # C/mol
@@ -62,8 +64,8 @@ if __name__ == '__main__':
 
     f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
     g = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
-    kappa = dolfinx.fem.Constant(domain, PETSc.ScalarType(constants.KAPPA0))
-    sigma = dolfinx.fem.Constant(domain, PETSc.ScalarType(1e-1))
+    kappa = dolfinx.fem.Constant(domain, PETSc.ScalarType(KAPPA))
+    sigma = dolfinx.fem.Constant(domain, PETSc.ScalarType(SIGMA))
     ds = ufl.Measure("ds", domain=domain, subdomain_data=tags)
     dS = ufl.Measure("dS", domain=domain, subdomain_data=tags)
 
@@ -102,7 +104,7 @@ if __name__ == '__main__':
         # right_bc = dolfinx.fem.dirichletbc(u_1, dolfinx.fem.locate_dofs_topological(V2, 1, right_cc))
         bcs = []
         F2 += ufl.inner(g, q2) * ds(markers.insulated)
-        s = fem.Constant(domain, PETSc.ScalarType(1e-2))
+        s = fem.Constant(domain, PETSc.ScalarType(1e-1))
         r = fem.Constant(domain, PETSc.ScalarType(i0 * z * F_c / (R * T)))
         g_1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(i_func(t)))
         F2 += ufl.inner(g_1, q2) * ds(markers.right_cc)
