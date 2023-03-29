@@ -32,9 +32,10 @@ theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -
 c_init = 0.01
 R = 8.314
 T = 298
+z = 1
 voltage = 0.25
 
-i_func = lambda t: 0 if t/dt > 7 else 1e-4
+i_func = lambda t: 0 if t/dt > 7 else 1e-3
 
 
 if __name__ == '__main__':
@@ -67,7 +68,6 @@ if __name__ == '__main__':
     dS = ufl.Measure("dS", domain=domain, subdomain_data=tags)
 
     tags = mesh.meshtags(domain, domain.topology.dim - 1, ft.indices, ft.values)
-    # Trial and test functions of the space `ME` are now defined:
     q = ufl.TestFunction(V)
     u2, q2 = ufl.TrialFunction(V2), ufl.TestFunction(V2)
 
@@ -98,12 +98,15 @@ if __name__ == '__main__':
         u_1 = dolfinx.fem.Function(V2)
         with u_1.vector.localForm() as u1_loc:
             u1_loc.set(1.0)
-        left_bc = dolfinx.fem.dirichletbc(u_0, dolfinx.fem.locate_dofs_topological(V2, 1, left_cc))
-        right_bc = dolfinx.fem.dirichletbc(u_1, dolfinx.fem.locate_dofs_topological(V2, 1, right_cc))
-        bcs = [right_bc]
+        # left_bc = dolfinx.fem.dirichletbc(u_0, dolfinx.fem.locate_dofs_topological(V2, 1, left_cc))
+        # right_bc = dolfinx.fem.dirichletbc(u_1, dolfinx.fem.locate_dofs_topological(V2, 1, right_cc))
+        bcs = []
         F2 += ufl.inner(g, q2) * ds(markers.insulated)
+        s = fem.Constant(domain, PETSc.ScalarType(1e-2))
+        r = fem.Constant(domain, PETSc.ScalarType(i0 * z * F_c / (R * T)))
         g_1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(i_func(t)))
-        F2 += ufl.inner(g_1, q2) * ds(markers.left_cc)
+        F2 += ufl.inner(g_1, q2) * ds(markers.right_cc)
+        F2 += r * ufl.inner(u2 - s, q2) * ds(markers.left_cc)
         options = {
                     "ksp_type": "gmres",
                     "pc_type": "hypre",
