@@ -22,9 +22,8 @@ import dolfinx
 markers = commons.SurfaceMarkers()
 
 # model parameters
-SIGMA = 1e3
-KAPPA = 1e-1
-kappa = 1e-1 # S/m
+SIGMA = 1e3  # S/m
+KAPPA = 1e-1  # S/m
 D0 = 1e-5  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
