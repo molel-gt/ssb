@@ -97,13 +97,13 @@ if __name__ == '__main__':
             u0_loc.set(voltage)
         u_1 = dolfinx.fem.Function(V2)
         with u_1.vector.localForm() as u1_loc:
-            u1_loc.set(0)
+            u1_loc.set(1.0)
         left_bc = dolfinx.fem.dirichletbc(u_0, dolfinx.fem.locate_dofs_topological(V2, 1, left_cc))
-        # left_bc = fem.locate_dofs_topological(V2, domain.topology.dim - 1, left_cc)
         right_bc = dolfinx.fem.dirichletbc(u_1, dolfinx.fem.locate_dofs_topological(V2, 1, right_cc))
-        bcs = [left_bc, right_bc]
+        bcs = [right_bc]
         F2 += ufl.inner(g, q2) * ds(markers.insulated)
-        # F2 += ufl.inner(g1, q2) * ds(markers.right_cc)
+        g_1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(i_func(t)))
+        F2 += ufl.inner(g_1, q2) * ds(markers.left_cc)
         options = {
                     "ksp_type": "gmres",
                     "pc_type": "hypre",
@@ -123,7 +123,6 @@ if __name__ == '__main__':
         return u2h, current_h
 
     def get_solver(t, current=None, potential=None):
-        g1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(i_func(t)))
         g1 = fem.Function(V2, dtype=PETSc.ScalarType)
         g1.interpolate(current)
         g2 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
