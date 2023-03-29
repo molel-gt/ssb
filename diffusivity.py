@@ -23,16 +23,18 @@ markers = commons.SurfaceMarkers()
 
 # model parameters
 kappa = 1e-1 # S/m
-D0 = 1e-5  # m^2/s
+D0 = 1e-11  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
-dt = 1.0e-02
-t_iter = 50
+dt = 1.0e-03
+t_iter = 10
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
 c_init = 0.01
 R = 8.314
 T = 298
-voltage = 1
+voltage = 0.25
+
+i_func = lambda t: 0 if t/dt > 7 else 1e-4
 
 
 if __name__ == '__main__':
@@ -52,7 +54,10 @@ if __name__ == '__main__':
     with io.XDMFFile(comm, "mesh/laminate/line.xdmf", "r") as xdmf:
         ft = xdmf.read_meshtags(domain, name="Grid")
     tags = mesh.meshtags(domain, domain.topology.dim - 1, ft.indices, ft.values)
+    left_cc = ft.find(markers.left_cc)
+    right_cc = ft.find(markers.right_cc)
     V = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 2))
+    V2 = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 2))
 
     f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
     g = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
@@ -62,10 +67,9 @@ if __name__ == '__main__':
     dS = ufl.Measure("dS", domain=domain, subdomain_data=tags)
 
     tags = mesh.meshtags(domain, domain.topology.dim - 1, ft.indices, ft.values)
-
     # Trial and test functions of the space `ME` are now defined:
     q = ufl.TestFunction(V)
-    
+    u2, q2 = ufl.TrialFunction(V2), ufl.TestFunction(V2)
 
     u = fem.Function(V)  # current solution
     u0 = fem.Function(V)  # solution from previous converged step
@@ -85,29 +89,23 @@ if __name__ == '__main__':
     c = ufl.variable(u)
     D = D0 * (1 - c / c_init)
     
-    def get_current_density(I, t):
-        g1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(I))
-        V2 = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 2))
-        u2, q2 = ufl.TrialFunction(V2), ufl.TestFunction(V2)
-        F2 = sigma * ufl.inner(ufl.grad(u2), ufl.grad(q2)) * ufl.dx - ufl.inner(f, q2) * ufl.dx
-
-
-        left_cc = ft.find(markers.left_cc)
-        right_cc = ft.find(markers.right_cc)
-
-        # u_0 = dolfinx.fem.Function(V)
-        # with u_0.vector.localForm() as u0_loc:
-        #     u0_loc.set(voltage)
-
-        u_1 = dolfinx.fem.Function(V)
+    def get_current_density(t):
+        # g1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(i_func(t)))
+        
+        F2 = sigma * ufl.inner(ufl.grad(u2), ufl.grad(q2)) * ufl.dx 
+        F2 -= ufl.inner(f, q2) * ufl.dx
+        u_0 = dolfinx.fem.Function(V2)
+        with u_0.vector.localForm() as u0_loc:
+            u0_loc.set(voltage)
+        u_1 = dolfinx.fem.Function(V2)
         with u_1.vector.localForm() as u1_loc:
-            u1_loc.set(1.0)
-        # left_bc = dolfinx.fem.dirichletbc(u_0, dolfinx.fem.locate_dofs_topological(V2, 1, left_cc))
-        left_bc = fem.locate_dofs_topological(V2, domain.topology.dim - 1, left_cc)
+            u1_loc.set(0)
+        left_bc = dolfinx.fem.dirichletbc(u_0, dolfinx.fem.locate_dofs_topological(V2, 1, left_cc))
+        # left_bc = fem.locate_dofs_topological(V2, domain.topology.dim - 1, left_cc)
         right_bc = dolfinx.fem.dirichletbc(u_1, dolfinx.fem.locate_dofs_topological(V2, 1, right_cc))
-        bcs = [right_bc]
+        bcs = [left_bc, right_bc]
         F2 += ufl.inner(g, q2) * ds(markers.insulated)
-        F2 += ufl.inner(g1, q2) * ds(markers.right_cc)
+        # F2 += ufl.inner(g1, q2) * ds(markers.right_cc)
         options = {
                     "ksp_type": "gmres",
                     "pc_type": "hypre",
@@ -115,32 +113,38 @@ if __name__ == '__main__':
                 }
         a = ufl.lhs(F2)
         L = ufl.rhs(F2)
-        problem = fem.petsc.LinearProblem(a, L, bcs=bcs, petsc_options=options)
-        u2h = problem.solve()
+
+        problem2 = fem.petsc.LinearProblem(a, L, bcs=bcs, petsc_options=options)
+        u2h = problem2.solve()
         W2 = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 1))
         grad_u = ufl.grad(u2h)
         current_expr = dolfinx.fem.Expression(sigma * ufl.sqrt(ufl.inner(grad_u, grad_u)), W2.element.interpolation_points())
         current_h = dolfinx.fem.Function(W2)
         current_h.interpolate(current_expr)
-        
-        return current_h
 
-    def get_solver(t, I, curr_density=None):
-        g1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(I))
+        return u2h, current_h
+
+    def get_solver(t, current=None, potential=None):
+        g1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(i_func(t)))
+        tdim = domain.topology.dim
+        cells0 = mesh.locate_entities(domain, tdim, lambda x: np.isclose(x[0], 0))
+        g_new = fem.Function(V2, dtype=PETSc.ScalarType)
+        g_new.x.array[:] = 0
+        g_new.interpolate(current.x.array[:], cells0)
         g2 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
         g3 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
         u_mid = (1.0 - theta) * u0 + theta * u
         F1 = ufl.inner(u, q) * ufl.dx
         F1 += dt * ufl.inner(D * ufl.grad(u_mid), ufl.grad(q)) * ufl.dx 
         F1 += dt * ufl.inner(f, q) * ufl.dx
-        F1 += dt * ufl.inner(g1, q) * ds(markers.left_cc)
+        F1 += dt * ufl.inner(g_new, q) * ds(markers.left_cc)
         F1 += dt * ufl.inner(g2, q) * ds(markers.right_cc)
         F1 += dt * ufl.inner(g3, q) * ds(markers.insulated)
         F1 -= ufl.inner(u0, q) * ufl.dx
         problem = fem.petsc.NonlinearProblem(F1, u)
         solver = nls.petsc.NewtonSolver(comm, problem)
         solver.convergence_criterion = "incremental"
-        solver.maximum_iterations = 50
+        solver.maximum_iterations = 250
         solver.rtol = 1e-12
         ksp = solver.krylov_solver
         opts = PETSc.Options()
@@ -149,8 +153,9 @@ if __name__ == '__main__':
         opts[f"{option_prefix}pc_type"] = "hypre"
         opts[f"{option_prefix}pc_factor_mat_solver_type"] = "mumps"
         ksp.setFromOptions()
+
         return solver
-    
+
     W = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 1))
     flux_expr = dolfinx.fem.Expression(D * ufl.sqrt(ufl.inner(ufl.grad(u), ufl.grad(u))), W.element.interpolation_points())
     flux_h = dolfinx.fem.Function(W)
@@ -163,8 +168,13 @@ if __name__ == '__main__':
     file = io.XDMFFile(comm, "concentration.xdmf", "w")
     file.write_mesh(domain)
     file.write_function(u, 0)
+
     c_file = io.XDMFFile(comm, "current_density.xdmf", "w")
     c_file.write_mesh(domain)
+
+    p_file = io.XDMFFile(comm, "potential.xdmf", "w")
+    p_file.write_mesh(domain)
+
     # Step in time
     t = 0.0
 
@@ -184,16 +194,13 @@ if __name__ == '__main__':
     p.add_text(f"time: {t}", font_size=12, name="timelabel")
 
     u0.x.array[:] = u.x.array
-
+    
     while (t < SIM_TIME):
         t += dt
-        if 0 < t / dt  <= 7:
-            I = 1e-4
-        else:
-            I = 0
-        current_h = get_current_density(I, t)
+        potential, current_h = get_current_density(t)
         c_file.write_function(current_h, t)
-        rsolver = get_solver(t, I)
+        p_file.write_function(potential, t)
+        rsolver = get_solver(t, current=current_h, potential=potential)
         r = rsolver.solve(u)
         u0.x.array[:] = u.x.array
         if np.any(u0.x.array[:] < 0):
@@ -216,6 +223,7 @@ if __name__ == '__main__':
     file.close()
     flux_fp.close()
     c_file.close()
+    p_file.close()
 
     # Update ghost entries and plot
     u.x.scatter_forward()
