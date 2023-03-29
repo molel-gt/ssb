@@ -23,15 +23,16 @@ markers = commons.SurfaceMarkers()
 
 # model parameters
 kappa = 1e-1 # S/m
-D0 = 1e-4  #15  # m^2/s
+D0 = 1e-5  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
 dt = 1.0e-02
-t_iter = 9000
+t_iter = 50
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
 c_init = 0.01
 R = 8.314
 T = 298
+voltage = 1
 
 
 if __name__ == '__main__':
@@ -70,48 +71,72 @@ if __name__ == '__main__':
     u0 = fem.Function(V)  # solution from previous converged step
 
     # The initial conditions are interpolated into a finite element space
-    def set_initial_bc(x):
+    def set_initial_condition(x, value=c_init):
         new_x = x.T
         values = np.ones(new_x.shape[0])
         for i in range(x.shape[1]):
-            values[i] = c_init
+            values[i] = value
         return values
 
-    u.interpolate(lambda x: set_initial_bc(x))
+    u.interpolate(lambda x: set_initial_condition(x))
     u.x.scatter_forward()
 
-    # set diffusivity function
+    # diffusivity function <--> activity function
     c = ufl.variable(u)
     D = D0 * (1 - c / c_init)
-
-    def get_solver(t):
-        if 0 < t / dt  <= 50:
-            I = 1e-4
-        else:
-            I = 0
-        # solve laplace equation to obtain current distribution within the AM
+    
+    def get_current_density(I, t):
+        g1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(I))
         V2 = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 2))
         u2, q2 = ufl.TrialFunction(V2), ufl.TestFunction(V2)
         F2 = sigma * ufl.inner(ufl.grad(u2), ufl.grad(q2)) * ufl.dx - ufl.inner(f, q2) * ufl.dx
 
-        bcs = []
 
-        # Neumann boundary - insulated
-        F2 += inner(g, q2) * ds(insulated_marker)
+        left_cc = ft.find(markers.left_cc)
+        right_cc = ft.find(markers.right_cc)
 
-        # Solve diffusion problem to obtain material distribution
+        # u_0 = dolfinx.fem.Function(V)
+        # with u_0.vector.localForm() as u0_loc:
+        #     u0_loc.set(voltage)
+
+        u_1 = dolfinx.fem.Function(V)
+        with u_1.vector.localForm() as u1_loc:
+            u1_loc.set(1.0)
+        # left_bc = dolfinx.fem.dirichletbc(u_0, dolfinx.fem.locate_dofs_topological(V2, 1, left_cc))
+        left_bc = fem.locate_dofs_topological(V2, domain.topology.dim - 1, left_cc)
+        right_bc = dolfinx.fem.dirichletbc(u_1, dolfinx.fem.locate_dofs_topological(V2, 1, right_cc))
+        bcs = [right_bc]
+        F2 += ufl.inner(g, q2) * ds(markers.insulated)
+        F2 += ufl.inner(g1, q2) * ds(markers.right_cc)
+        options = {
+                    "ksp_type": "gmres",
+                    "pc_type": "hypre",
+                    "ksp_rtol": 1.0e-12,
+                }
+        a = ufl.lhs(F2)
+        L = ufl.rhs(F2)
+        problem = fem.petsc.LinearProblem(a, L, bcs=bcs, petsc_options=options)
+        u2h = problem.solve()
+        W2 = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 1))
+        grad_u = ufl.grad(u2h)
+        current_expr = dolfinx.fem.Expression(sigma * ufl.sqrt(ufl.inner(grad_u, grad_u)), W2.element.interpolation_points())
+        current_h = dolfinx.fem.Function(W2)
+        current_h.interpolate(current_expr)
+        
+        return current_h
+
+    def get_solver(t, I, curr_density=None):
         g1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(I))
         g2 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
         g3 = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
         u_mid = (1.0 - theta) * u0 + theta * u
         F1 = ufl.inner(u, q) * ufl.dx
-        F1 += dt * ufl.inner(D * ufl.grad(u), ufl.grad(q)) * ufl.dx 
+        F1 += dt * ufl.inner(D * ufl.grad(u_mid), ufl.grad(q)) * ufl.dx 
         F1 += dt * ufl.inner(f, q) * ufl.dx
         F1 += dt * ufl.inner(g1, q) * ds(markers.left_cc)
         F1 += dt * ufl.inner(g2, q) * ds(markers.right_cc)
         F1 += dt * ufl.inner(g3, q) * ds(markers.insulated)
         F1 -= ufl.inner(u0, q) * ufl.dx
-    
         problem = fem.petsc.NonlinearProblem(F1, u)
         solver = nls.petsc.NewtonSolver(comm, problem)
         solver.convergence_criterion = "incremental"
@@ -138,7 +163,8 @@ if __name__ == '__main__':
     file = io.XDMFFile(comm, "concentration.xdmf", "w")
     file.write_mesh(domain)
     file.write_function(u, 0)
-
+    c_file = io.XDMFFile(comm, "current_density.xdmf", "w")
+    c_file.write_mesh(domain)
     # Step in time
     t = 0.0
 
@@ -161,7 +187,13 @@ if __name__ == '__main__':
 
     while (t < SIM_TIME):
         t += dt
-        rsolver = get_solver(t)
+        if 0 < t / dt  <= 7:
+            I = 1e-4
+        else:
+            I = 0
+        current_h = get_current_density(I, t)
+        c_file.write_function(current_h, t)
+        rsolver = get_solver(t, I)
         r = rsolver.solve(u)
         u0.x.array[:] = u.x.array
         if np.any(u0.x.array[:] < 0):
@@ -183,6 +215,7 @@ if __name__ == '__main__':
 
     file.close()
     flux_fp.close()
+    c_file.close()
 
     # Update ghost entries and plot
     u.x.scatter_forward()
