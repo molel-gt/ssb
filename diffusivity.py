@@ -2,10 +2,8 @@
 
 import os
 import time
-import timeit
 
 import argparse
-import logging
 import numpy as np
 import pyvista as pv
 import pyvistaqt as pvqt
@@ -15,14 +13,14 @@ from dolfinx import cpp, fem, io, mesh, nls, plot
 from mpi4py import MPI
 from petsc4py import PETSc
 
-import commons, configs, constants
+import commons
 
 import dolfinx
 
 markers = commons.SurfaceMarkers()
 
 # model parameters
-SIGMA = 1e3  # S/m
+SIGMA = 1e-1  # S/m
 KAPPA = 1e-1  # S/m
 D0 = 1e-5  # m^2/s
 F_c = 96485  # C/mol
@@ -34,9 +32,9 @@ c_init = 0.01
 R = 8.314
 T = 298
 z = 1
-voltage = 0.25
+voltage = 0
 
-i_func = lambda t: 0 if t/dt > 7 else 1e-3
+i_func = lambda t: 0 if t/dt > 7 else -1e-2
 
 
 if __name__ == '__main__':
@@ -93,17 +91,17 @@ if __name__ == '__main__':
     def get_current_density(t):
         F2 = sigma * ufl.inner(ufl.grad(u2), ufl.grad(q2)) * ufl.dx 
         F2 -= ufl.inner(f, q2) * ufl.dx
-        u_0 = dolfinx.fem.Function(V2)
-        with u_0.vector.localForm() as u0_loc:
-            u0_loc.set(voltage)
-        u_1 = dolfinx.fem.Function(V2)
-        with u_1.vector.localForm() as u1_loc:
-            u1_loc.set(1.0)
+        # u_0 = dolfinx.fem.Function(V2)
+        # with u_0.vector.localForm() as u0_loc:
+        #     u0_loc.set(voltage)
+        # u_1 = dolfinx.fem.Function(V2)
+        # with u_1.vector.localForm() as u1_loc:
+        #     u1_loc.set(0.0)
         # left_bc = dolfinx.fem.dirichletbc(u_0, dolfinx.fem.locate_dofs_topological(V2, 1, left_cc))
         # right_bc = dolfinx.fem.dirichletbc(u_1, dolfinx.fem.locate_dofs_topological(V2, 1, right_cc))
         bcs = []
         F2 += ufl.inner(g, q2) * ds(markers.insulated)
-        s = fem.Constant(domain, PETSc.ScalarType(1e-1))
+        s = fem.Constant(domain, PETSc.ScalarType(0))
         r = fem.Constant(domain, PETSc.ScalarType(i0 * z * F_c / (R * T)))
         g_1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(i_func(t)))
         F2 += ufl.inner(g_1, q2) * ds(markers.right_cc)
