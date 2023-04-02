@@ -8,15 +8,21 @@ import commons, geometry
 
 markers = commons.SurfaceMarkers()
 phases = commons.Phases()
+CELL_TYPES = commons.CellTypes()
 
 # meshing
 resolution = 0.1
+scale_factor = [1e-6, 1e-6, 0]
+program = 'semicircle.geo'  # 'gitt.geo'
+msh_fpath = "mesh/gitt/mesh.msh"
+res = subprocess.check_call(f"gmsh -3 {program} -o {msh_fpath}", shell=True)
 
-msh_fpath = "mesh/laminate/mesh.msh"
-res = subprocess.check_call(f"gmsh -3 gitt.geo -o {msh_fpath}", shell=True)
-
-mesh_from_file = meshio.read(f"{msh_fpath}")
-triangle_mesh = geometry.create_mesh(mesh_from_file, "triangle")
-meshio.write("mesh/laminate/tria.xdmf", triangle_mesh)
-line_mesh = geometry.create_mesh(mesh_from_file, "line")
-meshio.write("mesh/laminate/line.xdmf", line_mesh)
+msh = meshio.read(f"{msh_fpath}")
+tria_xdmf_unscaled = geometry.create_mesh(msh, CELL_TYPES.triangle)
+line_xdmf_unscaled = geometry.create_mesh(msh, "line")
+tria_xdmf_unscaled.write("mesh/gitt/tria_unscaled.xdmf")
+tria_xdmf_scaled = geometry.scale_mesh(tria_xdmf_unscaled, CELL_TYPES.triangle, scale_factor=scale_factor)
+tria_xdmf_scaled.write("mesh/gitt/tria.xdmf")
+line_xdmf_unscaled.write("mesh/gitt/line_unscaled.xdmf")
+line_xdmf_scaled = geometry.scale_mesh(line_xdmf_unscaled, CELL_TYPES.line, scale_factor=scale_factor)
+line_xdmf_scaled.write("mesh/gitt/line.xdmf")

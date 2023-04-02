@@ -20,12 +20,12 @@ import dolfinx
 markers = commons.SurfaceMarkers()
 
 # model parameters
-SIGMA = 1e-1  # S/m
+SIGMA = 1e3  # S/m
 KAPPA = 1e-1  # S/m
-D0 = 1e-5  # m^2/s
+D0 = 1e-15  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
-dt = 1.0e-03
+dt = 1.0e-03  # millisecond
 t_iter = 50
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
 c_init = 0.01
@@ -33,8 +33,9 @@ R = 8.314
 T = 298
 z = 1
 voltage = 0
+tau_hat = 5e-6 ** 2 / D0
 
-i_func = lambda t: 0 if t/dt > 7 else -1e-2
+i_func = lambda t: 0 if t/dt > 7 else -1e-9
 
 
 if __name__ == '__main__':
@@ -46,12 +47,12 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     start = time.time()
     
-    with io.XDMFFile(comm, "mesh/laminate/tria.xdmf", "r") as xdmf:
+    with io.XDMFFile(comm, "mesh/gitt/tria.xdmf", "r") as xdmf:
         domain = xdmf.read_mesh(cpp.mesh.GhostMode.shared_facet, name="Grid")
         ct = xdmf.read_meshtags(domain, name="Grid")
 
     domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
-    with io.XDMFFile(comm, "mesh/laminate/line.xdmf", "r") as xdmf:
+    with io.XDMFFile(comm, "mesh/gitt/line.xdmf", "r") as xdmf:
         ft = xdmf.read_meshtags(domain, name="Grid")
     tags = mesh.meshtags(domain, domain.topology.dim - 1, ft.indices, ft.values)
     left_cc = ft.find(markers.left_cc)
@@ -157,18 +158,18 @@ if __name__ == '__main__':
     flux_h = dolfinx.fem.Function(W)
     flux_h.interpolate(flux_expr)
 
-    flux_fp = io.XDMFFile(comm, "flux.xdmf", "w")
+    flux_fp = io.XDMFFile(comm, "mesh/gitt/flux.xdmf", "w")
     flux_fp.write_mesh(domain)
     flux_fp.write_function(flux_h, 0)
 
-    file = io.XDMFFile(comm, "concentration.xdmf", "w")
+    file = io.XDMFFile(comm, "mesh/gitt/concentration.xdmf", "w")
     file.write_mesh(domain)
     file.write_function(u, 0)
 
-    c_file = io.XDMFFile(comm, "current_density.xdmf", "w")
+    c_file = io.XDMFFile(comm, "mesh/gitt/current_density.xdmf", "w")
     c_file.write_mesh(domain)
 
-    p_file = io.XDMFFile(comm, "potential.xdmf", "w")
+    p_file = io.XDMFFile(comm, "mesh/gitt/potential.xdmf", "w")
     p_file.write_mesh(domain)
 
     # Step in time
