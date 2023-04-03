@@ -20,13 +20,13 @@ import dolfinx
 markers = commons.SurfaceMarkers()
 
 # model parameters
-SIGMA = 1e3  # S/m
+SIGMA = 1e-3  # S/m
 KAPPA = 1e-1  # S/m
-D0 = 1e-15  # m^2/s
+D0 = 1e-14  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
-dt = 1.0e-03  # millisecond
-t_iter = 50
+dt = 1.0e-02  # millisecond
+t_iter = 250
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
 c_init = 0.01
 R = 8.314
@@ -35,7 +35,8 @@ z = 1
 voltage = 0
 tau_hat = 5e-6 ** 2 / D0
 
-i_func = lambda t: 0 if t/dt > 7 else -1e-9
+pulse_iter = 150
+i_func = lambda t: 0 if t/dt > pulse_iter else -1e-10
 
 
 if __name__ == '__main__':
@@ -102,7 +103,7 @@ if __name__ == '__main__':
         # right_bc = dolfinx.fem.dirichletbc(u_1, dolfinx.fem.locate_dofs_topological(V2, 1, right_cc))
         bcs = []
         F2 += ufl.inner(g, q2) * ds(markers.insulated)
-        s = fem.Constant(domain, PETSc.ScalarType(0))
+        s = fem.Constant(domain, PETSc.ScalarType(0.0))
         r = fem.Constant(domain, PETSc.ScalarType(i0 * z * F_c / (R * T)))
         g_1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(i_func(t)))
         F2 += ufl.inner(g_1, q2) * ds(markers.right_cc)
@@ -110,7 +111,7 @@ if __name__ == '__main__':
         options = {
                     "ksp_type": "gmres",
                     "pc_type": "hypre",
-                    "ksp_rtol": 1.0e-12,
+                    "ksp_rtol": 1.0e-14,
                 }
         a = ufl.lhs(F2)
         L = ufl.rhs(F2)
@@ -142,7 +143,7 @@ if __name__ == '__main__':
         solver = nls.petsc.NewtonSolver(comm, problem)
         solver.convergence_criterion = "incremental"
         solver.maximum_iterations = 250
-        solver.rtol = 1e-12
+        solver.rtol = 1e-14
         ksp = solver.krylov_solver
         opts = PETSc.Options()
         option_prefix = ksp.getOptionsPrefix()
@@ -188,7 +189,7 @@ if __name__ == '__main__':
     p = pvqt.BackgroundPlotter(title="concentration", auto_update=True)
     p.add_mesh(grid, clim=[0, c_init], cmap="hot", name='mesh')
     p.view_xy(True)
-    p.add_text(f"time: {t}", font_size=12, name="timelabel")
+    p.add_text(f"time: {t}s", font_size=12, name="timelabel")
 
     u0.x.array[:] = u.x.array
     
@@ -208,7 +209,7 @@ if __name__ == '__main__':
         c_avg = tot_c / vol
         c_surf = dolfinx.fem.assemble_scalar(dolfinx.fem.form(u * ds(markers.left_cc)))
         l_surf = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(markers.left_cc)))
-        print(f"Step {str(int(t/dt)).rjust(3)}: num iterations: {str(r[0]).rjust(3)}, δξ:", np.abs(c_init - c_avg) / c_init, "c_surf:", np.round(c_surf/l_surf, 7), "c_avg:", np.round(c_avg, 7))
+        print(f"t={t:1.2e}s,", "δξ:", np.abs(c_init - c_avg) / c_init, "c_surf:", np.round(c_surf/l_surf, 7), "c_avg:", np.round(c_avg, 7))
         flux_h.interpolate(flux_expr)
         flux_fp.write_function(flux_h, t)
 
