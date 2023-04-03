@@ -22,6 +22,7 @@ class SurfaceMarkers:
 
 
 class CellTypes:
-    def __init__(self, triangle="triangle", tetra="tetra"):
+    def __init__(self, triangle="triangle", tetra="tetra", line="line"):
         self.triangle = triangle
         self.tetra = tetra
+        self.line = line
