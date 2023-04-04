@@ -13,7 +13,7 @@ from dolfinx import cpp, fem, io, mesh, nls, plot
 from mpi4py import MPI
 from petsc4py import PETSc
 
-import commons
+import commons, geometry
 
 import dolfinx
 
@@ -22,11 +22,11 @@ markers = commons.SurfaceMarkers()
 # model parameters
 SIGMA = 1e-3  # S/m
 KAPPA = 1e-1  # S/m
-D0 = 1e-14  # m^2/s
+D0 = 1e-13  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
-dt = 1.0e-02  # millisecond
-t_iter = 250
+dt = 1e-03  # millisecond
+t_iter = 150
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
 c_init = 0.01
 R = 8.314
@@ -35,25 +35,26 @@ z = 1
 voltage = 0
 tau_hat = 5e-6 ** 2 / D0
 
-pulse_iter = 150
+pulse_iter = 100
 i_func = lambda t: 0 if t/dt > pulse_iter else -1e-10
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
+    parser.add_argument('--work_dir', help='Working directory', required=True)
     parser.add_argument("--voltage", help="Potential to set at the left current collector. Right current collector is set to a potential of 0", nargs='?', const=1, default=1)
 
     args = parser.parse_args()
-    
+    work_dir = args.work_dir
     comm = MPI.COMM_WORLD
     start = time.time()
     
-    with io.XDMFFile(comm, "mesh/gitt/tria.xdmf", "r") as xdmf:
+    with io.XDMFFile(comm, os.path.join(f"{work_dir}", "tria.xdmf"), "r") as xdmf:
         domain = xdmf.read_mesh(cpp.mesh.GhostMode.shared_facet, name="Grid")
         ct = xdmf.read_meshtags(domain, name="Grid")
 
     domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
-    with io.XDMFFile(comm, "mesh/gitt/line.xdmf", "r") as xdmf:
+    with io.XDMFFile(comm, os.path.join(f"{work_dir}", "line.xdmf"), "r") as xdmf:
         ft = xdmf.read_meshtags(domain, name="Grid")
     tags = mesh.meshtags(domain, domain.topology.dim - 1, ft.indices, ft.values)
     left_cc = ft.find(markers.left_cc)
@@ -159,18 +160,18 @@ if __name__ == '__main__':
     flux_h = dolfinx.fem.Function(W)
     flux_h.interpolate(flux_expr)
 
-    flux_fp = io.XDMFFile(comm, "mesh/gitt/flux.xdmf", "w")
+    flux_fp = io.XDMFFile(comm, os.path.join(f"{work_dir}", "flux.xdmf"), "w")
     flux_fp.write_mesh(domain)
     flux_fp.write_function(flux_h, 0)
 
-    file = io.XDMFFile(comm, "mesh/gitt/concentration.xdmf", "w")
+    file = io.XDMFFile(comm, os.path.join(f"{work_dir}", "concentration.xdmf"), "w")
     file.write_mesh(domain)
     file.write_function(u, 0)
 
-    c_file = io.XDMFFile(comm, "mesh/gitt/current_density.xdmf", "w")
+    c_file = io.XDMFFile(comm, os.path.join(f"{work_dir}", "current_density.xdmf"), "w")
     c_file.write_mesh(domain)
 
-    p_file = io.XDMFFile(comm, "mesh/gitt/potential.xdmf", "w")
+    p_file = io.XDMFFile(comm, os.path.join(f"{work_dir}", "potential.xdmf"), "w")
     p_file.write_mesh(domain)
 
     # Step in time
