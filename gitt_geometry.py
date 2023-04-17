@@ -14,7 +14,7 @@ import commons, geometry
 
 markers = commons.SurfaceMarkers()
 CELL_TYPES = commons.CellTypes()
-scale_factor = [50e-6, 250e-6, 0]
+scale_factor = [100e-6, 100e-6, 0]
 
 
 def read_circles_position_file(circles_position_path):
@@ -47,9 +47,14 @@ def build_packed_circles_mesh(output_mesh_file, circles_locations_files):
     gmsh.model.add("GITT")
     Lx, Ly, Lz = 1, 1, 1
     resolution = 1e-7
-    channel1 = gmsh.model.occ.addRectangle(0, 0, 0, 0.05, Ly)
-    channel2 = gmsh.model.occ.addRectangle(Lx - 0.05, 0, 0, 0.05, Ly)
-    pieces_ = [channel1, channel2]
+    channel0 = gmsh.model.occ.addRectangle(Lx - 0.05, 0, 0, 0.25, Ly)
+    # channel1 = gmsh.model.occ.addRectangle(0, 0, 0, 0.05, Ly)
+    # channel1 = gmsh.model.occ.addPlaneSurface([channel1])
+    # channel2 = gmsh.model.occ.addRectangle(Lx - 0.05, 0, 0, 0.05, Ly)
+    # channel2 =  gmsh.model.occ.addCurveLoop([channel2])
+    # channel0 = gmsh.model.occ.addPlaneSurface([channel0])
+    gmsh.model.occ.synchronize()
+    pieces_ = []
     for circles_locations_file in circles_locations_files:
         centers, r, n_circles = read_circles_position_file(circles_locations_file)
         for center in centers:
@@ -58,9 +63,10 @@ def build_packed_circles_mesh(output_mesh_file, circles_locations_files):
             cloop =  gmsh.model.occ.addCurveLoop([circle])
             surf = gmsh.model.occ.addPlaneSurface([cloop])
             pieces_.append(surf)
+            gmsh.model.occ.synchronize()
     gmsh.model.occ.synchronize()
-   
-    channel = gmsh.model.occ.fuse([(2, pieces_[0])], [(2, piece) for piece in pieces_[1:]])
+    channel = gmsh.model.occ.fuse([(2, channel0)], [(2, piece) for piece in pieces_])
+    # channel_ = gmsh.model.occ.fragment([(2, channel0)], [(2, channel)])
     gmsh.model.occ.synchronize()
     volumes = gmsh.model.getEntities(dim=2)
     marker = 11
@@ -72,12 +78,16 @@ def build_packed_circles_mesh(output_mesh_file, circles_locations_files):
     right_ccs = []
     for line in lines:
         com = gmsh.model.occ.getCenterOfMass(line[0], line[1])
-        if np.isclose(com[0], 0):
-            left_ccs.append(line[1])
-        elif np.isclose(com[0], Lx):
+        if np.isclose(com[0], Lx+0.2):
             right_ccs.append(line[1])
-        elif np.isclose(com[1], 0) or np.isclose(com[1], Ly):
-            walls.append(line[1])
+        elif np.isclose(com[0], 0):
+            left_ccs.append(line[1])
+        # elif np.isclose(com[1], 0) or np.isclose(com[1], Ly):
+        #     walls.append(line[1])
+        # else:
+        #     left_ccs.append(line[1])
+        # else:
+        #     left_ccs.append(line[1])
     left_cc = gmsh.model.addPhysicalGroup(1, left_ccs, markers.left_cc)
     gmsh.model.setPhysicalName(1, left_cc, "left_cc")
     right_cc = gmsh.model.addPhysicalGroup(1, right_ccs, markers.right_cc)

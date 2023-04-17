@@ -25,7 +25,7 @@ logger.setLevel(configs.get_configs()['LOGGING']['level'])
 output_mesh_file = "mesh/gitt_block/msh.msh"
 CELL_TYPES = commons.CellTypes()
 markers = commons.SurfaceMarkers()
-scale_factor = [250e-6, 250e-6, 0]
+scale_factor = [25e-6, 25e-6, 0]
 
 points = [
         (0, 0, 0),

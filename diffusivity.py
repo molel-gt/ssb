@@ -26,7 +26,7 @@ D0 = 1e-13  # m^2/s
 F_c = 96485  # C/mol
 i0 = 100  # A/m^2
 dt = 1e-03  # millisecond
-t_iter = 150
+t_iter = 15
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
 c_init = 0.01
 R = 8.314
@@ -35,8 +35,8 @@ z = 1
 voltage = 0
 tau_hat = 5e-6 ** 2 / D0
 
-pulse_iter = 100
-i_func = lambda t: 0 if t/dt > pulse_iter else -1e-10
+pulse_iter = 10
+i_func = lambda t: 0 if t/dt > pulse_iter else -1e-6
 
 
 if __name__ == '__main__':

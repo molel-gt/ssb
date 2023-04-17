@@ -11,27 +11,26 @@ import cv2
 import hdbscan
 import matplotlib.pyplot as plt
 import numpy as np
+import open3d as o3d
+
 import pickle
-import polylidar
 import warnings
 
+from concavehull import concavehull
 from shapely import Polygon, MultiPoint
 from shapely.plotting import plot_polygon
+from shapely.validation import make_valid
 from descartes import PolygonPatch
 from ipywidgets import widgets, interactive
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib import patches
 from matplotlib.widgets import CheckButtons, Button, Slider, LassoSelector, RadioButtons, TextBox, RectangleSelector
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from PIL import Image
-from polylidar import MatrixDouble, Polylidar3D
-from scipy.spatial import ConvexHull, convex_hull_plot_2d
+
 from skimage import filters
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.neural_network import MLPClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.cluster import AgglomerativeClustering, SpectralClustering, MeanShift, OPTICS, Birch, AffinityPropagation, KMeans, FeatureAgglomeration
+
+from hulls import ConcaveHull
 
 
 warnings.simplefilter("ignore")
@@ -59,7 +58,6 @@ phases = {
 
 training_images = np.linspace(0, 200, num=41)
 thresholds = ['-0.80', '-0.50','-0.40', '-0.30', '-0.20', '-0.01', '0.00', '0.01', '0.02','0.03', '0.04', '0.05', '0.10', '0.20', '0.30', '0.40', '0.50', '0.99']
-
 
 
 def make_dir_if_missing(f_path):
@@ -173,54 +171,27 @@ def get_polygon(clusters, ax):
     for v in np.unique(clusters):
         if v < 0:
             continue
+        # if v > 6:
+        #     continue
+        # if not np.isclose(v, 6):
+        #     continue
         coords = np.where(np.isclose(clusters, v))
-        if coords[0].shape[0] > 50:
-            # if coords[0].shape[0] < 1000:
-            #     continue
+        size_dummy = coords[0].shape[0] / (501 ** 2)
+        if size_dummy < 0.5:
+            # print(size_dummy)
             points = [(coords[1][i], coords[0][i]) for i in range(coords[0].shape[0])]
             points_arr = np.array(points).reshape(-1, 2)
-
-            # hull = ConvexHull(points_arr)
-            # ax.plot(points_arr[hull.vertices, 0], points_arr[hull.vertices, 1], 'r--', lw=2)
-            # for simplex in hull.simplices:
-            #     ax.plot(points_arr[simplex, 1], points_arr[simplex, 0], 'k-')
-
-            set_points = set(points)
-            ext = []
-            for (x, y) in set_points:
-                count = 0
-                chek_pts = [(x, int(y + 1)), (x, int(y -1)), (int(x + 1), y), (int(x - 1), y)]
-                for p in chek_pts:
-                    if p in set_points:
-                        count += 1
-                if 2 <= count <= 3:
-                    ext.append((x - 5, y - 5))
-            polygon = Polygon(sorted(ext))
-            if polygon.area > 1e5:
+            # obj = ConcaveHull(points_arr, 35)
+            # hull = obj.calculate()
+            hull = concavehull(points_arr, chi_factor=1e-4)
+            # points_set = set(points)
+            polygon = Polygon(points)
+            if polygon.area / size_dummy > 1e5:
                 continue
-            # print(v, polygon.area, polygon.convex_hull)
-            # mat_poly = patches.Polygon(polygon.boundary.coords[:], closed=True)
-            # # print(v, polygon.area, coords[0].shape[0], polygon.area/coords[0].shape[0] ** 2)
-            error = np.linalg.norm(np.array([polygon.centroid.x, polygon.centroid.y, 0]) - np.array([np.average(coords[1]), np.average(coords[0]), 0]))
-            # print(v, error)
-            if error > 150:
-                continue
-            # ax.add_patch(mat_poly)
-            # ax.add_patch([])
-            # try:
-            #     new_plot.remove()
-            # except:
-            #     pass
-            new_plot = plot_polygon(polygon, ax=ax, add_points=False, alpha=1, edgecolor='red')
-            # time.sleep(15)
-            
-            # points = np.array(points).reshape(-1, 2)
-            # alpha_shape = alphashape.alphashape(points, 2)
-            # alpha_shape.show()
-            # ax.add_geometry(
-            #     alpha_shape['geometry'],
-            #     crs=ccrs.AlbersEqualArea(), alpha=.2)
-            # ax.add_patch(PolygonPatch(alpha_shape, alpha=0.2))
+            print(v, polygon.area, polygon.area / size_dummy ** 2)
+            # plot_polygon(polygon.exterior, ax=ax, linewidth=0.05)
+            # hull = np.array([(x, y) for (x, y) in hull if (x, y) in points_set])
+            ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
 
 
 class Segmentor:
@@ -284,12 +255,12 @@ class Segmentor:
                 self.edges = pickle.load(fp)
         else:
             img_11 = neighborhood_average(self.image)
-            for i in range(2):
+            for i in range(5):
                 img_11 = neighborhood_average(img_11)
-            img_2 = filters.gaussian(img_11, sigma=2)
+            img_2 = filters.gaussian(img_11, sigma=0.5)
             img_2 = neighborhood_average(img_2 / np.max(img_2))
             img_2 = filters.meijering(img_2 / np.max(img_2))
-            img_2 = neighborhood_average(img_2)
+            # img_2 = neighborhood_average(img_2)
             self.edges = img_2 / np.max(img_2)
             self.write_edges_to_file()
             # with open(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
@@ -343,11 +314,11 @@ class Segmentor:
 
 
 class App:
-    def __init__(self, seg, selected_phase=-1, fs=None, fig=None, radio=None, ax=None):
+    def __init__(self, seg, selected_phase=-1, f_ind=0, t_ind=10, fs=None, fig=None, radio=None, ax=None):
         self.seg = seg
-        self.ind = 0
+        self.ind = f_ind
         self._selected_phase = selected_phase
-        self._threshold_index = 12
+        self._threshold_index = t_ind
         self._fs = fs
         self._fig = fig
         self._ax = ax
@@ -660,7 +631,7 @@ if __name__ == '__main__':
     rax.set_facecolor(axcolor)
 
     # checkbuttons
-    check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0])
+    check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0])
 
     # next and previous buttons
     axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
