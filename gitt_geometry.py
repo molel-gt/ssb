@@ -47,14 +47,14 @@ def build_packed_circles_mesh(output_mesh_file, circles_locations_files):
     gmsh.model.add("GITT")
     Lx, Ly, Lz = 1, 1, 1
     resolution = 1e-7
-    channel0 = gmsh.model.occ.addRectangle(Lx - 0.05, 0, 0, 0.25, Ly)
+    channel0 = gmsh.model.occ.addRectangle(0, 0, 0, Lx, Ly)
     # channel1 = gmsh.model.occ.addRectangle(0, 0, 0, 0.05, Ly)
     # channel1 = gmsh.model.occ.addPlaneSurface([channel1])
     # channel2 = gmsh.model.occ.addRectangle(Lx - 0.05, 0, 0, 0.05, Ly)
     # channel2 =  gmsh.model.occ.addCurveLoop([channel2])
     # channel0 = gmsh.model.occ.addPlaneSurface([channel0])
     gmsh.model.occ.synchronize()
-    pieces_ = []
+    circles = []
     for circles_locations_file in circles_locations_files:
         centers, r, n_circles = read_circles_position_file(circles_locations_file)
         for center in centers:
@@ -62,11 +62,11 @@ def build_packed_circles_mesh(output_mesh_file, circles_locations_files):
             circle = gmsh.model.occ.addCircle(*center, r)
             cloop =  gmsh.model.occ.addCurveLoop([circle])
             surf = gmsh.model.occ.addPlaneSurface([cloop])
-            pieces_.append(surf)
+            circles.append(surf)
             gmsh.model.occ.synchronize()
     gmsh.model.occ.synchronize()
-    channel = gmsh.model.occ.fuse([(2, channel0)], [(2, piece) for piece in pieces_])
-    # channel_ = gmsh.model.occ.fragment([(2, channel0)], [(2, channel)])
+    channel = gmsh.model.occ.cut([(2, channel0)], [(2, piece) for piece in circles])
+
     gmsh.model.occ.synchronize()
     volumes = gmsh.model.getEntities(dim=2)
     marker = 11
@@ -78,16 +78,14 @@ def build_packed_circles_mesh(output_mesh_file, circles_locations_files):
     right_ccs = []
     for line in lines:
         com = gmsh.model.occ.getCenterOfMass(line[0], line[1])
-        if np.isclose(com[0], Lx+0.2):
+        if np.isclose(com[0], Lx):
             right_ccs.append(line[1])
         elif np.isclose(com[0], 0):
+            walls.append(line[1])
+        elif np.isclose(com[1], 0) or np.isclose(com[1], Ly):
+            walls.append(line[1])
+        else:
             left_ccs.append(line[1])
-        # elif np.isclose(com[1], 0) or np.isclose(com[1], Ly):
-        #     walls.append(line[1])
-        # else:
-        #     left_ccs.append(line[1])
-        # else:
-        #     left_ccs.append(line[1])
     left_cc = gmsh.model.addPhysicalGroup(1, left_ccs, markers.left_cc)
     gmsh.model.setPhysicalName(1, left_cc, "left_cc")
     right_cc = gmsh.model.addPhysicalGroup(1, right_ccs, markers.right_cc)
@@ -131,7 +129,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     pf = args.pf
     grid_size = '1-1-1'
-    spheres_locations_files = ['mesh/circles/round-1.dat', 'mesh/circles/round-2.dat', 'mesh/circles/round-3.dat']  #f"mesh/packed_spheres/{grid_size}_{pf}/{pf}.dat"
+    spheres_locations_files = ['mesh/circles/round-1.dat']#, 'mesh/circles/round-2.dat', 'mesh/circles/round-3.dat']  #f"mesh/packed_spheres/{grid_size}_{pf}/{pf}.dat"
     output_mesh_file = f"mesh/circles/spheres.msh"
     
     build_packed_circles_mesh(output_mesh_file, spheres_locations_files)
