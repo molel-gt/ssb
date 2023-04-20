@@ -243,6 +243,7 @@ def get_polygon(clusters, ax):
             hull = concavehull(points_arr, chi_factor=1e-12)
             ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
         else:
+            print(v, n_pieces, coords[0].shape[0])
             for i, p in enumerate(pieces):
                 p_points = [points_dict[idx] for idx in p]
                 p_points_arr = np.array(p_points).reshape(-1, 2)
@@ -254,7 +255,7 @@ def get_polygon(clusters, ax):
                     # polygon = Polygon(p_points)
                     ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
                 except RuntimeError:
-                    print("Cannot triangulate", v, i)
+                    print("Cannot triangulate", v, i, len(p))
     
     return new_clusters
 
