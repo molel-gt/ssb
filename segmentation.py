@@ -256,6 +256,8 @@ def get_polygon(clusters, ax):
                 except RuntimeError:
                     print("Cannot triangulate", v, i)
 
+        return new_clusters
+
 
 class Segmentor:
     def __init__(self, image, image_id=0, threshold=0.10, output_dir='segmentation'):
