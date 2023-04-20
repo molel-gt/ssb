@@ -255,8 +255,8 @@ def get_polygon(clusters, ax):
                     ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
                 except RuntimeError:
                     print("Cannot triangulate", v, i)
-
-        return new_clusters
+    
+    return new_clusters
 
 
 class Segmentor:
