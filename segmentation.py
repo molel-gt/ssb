@@ -10,8 +10,9 @@ import cartopy.crs as ccrs
 import cv2
 import hdbscan
 import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
-import open3d as o3d
+
 
 import pickle
 import warnings
@@ -58,6 +59,44 @@ phases = {
 
 training_images = np.linspace(0, 200, num=41)
 thresholds = ['-0.80', '-0.50','-0.40', '-0.30', '-0.20', '-0.01', '0.00', '0.01', '0.02','0.03', '0.04', '0.05', '0.10', '0.20', '0.30', '0.40', '0.50', '0.99']
+
+
+class PixelGraph:
+    def __init__(self, points):
+        self._points = points
+        self._pieces = None
+        self._graph = None
+        self._n_pieces = 0
+
+    @property
+    def points(self):
+        return self._points
+
+    @property
+    def pieces(self):
+        return self._pieces
+
+    @property
+    def n_pieces(self):
+        return self._n_pieces
+
+    @property
+    def graph(self):
+        return self._graph
+
+    def build_graph(self):
+        G = nx.Graph()
+        for idx, p in self.points.items():
+            x, y = p
+            neighbors = [(x, int(y+1)), (int(x+1), y), (int(x+1), int(y+1))]
+            for n in neighbors:
+                n_idx = self.points.get(n)
+                if n_idx is not None:
+                    G.add_nodes_from([idx, n_idx])
+        self._graph = G
+
+    def get_graph_pieces(self):
+        self._n_pieces = nx.number_connected_components(self.graph)
 
 
 def make_dir_if_missing(f_path):
@@ -181,6 +220,14 @@ def get_polygon(clusters, ax):
             # print(size_dummy)
             points = [(coords[1][i], coords[0][i]) for i in range(coords[0].shape[0])]
             points_arr = np.array(points).reshape(-1, 2)
+            points_dict = {}
+            for i in range(points_arr.shape[0]):
+                points_dict[i] = (int(points_arr[i][0]), int(points_arr[i][1]))
+            PG = PixelGraph(points=points_dict)
+            PG.build_graph()
+            PG.get_graph_pieces()
+            if PG.n_pieces > 1:
+                print(v, PG.n_pieces)
             # obj = ConcaveHull(points_arr, 35)
             # hull = obj.calculate()
             hull = concavehull(points_arr, chi_factor=1e-4)
