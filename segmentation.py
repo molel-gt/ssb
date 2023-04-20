@@ -9,7 +9,9 @@ import argparse
 import cartopy.crs as ccrs
 import cv2
 import hdbscan
+import igraph as ig
 import matplotlib.pyplot as plt
+import metis
 import networkx as nx
 import numpy as np
 
@@ -18,6 +20,7 @@ import pickle
 import warnings
 
 from concavehull import concavehull
+from igraph import Graph
 from shapely import Polygon, MultiPoint
 from shapely.plotting import plot_polygon
 from shapely.validation import make_valid
@@ -32,6 +35,8 @@ from skimage import filters
 from sklearn.ensemble import RandomForestClassifier
 
 from hulls import ConcaveHull
+
+import geometry
 
 
 warnings.simplefilter("ignore")
@@ -85,18 +90,26 @@ class PixelGraph:
         return self._graph
 
     def build_graph(self):
-        G = nx.Graph()
+        n_nodes = max(self.points.keys())
+
+        points_lookup = {v: k for k, v in self.points.items()}
+        edges = []
         for idx, p in self.points.items():
             x, y = p
-            neighbors = [(x, int(y+1)), (int(x+1), y), (int(x+1), int(y+1))]
+            neighbors = [(int(x), int(y+1)), (int(x+1), int(y)), (int(x+1), int(y+1))]
             for n in neighbors:
-                n_idx = self.points.get(n)
-                if n_idx is not None:
-                    G.add_nodes_from([idx, n_idx])
+                n_idx = points_lookup.get(n)
+                if n_idx is None:
+                    continue
+                edges.append((idx, n_idx))
+
+        G = ig.Graph(n_nodes + 1, edges)
+
         self._graph = G
 
     def get_graph_pieces(self):
-        self._n_pieces = nx.number_connected_components(self.graph)
+        self._pieces = list(self.graph.connected_components())
+        self._n_pieces = len(self.pieces)
 
 
 def make_dir_if_missing(f_path):
@@ -207,38 +220,41 @@ def get_clustering_results(X_2d, **hdbscan_kwargs):
 
 new_plot = None
 def get_polygon(clusters, ax):
+    max_v = np.max(clusters)
+    new_clusters = clusters.copy()
+    adder = 0
     for v in np.unique(clusters):
         if v < 0:
             continue
-        # if v > 6:
-        #     continue
-        # if not np.isclose(v, 6):
-        #     continue
+
         coords = np.where(np.isclose(clusters, v))
-        size_dummy = coords[0].shape[0] / (501 ** 2)
-        if size_dummy < 0.5:
-            # print(size_dummy)
-            points = [(coords[1][i], coords[0][i]) for i in range(coords[0].shape[0])]
-            points_arr = np.array(points).reshape(-1, 2)
-            points_dict = {}
-            for i in range(points_arr.shape[0]):
-                points_dict[i] = (int(points_arr[i][0]), int(points_arr[i][1]))
-            PG = PixelGraph(points=points_dict)
-            PG.build_graph()
-            PG.get_graph_pieces()
-            if PG.n_pieces > 1:
-                print(v, PG.n_pieces)
-            # obj = ConcaveHull(points_arr, 35)
-            # hull = obj.calculate()
-            hull = concavehull(points_arr, chi_factor=1e-4)
-            # points_set = set(points)
-            polygon = Polygon(points)
-            if polygon.area / size_dummy > 1e5:
-                continue
-            print(v, polygon.area, polygon.area / size_dummy ** 2)
-            # plot_polygon(polygon.exterior, ax=ax, linewidth=0.05)
-            # hull = np.array([(x, y) for (x, y) in hull if (x, y) in points_set])
+        points = [(coords[1][i], coords[0][i]) for i in range(coords[0].shape[0])]
+        points_arr = np.array(points).reshape(-1, 2)
+        points_dict = {}
+        for i in range(coords[0].shape[0]):
+            points_dict[int(i)] = (int(coords[1][i]), int(coords[0][i]))
+
+        PG = PixelGraph(points=points_dict)
+        PG.build_graph()
+        PG.get_graph_pieces()
+        pieces = PG.pieces
+        n_pieces = PG.n_pieces
+        if np.isclose(n_pieces, 1):
+            hull = concavehull(points_arr, chi_factor=1e-12)
             ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
+        else:
+            for i, p in enumerate(pieces):
+                p_points = [points_dict[idx] for idx in p]
+                p_points_arr = np.array(p_points).reshape(-1, 2)
+                if i > 0:
+                    adder += 1
+                    new_clusters[p_points] = max_v + adder
+                try:
+                    hull = concavehull(p_points_arr, chi_factor=1e-12)
+                    # polygon = Polygon(p_points)
+                    ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
+                except RuntimeError:
+                    print("Cannot triangulate", v, i)
 
 
 class Segmentor:
@@ -724,6 +740,9 @@ if __name__ == '__main__':
     f1 = ax[0, 0].imshow(image, cmap='gray')
     ax[0, 0].set_title('Original')
     ax[0, 0].set_aspect('equal', 'box')
+    # ax[0, 0].set_xlim([0, 501])
+    # ax[0, 0].set_ylim([0, 501])
+
     fig.canvas.draw_idle()
 
     f2 = ax[0, 1].imshow(seg.edges, cmap='gray')
