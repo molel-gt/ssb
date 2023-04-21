@@ -694,7 +694,7 @@ if __name__ == '__main__':
     with open(os.path.join('unsegmented', str(image_id).zfill(3) + '.tif'), 'rb') as fp:
         image = plt.imread(fp)
 
-    seg = Segmentor(image, image_id=image_id, threshold=float(thresholds[11]), output_dir=args.output_dir)
+    seg = Segmentor(image, image_id=image_id, threshold=float(thresholds[12]), output_dir=args.output_dir)
     seg.run(rerun=False, clustering=True)#, use_residuals=False)
     fig.suptitle(f"Image: unsegmented/{str(image_id).zfill(3)}.tif")
 
@@ -703,7 +703,7 @@ if __name__ == '__main__':
     rax.set_facecolor(axcolor)
 
     # checkbuttons
-    check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
+    check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0])
 
     # next and previous buttons
     axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)

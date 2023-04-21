@@ -30,6 +30,11 @@ def resample(img_id, output_dir):
         print(v, mode.mode[0], mode.count[0]/count)#, np.mean(p), np.std(p))
         if mode.count[0]/count > 0.7:
             new_img[coords] = mode.mode[0]
+    p0 = np.where(np.isclose(new_img, 0))
+    p1 = np.where(np.isclose(new_img, 1))
+    p2 = np.where(np.isclose(new_img, 2))
+    new_img[p1] = 128
+    new_img[p2] = 255
     img_2 = Image.fromarray(new_img)
     img_2.save(f'segmented/resampled/{str(img_id).zfill(3)}.tif', format='TIFF')
 
@@ -51,7 +56,8 @@ if __name__ == '__main__':
     # ob.create_output()
 
     # resample
-    resample(0, args.output_dir)
+    for i in range(0, 203, 5):
+        resample(i, args.output_dir)
     
     stop = time.time()
     print("Took: %s minutes" % str(int((stop - start)/60)))
