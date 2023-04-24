@@ -205,16 +205,6 @@ def chunk_array(arr_shape, arr, size=100):
 def get_clustering_results(X_2d, **hdbscan_kwargs):
     clusterer = hdbscan.HDBSCAN(**hdbscan_kwargs)
     y_predict = clusterer.fit_predict(X_2d).reshape(-1, 1)
-    # y_predict = np.zeros((X_2d.shape[0], ), dtype=np.intc)
-    # max_cluster_id = 0
-    # for coords in chunk_array((501, 501), X_2d):
-    #     features = X_2d[coords[0], :]
-    #     predictions = clusterer.fit_predict(features)
-    #     new_c = np.where(predictions < 0)
-    #     new_c2 = np.where(predictions > -1)
-    #     predictions[new_c2] = predictions[new_c2] + max_cluster_id
-    #     y_predict[coords] = predictions
-    #     max_cluster_id = np.max(y_predict) + 1
 
     return y_predict
 
@@ -239,19 +229,46 @@ def recluster(clusters):
         PG.get_graph_pieces()
         pieces = PG.pieces
         n_pieces = PG.n_pieces
+        def cut_graph():
+            return
         if np.isclose(n_pieces, 1):
-            pass
+            # print(f"Size: {coords[0].shape[0]:,}")
             # hull = concavehull(points_arr, chi_factor=1e-12)
             # ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
+            if coords[0].shape[0] / (500 ** 2) >= 0.05:
+                edgecuts, parts = metis.part_graph(PG.graph, 2)
+                print(edgecuts)
         else:
-            print(v, n_pieces, coords[0].shape[0])
+            # print(f"Size: {coords[0].shape[0]:,}")
             for i, p in enumerate(pieces):
-                # print(points_dict[p[0]])
+                p_points = [points_dict[idx] for idx in p]
+                p_points_arr = np.array(p_points).reshape(-1, 2)
+                
+                if p_points_arr.shape[0] / (500 ** 2) >= 0.05:
+                    new_dict = {}
+                    for k, v in points_dict.items():
+                        if int(k) in p:
+                            new_dict[k] = v
+                        
+                    graph = PixelGraph(points=new_dict)
+                    graph.build_graph()
+                    G = graph.graph
+                    edgecuts, parts = metis.part_graph(G.to_networkx(), 2, [0.85, 0.15])
+                    piece_1 = []
+                    piece_2 = []
+                    for idx, p in enumerate(parts):
+                        if int(p) == 0:
+                            piece_1.append(idx)
+                        elif int(p) == 1:
+                            piece_2.append(idx)
+                    pieces += [piece_1, piece_2]
+
+            for i, p in enumerate(pieces):
                 p_points = [points_dict[idx] for idx in p]
                 p_points_arr = np.array(p_points).reshape(-1, 2)
 
                 try:
-                    # hull = concavehull(p_points_arr, chi_factor=1e-12)
+                    hull = concavehull(p_points_arr, chi_factor=1e-12)
                     # polygon = Polygon(p_points)
                     # ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
                     if i > 0:
@@ -261,7 +278,6 @@ def recluster(clusters):
                 except RuntimeError:
                     for c in p:
                         new_clusters[points_dict[c]] = -1
-                    # new_clusters[p_points_arr] = -1
                     print("Cannot triangulate", v, i, len(p))
     return new_clusters
 
@@ -352,26 +368,30 @@ class Segmentor:
         self.set_edges()
 
         img = self.edges
-        if self.use_residuals:
-            coords = np.where(self.phases != 1)
-            img[coords] = -1
-        X_2d = build_features_matrix(img, self.image, self.threshold)
-        if not np.all(np.array(X_2d.shape) > 0):
-            return
-        y_predict = get_clustering_results(X_2d, **hdbscan_kwargs)
-        img_cluster_raw = -2 * np.ones(img.shape)  # -2, -1 are residual non-clustered
-
-        for v in np.unique(y_predict):
-            if v < 0:
-                continue
-            X_v = np.where(y_predict == v)[0]
-            coords = np.array([X_2d[ix, :2] for ix in X_v])
-            for (ix, iy) in coords:
-                img_cluster_raw[int(ix), int(iy)] = int(v)
-
-        img_cluster_enhanced = enhance_clusters(img_cluster_raw)
-
-        self._clusters = recluster(img_cluster_enhanced)
+        for thresh in [self.threshold, -0.5, -0.8, ]:#, self.threshold, 0.1]:
+            if self.use_residuals:
+                coords = np.where(self.clusters > -1)
+                # coords = np.where(self.phases != 1)
+                img[coords] = -1
+            X_2d = build_features_matrix(img, self.image, thresh)
+            if not np.all(np.array(X_2d.shape) > 0):
+                return
+            y_predict = get_clustering_results(X_2d, **hdbscan_kwargs)
+            img_cluster_raw = -2 * np.ones(img.shape)  # -2, -1 are residual non-clustered
+    
+            for v in np.unique(y_predict):
+                if v < 0:
+                    continue
+                X_v = np.where(y_predict == v)[0]
+                coords = np.array([X_2d[ix, :2] for ix in X_v])
+                for (ix, iy) in coords:
+                    img_cluster_raw[int(ix), int(iy)] = int(v)
+    
+            img_cluster_enhanced = enhance_clusters(img_cluster_raw)
+            reclustered = recluster(img_cluster_enhanced)
+            coords2 = np.where(reclustered > -1)
+            self._clusters[coords2] = reclustered[coords2]
+        # self._clusters = recluster(img_cluster_enhanced)
         with open(os.path.join(self.clusters_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
             pickle.dump(self.clusters, fp)
 
@@ -700,7 +720,7 @@ if __name__ == '__main__':
     rax.set_facecolor(axcolor)
 
     # checkbuttons
-    check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0])
+    check = CheckButtons(ax[1, 2], thresholds, [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0])
 
     # next and previous buttons
     axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
