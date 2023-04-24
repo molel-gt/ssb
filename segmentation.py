@@ -253,15 +253,11 @@ def recluster(clusters):
                     graph = PixelGraph(points=new_dict)
                     graph.build_graph()
                     G = graph.graph
-                    edgecuts, parts = metis.part_graph(G.to_networkx(), 2, [0.85, 0.15])
-                    piece_1 = []
-                    piece_2 = []
+                    edgecuts, parts = metis.part_graph(G.to_networkx(), 3, [0.5, 0.3, 0.2])
+                    new_pieces = [[],[],[]]
                     for idx, p in enumerate(parts):
-                        if int(p) == 0:
-                            piece_1.append(idx)
-                        elif int(p) == 1:
-                            piece_2.append(idx)
-                    pieces += [piece_1, piece_2]
+                        new_pieces[int(p)].append(int(idx))
+                    pieces += new_pieces
 
             for i, p in enumerate(pieces):
                 p_points = [points_dict[idx] for idx in p]
