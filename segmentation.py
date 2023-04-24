@@ -218,8 +218,8 @@ def get_clustering_results(X_2d, **hdbscan_kwargs):
 
     return y_predict
 
-new_plot = None
-def get_polygon(clusters, ax, image_id):
+
+def recluster(clusters):
     max_v = np.max(clusters)
     new_clusters = clusters.copy()
     adder = 0
@@ -228,11 +228,11 @@ def get_polygon(clusters, ax, image_id):
             continue
 
         coords = np.where(np.isclose(clusters, v))
-        points = [(coords[1][i], coords[0][i]) for i in range(coords[0].shape[0])]
+        points = [(coords[0][i], coords[1][i]) for i in range(coords[0].shape[0])]
         points_arr = np.array(points).reshape(-1, 2)
         points_dict = {}
         for i in range(coords[0].shape[0]):
-            points_dict[int(i)] = (int(coords[1][i]), int(coords[0][i]))
+            points_dict[int(i)] = (int(coords[0][i]), int(coords[1][i]))
 
         PG = PixelGraph(points=points_dict)
         PG.build_graph()
@@ -240,26 +240,29 @@ def get_polygon(clusters, ax, image_id):
         pieces = PG.pieces
         n_pieces = PG.n_pieces
         if np.isclose(n_pieces, 1):
-            hull = concavehull(points_arr, chi_factor=1e-12)
-            ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
+            pass
+            # hull = concavehull(points_arr, chi_factor=1e-12)
+            # ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
         else:
             print(v, n_pieces, coords[0].shape[0])
             for i, p in enumerate(pieces):
+                # print(points_dict[p[0]])
                 p_points = [points_dict[idx] for idx in p]
                 p_points_arr = np.array(p_points).reshape(-1, 2)
 
                 try:
-                    hull = concavehull(p_points_arr, chi_factor=1e-12)
+                    # hull = concavehull(p_points_arr, chi_factor=1e-12)
                     # polygon = Polygon(p_points)
-                    ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
+                    # ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
                     if i > 0:
                         adder += 1
-                        new_clusters[p_points] = max_v + adder
+                        for c in p:
+                            new_clusters[points_dict[c]] = max_v + adder
                 except RuntimeError:
-                    new_clusters[p_points] = -1
+                    for c in p:
+                        new_clusters[points_dict[c]] = -1
+                    # new_clusters[p_points_arr] = -1
                     print("Cannot triangulate", v, i, len(p))
-    with open(os.path.join("2023-03-05", f'{str(image_id).zfill(3)}'), 'wb') as fp:
-        pickle.dump(new_clusters, fp)
     return new_clusters
 
 
@@ -332,8 +335,8 @@ class Segmentor:
             # img_2 = neighborhood_average(img_2)
             self.edges = img_2 / np.max(img_2)
             self.write_edges_to_file()
-            # with open(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
-            #     pickle.dump(self.edges, fp)
+            with open(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
+                pickle.dump(self.edges, fp)
 
     def write_edges_to_file(self):
         with open(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
@@ -368,7 +371,7 @@ class Segmentor:
 
         img_cluster_enhanced = enhance_clusters(img_cluster_raw)
 
-        self._clusters = img_cluster_enhanced
+        self._clusters = recluster(img_cluster_enhanced)
         with open(os.path.join(self.clusters_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
             pickle.dump(self.clusters, fp)
 
@@ -423,7 +426,7 @@ class App:
         f2.set_data(self.seg.edges)
         f3.set_data(self.seg.clusters)
         f4.set_data(self.seg.phases)
-        get_polygon(self.seg.clusters, self._ax[0, 0], self.seg.image_id)
+        # get_polygon(self.seg.clusters, self._ax[0, 0], self.seg.image_id)
         self._fig.canvas.draw()
         self._fig.canvas.flush_events()
 
@@ -443,8 +446,6 @@ class App:
         f2.set_data(self.seg.edges)
         f3.set_data(self.seg.clusters)
         f4.set_data(self.seg.phases)
-        new_clusters = get_polygon(self.seg.clusters, self._ax[0, 0], self.seg.image_id)
-        self.seg._clusters = new_clusters
         self._fig.canvas.draw()
         self._fig.canvas.flush_events()
 
@@ -466,7 +467,6 @@ class App:
 
             f3.set_data(self.seg.clusters)      
             f4.set_data(self.seg.phases)
-            new_clusters = get_polygon(self.seg.clusters, self._ax[0, 0], self.seg.image_id)
             self._fig.canvas.draw_idle()
             self._fig.canvas.flush_events()
 
@@ -479,7 +479,6 @@ class App:
         f1, f2, f3, f4 = self._fs
         f2.set_data(self.seg.edges)
         f3.set_data(self.seg.clusters)
-        new_clusters = get_polygon(self.seg.clusters, self._ax[0, 0], self.seg.image_id)
         self._fig.canvas.draw_idle()
         self._fig.canvas.flush_events()
 
@@ -500,7 +499,6 @@ class App:
         f1, f2, f3, f4 = self._fs
         f3.set_data(self.seg.clusters)      
         f4.set_data(self.seg.phases)
-        new_clusters = get_polygon(self.seg.clusters, self._ax[0, 0], self.seg.image_id)
         self._fig.canvas.draw_idle()
         self._fig.canvas.flush_events()
 
@@ -527,7 +525,6 @@ class App:
 
         f2.set_data(self.seg.edges)
         f3.set_data(self.seg.clusters)
-        new_clusters = get_polygon(self.seg.clusters, self._ax[0, 0], self.seg.image_id)
         self._fig.canvas.draw_idle()
         self._fig.canvas.flush_events()
 
@@ -765,7 +762,6 @@ if __name__ == '__main__':
     f4 = ax[1, 1].imshow(seg.phases, cmap=cmap)
     ax[1, 1].set_title("Segmented")
     ax[1, 1].set_aspect('equal', 'box')
-    get_polygon(seg.clusters, ax[0, 0], seg.image_id)
 
     callback = App(seg, fs=[f1, f2, f3, f4], fig=fig, radio=radio, ax=ax)
     # edge_selector = LassoSelector(ax=ax[0, 1], onselect=callback.newEdges)
