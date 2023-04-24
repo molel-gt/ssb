@@ -368,7 +368,7 @@ class Segmentor:
         self.set_edges()
 
         img = self.edges
-        for thresh in [self.threshold, -0.5, -0.8, ]:#, self.threshold, 0.1]:
+        for thresh in [self.threshold, -0.5, -0.8, ]:
             if self.use_residuals:
                 coords = np.where(self.clusters > -1)
                 # coords = np.where(self.phases != 1)
@@ -391,7 +391,6 @@ class Segmentor:
             reclustered = recluster(img_cluster_enhanced)
             coords2 = np.where(reclustered > -1)
             self._clusters[coords2] = reclustered[coords2]
-        # self._clusters = recluster(img_cluster_enhanced)
         with open(os.path.join(self.clusters_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
             pickle.dump(self.clusters, fp)
 
