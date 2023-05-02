@@ -1,4 +1,4 @@
-relative_radius,data_dir
+relative_radius,outdir
 0.1,mesh/study_3/0.1
 0.2,mesh/study_3/0.2
 0.3,mesh/study_3/0.3
