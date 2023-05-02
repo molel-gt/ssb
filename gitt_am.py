@@ -14,7 +14,7 @@ CELL_TYPES = commons.CellTypes()
 
 # meshing
 resolution = 0.1
-scale_factor = [10e-6, 10e-6, 0]
+scale_factor = [100e-6, 100e-6, 0]
 program = 'gitt_geometry.geo'  # 'semicircle.geo'  # 'gitt.geo'
 msh_fpath = "mesh/gitt/mesh.msh"
 
