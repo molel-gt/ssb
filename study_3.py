@@ -110,4 +110,4 @@ if __name__ == '__main__':
     l_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(markers.left_cc)))
     i_surf_avg = dolfinx.fem.assemble_scalar(dolfinx.fem.form(current_h * ds(markers.right_cc))) / l_right_cc
     i_surf_std = (dolfinx.fem.assemble_scalar(dolfinx.fem.form((current_h - i_surf_avg) ** 2 * ds(markers.right_cc))) / l_right_cc) ** 0.5
-    print("Relative Radius: " + args.outdir.split('/')[-1] + " STD:", i_surf_std / i_surf_avg)
+    print("Relative Radius: " + args.outdir.split('/')[-1] + ", STD:", i_surf_std / i_surf_avg)
