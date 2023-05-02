@@ -16,12 +16,11 @@ CELL_TYPES = commons.CellTypes()
 
 # meshing
 resolution = 0.1
-scale_factor = [100e-6, 100e-6, 0]
+scaling_factor = (100e-6, 100e-6, 0)
 program = 'gitt_geometry.geo'  # 'semicircle.geo'  # 'gitt.geo'
 
 
-
-def create_geometry(relative_radius, outdir, scale_factor=scale_factor):
+def create_geometry(relative_radius, outdir, scale_factor=scaling_factor):
     utils.make_dir_if_missing(outdir)
     gmsh.initialize()
     gmsh.model.add("gitt")

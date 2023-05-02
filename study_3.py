@@ -24,7 +24,7 @@ SIGMA = 1e-3  # S/m
 KAPPA = 1e-1  # S/m
 D0 = 1e-13  # m^2/s
 F_c = 96485  # C/mol
-i0 = 100  # A/m^2
+i0 = 1e-3  # A/m^2
 dt = 1e-03  # millisecond
 t_iter = 15
 theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
@@ -36,7 +36,9 @@ voltage = 0
 tau_hat = 5e-6 ** 2 / D0
 
 pulse_iter = 10
-i_sup = -1e-6
+i_sup = 1e-6
+phi_m = 0
+U_therm = 0
 
 
 if __name__ == '__main__':
@@ -64,7 +66,6 @@ if __name__ == '__main__':
     f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
     g = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
     kappa = dolfinx.fem.Constant(domain, PETSc.ScalarType(KAPPA))
-    sigma = dolfinx.fem.Constant(domain, PETSc.ScalarType(SIGMA))
     ds = ufl.Measure("ds", domain=domain, subdomain_data=tags)
     dS = ufl.Measure("dS", domain=domain, subdomain_data=tags)
 
@@ -72,15 +73,15 @@ if __name__ == '__main__':
 
     u, q = ufl.TrialFunction(V), ufl.TestFunction(V)
 
-    F = sigma * ufl.inner(ufl.grad(u), ufl.grad(q)) * ufl.dx 
+    F = kappa * ufl.inner(ufl.grad(u), ufl.grad(q)) * ufl.dx 
     F -= ufl.inner(f, q) * ufl.dx
     bcs = []
     F += ufl.inner(g, q) * ds(markers.insulated)
-    s = fem.Constant(domain, PETSc.ScalarType(0.0))
+    # s = fem.Constant(domain, PETSc.ScalarType(U_therm))
     r = fem.Constant(domain, PETSc.ScalarType(i0 * z * F_c / (R * T)))
     g_1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(i_sup))
-    F += ufl.inner(g_1, q) * ds(markers.right_cc)
-    F += r * ufl.inner(u - s, q) * ds(markers.left_cc)
+    F += ufl.inner(g_1, q) * ds(markers.left_cc)
+    F += r * ufl.inner(phi_m - u - U_therm, q) * ds(markers.right_cc)
     options = {
                 "ksp_type": "gmres",
                 "pc_type": "hypre",
@@ -97,7 +98,7 @@ if __name__ == '__main__':
         file.write_function(uh)
     W = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 1))
     grad_u = ufl.grad(uh)
-    current_expr = dolfinx.fem.Expression(sigma * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
+    current_expr = dolfinx.fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
     current_h = dolfinx.fem.Function(W)
     current_h.interpolate(current_expr)
     # write current to file
@@ -105,5 +106,8 @@ if __name__ == '__main__':
         file.write_mesh(domain)
         file.write_function(current_h)
     # compute standard deviation of current
-    i_surf_avg = dolfinx.fem.assemble_scalar(dolfinx.fem.form(current_h * ds(markers.left_cc))) / dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(markers.left_cc)))
-    print(i_surf_avg)
+    l_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(markers.right_cc)))
+    l_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(markers.left_cc)))
+    i_surf_avg = dolfinx.fem.assemble_scalar(dolfinx.fem.form(current_h * ds(markers.right_cc))) / l_right_cc
+    i_surf_std = (dolfinx.fem.assemble_scalar(dolfinx.fem.form((current_h - i_surf_avg) ** 2 * ds(markers.right_cc))) / l_right_cc) ** 0.5
+    print("Relative Radius: " + args.outdir.split('/')[-1] + " STD:", i_surf_std / i_surf_avg)
