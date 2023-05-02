@@ -18,7 +18,7 @@ CELL_TYPES = commons.CellTypes()
 resolution = 0.1
 scale_factor = [100e-6, 100e-6, 0]
 program = 'gitt_geometry.geo'  # 'semicircle.geo'  # 'gitt.geo'
-msh_fpath = "mesh/gitt/mesh.msh"
+
 
 
 def create_geometry(relative_radius, outdir, scale_factor=scale_factor):
@@ -36,6 +36,7 @@ def create_geometry(relative_radius, outdir, scale_factor=scale_factor):
     right_ccs = []
     insulateds = []
     left_ccs = []
+    msh_fpath = os.path.join(outdir, "mesh.msh")
     for line in lines:
         com = gmsh.model.occ.getCenterOfMass(line[0], line[1])
         if np.isclose(com[0], 10):
