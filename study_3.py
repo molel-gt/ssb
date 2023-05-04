@@ -44,7 +44,6 @@ U_therm = 0
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument('--outdir', help='Working directory', required=True)
-    parser.add_argument("--voltage", help="Potential to set at the left current collector. Right current collector is set to a potential of 0", nargs='?', const=1, default=1)
 
     args = parser.parse_args()
     work_dir = args.outdir
@@ -111,3 +110,5 @@ if __name__ == '__main__':
     i_surf_avg = dolfinx.fem.assemble_scalar(dolfinx.fem.form(current_h * ds(markers.right_cc))) / l_right_cc
     i_surf_std = (dolfinx.fem.assemble_scalar(dolfinx.fem.form((current_h - i_surf_avg) ** 2 * ds(markers.right_cc))) / l_right_cc) ** 0.5
     print("Relative Radius: " + args.outdir.split('/')[-1] + ", STD:", i_surf_std / i_surf_avg)
+    Wa = KAPPA * R * T / (l_left_cc * F_c * i0)
+    # print(f"Wa: {Wa}")
