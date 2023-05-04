@@ -63,6 +63,7 @@ if __name__ == '__main__':
     #     pickle.dump(contact_points, fp, protocol=pickle.HIGHEST_PROTOCOL)
     r = 2 * Lx * (eps/np.pi) ** 0.5
     xc, yc = 0.5 * Lx, 0.5 * Ly
+    res1 = subprocess.check_call(f'sed -i "/cov=*/c\cov={eps};" contact-loss.geo', shell=True)
     res = subprocess.check_call(f"gmsh -3 contact-loss.geo -o {tetr_mshfile}", shell=True)
     tet_msh = meshio.read(tetr_mshfile)
     tetr_mesh_unscaled = geometry.create_mesh(tet_msh, "tetra")
