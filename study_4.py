@@ -181,7 +181,7 @@ if __name__ == '__main__':
     logger.info("Total Area [sq. um]                             : {:.4e}".format(area_left_cc + area_right_cc + insulated_area))
     logger.info(f"Electrolyte Volume [cu. um]                     : {volume:.4e}")
     logger.info("Electrolyte Volume Fraction                     : {:.2%}".format(volume/(Lx * Ly * Lz)))
-    logger.info("Bulk conductivity [S.m-1]                       : {:.4e}".format(0.1))
+    logger.info("Bulk conductivity [S.m-1]                       : {:.4e}".format(KAPPA))
     logger.info("Effective conductivity [S.m-1]                  : {:.4e}".format(Lz * area_left_cc * i_left_cc / (voltage * (Lx * Ly))))
     logger.info(f"Homogeneous Neumann BC trace                    : {solution_trace_norm:.2e}")
     logger.info(f"Area-averaged Homogeneous Neumann BC trace      : {avg_solution_trace_norm:.2e}")
