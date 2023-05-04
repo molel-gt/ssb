@@ -36,7 +36,7 @@ voltage = 0
 tau_hat = 5e-6 ** 2 / D0
 
 pulse_iter = 10
-i_sup = 1e-6
+i_sup = 1e-4
 phi_m = 0
 U_therm = 0
 
@@ -52,9 +52,9 @@ if __name__ == '__main__':
     data_dir = args.data_dir
     voltage = args.voltage
     scaling = configs.get_configs()['VOXEL_SCALING']
-    scale_x = float(scaling['x'])
-    scale_y = float(scaling['y'])
-    scale_z = float(scaling['z'])
+    scale_x = 10e-6  # float(scaling['x'])
+    scale_y = 10e-6  # float(scaling['y'])
+    scale_z = 10e-6  # float(scaling['z'])
     loglevel = configs.get_configs()['LOGGING']['level']
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -117,33 +117,27 @@ if __name__ == '__main__':
 
     # bulk conductivity [S.m-1]
     kappa = dolfinx.fem.Constant(domain, PETSc.ScalarType(KAPPA))
-    f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
-    g = dolfinx.fem.Constant(domain, PETSc.ScalarType(0.0))
+    f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
+    g = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
 
     F = kappa * ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
     F -= ufl.inner(f, v) * ufl.dx
-    bcs = []
+    bcs = [x0bc, x1bc]
     F += ufl.inner(g, v) * ds(markers.insulated)
     # s = fem.Constant(domain, PETSc.ScalarType(U_therm))
     r = fem.Constant(domain, PETSc.ScalarType(i0 * z * F_c / (R * T)))
     g_1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(i_sup))
-    F += ufl.inner(g_1, v) * ds(markers.left_cc)
-    F += r * ufl.inner(phi_m - u - U_therm, v) * ds(markers.right_cc)
+    # F += ufl.inner(g_1, v) * ds(markers.right_cc)
+    # F += r * ufl.inner(phi_m - u - U_therm, v) * ds(markers.left_cc)
     options = {
         "ksp_type": "gmres",
         "pc_type": "hypre",
-        "ksp_rtol": 1.0e-14,
+        "ksp_rtol": 1.0e-16,
     }
     a = ufl.lhs(F)
     L = ufl.rhs(F)
 
     model = fem.petsc.LinearProblem(a, L, bcs=bcs, petsc_options=options)
-
-    options = {
-               "ksp_type": "gmres",
-               "pc_type": "hypre",
-               "ksp_rtol": 1.0e-12
-               }
 
     logger.debug('Solving problem..')
     uh = model.solve()
@@ -160,7 +154,7 @@ if __name__ == '__main__':
     grad_u = ufl.grad(uh)
 
     W = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 1))
-    current_expr = dolfinx.fem.Expression(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
+    current_expr = dolfinx.fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
     current_h = dolfinx.fem.Function(W)
     current_h.interpolate(current_expr)
 
@@ -171,9 +165,9 @@ if __name__ == '__main__':
     insulated_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds))
     area_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(markers.left_cc)))
     area_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(markers.right_cc)))
-    i_left_cc = (1/area_left_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.left_cc)))
-    i_right_cc = (1/area_right_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.right_cc)))
-    i_insulated = (1/insulated_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.insulated)))
+    i_left_cc = (1/area_left_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.left_cc)))
+    i_right_cc = (1/area_right_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.right_cc)))
+    i_insulated = (1/insulated_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.insulated)))
     volume = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(domain)))
     solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
     avg_solution_trace_norm = solution_trace_norm / insulated_area

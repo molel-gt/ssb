@@ -27,9 +27,9 @@ if __name__ == '__main__':
     phase = args.phase
     eps = float(args.eps)
     scaling = configs.get_configs()['VOXEL_SCALING']
-    scale_x = float(scaling['x'])
-    scale_y = float(scaling['y'])
-    scale_z = float(scaling['z'])
+    scale_x = 10e-6  # float(scaling['x'])
+    scale_y = 10e-6  # float(scaling['y'])
+    scale_z = 10e-6  # float(scaling['z'])
     scale_factor = (scale_x, scale_y, scale_z)
     dp = int(configs.get_configs()['GEOMETRY']['dp'])
     h = float(configs.get_configs()['GEOMETRY']['h'])
