@@ -6,6 +6,7 @@ meshio
 networkx
 numpy
 opencv-python
+openpyxl
 pandas
 pybamm
 pyvista
