@@ -68,15 +68,26 @@ if __name__ == '__main__':
     top_cc = []
     bottom_cc = []
     insulated = []
-    for i in range(-1, len(g_points)-1):
-        line = gmsh.model.occ.addLine(g_points[i], g_points[i + 1])
-        channel_lines.append(line)
-        if i == 1:
-            top_cc.append(line)
-        elif i in list(range(4, len(g_points), 2)):
-            bottom_cc.append(line)
-        else:
-            insulated.append(line)
+    if n_pieces > 1:
+        for i in range(-1, len(g_points)-1):
+            line = gmsh.model.occ.addLine(g_points[i], g_points[i + 1])
+            channel_lines.append(line)
+            if i == 1:
+                top_cc.append(line)
+            elif i in list(range(4, len(g_points), 2)):
+                bottom_cc.append(line)
+            else:
+                insulated.append(line)
+    else:
+        for i in range(-1, len(g_points)-1):
+            line = gmsh.model.occ.addLine(g_points[i], g_points[i + 1])
+            channel_lines.append(line)
+            if i == 1:
+                top_cc.append(line)
+            elif i == 0:  # in list(range(4, len(g_points), 2)):
+                bottom_cc.append(line)
+            else:
+                insulated.append(line)
     channel_loop = gmsh.model.occ.addCurveLoop(channel_lines)
     channel = gmsh.model.occ.addPlaneSurface((1, channel_loop))
 
