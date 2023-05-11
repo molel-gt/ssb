@@ -29,15 +29,15 @@ if __name__ == '__main__':
     Ly = args.Ly
     w = args.w / Lx
     h = args.h / Ly
-    resolution = 0.005
+    resolution = 0.001
     meshname = f'current_constriction/{h:.3}_{w:.3}_pos-{pos}_pieces-{n_pieces}_{eps}'
     utils.make_dir_if_missing('current_constriction')
 
     gmsh.initialize()
     gmsh.model.add("constriction")
-    gmsh.option.setNumber("General.ExpertMode", 1)
+    # gmsh.option.setNumber("General.ExpertMode", 1)
     gmsh.option.setNumber("Mesh.MeshSizeMin", 0.005)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.01)
     dx = Lx * (eps / n_pieces)
     intervals = []
     if np.isclose(n_pieces, 1):
@@ -80,11 +80,12 @@ if __name__ == '__main__':
                 insulated.append(line)
     else:
         for i in range(-1, len(g_points)-1):
+            print(i)
             line = gmsh.model.occ.addLine(g_points[i], g_points[i + 1])
             channel_lines.append(line)
             if i == 1:
                 top_cc.append(line)
-            elif i == 0:  # in list(range(4, len(g_points), 2)):
+            elif i == -1:
                 bottom_cc.append(line)
             else:
                 insulated.append(line)
