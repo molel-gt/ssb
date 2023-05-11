@@ -41,7 +41,10 @@ if __name__ == '__main__':
     dx = Lx * (eps / n_pieces)
     intervals = []
     if n_pieces == 1:
-        intervals.append((0.5 * Lx - 0.5 * eps * Lx, 0.5 * Lx + 0.5 * eps * Lx))
+        if np.isclose(eps, 1):
+            pass
+        else:
+            intervals.append((0.5 * Lx - 0.5 * eps * Lx, 0.5 * Lx + 0.5 * eps * Lx))
     else:
         space = Lx * ((0.875 - 0.125) - eps) / (n_pieces - 1)
         for i in range(1, n_pieces + 1):
