@@ -40,7 +40,7 @@ if __name__ == '__main__':
     gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
     dx = Lx * (eps / n_pieces)
     intervals = []
-    if n_pieces == 1:
+    if np.isclose(n_pieces, 1):
         if np.isclose(eps, 1):
             pass
         else:
