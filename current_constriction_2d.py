@@ -12,11 +12,11 @@ import ufl
 from mpi4py import MPI
 from petsc4py import PETSc
 
-import utils
+import commons, utils
 
 positions = ['left', 'mid', 'right']
-KAPPA = 0.1 # 0.1 S/m == mS/cm
-
+KAPPA = 0.1  # 0.1 S/m == mS/cm
+markers = commons.SurfaceMarkers()
 
 def insulator_moved_around(x, coverage, Lx, Ly, pos='mid', xlim=[0.125, 0.875], n_pieces=0):
         if n_pieces > 1 and pos != 'mid':
@@ -91,18 +91,16 @@ if __name__ == '__main__':
             ct = infile3.read_meshtags(msh, name="Grid")
     msh.topology.create_connectivity(msh.topology.dim, msh.topology.dim - 1)
     with dolfinx.io.XDMFFile(MPI.COMM_WORLD, f"{line_meshname}.xdmf", "r") as infile3:
-        mesh_facets = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
-        facets_ct = infile3.read_meshtags(msh, name="Grid")
+        ft = infile3.read_meshtags(msh, name="Grid")
 
-    left_cc_marker, right_cc_marker, insulated_marker = sorted([int(v) for v in set(facets_ct.values)])
+    # left_cc_marker, right_cc_marker, insulated_marker = sorted([int(v) for v in set(facets_ct.values)])
 
     Q = dolfinx.fem.FunctionSpace(msh, ("DG", 0))
-    kappa = 0.1
 
     V = dolfinx.fem.FunctionSpace(msh, ("Lagrange", 1))
-    line_meshtags = dolfinx.mesh.meshtags(msh, 1, facets_ct.indices, facets_ct.values)
+    meshtags = dolfinx.mesh.meshtags(msh, msh.topology.dim - 1, ft.indices, ft.values)
     n = -ufl.FacetNormal(msh)
-    ds = ufl.Measure("ds", domain=msh, subdomain_data=line_meshtags, subdomain_id=insulated_marker)
+    ds = ufl.Measure("ds", domain=msh, subdomain_data=meshtags)
     u = ufl.TrialFunction(V)
     v = ufl.TestFunction(V)
     x = ufl.SpatialCoordinate(msh)
@@ -119,19 +117,19 @@ if __name__ == '__main__':
         u1_loc.set(0)
 
     # partially_insulated = insulator_moved_around(x, eps, Lx, Ly, n_pieces=n_pieces, pos=pos)
-    x0facet = np.array(facets_ct.indices[facets_ct.values == left_cc_marker])
-    x1facet = np.array(facets_ct.indices[facets_ct.values == right_cc_marker])
+    x0facet = ft.find(markers.left_cc)
+    x1facet = ft.find(markers.right_cc)
     x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 1, x0facet))
     x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 1, x1facet))
 
-    a = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
-    L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ufl.ds
+    a = ufl.inner(KAPPA * ufl.grad(u), ufl.grad(v)) * ufl.dx
+    L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ufl.ds(markers.insulated)
 
-    options =  {
+    options = {
                 "ksp_type": "gmres",
                 "pc_type": "hypre",
-                "ksp_atol": 1.0e-12,
-                "ksp_rtol": 1.0e-12
+                # "ksp_atol": 1.0e-12,
+                "ksp_rtol": 1.0e-16
                 }
     problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options=options)
     uh = problem.solve()
@@ -143,37 +141,35 @@ if __name__ == '__main__':
 
     W = dolfinx.fem.FunctionSpace(msh, ("Lagrange", 1))
 
-    current_expr = dolfinx.fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
+    current_expr = dolfinx.fem.Expression(KAPPA * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
     current_h = dolfinx.fem.Function(W)
     current_h.interpolate(current_expr)
 
     with dolfinx.io.XDMFFile(MPI.COMM_WORLD, f"current_constriction/{h:.3}_{w:.3}_{eps:.4}_{voltage}_pos-{pos}_pieces-{n_pieces}_current.xdmf", "w") as file:
         file.write_mesh(msh)
         file.write_function(current_h)
-    
-    ds_left_cc = ufl.Measure('ds', domain=msh, subdomain_data=line_meshtags, subdomain_id=left_cc_marker)
-    ds_right_cc = ufl.Measure('ds', domain=msh, subdomain_data=line_meshtags, subdomain_id=right_cc_marker)
 
-    insulated_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds))
-    area_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_left_cc))
-    area_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_right_cc))
-    i_left_cc = (1/area_left_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(KAPPA * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds_left_cc))
-    i_right_cc = (1/area_right_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(KAPPA * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds_right_cc))
-    i_insulated = (1/insulated_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(KAPPA * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds))
+    insulated_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(markers.insulated)))
+    area_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(markers.left_cc)))
+    area_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(markers.right_cc)))
+    total_area = area_left_cc + area_right_cc + insulated_area
+    i_left_cc = (1/area_left_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(KAPPA * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.left_cc)))
+    i_right_cc = (1/area_right_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(KAPPA * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.right_cc)))
+    i_insulated = (1/insulated_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(KAPPA * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.insulated)))
     total_volume = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(msh)))
-    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
+    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds(markers.insulated))) ** 0.5
     avg_solution_trace_norm = solution_trace_norm / insulated_area
     deviation_in_current = np.around(100 * 2 * np.abs(area_left_cc * i_left_cc - area_right_cc * i_right_cc) / (area_left_cc * i_left_cc + area_right_cc * i_right_cc), 2)
     logger.info("**************************RESULTS-SUMMARY******************************************")
-    logger.info("Contact Area @ left cc                          : {:.0f}".format(area_left_cc))
-    logger.info("Contact Area @ right cc                         : {:.0f}".format(area_right_cc))
+    logger.info("Contact Area @ left cc                          : {:.1f}".format(area_left_cc))
+    logger.info("Contact Area @ right cc                         : {:.1f}".format(area_right_cc))
     logger.info("Current density @ left cc                       : {:.6f}".format(i_left_cc))
     logger.info("Current density @ right cc                      : {:.6f}".format(i_right_cc))
-    logger.info("Insulated Area                                  : {:,}".format(int(insulated_area)))
-    logger.info("Total Area                                      : {:,}".format(int(area_left_cc + area_right_cc + insulated_area)))
+    logger.info("Insulated Area                                  : {:.1f}".format(insulated_area))
+    logger.info("Total Area                                      : {:.1f}".format(total_area))
     logger.info("Total Volume                                    : {:,}".format(int(total_volume)))
     logger.info("Electrolyte Volume Fraction                     : {:0.4f}".format(total_volume/(Lx * Ly * 1)))
-    logger.info("Bulk conductivity [S.m-1]                       : {:.4f}".format(0.1))
+    logger.info("Bulk conductivity [S.m-1]                       : {:.4f}".format(KAPPA))
     logger.info("Effective conductivity [S.m-1]                  : {:.4f}".format(Ly * area_left_cc * i_left_cc / (voltage * (Lx * 1))))
     logger.info(f"Homogeneous Neumann BC trace                    : {solution_trace_norm:.2e}")
     logger.info(f"Area-averaged Homogeneous Neumann BC trace      : {avg_solution_trace_norm:.2e}")
