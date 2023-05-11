@@ -40,7 +40,7 @@ if __name__ == '__main__':
     gmsh.model.add("constriction")
     # gmsh.option.setNumber("General.ExpertMode", 1)
     # gmsh.option.setNumber("Mesh.MeshSizeMin", resolution)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.0005)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.005)
     dx = Lx * (eps / n_pieces)
     intervals = []
     if np.isclose(n_pieces, 1):
