@@ -80,7 +80,6 @@ if __name__ == '__main__':
                 insulated.append(line)
     else:
         for i in range(-1, len(g_points)-1):
-            print(i)
             line = gmsh.model.occ.addLine(g_points[i], g_points[i + 1])
             channel_lines.append(line)
             if i == 1:
