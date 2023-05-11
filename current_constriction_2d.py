@@ -97,7 +97,7 @@ if __name__ == '__main__':
     left_cc_marker, right_cc_marker, insulated_marker = sorted([int(v) for v in set(facets_ct.values)])
 
     Q = dolfinx.fem.FunctionSpace(msh, ("DG", 0))
-    kappa = 1.0
+    kappa = 0.1
 
     V = dolfinx.fem.FunctionSpace(msh, ("Lagrange", 1))
     line_meshtags = dolfinx.mesh.meshtags(msh, 1, facets_ct.indices, facets_ct.values)
@@ -143,7 +143,7 @@ if __name__ == '__main__':
 
     W = dolfinx.fem.FunctionSpace(msh, ("Lagrange", 1))
 
-    current_expr = dolfinx.fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points)
+    current_expr = dolfinx.fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
     current_h = dolfinx.fem.Function(W)
     current_h.interpolate(current_expr)
 
