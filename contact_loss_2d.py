@@ -8,7 +8,10 @@ import numpy as np
 
 from mpi4py import MPI
 
-import geometry, utils
+import commons, geometry, utils
+
+
+markers = commons.SurfaceMarkers()
 
 
 if __name__ == '__main__':
@@ -29,15 +32,15 @@ if __name__ == '__main__':
     Ly = args.Ly
     w = args.w / Lx
     h = args.h / Ly
-    resolution = 0.001
+    resolution = 0.0001
     meshname = f'current_constriction/{h:.3}_{w:.3}_pos-{pos}_pieces-{n_pieces}_{eps}'
     utils.make_dir_if_missing('current_constriction')
 
     gmsh.initialize()
     gmsh.model.add("constriction")
     # gmsh.option.setNumber("General.ExpertMode", 1)
-    gmsh.option.setNumber("Mesh.MeshSizeMin", 0.005)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.001)
+    # gmsh.option.setNumber("Mesh.MeshSizeMin", resolution)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.0005)
     dx = Lx * (eps / n_pieces)
     intervals = []
     if np.isclose(n_pieces, 1):
@@ -62,20 +65,22 @@ if __name__ == '__main__':
     g_points = []
     for p in points:
         g_points.append(
-            gmsh.model.occ.addPoint(*p, meshSize=resolution)
+            gmsh.model.occ.addPoint(*p)
         )
+    # rotation
+    gmsh.model.occ.rotate([(0, p) for p in g_points], 0.5 * Lx, 0.5 * Ly, 0, 0, 0, 1, 0.5 * np.pi)
     channel_lines = []
-    top_cc = []
-    bottom_cc = []
+    left_cc = []
+    right_cc = []
     insulated = []
     if n_pieces > 1:
         for i in range(-1, len(g_points)-1):
             line = gmsh.model.occ.addLine(g_points[i], g_points[i + 1])
             channel_lines.append(line)
             if i == 1:
-                top_cc.append(line)
+                left_cc.append(line)
             elif i in list(range(4, len(g_points), 2)):
-                bottom_cc.append(line)
+                right_cc.append(line)
             else:
                 insulated.append(line)
     else:
@@ -83,25 +88,39 @@ if __name__ == '__main__':
             line = gmsh.model.occ.addLine(g_points[i], g_points[i + 1])
             channel_lines.append(line)
             if i == 1:
-                top_cc.append(line)
+                left_cc.append(line)
             elif i == -1:
-                bottom_cc.append(line)
+                right_cc.append(line)
             else:
                 insulated.append(line)
+
     channel_loop = gmsh.model.occ.addCurveLoop(channel_lines)
     channel = gmsh.model.occ.addPlaneSurface((1, channel_loop))
 
     gmsh.model.occ.synchronize()
+
     surfaces = gmsh.model.getEntities(dim=2)
     gmsh.model.addPhysicalGroup(2, [surfaces[0][1]], 1)
-    y0_tag = gmsh.model.addPhysicalGroup(1, bottom_cc)
-    gmsh.model.setPhysicalName(1, y0_tag, "bottom_cc")
-    yl_tag = gmsh.model.addPhysicalGroup(1, top_cc)
-    gmsh.model.setPhysicalName(1, yl_tag, "top_cc")
+    y0_tag = gmsh.model.addPhysicalGroup(1, right_cc, markers.right_cc)
+    gmsh.model.setPhysicalName(1, y0_tag, "right_cc")
+    yl_tag = gmsh.model.addPhysicalGroup(1, left_cc, markers.left_cc)
+    gmsh.model.setPhysicalName(1, yl_tag, "left_cc")
     insulated = gmsh.model.addPhysicalGroup(1, insulated)
     gmsh.model.setPhysicalName(1, insulated, "insulated")
     gmsh.model.occ.synchronize()
-
+    # refinement
+    gmsh.model.mesh.field.add("Distance", 1)
+    gmsh.model.mesh.field.setNumbers(1, "EdgesList", [yl_tag, y0_tag, insulated])
+    gmsh.model.mesh.field.add("Threshold", 2)
+    gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    gmsh.model.mesh.field.setNumber(2, "LcMin", resolution)
+    gmsh.model.mesh.field.setNumber(2, "LcMax", 10 * resolution)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 0)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 10 * resolution)
+    gmsh.model.mesh.field.add("Max", 5)
+    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(2)
     gmsh.write(f"{meshname}.msh")
     gmsh.finalize()
