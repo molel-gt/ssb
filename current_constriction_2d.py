@@ -71,7 +71,7 @@ if __name__ == '__main__':
     start = time.time()
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
-    logger = logging.getLogger('current_constriction')
+    logger = logging.getLogger(f'current_constriction:{args.n_pieces}:{args.eps}:{args.voltage}')
     logger.setLevel('INFO')
     pos = args.pos
     n_pieces = int(args.n_pieces)
@@ -125,12 +125,13 @@ if __name__ == '__main__':
     a = ufl.inner(KAPPA * ufl.grad(u), ufl.grad(v)) * ufl.dx
     L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ufl.ds(markers.insulated)
 
-    options = {
-                "ksp_type": "gmres",
-                "pc_type": "hypre",
-                # "ksp_atol": 1.0e-12,
-                "ksp_rtol": 1.0e-16
-                }
+    # options = {
+    #             "ksp_type": "gmres",
+    #             "pc_type": "hypre",
+    #             # "ksp_atol": 1.0e-12,
+    #             "ksp_rtol": 1.0e-16
+    #             }
+    options = {"ksp_type": "preonly", "pc_type": "lu"}
     problem = dolfinx.fem.petsc.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options=options)
     uh = problem.solve()
 
