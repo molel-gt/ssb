@@ -15,7 +15,7 @@ phases = commons.Phases()
 CELL_TYPES = commons.CellTypes()
 
 # meshing
-resolution = 0.1
+resolution = 0.005
 scaling_factor = (100e-6, 100e-6, 0)
 program = 'gitt_geometry.geo'  # 'semicircle.geo'  # 'gitt.geo'
 
@@ -24,8 +24,8 @@ def create_geometry(relative_radius, outdir, scale_factor=scaling_factor):
     utils.make_dir_if_missing(outdir)
     gmsh.initialize()
     gmsh.model.add("gitt")
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 1e-3)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.1)
+    # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 1e-3)
+    # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.05)
     cloop1 = gmsh.model.occ.addRectangle(0, 0, 0, 10, 10)
     cloop2 = gmsh.model.occ.addCurveLoop([gmsh.model.occ.addCircle(5, 5, 0, relative_radius * 5)])
     gmsh.model.occ.synchronize()
@@ -53,6 +53,19 @@ def create_geometry(relative_radius, outdir, scale_factor=scaling_factor):
     insulated = gmsh.model.addPhysicalGroup(1, insulateds, markers.insulated)
     gmsh.model.setPhysicalName(1, insulated, "insulated")
     gmsh.model.addPhysicalGroup(2, [surf], 1)
+    # refinement
+    gmsh.model.mesh.field.add("Distance", 1)
+    gmsh.model.mesh.field.setNumbers(1, "EdgesList", [left_cc, right_cc, insulated])
+    gmsh.model.mesh.field.add("Threshold", 2)
+    gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    gmsh.model.mesh.field.setNumber(2, "LcMin", resolution/100)
+    gmsh.model.mesh.field.setNumber(2, "LcMax", 10 * resolution)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", resolution)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 10 * resolution)
+    gmsh.model.mesh.field.add("Max", 5)
+    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(2)
     gmsh.write(msh_fpath)
     gmsh.finalize()
