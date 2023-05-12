@@ -84,6 +84,7 @@ if __name__ == '__main__':
     with io.XDMFFile(domain.comm, os.path.join(args.outdir, "potential.xdmf"), "w") as file:
         file.write_mesh(domain)
         file.write_function(uh)
+
     # compute current density
     W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
     grad_u = ufl.grad(uh)
@@ -95,6 +96,7 @@ if __name__ == '__main__':
     with io.XDMFFile(MPI.COMM_WORLD, os.path.join(args.outdir, "current.xdmf"), "w") as file:
         file.write_mesh(domain)
         file.write_function(current_h)
+
     # compute standard deviation of current
     l_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
     l_left_cc = fem.assemble_scalar(fem.form(1 * ds(markers.left_cc)))
