@@ -25,9 +25,9 @@ T = 298  # [K]
 z = 1
 voltage = 0
 
-i_sup = 1e-2
-phi_m = 0
-U_therm = 0
+i_sup = 1e-2  # [A/m^2]
+phi_m = 0  # [V]
+U_therm = 0  # [V]
 
 
 if __name__ == '__main__':
