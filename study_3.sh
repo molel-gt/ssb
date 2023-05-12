@@ -10,4 +10,5 @@ python3 study_3.py --outdir mesh/study_3/0.6
 python3 study_3.py --outdir mesh/study_3/0.7
 python3 study_3.py --outdir mesh/study_3/0.8
 python3 study_3.py --outdir mesh/study_3/0.9
+
 cp -R mesh/study_3 data/
