@@ -47,13 +47,16 @@ if __name__ == '__main__':
     tags = mesh.meshtags(domain, domain.topology.dim - 1, ft.indices, ft.values)
     left_cc = ft.find(markers.left_cc)
     right_cc = ft.find(markers.right_cc)
-    V = fem.VectorFunctionSpace(domain, ("Lagrange", 2))
+    V = fem.FunctionSpace(domain, ("Lagrange", 2))
 
-    # f = fem.Constant(domain, PETSc.ScalarType(0))
-    # g = fem.Constant(domain, PETSc.ScalarType(0))
-    f = ufl.as_vector((0, 0, 0))
-    g = ufl.as_vector((0, 0, 0))
-    g_1 = ufl.as_vector((i_sup, 0, 0))
+    f = fem.Constant(domain, PETSc.ScalarType(0))
+    g = fem.Constant(domain, PETSc.ScalarType(0))
+    g_1 = fem.Constant(domain, PETSc.ScalarType(i_sup))
+    r = fem.Constant(domain, PETSc.ScalarType(i0 * z * F_c / (R * T)))
+    # s = fem.Constant(domain, PETSc.ScalarType(U_therm))
+    # f = ufl.as_vector((0, 0, 0))
+    # g = ufl.as_vector((0, 0, 0))
+    # g_1 = ufl.as_vector((i_sup, 0, 0))
     kappa = fem.Constant(domain, PETSc.ScalarType(KAPPA))
     ds = ufl.Measure("ds", domain=domain, subdomain_data=tags)
     dS = ufl.Measure("dS", domain=domain, subdomain_data=tags)
@@ -67,34 +70,33 @@ if __name__ == '__main__':
 
     F = kappa * ufl.inner(ufl.grad(u), ufl.grad(v)) * dx
     F -= ufl.inner(f, v) * dx
-    bcs = []
     F += ufl.inner(g, v) * ds(markers.insulated)
-    # s = fem.Constant(domain, PETSc.ScalarType(U_therm))
-    r = fem.Constant(domain, PETSc.ScalarType(i0 * z * F_c / (R * T)))
-    # g_1 = fem.Constant(domain, PETSc.ScalarType(i_sup))
     F += ufl.inner(g_1, v) * ds(markers.left_cc)
-    # F += r * ufl.inner(ufl.as_vector((phi_m, 0, 0)) - u - ufl.as_vector((U_therm, 0, 0)), v) * ds(markers.right_cc)
-    F += r * (phi_m - ufl.inner(u, v) - U_therm) * ds(markers.right_cc)
+    F += r * ufl.inner(phi_m - u - U_therm, v) * ds(markers.right_cc)
+    # F += r * (phi_m - ufl.inner(u, v) - U_therm) * ds(markers.right_cc)
     options = {
                 "ksp_type": "gmres",
                 "pc_type": "hypre",
-                "ksp_rtol": 1.0e-18,
+                "ksp_rtol": 1e-12,
             }
     a = ufl.lhs(F)
     L = ufl.rhs(F)
-
+    bcs = []
     problem2 = fem.petsc.LinearProblem(a, L, bcs=bcs, petsc_options=options)
     uh = problem2.solve()
+
     # write potential to file
     with io.XDMFFile(domain.comm, os.path.join(args.outdir, "potential.xdmf"), "w") as file:
         file.write_mesh(domain)
         file.write_function(uh)
     W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
-    # grad_u = ufl.sym(ufl.grad(uh)) * ufl.Identity(len(uh))
     grad_u = ufl.grad(uh)
-    current_expr = fem.Expression(-kappa * ufl.dot(grad_u, n), W.element.interpolation_points())
+    # grad_u = ufl.sym(ufl.grad(uh)) * ufl.Identity(len(uh))
+    # n = ufl.Identity(len(uh)) * ufl.as_vector((1, 0))
+    current_expr = fem.Expression(-kappa * ufl.inner(grad_u, n), W.element.interpolation_points())
     current_h = fem.Function(W)
     current_h.interpolate(current_expr)
+
     # write current to file
     with io.XDMFFile(MPI.COMM_WORLD, os.path.join(args.outdir, "current.xdmf"), "w") as file:
         file.write_mesh(domain)
