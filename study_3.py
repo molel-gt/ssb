@@ -4,6 +4,8 @@ import os
 import time
 
 import argparse
+
+import numpy as np
 import ufl
 
 from dolfinx import cpp, fem, io, mesh
@@ -47,16 +49,11 @@ if __name__ == '__main__':
     tags = mesh.meshtags(domain, domain.topology.dim - 1, ft.indices, ft.values)
     left_cc = ft.find(markers.left_cc)
     right_cc = ft.find(markers.right_cc)
-    V = fem.FunctionSpace(domain, ("Lagrange", 2))
 
     f = fem.Constant(domain, PETSc.ScalarType(0))
     g = fem.Constant(domain, PETSc.ScalarType(0))
     g_1 = fem.Constant(domain, PETSc.ScalarType(i_sup))
     r = fem.Constant(domain, PETSc.ScalarType(i0 * z * F_c / (R * T)))
-    # s = fem.Constant(domain, PETSc.ScalarType(U_therm))
-    # f = ufl.as_vector((0, 0, 0))
-    # g = ufl.as_vector((0, 0, 0))
-    # g_1 = ufl.as_vector((i_sup, 0, 0))
     kappa = fem.Constant(domain, PETSc.ScalarType(KAPPA))
     ds = ufl.Measure("ds", domain=domain, subdomain_data=tags)
     dS = ufl.Measure("dS", domain=domain, subdomain_data=tags)
@@ -64,8 +61,7 @@ if __name__ == '__main__':
     x = ufl.SpatialCoordinate(domain)
     n = ufl.FacetNormal(domain)
 
-    tags = mesh.meshtags(domain, domain.topology.dim - 1, ft.indices, ft.values)
-
+    V = fem.FunctionSpace(domain, ("Lagrange", 2))
     u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
 
     F = kappa * ufl.inner(ufl.grad(u), ufl.grad(v)) * dx
@@ -73,7 +69,6 @@ if __name__ == '__main__':
     F += ufl.inner(g, v) * ds(markers.insulated)
     F += ufl.inner(g_1, v) * ds(markers.left_cc)
     F += r * ufl.inner(phi_m - u - U_therm, v) * ds(markers.right_cc)
-    # F += r * (phi_m - ufl.inner(u, v) - U_therm) * ds(markers.right_cc)
     options = {
                 "ksp_type": "gmres",
                 "pc_type": "hypre",
@@ -89,11 +84,10 @@ if __name__ == '__main__':
     with io.XDMFFile(domain.comm, os.path.join(args.outdir, "potential.xdmf"), "w") as file:
         file.write_mesh(domain)
         file.write_function(uh)
+    # compute current density
     W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
     grad_u = ufl.grad(uh)
-    # grad_u = ufl.sym(ufl.grad(uh)) * ufl.Identity(len(uh))
-    # n = ufl.Identity(len(uh)) * ufl.as_vector((1, 0))
-    current_expr = fem.Expression(-kappa * ufl.inner(grad_u, n), W.element.interpolation_points())
+    current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
     current_h = fem.Function(W)
     current_h.interpolate(current_expr)
 
@@ -104,10 +98,9 @@ if __name__ == '__main__':
     # compute standard deviation of current
     l_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
     l_left_cc = fem.assemble_scalar(fem.form(1 * ds(markers.left_cc)))
-    I_right = fem.assemble_scalar(fem.form(current_h * ds(markers.right_cc)))
-    I_left = fem.assemble_scalar(fem.form(current_h * ds(markers.left_cc)))
-
-    i_surf_avg = fem.assemble_scalar(fem.form(current_h * ds(markers.right_cc))) / l_right_cc
-    i_surf_std = (fem.assemble_scalar(fem.form((current_h - i_surf_avg) ** 2 * ds(markers.right_cc))) / l_right_cc) ** 0.5
+    I_right = fem.assemble_scalar(fem.form(ufl.inner(n, current_h) * ds(markers.right_cc)))
+    I_left = fem.assemble_scalar(fem.form(ufl.inner(n, current_h) * ds(markers.left_cc)))
+    i_surf_avg = fem.assemble_scalar(fem.form(ufl.inner(n, current_h) * ds(markers.right_cc))) / l_right_cc
+    i_surf_std = (fem.assemble_scalar(fem.form((ufl.inner(n, current_h) - i_surf_avg) ** 2 * ds(markers.right_cc))) / l_right_cc) ** 0.5
     Wa = KAPPA * R * T / (l_left_cc * F_c * i0)
-    print("Relative Radius: " + args.outdir.split('/')[-1] + ", STD:", i_surf_std / i_surf_avg, "current left:", I_left, "current right:", I_right, "Wa:", Wa)
+    print("Relative Radius: " + args.outdir.split('/')[-1] + ", STD:", i_surf_std / np.abs(i_surf_avg), "current left:", I_left, "current right:", I_right, "Wa:", Wa)
