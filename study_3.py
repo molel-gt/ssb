@@ -19,7 +19,7 @@ markers = commons.SurfaceMarkers()
 # model parameters
 KAPPA = 1e-1  # [S/m]
 F_c = 96485  # [C/mol]
-i0 = 1e-3  # [A/m^2]
+i0 = 1e1  # [A/m^2]
 R = 8.314  # [J/K/mol]
 T = 298  # [K]
 z = 1
@@ -105,4 +105,6 @@ if __name__ == '__main__':
     i_surf_avg = fem.assemble_scalar(fem.form(ufl.inner(n, current_h) * ds(markers.right_cc))) / l_right_cc
     i_surf_std = (fem.assemble_scalar(fem.form((ufl.inner(n, current_h) - i_surf_avg) ** 2 * ds(markers.right_cc))) / l_right_cc) ** 0.5
     Wa = KAPPA * R * T / (l_left_cc * F_c * i0)
-    print("Relative Radius: " + args.outdir.split('/')[-1] + ", STD:", i_surf_std / np.abs(i_surf_avg), "current left:", I_left, "current right:", I_right, "Wa:", Wa)
+    std_norm = i_surf_std / np.abs(i_surf_avg)
+    rel_scale = args.outdir.split('/')[-1]
+    print(f"relative radius: {rel_scale}", f"Wa: {Wa}", f"norm stdev: {std_norm}", f"current left: {I_left:.2e}",  f"current right: {I_right:.2e}")
