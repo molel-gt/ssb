@@ -18,7 +18,7 @@ markers = commons.SurfaceMarkers()
 
 # model parameters
 KAPPA = 1e-1  # [S/m]
-F_c = 96485  # [C/mol]
+faraday_const = 96485  # [C/mol]
 i0 = 1e1  # [A/m^2]
 R = 8.314  # [J/K/mol]
 T = 298  # [K]
@@ -53,7 +53,7 @@ if __name__ == '__main__':
     f = fem.Constant(domain, PETSc.ScalarType(0))
     g = fem.Constant(domain, PETSc.ScalarType(0))
     g_1 = fem.Constant(domain, PETSc.ScalarType(i_sup))
-    r = fem.Constant(domain, PETSc.ScalarType(i0 * z * F_c / (R * T)))
+    r = fem.Constant(domain, PETSc.ScalarType(i0 * z * faraday_const / (R * T)))
     kappa = fem.Constant(domain, PETSc.ScalarType(KAPPA))
     ds = ufl.Measure("ds", domain=domain, subdomain_data=tags)
     dS = ufl.Measure("dS", domain=domain, subdomain_data=tags)
@@ -104,8 +104,8 @@ if __name__ == '__main__':
     I_left = fem.assemble_scalar(fem.form(ufl.inner(n, current_h) * ds(markers.left_cc)))
     i_surf_avg = fem.assemble_scalar(fem.form(ufl.inner(n, current_h) * ds(markers.right_cc))) / l_right_cc
     i_surf_std = (fem.assemble_scalar(fem.form((ufl.inner(n, current_h) - i_surf_avg) ** 2 * ds(markers.right_cc))) / l_right_cc) ** 0.5
-    Wa = KAPPA * R * T / (l_left_cc * F_c * i0)
+    Wa = KAPPA * R * T / (l_left_cc * faraday_const * i0)
     std_norm = i_surf_std / np.abs(i_surf_avg)
     rel_scale = args.outdir.split('/')[-1]
-    error = 2 * 100 * (abs(I_left) - abs(I_right)) / (abs(I_left) + abs(I_right))
-    print(f"relative radius: {rel_scale}", f"Wa: {Wa}", f"norm stdev: {std_norm}", f"current left: {I_left:.2e}",  f"current right: {I_right:.2e}", f"error: {error:.2}%")
+    error = 2 * 100 * abs(abs(I_left) - abs(I_right)) / (abs(I_left) + abs(I_right))
+    print(f"relative radius: {rel_scale}", f"Wa: {Wa}", f"norm stdev: {std_norm:.2f}", f"current left: {I_left:.2e}",  f"current right: {I_right:.2e}", f"error: {error:.2f}%")
