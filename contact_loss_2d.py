@@ -32,7 +32,7 @@ if __name__ == '__main__':
     Ly = args.Ly
     w = args.w / Lx
     h = args.h / Ly
-    resolution = 0.0001
+    resolution = 0.00005
     meshname = f'current_constriction/{h:.3}_{w:.3}_pos-{pos}_pieces-{n_pieces}_{eps}'
     utils.make_dir_if_missing('current_constriction')
 
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     gmsh.model.add("constriction")
     # gmsh.option.setNumber("General.ExpertMode", 1)
     # gmsh.option.setNumber("Mesh.MeshSizeMin", resolution)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.005)
+    # gmsh.option.setNumber("Mesh.MeshSizeMax", 0.01)
     dx = Lx * (eps / n_pieces)
     intervals = []
     if np.isclose(n_pieces, 1):
