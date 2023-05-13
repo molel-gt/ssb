@@ -35,7 +35,7 @@ if __name__ == '__main__':
     h = float(configs.get_configs()['GEOMETRY']['h'])
     origin_str = 'study_4'
     mesh_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], 'study_4', grid_info, str(eps))
-    Nx, Ny, Nz = [int(v) for v in grid_info.split("-")]
+    Nx, Ny, Nz = [float(v) for v in grid_info.split("-")]
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1

@@ -20,9 +20,9 @@ import commons, constants, configs
 markers = commons.SurfaceMarkers()
 
 # model parameters
-KAPPA = 1e-2  # [S/m]
+KAPPA = 1e-1  # [S/m]
 faraday_const = 96485  # [C/mol]
-i0 = 1e-4  # [A/m^2]
+i0 = 1e1  # [A/m^2]
 R = 8.314  # [J/K/mol]
 T = 298  # [K]
 z = 1
@@ -62,6 +62,7 @@ if __name__ == '__main__':
     Ly = Ly * scale_y
     Lz = Lz * scale_z
     xsection_area = Lx * Ly
+    Wa = KAPPA * R * T / (Lz * faraday_const * i0)
     tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
     output_current_path = os.path.join(data_dir, f'current.xdmf')
@@ -168,6 +169,7 @@ if __name__ == '__main__':
     error = 100 * 2 * np.abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
     kappa_eff = Lz * abs(I_left_cc) / (voltage * xsection_area)
     logger.info("**************************RESULTS-SUMMARY******************************************")
+    logger.info(f"Wa                                              : {Wa}")
     logger.info(f"Contact Area @ left cc [sq. m]                 : {area_left_cc:.4e}")
     logger.info(f"Contact Area @ right cc [sq. m]                : {area_right_cc:.4e}")
     logger.info(f"Current density @ left cc                       : {i_left_cc:.4e}")
