@@ -107,4 +107,5 @@ if __name__ == '__main__':
     Wa = KAPPA * R * T / (l_left_cc * F_c * i0)
     std_norm = i_surf_std / np.abs(i_surf_avg)
     rel_scale = args.outdir.split('/')[-1]
-    print(f"relative radius: {rel_scale}", f"Wa: {Wa}", f"norm stdev: {std_norm}", f"current left: {I_left:.2e}",  f"current right: {I_right:.2e}")
+    error = 2 * 100 * (abs(I_left) - abs(I_right)) / (abs(I_left) + abs(I_right))
+    print(f"relative radius: {rel_scale}", f"Wa: {Wa}", f"norm stdev: {std_norm}", f"current left: {I_left:.2e}",  f"current right: {I_right:.2e}", f"error: {error:.2}%")
