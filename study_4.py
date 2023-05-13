@@ -20,25 +20,16 @@ import commons, constants, configs
 markers = commons.SurfaceMarkers()
 
 # model parameters
-SIGMA = 1e-3  # S/m
-KAPPA = 1e-2  # S/m
-D0 = 1e-13  # m^2/s
-F_c = 96485  # C/mol
-i0 = 1e-4  # A/m^2
-dt = 1e-03  # millisecond
-t_iter = 15
-theta = 0.5  # time stepping family, e.g. theta=1 -> backward Euler, theta=0.5 -> Crank-Nicholson
-c_init = 0.01
-R = 8.314
-T = 298
+KAPPA = 1e-2  # [S/m]
+faraday_const = 96485  # [C/mol]
+i0 = 1e-4  # [A/m^2]
+R = 8.314  # [J/K/mol]
+T = 298  # [K]
 z = 1
-voltage = 0
-tau_hat = 5e-6 ** 2 / D0
-
-pulse_iter = 10
-i_sup = 1e-4
-phi_m = 0
-U_therm = 0
+voltage = 0  # [V]
+i_sup = 1e-1  # [A/m^2]
+phi_m = 0  # [V]
+U_therm = 0  # [V]
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
@@ -70,6 +61,7 @@ if __name__ == '__main__':
     Lx = Lx * scale_x
     Ly = Ly * scale_y
     Lz = Lz * scale_z
+    xsection_area = Lx * Ly
     tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
     output_current_path = os.path.join(data_dir, f'current.xdmf')
@@ -88,27 +80,27 @@ if __name__ == '__main__':
     with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile3:
         ft = infile3.read_meshtags(domain, name="Grid")
     
-    surf_meshtags = dolfinx.mesh.meshtags(domain, 2, ft.indices, ft.values)
+    meshtags = dolfinx.mesh.meshtags(domain, 2, ft.indices, ft.values)
     n = ufl.FacetNormal(domain)
-    ds = ufl.Measure("ds", domain=domain, subdomain_data=surf_meshtags)
+    ds = ufl.Measure("ds", domain=domain, subdomain_data=meshtags)
 
     # Dirichlet BCs
-    V = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 2))
-    u0 = dolfinx.fem.Function(V)
+    V = fem.FunctionSpace(domain, ("Lagrange", 2))
+    u0 = fem.Function(V)
     with u0.vector.localForm() as u0_loc:
         u0_loc.set(voltage)
 
-    u1 = dolfinx.fem.Function(V)
+    u1 = fem.Function(V)
     with u1.vector.localForm() as u1_loc:
         u1_loc.set(0.0)
     
     x0facet = ft.find(markers.left_cc)
     x1facet = ft.find(markers.right_cc)
     insulated_facet = ft.find(markers.insulated)
-    surf_meshtags = dolfinx.mesh.meshtags(domain, 2, ft.indices, ft.values)
+    meshtags = dolfinx.mesh.meshtags(domain, 2, ft.indices, ft.values)
 
-    x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 2, x0facet))
-    x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 2, x1facet))
+    x0bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 2, x0facet))
+    x1bc = fem.dirichletbc(u1, fem.locate_dofs_topological(V, 2, x1facet))
 
     # Define variational problem
     u = ufl.TrialFunction(V)
@@ -116,23 +108,23 @@ if __name__ == '__main__':
     x = ufl.SpatialCoordinate(domain)
 
     # bulk conductivity [S.m-1]
-    kappa = dolfinx.fem.Constant(domain, PETSc.ScalarType(KAPPA))
-    f = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
-    g = dolfinx.fem.Constant(domain, PETSc.ScalarType(0))
+    kappa = fem.Constant(domain, PETSc.ScalarType(KAPPA))
+    f = fem.Constant(domain, PETSc.ScalarType(0))
+    g = fem.Constant(domain, PETSc.ScalarType(0))
 
     F = kappa * ufl.inner(ufl.grad(u), ufl.grad(v)) * ufl.dx
     F -= ufl.inner(f, v) * ufl.dx
     bcs = [x0bc, x1bc]
     F += ufl.inner(g, v) * ds(markers.insulated)
     # s = fem.Constant(domain, PETSc.ScalarType(U_therm))
-    r = fem.Constant(domain, PETSc.ScalarType(i0 * z * F_c / (R * T)))
-    g_1 = dolfinx.fem.Constant(domain, PETSc.ScalarType(i_sup))
+    r = fem.Constant(domain, PETSc.ScalarType(i0 * z * faraday_const / (R * T)))
+    g_1 = fem.Constant(domain, PETSc.ScalarType(i_sup))
     # F += ufl.inner(g_1, v) * ds(markers.right_cc)
     # F += r * ufl.inner(phi_m - u - U_therm, v) * ds(markers.left_cc)
     options = {
         "ksp_type": "gmres",
         "pc_type": "hypre",
-        "ksp_rtol": 1.0e-16,
+        "ksp_rtol": 1.0e-12,
     }
     a = ufl.lhs(F)
     L = ufl.rhs(F)
@@ -153,25 +145,28 @@ if __name__ == '__main__':
     # Post-processing: Compute derivatives
     grad_u = ufl.grad(uh)
 
-    W = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 1))
-    current_expr = dolfinx.fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
-    current_h = dolfinx.fem.Function(W)
+    W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
+    current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
+    current_h = fem.Function(W)
     current_h.interpolate(current_expr)
 
     with dolfinx.io.XDMFFile(comm, output_current_path, "w") as file:
         file.write_mesh(domain)
         file.write_function(current_h)
 
-    insulated_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(markers.insulated)))
-    area_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(markers.left_cc)))
-    area_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(markers.right_cc)))
-    i_left_cc = (1/area_left_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.left_cc)))
-    i_right_cc = (1/area_right_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.right_cc)))
-    i_insulated = (1/insulated_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.insulated)))
-    volume = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(domain)))
-    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
+    insulated_area = fem.assemble_scalar(fem.form(1 * ds(markers.insulated)))
+    area_left_cc = fem.assemble_scalar(fem.form(1 * ds(markers.left_cc)))
+    area_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
+    I_left_cc = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc)))
+    i_left_cc = I_left_cc / area_left_cc
+    I_right_cc = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc)))
+    i_right_cc = I_right_cc / area_right_cc
+    i_insulated = (1/insulated_area) * fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.insulated)))
+    volume = fem.assemble_scalar(fem.form(1 * ufl.dx(domain)))
+    solution_trace_norm = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) ** 2 * ds(markers.insulated))) ** 0.5
     avg_solution_trace_norm = solution_trace_norm / insulated_area
-    deviation_in_current = np.around(100 * 2 * np.abs(area_left_cc * i_left_cc - area_right_cc * i_right_cc) / (area_left_cc * i_left_cc + area_right_cc * i_right_cc), 2)
+    error = 100 * 2 * np.abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
+    kappa_eff = Lz * abs(I_left_cc) / (voltage * xsection_area)
     logger.info("**************************RESULTS-SUMMARY******************************************")
     logger.info(f"Contact Area @ left cc [sq. m]                 : {area_left_cc:.4e}")
     logger.info(f"Contact Area @ right cc [sq. m]                : {area_right_cc:.4e}")
@@ -180,12 +175,12 @@ if __name__ == '__main__':
     logger.info(f"Insulated Area [sq. m]                         : {insulated_area:.4e}")
     logger.info("Total Area [sq. m]                             : {:.4e}".format(area_left_cc + area_right_cc + insulated_area))
     logger.info(f"Electrolyte Volume [cu. m]                     : {volume:.4e}")
-    logger.info("Electrolyte Volume Fraction                     : {:.2%}".format(volume/(Lx * Ly * Lz)))
+    logger.info("Electrolyte Volume Fraction                     : {:.2%}".format(volume / (xsection_area * Lz)))
     logger.info("Bulk conductivity [S.m-1]                       : {:.4e}".format(KAPPA))
-    logger.info("Effective conductivity [S.m-1]                  : {:.4e}".format(Lz * area_left_cc * i_left_cc / (voltage * (Lx * Ly))))
+    logger.info(f"Effective conductivity [S.m-1]                  : {kappa_eff:.4e}")
     logger.info(f"Homogeneous Neumann BC trace                    : {solution_trace_norm:.2e}")
     logger.info(f"Area-averaged Homogeneous Neumann BC trace      : {avg_solution_trace_norm:.2e}")
-    logger.info("Deviation in current at two current collectors  : {:.2f}%".format(deviation_in_current))
+    logger.info(f"Error                                            : {error:.2f}%")
     logger.info(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
     logger.info(f"Voltage                                         : {args.voltage}")
     logger.info("*************************END-OF-SUMMARY*******************************************")
