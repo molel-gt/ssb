@@ -41,6 +41,8 @@ if __name__ == '__main__':
     # gmsh.option.setNumber("General.ExpertMode", 1)
     # gmsh.option.setNumber("Mesh.MeshSizeMin", resolution)
     # gmsh.option.setNumber("Mesh.MeshSizeMax", 0.01)
+    min_pos = 0.01
+    max_pos = 0.99
     dx = Lx * (eps / n_pieces)
     intervals = []
     if np.isclose(n_pieces, 1):
@@ -49,10 +51,10 @@ if __name__ == '__main__':
         else:
             intervals.append((0.5 * Lx - 0.5 * eps * Lx, 0.5 * Lx + 0.5 * eps * Lx))
     else:
-        space = Lx * ((0.875 - 0.125) - eps) / (n_pieces - 1)
+        space = Lx * ((max_pos - min_pos) - eps) / (n_pieces - 1)
         for i in range(1, n_pieces + 1):
             intervals.append(
-                (0.125 * Lx + (dx + space) * (i - 1),  0.125 * Lx + dx * i + space * (i -1))
+                (min_pos * Lx + (dx + space) * (i - 1),  min_pos * Lx + dx * i + space * (i -1))
                 )
     bottom_pts = sorted([v for v in set(itertools.chain(*intervals))])
     points = [
