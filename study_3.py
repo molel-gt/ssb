@@ -20,7 +20,7 @@ markers = commons.SurfaceMarkers()
 # model parameters
 KAPPA = 1e-1  # [S/m]
 faraday_const = 96485  # [C/mol]
-i0 = 1e1  # [A/m^2]
+i0 = 1e5  # [A/m^2]
 R = 8.314  # [J/K/mol]
 T = 298  # [K]
 z = 1
@@ -65,12 +65,13 @@ if __name__ == '__main__':
     V = fem.FunctionSpace(domain, ("Lagrange", 2))
     u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
 
-    u_right = fem.Function(V)
-    with u_right.vector.localForm() as u1_loc:
-        u1_loc.set(0)
+    # u_right = fem.Function(V)
+    # with u_right.vector.localForm() as u1_loc:
+    #     u1_loc.set(0)
 
-    right_facet = ft.find(markers.right_cc)
-    right_bc = fem.dirichletbc(u_right, fem.locate_dofs_topological(V, 1, right_facet))
+    # right_facet = ft.find(markers.right_cc)
+    # right_bc = fem.dirichletbc(u_right, fem.locate_dofs_topological(V, 1, right_facet))
+    bcs = []
 
     F = kappa * ufl.inner(ufl.grad(u), ufl.grad(v)) * dx
     F -= ufl.inner(f, v) * dx
@@ -78,7 +79,7 @@ if __name__ == '__main__':
     F += ufl.inner(g_1, v) * ds(markers.left_cc)
     # eta = phi_m - u - U_therm
     # i_bv = i0 * (ufl.exp(0.5 * faraday_const * eta / R / T) - ufl.exp(-0.5 * faraday_const * eta / R / T))
-    # F += r * (phi_m - ufl.inner(u, v) - U_therm) * ds(markers.left_cc)
+    F += r * (phi_m - ufl.inner(u, v) - U_therm) * ds(markers.right_cc)
     options = {
                 "ksp_type": "gmres",
                 "pc_type": "hypre",
@@ -86,7 +87,7 @@ if __name__ == '__main__':
             }
     a = ufl.lhs(F)
     L = ufl.rhs(F)
-    bcs = [right_bc]
+
     problem2 = fem.petsc.LinearProblem(a, L, bcs=bcs, petsc_options=options)
     uh = problem2.solve()
 
