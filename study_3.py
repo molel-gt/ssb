@@ -118,4 +118,6 @@ if __name__ == '__main__':
     std_norm = i_surf_std / np.abs(i_surf_avg)
     rel_scale = args.outdir.split('/')[-1]
     error = 2 * 100 * abs(abs(I_left) - abs(I_right)) / (abs(I_left) + abs(I_right))
-    print(f"relative radius: {rel_scale},", f"Wa: {Wa},", f"norm stdev: {std_norm:.2f},", f"current left: {I_left:.2e},",  f"current right: {I_right:.2e},", f"error: {error:.2f}%,", f"time: {int(time.time() - start):,}s")
+    print(f"relative radius: {rel_scale},", f"Wa: {Wa},", f"norm stdev: {std_norm:.2f},",
+          f"current left: {I_left:.2e},", f"current right: {I_right:.2e},", f"error: {error:.2f}%,",
+          f"time: {int(time.time() - start):,}s")
