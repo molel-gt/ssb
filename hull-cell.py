@@ -12,6 +12,7 @@ import numpy as np
 import pygmsh
 import pyvista
 import ufl
+import vtk
 
 from dolfinx.fem import (Constant, FunctionSpace)
 from dolfinx.fem.petsc import LinearProblem
@@ -45,8 +46,8 @@ r = 0.5
 
 ### PARAMETERS ##############
 # parameters
-R = 8.314 # J/K/mol
-T = 298 # K
+R = 8.314  # J/K/mol
+T = 298  # K
 n = 1  # number of electrons involved
 F_farad = 96485  # C/mol
 i_exch = 10  # A/m^2
@@ -71,7 +72,6 @@ def create_geometry(c, r):
     
     # Add circle
     circle = model.add_circle(c, r, mesh_size=resolution)
-    
     
     points = [model.add_point((0, 0, 0), mesh_size=resolution),
               model.add_point((0, W, 0), mesh_size=resolution),
@@ -239,6 +239,7 @@ class VizRoutine:
         with pyvista.VtkErrorCatcher() as error_catcher:
             run_model(**self.kwargs)
         return
+
 
 if __name__ == '__main__':
     engine = VizRoutine(c=c, r=r, Wa=10)
