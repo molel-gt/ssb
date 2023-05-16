@@ -6,6 +6,7 @@ import time
 import argparse
 
 import numpy as np
+import scipy
 import ufl
 
 from dolfinx import cpp, fem, io, mesh
@@ -25,8 +26,8 @@ T = 298  # [K]
 z = 1
 voltage = 0
 
-i_sup = 1e-2  # [A/m^2]
-phi_m = 0  # [V]
+i_sup = 1e0  # [A/m^2]
+phi_m = 1  # [V]
 U_therm = 0  # [V]
 
 
@@ -64,11 +65,20 @@ if __name__ == '__main__':
     V = fem.FunctionSpace(domain, ("Lagrange", 2))
     u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
 
+    u_right = fem.Function(V)
+    with u_right.vector.localForm() as u1_loc:
+        u1_loc.set(0)
+
+    right_facet = ft.find(markers.right_cc)
+    right_bc = fem.dirichletbc(u_right, fem.locate_dofs_topological(V, 1, right_facet))
+
     F = kappa * ufl.inner(ufl.grad(u), ufl.grad(v)) * dx
     F -= ufl.inner(f, v) * dx
     F += ufl.inner(g, v) * ds(markers.insulated)
     F += ufl.inner(g_1, v) * ds(markers.left_cc)
-    F += r * ufl.inner(phi_m - u - U_therm, v) * ds(markers.right_cc)
+    # eta = phi_m - u - U_therm
+    # i_bv = i0 * (ufl.exp(0.5 * faraday_const * eta / R / T) - ufl.exp(-0.5 * faraday_const * eta / R / T))
+    # F += r * (phi_m - ufl.inner(u, v) - U_therm) * ds(markers.left_cc)
     options = {
                 "ksp_type": "gmres",
                 "pc_type": "hypre",
@@ -76,7 +86,7 @@ if __name__ == '__main__':
             }
     a = ufl.lhs(F)
     L = ufl.rhs(F)
-    bcs = []
+    bcs = [right_bc]
     problem2 = fem.petsc.LinearProblem(a, L, bcs=bcs, petsc_options=options)
     uh = problem2.solve()
 
@@ -87,8 +97,8 @@ if __name__ == '__main__':
 
     # compute current density
     W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
-    grad_u = ufl.grad(uh)
-    current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
+
+    current_expr = fem.Expression(-kappa * ufl.grad(uh), W.element.interpolation_points())
     current_h = fem.Function(W)
     current_h.interpolate(current_expr)
 
@@ -108,4 +118,4 @@ if __name__ == '__main__':
     std_norm = i_surf_std / np.abs(i_surf_avg)
     rel_scale = args.outdir.split('/')[-1]
     error = 2 * 100 * abs(abs(I_left) - abs(I_right)) / (abs(I_left) + abs(I_right))
-    print(f"relative radius: {rel_scale}", f"Wa: {Wa}", f"norm stdev: {std_norm:.2f}", f"current left: {I_left:.2e}",  f"current right: {I_right:.2e}", f"error: {error:.2f}%")
+    print(f"relative radius: {rel_scale}", f"Wa: {Wa}", f"norm stdev: {std_norm:.2f}", f"current left: {I_left:.2e}",  f"current right: {I_right:.2e}", f"error: {error:.2f}%, time: {int(time.time() - start):,}s")
