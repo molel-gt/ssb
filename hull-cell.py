@@ -183,7 +183,7 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
     grad_u = ufl.grad(uh)
 
     W = dolfinx.fem.VectorFunctionSpace(mesh, ("Lagrange", 1))
-    current_expr = dolfinx.fem.Expression(kappa * grad_u, W.element.interpolation_points())
+    current_expr = dolfinx.fem.Expression(-kappa * grad_u, W.element.interpolation_points())
     current_h = dolfinx.fem.Function(W)
     current_h.interpolate(current_expr)
 
@@ -194,8 +194,8 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
     # Visualize solution
     pyvista_cells, cell_types, geometry = create_vtk_mesh(V)
     grid = pyvista.UnstructuredGrid(pyvista_cells, cell_types, geometry)
-    grid.point_data["u"] = uh.x.array
-    grid.set_active_scalars("u")
+    grid.point_data[r"$\phi$[V]"] = uh.x.array
+    grid.set_active_scalars(r"$\phi$[V]")
 
     plotter.subplot(0, 0)
     plotter.add_title('Potential')
@@ -211,11 +211,11 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
     vectors = current_h.x.array.real.reshape(-1, 2)
     vectors = np.hstack((vectors, np.zeros((vectors.shape[0], 1))))
 
-    grid.point_data.set_vectors(vectors, 'i')
+    grid.point_data.set_vectors(vectors, 'i [A/m$^2$]')
     warped = grid.warp_by_scalar()
     # plotter.add_mesh(warped)
-    grid.set_active_vectors("i")
-    glyphs = grid.glyph(orient="i", factor=0.0015, tolerance=0.05)
+    grid.set_active_vectors("i [A/m$^2$]")
+    glyphs = grid.glyph(orient="i [A/m$^2$]", factor=0.0015, tolerance=0.05)
     plotter.add_mesh(glyphs, name='i', color='white')
     plotter.add_mesh(grid, pickable=False, opacity=0.5, name='mesh')
     # plotter.add_text("Current Density", position="lower_edge", font_size=14, color="black")
@@ -253,3 +253,4 @@ if __name__ == '__main__':
         style='modern',
     )
     plotter.show()
+    plotter.screenshot('figures/hull-cell-demo.png')
