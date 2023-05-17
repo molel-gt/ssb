@@ -57,7 +57,7 @@ if __name__ == '__main__':
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{data_dir}')
     logger.setLevel(loglevel)
-    Lx, Ly, Lz = [int(v) for v in grid_size.split("-")]
+    Lx, Ly, Lz = [float(v) for v in grid_size.split("-")]
     Lx = Lx * scale_x
     Ly = Ly * scale_y
     Lz = Lz * scale_z

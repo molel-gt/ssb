@@ -6,7 +6,6 @@ import time
 import argparse
 
 import numpy as np
-import scipy
 import ufl
 
 from dolfinx import cpp, fem, io, mesh
