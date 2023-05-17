@@ -21,7 +21,7 @@ if __name__ == '__main__':
     parser.add_argument('--Ly', help='width', required=True, type=int)
     parser.add_argument("--w", help='slice width along x', nargs='?', const=1, default=0, type=float)
     parser.add_argument("--h", help='slice position along y', nargs='?', const=1, default=0, type=float)
-    parser.add_argument("--pos", help='insulator position along x', nargs='?', const=1, default='mid')
+    parser.add_argument("--pos", help='insulator position along x', nargs='?', const=1, default=0.25, type=float)
     parser.add_argument("--n_pieces", help='insulator position along x', nargs='?', const=1, default=1, type=int)
 
     args = parser.parse_args()
@@ -32,7 +32,7 @@ if __name__ == '__main__':
     Ly = args.Ly
     w = args.w / Lx
     h = args.h / Ly
-    resolution = 0.00005
+    resolution = 0.0005
     meshname = f'current_constriction/{h:.3}_{w:.3}_pos-{pos}_pieces-{n_pieces}_{eps}'
     utils.make_dir_if_missing('current_constriction')
 
@@ -54,7 +54,7 @@ if __name__ == '__main__':
         space = Lx * ((max_pos - min_pos) - eps) / (n_pieces - 1)
         for i in range(1, n_pieces + 1):
             intervals.append(
-                (min_pos * Lx + (dx + space) * (i - 1),  min_pos * Lx + dx * i + space * (i -1))
+                (min_pos * Lx + (dx + space) * (i - 1),  min_pos * Lx + dx * i + space * (i - 1))
                 )
     bottom_pts = sorted([v for v in set(itertools.chain(*intervals))])
     points = [
@@ -71,6 +71,7 @@ if __name__ == '__main__':
         )
     # rotation
     gmsh.model.occ.rotate([(0, p) for p in g_points], 0.5 * Lx, 0.5 * Ly, 0, 0, 0, 1, 0.5 * np.pi)
+    gmsh.model.occ.synchronize()
     channel_lines = []
     left_cc = []
     right_cc = []
@@ -95,9 +96,17 @@ if __name__ == '__main__':
                 right_cc.append(line)
             else:
                 insulated.append(line)
-
+    old_lines = left_cc + right_cc + insulated
     channel_loop = gmsh.model.occ.addCurveLoop(channel_lines)
     channel = gmsh.model.occ.addPlaneSurface((1, channel_loop))
+    if not np.isclose(args.h, 0) and not np.isclose(args.h, 0) and not np.isclose(args.pos, 0):
+        origin = [args.pos * Lx - 0.5 * args.w, 0.5 * Ly - 0.5 * args.h, 0]
+        slit = gmsh.model.occ.addPlaneSurface((1, gmsh.model.occ.addRectangle(*origin, args.w, args.h)))
+        channel = gmsh.model.occ.cut([(2, channel)], [(2, slit)])
+        gmsh.model.occ.synchronize()
+        lines = gmsh.model.occ.getEntities(dim=1)
+        new_lines = set([v2 for (v1, v2) in lines]).difference(set(old_lines))
+        insulated += list(new_lines)
 
     gmsh.model.occ.synchronize()
 
