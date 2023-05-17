@@ -23,10 +23,14 @@ from ufl import (Measure, TestFunction, TrialFunction,
                  dx, grad, inner, lhs, rhs)
 from dolfinx.plot import create_vtk_mesh
 
-
+import commons, geometry as geom_util
 # pyvista.set_jupyter_backend("pythreejs")
 plotter = pyvista.Plotter(shape=(1, 2))
 comm = MPI.COMM_WORLD
+
+markers = commons.SurfaceMarkers()
+phases = commons.Phases()
+CELL_TYPES = commons.CellTypes()
 
 resolution = 0.05
 
@@ -58,7 +62,7 @@ alpha_c = n - alpha_a
 def create_mesh(mesh, cell_type, prune_z=False):
     cells = mesh.get_cells_type(cell_type)
     cell_data = mesh.get_cell_data("gmsh:physical", cell_type)
-    points = mesh.points[:,:2] if prune_z else mesh.points
+    points = mesh.points[:, :2] if prune_z else mesh.points
     out_mesh = meshio.Mesh(points=points, cells={cell_type: cells}, cell_data={"name_to_read":[cell_data]})
     return out_mesh
 
