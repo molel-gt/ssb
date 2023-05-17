@@ -65,27 +65,27 @@ if __name__ == '__main__':
     parser.add_argument("--w", help='slice width along x', nargs='?', const=1, default=0, type=float)
     parser.add_argument("--h", help='slice position along y', nargs='?', const=1, default=0, type=float)
     parser.add_argument("--voltage", help='voltage drop (one end held at potential of 0)', nargs='?', const=1, default=1, type=int)
-    parser.add_argument("--pos", help='insulator position along x', nargs='?', const=1, default='mid')
+    parser.add_argument("--pos", help='insulator position along x', nargs='?', const=1, default=0, type=float)
     parser.add_argument("--n_pieces", help='insulator position along x', nargs='?', const=1, default=1, type=int)
 
     args = parser.parse_args()
     start = time.time()
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
-    logger = logging.getLogger(f'current_constriction:{args.n_pieces}:{args.eps}:{args.voltage}')
+    logger = logging.getLogger(f'current_constriction:{args.n_pieces}:{args.w}:{args.h}:{args.eps}:{args.voltage}')
     logger.setLevel('INFO')
     pos = args.pos
     n_pieces = int(args.n_pieces)
     eps = np.around(args.eps, 4)
     Lx = args.Lx
     Ly = args.Ly
-    w = args.w / Lx
-    h = args.h / Ly
+    w = args.w  # / Lx
+    h = args.h   # / Ly
     voltage = args.voltage
     lower_cov = 0.5 * Lx - 0.5 * eps * Lx
     upper_cov = 0.5 * Lx + 0.5 * eps * Lx
-    tria_meshname = f'current_constriction/{h:.3}_{w:.3}_pos-{pos}_pieces-{n_pieces}_{eps}_tria'
-    line_meshname = f'current_constriction/{h:.3}_{w:.3}_pos-{pos}_pieces-{n_pieces}_{eps}_line'
+    tria_meshname = f'current_constriction/{h:.3f}_{w:.3f}_pos-{pos:.3f}_pieces-{n_pieces}_{eps}_tria'
+    line_meshname = f'current_constriction/{h:.3f}_{w:.3f}_pos-{pos:.3f}_pieces-{n_pieces}_{eps}_line'
     utils.make_dir_if_missing('current_constriction')
     with io.XDMFFile(MPI.COMM_WORLD, f"{tria_meshname}.xdmf", "r") as infile3:
             msh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
@@ -93,8 +93,6 @@ if __name__ == '__main__':
     msh.topology.create_connectivity(msh.topology.dim, msh.topology.dim - 1)
     with io.XDMFFile(MPI.COMM_WORLD, f"{line_meshname}.xdmf", "r") as infile3:
         ft = infile3.read_meshtags(msh, name="Grid")
-
-    # left_cc_marker, right_cc_marker, insulated_marker = sorted([int(v) for v in set(facets_ct.values)])
 
     Q = fem.FunctionSpace(msh, ("DG", 0))
 
@@ -117,7 +115,6 @@ if __name__ == '__main__':
     with u1.vector.localForm() as u1_loc:
         u1_loc.set(0)
 
-    # partially_insulated = insulator_moved_around(x, eps, Lx, Ly, n_pieces=n_pieces, pos=pos)
     x0facet = ft.find(markers.left_cc)
     x1facet = ft.find(markers.right_cc)
     x0bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 1, x0facet))
@@ -126,13 +123,11 @@ if __name__ == '__main__':
     a = ufl.inner(KAPPA * ufl.grad(u), ufl.grad(v)) * ufl.dx
     L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ufl.ds(markers.insulated)
 
-    # options = {
-    #             "ksp_type": "gmres",
-    #             "pc_type": "hypre",
-    #             # "ksp_atol": 1.0e-12,
-    #             "ksp_rtol": 1.0e-16
-    #             }
-    options = {"ksp_type": "preonly", "pc_type": "lu"}
+    options = {
+                "ksp_type": "gmres",
+                "pc_type": "hypre",
+                "ksp_rtol": 1.0e-14,
+                }
     problem = fem.petsc.LinearProblem(a, L, bcs=[x0bc, x1bc], petsc_options=options)
     uh = problem.solve()
 

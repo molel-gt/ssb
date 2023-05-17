@@ -21,7 +21,7 @@ if __name__ == '__main__':
     parser.add_argument('--Ly', help='width', required=True, type=int)
     parser.add_argument("--w", help='slice width along x', nargs='?', const=1, default=0, type=float)
     parser.add_argument("--h", help='slice position along y', nargs='?', const=1, default=0, type=float)
-    parser.add_argument("--pos", help='insulator position along x', nargs='?', const=1, default=0.25, type=float)
+    parser.add_argument("--pos", help='insulator position along x', nargs='?', const=1, default=0, type=float)
     parser.add_argument("--n_pieces", help='insulator position along x', nargs='?', const=1, default=1, type=int)
 
     args = parser.parse_args()
@@ -32,8 +32,8 @@ if __name__ == '__main__':
     Ly = args.Ly
     w = args.w / Lx
     h = args.h / Ly
-    resolution = 0.0005
-    meshname = f'current_constriction/{h:.3}_{w:.3}_pos-{pos}_pieces-{n_pieces}_{eps}'
+    resolution = 0.00005
+    meshname = f'current_constriction/{h:.3f}_{w:.3f}_pos-{pos:.3f}_pieces-{n_pieces}_{eps}'
     utils.make_dir_if_missing('current_constriction')
 
     gmsh.initialize()
@@ -110,8 +110,8 @@ if __name__ == '__main__':
 
     gmsh.model.occ.synchronize()
 
-    surfaces = gmsh.model.getEntities(dim=2)
-    gmsh.model.addPhysicalGroup(2, [surfaces[0][1]], 1)
+    surfaces = gmsh.model.occ.getEntities(dim=2)
+    gmsh.model.addPhysicalGroup(2, [surfaces[0][1], surfaces[1][1]], 1)
     y0_tag = gmsh.model.addPhysicalGroup(1, right_cc, markers.right_cc)
     gmsh.model.setPhysicalName(1, y0_tag, "right_cc")
     yl_tag = gmsh.model.addPhysicalGroup(1, left_cc, markers.left_cc)
