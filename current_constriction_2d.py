@@ -19,43 +19,6 @@ positions = ['left', 'mid', 'right']
 KAPPA = 0.1  # 0.1 S/m == mS/cm
 markers = commons.SurfaceMarkers()
 
-def insulator_moved_around(x, coverage, Lx, Ly, pos='mid', xlim=[0.125, 0.875], n_pieces=0):
-        if n_pieces > 1 and pos != 'mid':
-            raise ValueError("Multiple pieces not implemented for piece not centered in the middle")
-        if pos == "left":
-            lower_cov = 0.5 * (1 - coverage) * Lx - xlim[0] * Lx
-            upper_cov = Lx - 0.5 * (1 - coverage) * Lx - xlim[0] * Lx
-        if pos == 'mid':
-            lower_cov = 0.5 * (1 - coverage) * Lx
-            upper_cov = Lx - 0.5 * (1 - coverage) * Lx
-        if pos == 'right':
-            lower_cov = 0.5 * (1 - coverage) * Lx + xlim[0] * Lx
-            upper_cov = Lx - 0.5 * (1 - coverage) * Lx + xlim[0] * Lx
-        if n_pieces == 1:
-            return lambda x: np.logical_and(np.isclose(x[1], 0.0), np.logical_and(
-                np.greater_equal(x[0], lower_cov),  np.greater_equal(upper_cov, x[0])
-                )
-            )
-        else:
-            dx = Lx * (coverage / n_pieces)
-            space = Lx * ((xlim[1] - xlim[0]) - coverage) / (n_pieces - 1)
-            intervals = []
-            for i in range(n_pieces + 1):
-                if i == 0:
-                    intervals.append((xlim[0] * Lx, dx + xlim[0] * Lx))
-                else:
-                    intervals.append(((dx + space) * (i - 1) + xlim[0] * Lx, dx * i + space * (i -1) + xlim[0] * Lx))
-            def fun(x, intervals):
-                n = len(intervals)
-                if n == 1:
-                    return np.logical_and(np.greater_equal(x[0], intervals[0][0]),  np.greater_equal(intervals[0][1], x[0]))
-                else:
-                    return np.logical_or(
-                        np.logical_and(np.greater_equal(x[0], intervals[0][0]),  np.greater_equal(intervals[0][1], x[0])),
-                        fun(x, intervals[1:])
-                        )
-            return lambda x: np.logical_and(np.isclose(x[1], 0.0), fun(x, intervals))
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='computes specific area')
@@ -72,24 +35,22 @@ if __name__ == '__main__':
     start = time.time()
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
-    logger = logging.getLogger(f'current_constriction:{args.n_pieces}:{args.w}:{args.h}:{args.eps}:{args.voltage}')
+    logger = logging.getLogger(f'current_constriction:{args.n_pieces}:{args.w}:{args.h}:{args.eps}:{args.pos}:{args.voltage}')
     logger.setLevel('INFO')
     pos = args.pos
     n_pieces = int(args.n_pieces)
     eps = np.around(args.eps, 4)
     Lx = args.Lx
     Ly = args.Ly
-    w = args.w  # / Lx
-    h = args.h   # / Ly
+    w = args.w
+    h = args.h
     voltage = args.voltage
-    lower_cov = 0.5 * Lx - 0.5 * eps * Lx
-    upper_cov = 0.5 * Lx + 0.5 * eps * Lx
     tria_meshname = f'current_constriction/{h:.3f}_{w:.3f}_pos-{pos:.3f}_pieces-{n_pieces}_{eps}_tria'
     line_meshname = f'current_constriction/{h:.3f}_{w:.3f}_pos-{pos:.3f}_pieces-{n_pieces}_{eps}_line'
     utils.make_dir_if_missing('current_constriction')
     with io.XDMFFile(MPI.COMM_WORLD, f"{tria_meshname}.xdmf", "r") as infile3:
-            msh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
-            ct = infile3.read_meshtags(msh, name="Grid")
+        msh = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
+        ct = infile3.read_meshtags(msh, name="Grid")
     msh.topology.create_connectivity(msh.topology.dim, msh.topology.dim - 1)
     with io.XDMFFile(MPI.COMM_WORLD, f"{line_meshname}.xdmf", "r") as infile3:
         ft = infile3.read_meshtags(msh, name="Grid")
