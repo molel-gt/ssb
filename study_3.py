@@ -78,21 +78,10 @@ if __name__ == '__main__':
     F -= ufl.inner(f, v) * dx
     F += ufl.inner(g, v) * ds(markers.insulated)
     F += ufl.inner(g_1, v) * ds(markers.left_cc)
-    # eta = phi_m - u - U_therm
     # i_bv = i0 * ufl.sinh(0.5 * faraday_const * (phi_m - u - U_therm) / R / T)
     i_bv = i0 * (ufl.exp(alpha_a * faraday_const * (phi_m - u - U_therm) / R / T) - ufl.exp(-alpha_c * faraday_const * (phi_m - u - U_therm) / R / T))
-    # F += ufl.inner(r * (phi_m - u - U_therm), v) * ds(markers.right_cc)
     F += ufl.inner(i_bv, v) * ds(markers.right_cc)
 
-    # options = {
-    #             "ksp_type": "gmres",
-    #             "pc_type": "hypre",
-    #             "ksp_rtol": 1e-12,
-    #         }
-    # a = ufl.lhs(F)
-    # L = ufl.rhs(F)
-    # problem = fem.petsc.LinearProblem(a, L, bcs=bcs, petsc_options=options)
-    # uh = problem.solve()
     problem = fem.petsc.NonlinearProblem(F, u, bcs=bcs)
     solver = nls.petsc.NewtonSolver(comm, problem)
     solver.convergence_criterion = "residual"
