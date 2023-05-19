@@ -8,7 +8,7 @@ import argparse
 import numpy as np
 import ufl
 
-from dolfinx import cpp, fem, io, mesh
+from dolfinx import cpp, fem, io, mesh, nls
 from mpi4py import MPI
 from petsc4py import PETSc
 
@@ -19,12 +19,12 @@ markers = commons.SurfaceMarkers()
 # model parameters
 KAPPA = 1e-1  # [S/m]
 faraday_const = 96485  # [C/mol]
-i0 = 1e5  # [A/m^2]
+i0 = 1e1  # [A/m^2]
 R = 8.314  # [J/K/mol]
 T = 298  # [K]
 z = 1
 voltage = 0
-
+alpha_a = alpha_c = 0.5
 i_sup = 1e0  # [A/m^2]
 phi_m = 1  # [V]
 U_therm = 0  # [V]
@@ -62,7 +62,9 @@ if __name__ == '__main__':
     n = ufl.FacetNormal(domain)
 
     V = fem.FunctionSpace(domain, ("Lagrange", 2))
-    u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
+    # u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
+    v = ufl.TestFunction(V)
+    u = fem.Function(V)
 
     # u_right = fem.Function(V)
     # with u_right.vector.localForm() as u1_loc:
@@ -72,33 +74,48 @@ if __name__ == '__main__':
     # right_bc = fem.dirichletbc(u_right, fem.locate_dofs_topological(V, 1, right_facet))
     bcs = []
 
-    F = kappa * ufl.inner(ufl.grad(u), ufl.grad(v)) * dx
+    F = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * dx
     F -= ufl.inner(f, v) * dx
     F += ufl.inner(g, v) * ds(markers.insulated)
     F += ufl.inner(g_1, v) * ds(markers.left_cc)
     # eta = phi_m - u - U_therm
-    # i_bv = i0 * (ufl.exp(0.5 * faraday_const * eta / R / T) - ufl.exp(-0.5 * faraday_const * eta / R / T))
-    F += r * (phi_m - ufl.inner(u, v) - U_therm) * ds(markers.right_cc)
-    options = {
-                "ksp_type": "gmres",
-                "pc_type": "hypre",
-                "ksp_rtol": 1e-12,
-            }
-    a = ufl.lhs(F)
-    L = ufl.rhs(F)
+    # i_bv = i0 * ufl.sinh(0.5 * faraday_const * (phi_m - u - U_therm) / R / T)
+    i_bv = i0 * (ufl.exp(alpha_a * faraday_const * (phi_m - u - U_therm) / R / T) - ufl.exp(-alpha_c * faraday_const * (phi_m - u - U_therm) / R / T))
+    # F += ufl.inner(r * (phi_m - u - U_therm), v) * ds(markers.right_cc)
+    F += ufl.inner(i_bv, v) * ds(markers.right_cc)
 
-    problem2 = fem.petsc.LinearProblem(a, L, bcs=bcs, petsc_options=options)
-    uh = problem2.solve()
+    # options = {
+    #             "ksp_type": "gmres",
+    #             "pc_type": "hypre",
+    #             "ksp_rtol": 1e-12,
+    #         }
+    # a = ufl.lhs(F)
+    # L = ufl.rhs(F)
+    # problem = fem.petsc.LinearProblem(a, L, bcs=bcs, petsc_options=options)
+    # uh = problem.solve()
+    problem = fem.petsc.NonlinearProblem(F, u, bcs=bcs)
+    solver = nls.petsc.NewtonSolver(comm, problem)
+    solver.convergence_criterion = "residual"
+    solver.rtol = 1e-6
+
+    ksp = solver.krylov_solver
+    opts = PETSc.Options()
+    option_prefix = ksp.getOptionsPrefix()
+    opts[f"{option_prefix}ksp_type"] = "preonly"
+    opts[f"{option_prefix}pc_type"] = "lu"
+    ksp.setFromOptions()
+    ret = solver.solve(u)
+    print(f"num iterations: {ret[0]}")
 
     # write potential to file
     with io.XDMFFile(domain.comm, os.path.join(args.outdir, "potential.xdmf"), "w") as file:
         file.write_mesh(domain)
-        file.write_function(uh)
+        file.write_function(u)
 
     # compute current density
     W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
 
-    current_expr = fem.Expression(-kappa * ufl.grad(uh), W.element.interpolation_points())
+    current_expr = fem.Expression(-kappa * ufl.grad(u), W.element.interpolation_points())
     current_h = fem.Function(W)
     current_h.interpolate(current_expr)
 
