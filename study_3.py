@@ -94,7 +94,6 @@ if __name__ == '__main__':
     opts[f"{option_prefix}pc_type"] = "lu"
     ksp.setFromOptions()
     ret = solver.solve(u)
-    print(f"num iterations: {ret[0]}")
 
     # write potential to file
     with io.XDMFFile(domain.comm, os.path.join(args.outdir, "potential.xdmf"), "w") as file:
@@ -126,4 +125,4 @@ if __name__ == '__main__':
     error = 2 * 100 * abs(abs(I_left) - abs(I_right)) / (abs(I_left) + abs(I_right))
     print(f"relative radius: {rel_scale},", f"Wa: {Wa},", f"norm stdev: {std_norm:.2f},",
           f"current left: {I_left:.2e},", f"current right: {I_right:.2e},", f"error: {error:.2f}%,",
-          f"time: {int(time.time() - start):,}s")
+          f"time: {int(time.time() - start):,}s,", f"num_iterations: {ret[0]}")
