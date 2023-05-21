@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 # coding: utf-8
+import os
+
 import argparse
 import gmsh
 import itertools
@@ -32,15 +34,16 @@ if __name__ == '__main__':
     Ly = args.Ly
     w = args.w / Lx
     h = args.h / Ly
-    resolution = 0.00005
-    meshname = f'current_constriction/{h:.3f}_{w:.3f}_pos-{pos:.3f}_pieces-{n_pieces}_{eps}'
-    utils.make_dir_if_missing('current_constriction')
+    resolution = 0.0001
+    outdir = f'mesh/current_constriction/{eps:.3f}'
+    meshname = os.path.join(outdir, f'{h:.3f}_{w:.3f}_pos-{pos:.3f}_pieces-{n_pieces}')
+    utils.make_dir_if_missing(outdir)
 
     gmsh.initialize()
     gmsh.model.add("constriction")
     # gmsh.option.setNumber("General.ExpertMode", 1)
-    # gmsh.option.setNumber("Mesh.MeshSizeMin", resolution)
-    # gmsh.option.setNumber("Mesh.MeshSizeMax", 0.01)
+    # gmsh.option.setNumber("Mesh.MeshSizeMin", 0.0001)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.0025)
     min_pos = 0.01
     max_pos = 0.99
     dx = Lx * (eps / n_pieces)
@@ -98,20 +101,31 @@ if __name__ == '__main__':
                 insulated.append(line)
     old_lines = left_cc + right_cc + insulated
     channel_loop = gmsh.model.occ.addCurveLoop(channel_lines)
-    channel = gmsh.model.occ.addPlaneSurface((1, channel_loop))
+
     if not np.isclose(args.h, 0) and not np.isclose(args.h, 0) and not np.isclose(args.pos, 0):
         origin = [args.pos * Lx - 0.5 * args.w, 0.5 * Ly - 0.5 * args.h, 0]
-        slit = gmsh.model.occ.addPlaneSurface((1, gmsh.model.occ.addRectangle(*origin, args.w, args.h)))
-        channel = gmsh.model.occ.cut([(2, channel)], [(2, slit)])
+        points_slit = [origin, [origin[0] + args.w, origin[1], 0],[origin[0] + args.w, origin[1] + args.h, 0], [origin[0], origin[1] + args.h, 0] ]
+        new_points = []
+        for coord in points_slit:
+            new_points.append(
+                gmsh.model.occ.addPoint(*coord)
+            )
+        new_lines = []
+        for i in range(-1, len(new_points) - 1):
+            new_lines.append(
+                gmsh.model.occ.addLine(new_points[i], new_points[i + 1])
+            )
+        insulated += new_lines
+        slit_loop = gmsh.model.occ.addCurveLoop(new_lines)
+        channel = gmsh.model.occ.addPlaneSurface((1, channel_loop, slit_loop))
         gmsh.model.occ.synchronize()
-        lines = gmsh.model.occ.getEntities(dim=1)
-        new_lines = set([v2 for (v1, v2) in lines]).difference(set(old_lines))
-        insulated += list(new_lines)
+    else:
+        channel = gmsh.model.occ.addPlaneSurface((1, channel_loop))
 
     gmsh.model.occ.synchronize()
 
     surfaces = gmsh.model.occ.getEntities(dim=2)
-    gmsh.model.addPhysicalGroup(2, [surfaces[0][1], surfaces[1][1]], 1)
+    gmsh.model.addPhysicalGroup(2, [surfaces[0][1]], 1)
     y0_tag = gmsh.model.addPhysicalGroup(1, right_cc, markers.right_cc)
     gmsh.model.setPhysicalName(1, y0_tag, "right_cc")
     yl_tag = gmsh.model.addPhysicalGroup(1, left_cc, markers.left_cc)
@@ -126,8 +140,8 @@ if __name__ == '__main__':
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
     gmsh.model.mesh.field.setNumber(2, "LcMin", resolution)
     gmsh.model.mesh.field.setNumber(2, "LcMax", 10 * resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 10 * resolution)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.001)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 500 * resolution)
     gmsh.model.mesh.field.add("Max", 5)
     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
     gmsh.model.mesh.field.setAsBackgroundMesh(5)
