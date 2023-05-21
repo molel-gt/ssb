@@ -5,7 +5,7 @@
 #SBATCH --mem-per-cpu=32G
 #SBATCH -t6:00:00
 #SBATCH -qinferno
-#SBATCH -ostudy-3.out
+#SBATCH -ostudy-5.out
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=emolel3@gatech.edu
 
