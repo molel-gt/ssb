@@ -3,6 +3,7 @@ import csv
 import os
 import subprocess
 
+import argparse
 import gmsh
 import meshio
 import numpy as np
@@ -17,13 +18,12 @@ CELL_TYPES = commons.CellTypes()
 # meshing
 resolution = 0.001
 scaling_factor = (100e-6, 100e-6, 0)
-program = 'gitt_geometry.geo'  # 'semicircle.geo'  # 'gitt.geo'
 
 
 def create_geometry(relative_radius, outdir, scale_factor=scaling_factor):
     utils.make_dir_if_missing(outdir)
     gmsh.initialize()
-    gmsh.model.add("gitt")
+    gmsh.model.add("domain")
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 1e-3)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.05)
     cloop1 = gmsh.model.occ.addRectangle(0, 0, 0, 10, 10)
@@ -82,9 +82,14 @@ def create_geometry(relative_radius, outdir, scale_factor=scaling_factor):
 
 
 if __name__ == '__main__':
-    with open('study_3_params.csv') as fp:
-        reader = csv.DictReader(fp)
-        for row in reader:
-            print(f"Creating geometry for relative radius {row['relative_radius']}")
-            create_geometry(float(row['relative_radius']), row['outdir'])
+    parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
+    parser.add_argument('--outdir', help='Working directory', required=True)
+    parser.add_argument('--relative_radius', help='relative radius (2R/L)', type=float, required=True)
+    args = parser.parse_args()
+    create_geometry(args.relative_radius, args.outdir)
+    # with open('study_3_params.csv') as fp:
+    #     reader = csv.DictReader(fp)
+    #     for row in reader:
+    #         print(f"Creating geometry for relative radius {row['relative_radius']}")
+    #         create_geometry(float(row['relative_radius']), row['outdir'])
     
