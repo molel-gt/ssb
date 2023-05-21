@@ -15,7 +15,7 @@ phases = commons.Phases()
 CELL_TYPES = commons.CellTypes()
 
 # meshing
-resolution = 0.005
+resolution = 0.001
 scaling_factor = (100e-6, 100e-6, 0)
 program = 'gitt_geometry.geo'  # 'semicircle.geo'  # 'gitt.geo'
 
@@ -82,7 +82,7 @@ def create_geometry(relative_radius, outdir, scale_factor=scaling_factor):
 
 
 if __name__ == '__main__':
-    with open('data/study_3.csv') as fp:
+    with open('study_3_params.csv') as fp:
         reader = csv.DictReader(fp)
         for row in reader:
             print(f"Creating geometry for relative radius {row['relative_radius']}")
