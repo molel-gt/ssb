@@ -21,7 +21,6 @@ scaling_factor = (100e-6, 100e-6, 0)
 
 
 def create_geometry(relative_radius, outdir, scale_factor=scaling_factor):
-    utils.make_dir_if_missing(outdir)
     gmsh.initialize()
     gmsh.model.add("domain")
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 1e-3)
@@ -86,6 +85,7 @@ if __name__ == '__main__':
     parser.add_argument('--outdir', help='Working directory', required=True)
     parser.add_argument('--relative_radius', help='relative radius (2R/L)', type=float, required=True)
     args = parser.parse_args()
+    utils.make_dir_if_missing(args.outdir)
     create_geometry(args.relative_radius, args.outdir)
     # with open('study_3_params.csv') as fp:
     #     reader = csv.DictReader(fp)

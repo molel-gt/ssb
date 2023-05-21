@@ -19,7 +19,7 @@ markers = commons.SurfaceMarkers()
 # model parameters
 KAPPA = 1e-1  # [S/m]
 faraday_const = 96485  # [C/mol]
-i0 = 1e1  # [A/m^2]
+# i0 = 1e-2  # [A/m^2]
 R = 8.314  # [J/K/mol]
 T = 298  # [K]
 z = 1
@@ -33,12 +33,13 @@ U_therm = 0  # [V]
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument('--outdir', help='Working directory', required=True)
+    parser.add_argument('--Wa', help='Wagner number', type=float, required=True)
 
     args = parser.parse_args()
     work_dir = args.outdir
     comm = MPI.COMM_WORLD
     start = time.time()
-    
+
     with io.XDMFFile(comm, os.path.join(f"{work_dir}", "tria.xdmf"), "r") as xdmf:
         domain = xdmf.read_mesh(cpp.mesh.GhostMode.shared_facet, name="Grid")
         ct = xdmf.read_meshtags(domain, name="Grid")
@@ -60,7 +61,9 @@ if __name__ == '__main__':
     dx = ufl.Measure('dx', domain=domain)
     x = ufl.SpatialCoordinate(domain)
     n = ufl.FacetNormal(domain)
-
+    l_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
+    l_left_cc = fem.assemble_scalar(fem.form(1 * ds(markers.left_cc)))
+    i0 = KAPPA * R * T / (l_left_cc * faraday_const * args.Wa)
     V = fem.FunctionSpace(domain, ("Lagrange", 2))
     # u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
     v = ufl.TestFunction(V)
@@ -92,6 +95,7 @@ if __name__ == '__main__':
     option_prefix = ksp.getOptionsPrefix()
     opts[f"{option_prefix}ksp_type"] = "preonly"
     opts[f"{option_prefix}pc_type"] = "lu"
+    opts['maximum_iterations'] = 100
     ksp.setFromOptions()
     ret = solver.solve(u)
 
@@ -113,13 +117,12 @@ if __name__ == '__main__':
         file.write_function(current_h)
 
     # compute standard deviation of current
-    l_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
-    l_left_cc = fem.assemble_scalar(fem.form(1 * ds(markers.left_cc)))
+
     I_right = fem.assemble_scalar(fem.form(ufl.inner(n, current_h) * ds(markers.right_cc)))
     I_left = fem.assemble_scalar(fem.form(ufl.inner(n, current_h) * ds(markers.left_cc)))
     i_surf_avg = fem.assemble_scalar(fem.form(ufl.inner(n, current_h) * ds(markers.right_cc))) / l_right_cc
     i_surf_std = (fem.assemble_scalar(fem.form((ufl.inner(n, current_h) - i_surf_avg) ** 2 * ds(markers.right_cc))) / l_right_cc) ** 0.5
-    Wa = KAPPA * R * T / (l_left_cc * faraday_const * i0)
+
     std_norm = i_surf_std / np.abs(i_surf_avg)
     rel_scale = args.outdir.split('/')[-1]
     error = 2 * 100 * abs(abs(I_left) - abs(I_right)) / (abs(I_left) + abs(I_right))
