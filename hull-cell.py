@@ -32,21 +32,21 @@ markers = commons.SurfaceMarkers()
 phases = commons.Phases()
 CELL_TYPES = commons.CellTypes()
 
-resolution = 0.05
+resolution = 0.05e-2
 
-# Channel parameters
-L1 = 3
-L2 = 2
+# Channel parameters [m]
+L1 = 3e-2
+L2 = 2e-2
 L = L1 + L2
-W = 5
+W = 5e-2
 
 insulated_marker = 2
 left_cc_marker = 3
 right_cc_marker = 4
 
 # starting
-c = [2.5, 2.5, 0]
-r = 0.5
+c = [2.5e-2, 2.5e-2, 0]
+r = 0.5e-2
 
 ### PARAMETERS ##############
 # parameters
@@ -94,6 +94,8 @@ def create_geometry(c, r):
     model.add_physical([channel_lines[0], channel_lines[2]], "insulated")
     model.add_physical([channel_lines[1]], "left")
     model.add_physical([channel_lines[3]], "right")
+    # model.dilate(plane_surface, [1e-2, 1e-2, 1], [2.5, 2.5, 0])
+    model.synchronize()
 
     geometry.generate_mesh(dim=2)
     gmsh.write("mesh.msh")
@@ -109,19 +111,19 @@ def create_geometry(c, r):
 
 
 ######################## MODEL ####################################
-def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
+def run_model(c=c, r=r, kappa=0.1, W=W, L=L, L2=L2):
     """Wrapper to allow value update on parameter change"""
     new_c = list(c)
     x_join = (L ** 2 / L2 - c[1] + c[0] * L2 / L)/(L2 / L + L / L2)
     y_join = -L / L2 * x_join + L ** 2 / L2
 
     if c[0] > (L1 - r) and np.linalg.norm([x_join - c[0], y_join - c[1]]) < r:
-        new_c[0] = x_join - (r + 5 * resolution) / (2 ** 0.5)
-        new_c[1] = y_join - (r + 5 * resolution) / (2 ** 0.5)
+        new_c[0] = x_join - (r + 5 * resolution) / (2e-2 ** 0.5)
+        new_c[1] = y_join - (r + 5 * resolution) / (2e-2 ** 0.5)
 
     if c[0] <= r:
         new_c[0] = r + 5 * resolution
-    new_c[0] = min(new_c[0], L - r / 3 ** 0.5 - 5 * resolution)
+    new_c[0] = min(new_c[0], L - r / 3e-2 ** 0.5 - 5 * resolution)
     if c[1] <= r:
         new_c[1] = r + 5 * resolution
     if (c[1] + r) > W:
@@ -130,7 +132,7 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
     try:
         create_geometry(tuple(new_c), r)
     except:
-        create_geometry([2.5, 2.5, 0], r)
+        create_geometry([2.5e-2, 2.5e-2, 0], r)
 
     with dolfinx.io.XDMFFile(comm, "mesh.xdmf", "r") as infile2:
         mesh = infile2.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
@@ -142,31 +144,37 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
     ft_tag = meshtags(mesh, mesh.topology.dim - 1, ft.indices, ft.values)
 
     # Define physical parameters and boundary conditions
-    phi_m_n = Constant(mesh, ScalarType(0))
-    phi_m_p = Constant(mesh, ScalarType(1))
     f = Constant(mesh, ScalarType(0.0))
 
     # Linear Butler-Volmer Kinetics
     ds = Measure("ds", domain=mesh, subdomain_data=ft_tag)
 
     g = Constant(mesh, ScalarType(0.0))
-    kappa = Constant(mesh, ScalarType(Wa * W * F_farad * i_exch * (alpha_a + alpha_c) / R / T))
-    # linear kinetics
-    r = Constant(mesh, ScalarType(i_exch * n * F_farad / (R * T)))
+    kappa = Constant(mesh, ScalarType(kappa))
 
     # Define function space and standard part of variational form
     V = FunctionSpace(mesh, ("CG", 1))
     u, v = TrialFunction(V), TestFunction(V)
-    F = kappa * inner(grad(u), grad(v)) * dx - inner(f, v) * dx
+    F = inner(kappa * grad(u), grad(v)) * dx - inner(f, v) * dx
 
-    bcs = []
+    # Dirichlet BCs
+    u0 = dolfinx.fem.Function(V)
+    with u0.vector.localForm() as u0_loc:
+        u0_loc.set(1)
+
+    u1 = dolfinx.fem.Function(V)
+    with u1.vector.localForm() as u1_loc:
+        u1_loc.set(0)
+
+    x0facet = ft.find(left_cc_marker)
+    x1facet = ft.find(right_cc_marker)
+    x0bc = dolfinx.fem.dirichletbc(u0, dolfinx.fem.locate_dofs_topological(V, 1, x0facet))
+    x1bc = dolfinx.fem.dirichletbc(u1, dolfinx.fem.locate_dofs_topological(V, 1, x1facet))
+
+    bcs = [x0bc, x1bc]
 
     # Neumann boundary - insulated
     F += inner(g, v) * ds(insulated_marker)
-
-    # Robin boundary - variable area - set kinetics expression
-    F += r * inner(u - phi_m_n, v) * ds(left_cc_marker)
-    F += r * inner(u - phi_m_p, v) * ds(right_cc_marker)
 
     # Solve linear variational problem
     options = {
@@ -174,9 +182,9 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
                 "pc_type": "hypre",
                 "ksp_rtol": 1.0e-12,
             }
-    a = lhs(F)
-    L = rhs(F)
-    problem = LinearProblem(a, L, bcs=bcs, petsc_options=options)
+    a_form = lhs(F)
+    L_form = rhs(F)
+    problem = LinearProblem(a_form, L_form, bcs=bcs, petsc_options=options)
     uh = problem.solve()
 
     # save to file
@@ -203,7 +211,6 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
 
     plotter.subplot(0, 0)
     plotter.add_title('Potential')
-    # plotter.add_text("Potential", position="lower_edge", font_size=14, color="black")
     plotter.add_mesh(grid, pickable=True, opacity=1, name='mesh')
     contours = grid.contour(20, compute_normals=True)
     plotter.add_mesh(contours, color="white", line_width=1, name='contours')
@@ -216,10 +223,9 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
     vectors = np.hstack((vectors, np.zeros((vectors.shape[0], 1))))
 
     grid.point_data.set_vectors(vectors, 'i [A/m$^2$]')
-    warped = grid.warp_by_scalar()
-    # plotter.add_mesh(warped)
+    _ = grid.warp_by_scalar()
     grid.set_active_vectors("i [A/m$^2$]")
-    glyphs = grid.glyph(orient="i [A/m$^2$]", factor=0.0015, tolerance=0.05)
+    glyphs = grid.glyph(orient="i [A/m$^2$]", factor=0.00001, tolerance=0.05)
     plotter.add_mesh(glyphs, name='i', color='white')
     plotter.add_mesh(grid, pickable=False, opacity=0.5, name='mesh')
     # plotter.add_text("Current Density", position="lower_edge", font_size=14, color="black")
@@ -228,11 +234,11 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
 
 ######################## INTERACTIVITY ####################################
 class VizRoutine:
-    def __init__(self, c, r, Wa):
+    def __init__(self, c, r, kappa):
         self.kwargs = {
             'c': c,
             'r': r,
-            'Wa': Wa,
+            'kappa': kappa,
         }
 
     def __call__(self, param, value):
@@ -246,16 +252,16 @@ class VizRoutine:
 
 
 if __name__ == '__main__':
-    engine = VizRoutine(c=c, r=r, Wa=10)
+    engine = VizRoutine(c=c, r=r, kappa=0.1)
     plotter.enable_point_picking(pickable_window=False,left_clicking=True, callback=lambda value: engine('c', value.tolist()))
     plotter.add_slider_widget(
-        callback=lambda value: engine('Wa', value),
-        rng=[1e-12, 100],
-        value=10,
-        title="Wagner Number",
+        callback=lambda value: engine('kappa', value),
+        rng=[1e-5, 10],
+        value=0.5,
+        title=r"$\kappa$",
         pointa=(0.6, 0.825),
         pointb=(0.9, 0.825),
         style='modern',
     )
-    plotter.show()
-    plotter.screenshot('figures/hull-cell-demo.png')
+    plotter.show(screenshot='figures/hull-cell-demo.png')
+    # plotter.screenshot('figures/hull-cell-demo.png')
