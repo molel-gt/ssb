@@ -17,4 +17,4 @@ export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
 export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/:/storage/home/hcoda1/0/emolel3/.local/
 cd $SLURM_SUBMIT_DIR
 
-mpirun python3 contact_loss_2d.py --eps $1 --Lx 1 --Ly 1 --w 0.1 --h 0.1 --pos $2 --n_pieces 3
+mpirun python3 study_5_geo.py --eps $1 --Lx 1 --Ly 1 --w 0.1 --h 0.1 --pos $2 --n_pieces 3
