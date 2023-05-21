@@ -34,7 +34,7 @@ if __name__ == '__main__':
     Ly = args.Ly
     w = args.w / Lx
     h = args.h / Ly
-    resolution = 0.0001
+    resolution = 0.00005
     outdir = f'mesh/current_constriction/{eps:.3f}'
     meshname = os.path.join(outdir, f'{h:.3f}_{w:.3f}_pos-{pos:.3f}_pieces-{n_pieces}')
     utils.make_dir_if_missing(outdir)
