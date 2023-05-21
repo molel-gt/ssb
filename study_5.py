@@ -35,7 +35,7 @@ if __name__ == '__main__':
     start = time.time()
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
-    logger = logging.getLogger(f'current_constriction:{args.n_pieces}:{args.w}:{args.h}:{args.eps}:{args.pos}:{args.voltage}')
+    logger = logging.getLogger(f'study_5:{args.n_pieces}:{args.w}:{args.h}:{args.eps}:{args.pos}:{args.voltage}')
     logger.setLevel('INFO')
     pos = args.pos
     n_pieces = int(args.n_pieces)
