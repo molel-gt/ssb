@@ -54,7 +54,7 @@ if __name__ == '__main__':
     f = fem.Constant(domain, PETSc.ScalarType(0))
     g = fem.Constant(domain, PETSc.ScalarType(0))
     g_1 = fem.Constant(domain, PETSc.ScalarType(i_sup))
-    r = fem.Constant(domain, PETSc.ScalarType(i0 * z * faraday_const / (R * T)))
+    # r = fem.Constant(domain, PETSc.ScalarType(i0 * z * faraday_const / (R * T)))
     kappa = fem.Constant(domain, PETSc.ScalarType(KAPPA))
     ds = ufl.Measure("ds", domain=domain, subdomain_data=tags)
     dS = ufl.Measure("dS", domain=domain, subdomain_data=tags)
