@@ -188,7 +188,7 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
     I_left_cc = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(left_cc_marker)))
     I_right_cc = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(right_cc_marker)))
     I_insulated = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(insulated_marker)))
-
+    print(f"left current [A/m^2]: {I_left_cc:.2e}, right current [A/m^2]: {I_right_cc:.2e}, insulated current [A/m^2]: {I_insulated:.2e}")
     # Visualize solution
     pyvista_cells, cell_types, geometry = plot.create_vtk_mesh(V)
     grid = pyvista.UnstructuredGrid(pyvista_cells, cell_types, geometry)
@@ -197,7 +197,6 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
 
     plotter.subplot(0, 0)
     plotter.add_title('Potential')
-    # plotter.add_text("Potential", position="lower_edge", font_size=14, color="black")
     plotter.add_mesh(grid, pickable=True, opacity=1, name='mesh')
     contours = grid.contour(20, compute_normals=True)
     plotter.add_mesh(contours, color="white", line_width=1, name='contours')
