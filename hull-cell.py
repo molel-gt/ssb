@@ -246,8 +246,8 @@ if __name__ == '__main__':
     plotter.enable_point_picking(pickable_window=False,left_clicking=True, callback=lambda value: engine('c', value.tolist()))
     plotter.add_slider_widget(
         callback=lambda value: engine('Wa', value),
-        rng=[1e-5, 100],
-        value=10,
+        rng=[1e-5, 1000],
+        value=1e-5,
         title="Wagner Number",
         pointa=(0.6, 0.825),
         pointb=(0.9, 0.825),
