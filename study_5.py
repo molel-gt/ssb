@@ -45,7 +45,7 @@ if __name__ == '__main__':
     w = args.w
     h = args.h
     voltage = args.voltage
-    outdir = f"mesh/current_constriction/{eps:.3f}"
+    outdir = f"mesh/study_5/{eps:.3f}"
     utils.make_dir_if_missing(outdir)
     tria_meshname = f'{outdir}/{h:.3f}_{w:.3f}_pos-{pos:.3f}_pieces-{n_pieces}_tria'
     line_meshname = f'{outdir}/{h:.3f}_{w:.3f}_pos-{pos:.3f}_pieces-{n_pieces}_line'
