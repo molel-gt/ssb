@@ -215,7 +215,7 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
     warped = grid.warp_by_scalar()
     # plotter.add_mesh(warped)
     grid.set_active_vectors("i [A/m$^{2}$]")
-    glyphs = grid.glyph(orient="i [A/m$^{2}$]", factor=0.0001, tolerance=0.05)
+    glyphs = grid.glyph(orient="i [A/m$^{2}$]", factor=0.0005, tolerance=0.05)
     plotter.add_mesh(glyphs, name='i [A/m$^{2}$]', color='white')
     plotter.add_mesh(grid, pickable=False, opacity=0.5, name='mesh')
     # plotter.add_text("Current Density", position="lower_edge", font_size=14, color="black")
@@ -246,8 +246,8 @@ if __name__ == '__main__':
     plotter.enable_point_picking(pickable_window=False,left_clicking=True, callback=lambda value: engine('c', value.tolist()))
     plotter.add_slider_widget(
         callback=lambda value: engine('Wa', value),
-        rng=[1e-5, 1000],
-        value=1e-5,
+        rng=[0.01, 100],
+        value=0.01,
         title="Wagner Number",
         pointa=(0.6, 0.825),
         pointb=(0.9, 0.825),
