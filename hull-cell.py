@@ -238,12 +238,12 @@ class VizRoutine:
 
 
 if __name__ == '__main__':
-    engine = VizRoutine(c=c, r=r, Wa=7.5)
+    engine = VizRoutine(c=c, r=r, Wa=0.001)
     plotter.enable_point_picking(pickable_window=False,left_clicking=True, callback=lambda value: engine('c', value.tolist()))
     plotter.add_slider_widget(
         callback=lambda value: engine('Wa', value),
         rng=[0.001, 10],
-        value=7.5,
+        value=0.001,
         title="Wagner Number",
         pointa=(0.6, 0.825),
         pointb=(0.9, 0.825),
