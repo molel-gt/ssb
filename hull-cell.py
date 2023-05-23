@@ -59,37 +59,36 @@ def create_mesh(domain, cell_type, prune_z=False):
 
 
 def create_geometry(c, r):
-    # Initialize empty geometry using the build in kernel in GMSH
-    geometry = pygmsh.geo.Geometry()
-    
-    # Fetch model we would like to add data to
-    model = geometry.__enter__()
-    
-    # Add circle
-    circle = model.add_circle(c, r, mesh_size=resolution)
+    gmsh.initialize()
+    gmsh.model.add("hull cell")
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.005)
 
-    points = [model.add_point((0, 0, 0), mesh_size=resolution),
-              model.add_point((0, W, 0), mesh_size=resolution),
-              model.add_point((L1, W, 0), mesh_size=resolution),
-              model.add_point((L, 0, 0), mesh_size=resolution)]
+    circle_tag = gmsh.model.occ.addCircle(*c, r)
+    circle_loop = gmsh.model.occ.addCurveLoop([circle_tag])
+
+    points = [gmsh.model.occ.addPoint(*(0, 0, 0)),
+              gmsh.model.occ.addPoint(*(0, W, 0)),
+              gmsh.model.occ.addPoint(*(L1, W, 0)),
+              gmsh.model.occ.addPoint(*(L, 0, 0))]
     
-    channel_lines = [model.add_line(points[i], points[i+1])
+    channel_lines = [gmsh.model.occ.addLine(points[i], points[i+1])
                      for i in range(-1, len(points)-1)]
-    channel_loop = model.add_curve_loop(channel_lines)
-    plane_surface = model.add_plane_surface(channel_loop, holes=[circle.curve_loop])
-    
-    # Call gmsh kernel before add physical entities
-    model.synchronize()
+    channel_loop = gmsh.model.occ.addCurveLoop(channel_lines)
+    plane_surface = gmsh.model.occ.addPlaneSurface((1, channel_loop, circle_loop))
 
-    model.add_physical([plane_surface], "domain")
-    model.add_physical([channel_lines[0], channel_lines[2]], "insulated")
-    model.add_physical([channel_lines[1]], "left")
-    model.add_physical([channel_lines[3]], "right")
-
-    geometry.generate_mesh(dim=2)
+    gmsh.model.occ.synchronize()
+    surf = gmsh.model.addPhysicalGroup(2, [plane_surface])
+    gmsh.model.setPhysicalName(2, surf, "domain")
+    ins_tag = gmsh.model.addPhysicalGroup(1, [channel_lines[0], channel_lines[2], circle_tag], insulated_marker)
+    gmsh.model.setPhysicalName(1, ins_tag, "insulated")
+    left_tag = gmsh.model.addPhysicalGroup(1, [channel_lines[1]], left_cc_marker)
+    gmsh.model.setPhysicalName(1, left_tag, "left")
+    right_tag = gmsh.model.addPhysicalGroup(1, [channel_lines[3]], right_cc_marker)
+    gmsh.model.setPhysicalName(1, right_tag, "right")
+    gmsh.model.mesh.generate(dim=2)
     gmsh.write("mesh.msh")
     gmsh.clear()
-    geometry.__exit__()
+    gmsh.finalize()
 
     mesh_from_file = meshio.read("mesh.msh")
     line_mesh = create_mesh(mesh_from_file, "line", prune_z=True)
@@ -132,12 +131,11 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
     ft_tag = mesh.meshtags(domain, domain.topology.dim - 1, ft.indices, ft.values)
 
     # Define physical parameters and boundary conditions
-    phi_m_n = fem.Constant(domain, ScalarType(1))
-    phi_m_p = fem.Constant(domain, ScalarType(0))
+    phi_m_n = fem.Constant(domain, ScalarType(0))
+    phi_m_p = fem.Constant(domain, ScalarType(1))
     f = fem.Constant(domain, ScalarType(0.0))
     n = ufl.FacetNormal(domain)
 
-    # Linear Butler-Volmer Kinetics
     ds = Measure("ds", domain=domain, subdomain_data=ft_tag)
 
     g = fem.Constant(domain, ScalarType(0.0))
@@ -147,21 +145,21 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
     # Define function space and standard part of variational form
     V = fem.FunctionSpace(domain, ("CG", 1))
     u, v = TrialFunction(V), TestFunction(V)
-    F = kappa * inner(grad(u), grad(v)) * dx - inner(f, v) * dx
+    F = inner(kappa * grad(u), grad(v)) * dx - inner(f, v) * dx
 
     bcs = []
 
     # Neumann boundary - insulated
-    F += inner(g, v) * ds(insulated_marker)
+    F -= inner(g, v) * ds(insulated_marker)
 
     # set linear kinetics expression
-    F += inner(i_exch * faraday_const * (1 / R / T) * (phi_m_n - u), v) * ds(left_cc_marker)
-    F += inner(i_exch * faraday_const * (1 / R / T) * (phi_m_p - u), v) * ds(right_cc_marker)
+    F -= inner(i_exch * faraday_const * (1 / R / T) * (phi_m_p - u), v) * ds(left_cc_marker)
+    F -= inner(i_exch * faraday_const * (1 / R / T) * (phi_m_n - u), v) * ds(right_cc_marker)
 
     # Solve linear variational problem
     options = {
-                "ksp_type": "gmres",
-                "pc_type": "hypre",
+                "ksp_type": "preonly",
+                "pc_type": "lu",
                 "ksp_rtol": 1.0e-12,
             }
     a_form = lhs(F)
@@ -238,12 +236,12 @@ class VizRoutine:
 
 
 if __name__ == '__main__':
-    engine = VizRoutine(c=c, r=r, Wa=0.001)
+    engine = VizRoutine(c=c, r=r, Wa=1)
     plotter.enable_point_picking(pickable_window=False,left_clicking=True, callback=lambda value: engine('c', value.tolist()))
     plotter.add_slider_widget(
         callback=lambda value: engine('Wa', value),
         rng=[0.001, 10],
-        value=0.001,
+        value=1,
         title="Wagner Number",
         pointa=(0.6, 0.825),
         pointb=(0.9, 0.825),
