@@ -33,14 +33,13 @@ U_therm = 0  # [V]
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
-    parser.add_argument('--grid_size', help='Nx-Ny-Nz', required=True)
-    parser.add_argument('--data_dir', help='directory with mesh files. output will be saved here', required=True, type=str)
+    parser.add_argument('--grid_extents', help='Nx-Ny-Nz that bounds the grid', required=True)
     parser.add_argument("--voltage", nargs='?', const=1, default=1)
     parser.add_argument("--eps", help='fraction of area at left current collector that is in contact',
                         nargs='?', const=1, default=0.05, type=np.double)
 
     args = parser.parse_args()
-    data_dir = args.data_dir
+    data_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], 'study_4', args.grid_extents, str(args.eps))
     voltage = args.voltage
     scaling = configs.get_configs()['VOXEL_SCALING']
     scale_x = 10e-6  # float(scaling['x'])
@@ -52,12 +51,11 @@ if __name__ == '__main__':
     start_time = timeit.default_timer()
 
     eps = args.eps
-    grid_size = args.grid_size
     FORMAT = f'%(asctime)s: %(message)s'
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{data_dir}')
     logger.setLevel(loglevel)
-    Lx, Ly, Lz = [float(v) for v in grid_size.split("-")]
+    Lx, Ly, Lz = [float(v) - 1 for v in args.grid_extents.split("-")]
     Lx = Lx * scale_x
     Ly = Ly * scale_y
     Lz = Lz * scale_z
@@ -162,10 +160,10 @@ if __name__ == '__main__':
     i_left_cc = I_left_cc / area_left_cc
     I_right_cc = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc)))
     i_right_cc = I_right_cc / area_right_cc
-    i_insulated = (1/insulated_area) * fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.insulated)))
+    I_insulated = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.insulated)))
+    i_insulated = I_insulated / insulated_area
     volume = fem.assemble_scalar(fem.form(1 * ufl.dx(domain)))
-    solution_trace_norm = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) ** 2 * ds(markers.insulated))) ** 0.5
-    avg_solution_trace_norm = solution_trace_norm / insulated_area
+    avg_solution_trace_norm = i_insulated
     error = 100 * 2 * np.abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
     kappa_eff = Lz * abs(I_left_cc) / (voltage * xsection_area)
     logger.info("**************************RESULTS-SUMMARY******************************************")
@@ -180,7 +178,7 @@ if __name__ == '__main__':
     logger.info("Electrolyte Volume Fraction                     : {:.2%}".format(volume / (xsection_area * Lz)))
     logger.info("Bulk conductivity [S.m-1]                       : {:.4e}".format(KAPPA))
     logger.info(f"Effective conductivity [S.m-1]                  : {kappa_eff:.4e}")
-    logger.info(f"Homogeneous Neumann BC trace                    : {solution_trace_norm:.2e}")
+    logger.info(f"Current density @ insulated                     : {i_insulated:.2e}")
     logger.info(f"Area-averaged Homogeneous Neumann BC trace      : {avg_solution_trace_norm:.2e}")
     logger.info(f"Error                                            : {error:.2f}%")
     logger.info(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")

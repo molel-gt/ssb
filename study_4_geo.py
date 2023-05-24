@@ -17,13 +17,13 @@ markers = commons.SurfaceMarkers()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate Volume with Contact Loss")
-    parser.add_argument("--grid_info", help="Nx-Ny-Nz that defines the grid size", required=True)
-    parser.add_argument("--contact_map", help="Image to generate contact map", required=True)
+    parser.add_argument("--grid_extents", help="Nx-Ny-Nz that defines the grid bounds", required=True)
+    # parser.add_argument("--contact_map", help="Image to generate contact map", required=True)
     parser.add_argument("--phase", help="0 -> void, 1 -> SE, 2 -> AM", nargs='?', const=1, default=1)
     parser.add_argument("--eps", help="coverage of area at left cc", nargs='?', const=1, default=0.05)
     args = parser.parse_args()
-    grid_info = args.grid_info
-    contact_img_file = args.contact_map
+    grid_extents = args.grid_extents
+    # contact_img_file = args.contact_map
     phase = args.phase
     eps = float(args.eps)
     scaling = configs.get_configs()['VOXEL_SCALING']
@@ -34,8 +34,8 @@ if __name__ == '__main__':
     dp = int(configs.get_configs()['GEOMETRY']['dp'])
     h = float(configs.get_configs()['GEOMETRY']['h'])
     origin_str = 'study_4'
-    mesh_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], 'study_4', grid_info, str(eps))
-    Nx, Ny, Nz = [float(v) for v in grid_info.split("-")]
+    mesh_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], 'study_4', grid_extents, str(eps))
+    Nx, Ny, Nz = [float(v) for v in grid_extents.split("-")]
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
@@ -63,7 +63,10 @@ if __name__ == '__main__':
     #     pickle.dump(contact_points, fp, protocol=pickle.HIGHEST_PROTOCOL)
     r = 2 * Lx * (eps/np.pi) ** 0.5
     xc, yc = 0.5 * Lx, 0.5 * Ly
-    res1 = subprocess.check_call(f'sed -i "/cov\ = */c\cov = {eps};" contact-loss.geo', shell=True)
+    res1 = subprocess.check_call(f'sed -i "/eps\ = */c\eps = {eps};" contact-loss.geo', shell=True)
+    res2 = subprocess.check_call(f'sed -i "/Lx\ = */c\Lx = {Lx};" contact-loss.geo', shell=True)
+    res3 = subprocess.check_call(f'sed -i "/Ly\ = */c\Ly = {Ly};" contact-loss.geo', shell=True)
+    res4 = subprocess.check_call(f'sed -i "/Lz\ = */c\Lz = {Lz};" contact-loss.geo', shell=True)
     res = subprocess.check_call(f"gmsh -3 contact-loss.geo -o {tetr_mshfile}", shell=True)
     tet_msh = meshio.read(tetr_mshfile)
     tetr_mesh_unscaled = geometry.create_mesh(tet_msh, "tetra")
