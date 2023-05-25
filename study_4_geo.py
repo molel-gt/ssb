@@ -66,7 +66,7 @@ if __name__ == '__main__':
     res2 = subprocess.check_call(f'sed -i "/Lx\ = */c\Lx = {Lx};" {mesh_dir}/contact-loss.geo', shell=True)
     res3 = subprocess.check_call(f'sed -i "/Ly\ = */c\Ly = {Ly};" {mesh_dir}/contact-loss.geo', shell=True)
     res4 = subprocess.check_call(f'sed -i "/Lz\ = */c\Lz = {Lz};" {mesh_dir}/contact-loss.geo', shell=True)
-    res = subprocess.check_call(f"gmsh -3 contact-loss.geo -o {tetr_mshfile}", shell=True)
+    res = subprocess.check_call(f"gmsh -3 {mesh_dir}/contact-loss.geo -o {tetr_mshfile}", shell=True)
     tet_msh = meshio.read(tetr_mshfile)
     tetr_mesh_unscaled = geometry.create_mesh(tet_msh, "tetra")
     tetr_mesh_unscaled.write(tetr_xdmf_unscaled)
