@@ -6,7 +6,7 @@ SetFactory('OpenCASCADE');
 R = Lx * Sqrt(eps/Pi);
 xc = 0.5 * Lx;
 yc = 0.5 * Ly;
-Mesh.CharacteristicLengthMin = 0.001;
+Mesh.CharacteristicLengthMin = 0.005;
 //Mesh.CharacteristicLengthMax = 0.05;
 Point(1) = {0, 0, 0};
 Point(2) = {Lx, 0, 0};
