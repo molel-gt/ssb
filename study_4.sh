@@ -1,5 +1,9 @@
 #!/bin/bash
-source /storage/home/hcoda1/0/emolel3/.bashrc && conda activate fenicsx-env
+
+cd /storage/coda1/p-tf74/0/shared/leshinka/ && . ./spack/share/spack/setup-env.sh
+spack env activate fenicsx-env
+spack load gcc@10.1.0
+
 echo 'Creating Geometries..'
 for Lz in 7.25 26;
 do
