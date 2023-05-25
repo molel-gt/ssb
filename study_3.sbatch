@@ -10,9 +10,7 @@
 #SBATCH --mail-user=emolel3@gatech.edu
 
 cd $SLURM_SUBMIT_DIR
-
-cd /storage/coda1/p-tf74/0/shared/leshinka/ && . ./spack/share/spack/setup-env.sh && spack env activate fenicsx-env
-
+source /storage/home/hcoda1/0/emolel3/.bashrc && conda activate fenicsx-env
 export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
 export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/:/storage/home/hcoda1/0/emolel3/.local/
 cd $SLURM_SUBMIT_DIR
