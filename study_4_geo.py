@@ -9,8 +9,6 @@ import gmsh
 import meshio
 import numpy as np
 
-from skimage import io
-
 import commons, configs, geometry, utils
 
 markers = commons.SurfaceMarkers()
@@ -63,11 +61,12 @@ if __name__ == '__main__':
     #     pickle.dump(contact_points, fp, protocol=pickle.HIGHEST_PROTOCOL)
     r = 2 * Lx * (eps/np.pi) ** 0.5
     xc, yc = 0.5 * Lx, 0.5 * Ly
-    res1 = subprocess.check_call(f'sed -i "/eps\ = */c\eps = {eps};" contact-loss.geo', shell=True)
-    res2 = subprocess.check_call(f'sed -i "/Lx\ = */c\Lx = {Lx};" contact-loss.geo', shell=True)
-    res3 = subprocess.check_call(f'sed -i "/Ly\ = */c\Ly = {Ly};" contact-loss.geo', shell=True)
-    res4 = subprocess.check_call(f'sed -i "/Lz\ = */c\Lz = {Lz};" contact-loss.geo', shell=True)
-    res = subprocess.check_call(f"gmsh -3 contact-loss.geo -o {tetr_mshfile}", shell=True)
+    res0 = subprocess.check_call(f'cp contact-loss.geo {mesh_dir}', shell=True)
+    res1 = subprocess.check_call(f'sed -i "/eps\ = */c\eps = {eps};" {mesh_dir}/contact-loss.geo', shell=True)
+    res2 = subprocess.check_call(f'sed -i "/Lx\ = */c\Lx = {Lx};" {mesh_dir}/contact-loss.geo', shell=True)
+    res3 = subprocess.check_call(f'sed -i "/Ly\ = */c\Ly = {Ly};" {mesh_dir}/contact-loss.geo', shell=True)
+    res4 = subprocess.check_call(f'sed -i "/Lz\ = */c\Lz = {Lz};" {mesh_dir}/contact-loss.geo', shell=True)
+    res = subprocess.check_call(f"gmsh -3 {mesh_dir}/contact-loss.geo -o {tetr_mshfile}", shell=True)
     tet_msh = meshio.read(tetr_mshfile)
     tetr_mesh_unscaled = geometry.create_mesh(tet_msh, "tetra")
     tetr_mesh_unscaled.write(tetr_xdmf_unscaled)

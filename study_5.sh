@@ -1,5 +1,9 @@
 #!/bin/bash
-source /storage/home/hcoda1/0/emolel3/.bashrc && conda activate fenicsx-env
+
+cd /storage/coda1/p-tf74/0/shared/leshinka/ && . ./spack/share/spack/setup-env.sh
+spack env activate fenicsx-env
+spack load gcc@10.1.0
+
 for eps in 0.01 0.05 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9;
 #for eps in 0.01 0.05 0.1 0.2 0.3;
 do

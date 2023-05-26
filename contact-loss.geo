@@ -1,4 +1,4 @@
-eps = 0.15;
+eps = 0.25;
 Lx = 25.0;
 Ly = 25.0;
 Lz = 25.0;
@@ -6,8 +6,8 @@ SetFactory('OpenCASCADE');
 R = Lx * Sqrt(eps/Pi);
 xc = 0.5 * Lx;
 yc = 0.5 * Ly;
-Mesh.CharacteristicLengthMin = 0.05;
-Mesh.CharacteristicLengthMax = 0.5;
+Mesh.CharacteristicLengthMin = 0.005;
+//Mesh.CharacteristicLengthMax = 0.05;
 Point(1) = {0, 0, 0};
 Point(2) = {Lx, 0, 0};
 Point(3) = {Lx, Ly, 0};
@@ -64,4 +64,4 @@ Surface Loop(1) = {1, 2, 3, 4, 5, 6, 7};
 Volume(1) = {1};
 Physical Volume(1) = {1};
 // refining
-Characteristic Length {109, 110, 111, 112, 113} = 0.001;
+Characteristic Length {1:6, 109, 110, 111, 112, 113} = 0.0001;

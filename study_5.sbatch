@@ -11,7 +11,9 @@
 
 cd $SLURM_SUBMIT_DIR
 
-source /storage/home/hcoda1/0/emolel3/.bashrc && conda activate fenicsx-env
+cd /storage/coda1/p-tf74/0/shared/leshinka/ && . ./spack/share/spack/setup-env.sh
+spack env activate fenicsx-env
+spack load gcc@10.1.0
 
 export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
 export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/:/storage/home/hcoda1/0/emolel3/.local/
