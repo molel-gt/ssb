@@ -167,20 +167,49 @@ def build_variable_size_cubes(points, h=0.5, dp=1):
     Filter out vertices that are malformed/ not part of solid inside or solid surface.
     """
     cubes = []
+    new_points = set(points.keys())
     for coord, _ in points.items():
         x0, y0, z0 = [round(v, dp) for v in coord]
-        face_1 = [
-            (round(x0, dp), round(y0, dp), round(z0, dp)),
-            (round(x0 + h, dp), round(y0, dp), round(z0, dp)),
-            (round(x0 + h, dp), round(y0 + h, dp), round(z0, dp)),
-            (round(x0, dp), round(y0 + h, dp), round(z0, dp))
-        ]
-        face_2 = [
-            (round(x0, dp), round(y0, dp), round(z0 + h, dp)),
-            (round(x0 + h, dp), round(y0, dp), round(z0 + h, dp)),
-            (round(x0 + h, dp), round(y0 + h, dp), round(z0 + h, dp)),
-            (round(x0, dp), round(y0 + h, dp), round(z0 + h, dp))
-        ]
+        at_boundary = False
+        count_valid = 0
+        if np.any(np.array([x0 % 1, y0 % 1, z0 % 1]) > 0):
+            at_boundary = True
+        if not at_boundary:
+            face_1 = [
+                (round(x0, dp), round(y0, dp), round(z0, dp)),
+                (round(x0 + 1, dp), round(y0, dp), round(z0, dp)),
+                (round(x0 + 1, dp), round(y0 + 1, dp), round(z0, dp)),
+                (round(x0, dp), round(y0 + 1, dp), round(z0, dp))
+            ]
+            face_2 = [
+                (round(x0, dp), round(y0, dp), round(z0 + 1, dp)),
+                (round(x0 + 1, dp), round(y0, dp), round(z0 + 1, dp)),
+                (round(x0 + 1, dp), round(y0 + 1, dp), round(z0 + 1, dp)),
+                (round(x0, dp), round(y0 + 1, dp), round(z0 + 1, dp))
+            ]
+
+            for p in face_1 + face_2:
+                if p in new_points:
+                    count_valid += 1
+        if count_valid == 8:
+            cubes.append((face_1, face_2))
+            continue
+        else:
+            at_boundary = True
+
+        if at_boundary:
+            face_1 = [
+                (round(x0, dp), round(y0, dp), round(z0, dp)),
+                (round(x0 + h, dp), round(y0, dp), round(z0, dp)),
+                (round(x0 + h, dp), round(y0 + h, dp), round(z0, dp)),
+                (round(x0, dp), round(y0 + h, dp), round(z0, dp))
+            ]
+            face_2 = [
+                (round(x0, dp), round(y0, dp), round(z0 + h, dp)),
+                (round(x0 + h, dp), round(y0, dp), round(z0 + h, dp)),
+                (round(x0 + h, dp), round(y0 + h, dp), round(z0 + h, dp)),
+                (round(x0, dp), round(y0 + h, dp), round(z0 + h, dp))
+            ]
 
         cubes.append((face_1, face_2))
 

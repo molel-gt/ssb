@@ -133,5 +133,10 @@ if __name__ == "__main__":
 
     # tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, CELL_TYPES.triangle, scale_factor=scale_factor)
     # tria_mesh_scaled.write(tria_xdmf_scaled)
+    for f in [nodefile, tetfile, facesfile, vtkfile, surface_vtk, tetr_mshfile, surf_mshfile]:
+        try:
+            os.remove(f)
+        except:
+            continue
     
     logger.info("Took {:,} seconds".format(int(time.time() - start_time)))

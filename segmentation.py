@@ -9,24 +9,34 @@ import argparse
 import cartopy.crs as ccrs
 import cv2
 import hdbscan
+import igraph as ig
 import matplotlib.pyplot as plt
+import metis
+import networkx as nx
 import numpy as np
+
+
 import pickle
 import warnings
 
+from concavehull import concavehull
+from igraph import Graph
 from shapely import Polygon, MultiPoint
 from shapely.plotting import plot_polygon
+from shapely.validation import make_valid
 from descartes import PolygonPatch
 from ipywidgets import widgets, interactive
+from matplotlib.colors import LinearSegmentedColormap
+from matplotlib import patches
 from matplotlib.widgets import CheckButtons, Button, Slider, LassoSelector, RadioButtons, TextBox, RectangleSelector
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from PIL import Image
+
 from skimage import filters
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.neural_network import MLPClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.cluster import AgglomerativeClustering, SpectralClustering, MeanShift, OPTICS, Birch, AffinityPropagation, KMeans, FeatureAgglomeration
+
+from hulls import ConcaveHull
+
+import geometry
 
 
 warnings.simplefilter("ignore")
@@ -55,6 +65,51 @@ phases = {
 training_images = np.linspace(0, 200, num=41)
 thresholds = ['-0.80', '-0.50','-0.40', '-0.30', '-0.20', '-0.01', '0.00', '0.01', '0.02','0.03', '0.04', '0.05', '0.10', '0.20', '0.30', '0.40', '0.50', '0.99']
 
+
+class PixelGraph:
+    def __init__(self, points):
+        self._points = points
+        self._pieces = None
+        self._graph = None
+        self._n_pieces = 0
+
+    @property
+    def points(self):
+        return self._points
+
+    @property
+    def pieces(self):
+        return self._pieces
+
+    @property
+    def n_pieces(self):
+        return self._n_pieces
+
+    @property
+    def graph(self):
+        return self._graph
+
+    def build_graph(self):
+        n_nodes = max(self.points.keys())
+
+        points_lookup = {v: k for k, v in self.points.items()}
+        edges = []
+        for idx, p in self.points.items():
+            x, y = p
+            neighbors = [(int(x), int(y+1)), (int(x+1), int(y)), (int(x+1), int(y+1))]
+            for n in neighbors:
+                n_idx = points_lookup.get(n)
+                if n_idx is None:
+                    continue
+                edges.append((idx, n_idx))
+
+        G = ig.Graph(n_nodes + 1, edges)
+
+        self._graph = G
+
+    def get_graph_pieces(self):
+        self._pieces = list(self.graph.connected_components())
+        self._n_pieces = len(self.pieces)
 
 
 def make_dir_if_missing(f_path):
@@ -150,54 +205,77 @@ def chunk_array(arr_shape, arr, size=100):
 def get_clustering_results(X_2d, **hdbscan_kwargs):
     clusterer = hdbscan.HDBSCAN(**hdbscan_kwargs)
     y_predict = clusterer.fit_predict(X_2d).reshape(-1, 1)
-    # y_predict = np.zeros((X_2d.shape[0], ), dtype=np.intc)
-    # max_cluster_id = 0
-    # for coords in chunk_array((501, 501), X_2d):
-    #     features = X_2d[coords[0], :]
-    #     predictions = clusterer.fit_predict(features)
-    #     new_c = np.where(predictions < 0)
-    #     new_c2 = np.where(predictions > -1)
-    #     predictions[new_c2] = predictions[new_c2] + max_cluster_id
-    #     y_predict[coords] = predictions
-    #     max_cluster_id = np.max(y_predict) + 1
 
     return y_predict
 
 
-def get_polygon(clusters, ax):
+def recluster(clusters):
+    max_v = np.max(clusters)
+    new_clusters = clusters.copy()
+    adder = 0
     for v in np.unique(clusters):
         if v < 0:
             continue
+
         coords = np.where(np.isclose(clusters, v))
-        if coords[0].shape[0] > 50:
-            # if coords[0].shape[0] < 1000:
-            #     continue
-            points = [(coords[0][i], coords[1][i]) for i in range(coords[0].shape[0])]
-            set_points = set(points)
-            ext = []
-            for (x, y) in set_points:
-                count = 0
-                chek_pts = [(x, int(y + 1)), (x, int(y -1)), (int(x + 1), y), (int(x - 1), y)]
-                for p in chek_pts:
-                    if p in set_points:
-                        count += 1
-                if count == 3:
-                    ext.append((y, x))
-            polygon = Polygon(sorted(ext))
-            print(polygon.boundary)
-            # print(v, polygon.area, coords[0].shape[0], polygon.area/coords[0].shape[0] ** 2)
-            error = np.linalg.norm(np.array([polygon.centroid.x, polygon.centroid.y, 0]) - np.array([np.average(coords[1]), np.average(coords[0]), 0]))
-            print(v, np.linalg.norm(np.array([polygon.centroid.x, polygon.centroid.y, 0]) - np.array([np.average(coords[1]), np.average(coords[0]), 0])))
-            if error > 150:
-                continue
-            plot_polygon(polygon, ax=ax, add_points=False, alpha=0.5, edgecolor='red')
-            # points = np.array(points).reshape(-1, 2)
-            # alpha_shape = alphashape.alphashape(points, 2)
-            # alpha_shape.show()
-            # ax.add_geometry(
-            #     alpha_shape['geometry'],
-            #     crs=ccrs.AlbersEqualArea(), alpha=.2)
-            # ax.add_patch(PolygonPatch(alpha_shape, alpha=0.2))
+        points = [(coords[0][i], coords[1][i]) for i in range(coords[0].shape[0])]
+        points_arr = np.array(points).reshape(-1, 2)
+        points_dict = {}
+        for i in range(coords[0].shape[0]):
+            points_dict[int(i)] = (int(coords[0][i]), int(coords[1][i]))
+
+        PG = PixelGraph(points=points_dict)
+        PG.build_graph()
+        PG.get_graph_pieces()
+        pieces = PG.pieces
+        n_pieces = PG.n_pieces
+        def cut_graph():
+            return
+        if np.isclose(n_pieces, 1):
+            # print(f"Size: {coords[0].shape[0]:,}")
+            # hull = concavehull(points_arr, chi_factor=1e-12)
+            # ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
+            if coords[0].shape[0] / (500 ** 2) >= 0.05:
+                edgecuts, parts = metis.part_graph(PG.graph, 2)
+                print(edgecuts)
+        else:
+            # print(f"Size: {coords[0].shape[0]:,}")
+            for i, p in enumerate(pieces):
+                p_points = [points_dict[idx] for idx in p]
+                p_points_arr = np.array(p_points).reshape(-1, 2)
+                
+                if p_points_arr.shape[0] / (500 ** 2) >= 0.05:
+                    new_dict = {}
+                    for k, v in points_dict.items():
+                        if int(k) in p:
+                            new_dict[k] = v
+                        
+                    graph = PixelGraph(points=new_dict)
+                    graph.build_graph()
+                    G = graph.graph
+                    edgecuts, parts = metis.part_graph(G.to_networkx(), 3, [0.5, 0.3, 0.2])
+                    new_pieces = [[],[],[]]
+                    for idx, p in enumerate(parts):
+                        new_pieces[int(p)].append(int(idx))
+                    pieces += new_pieces
+
+            for i, p in enumerate(pieces):
+                p_points = [points_dict[idx] for idx in p]
+                p_points_arr = np.array(p_points).reshape(-1, 2)
+
+                try:
+                    hull = concavehull(p_points_arr, chi_factor=1e-12)
+                    # polygon = Polygon(p_points)
+                    # ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
+                    if i > 0:
+                        adder += 1
+                        for c in p:
+                            new_clusters[points_dict[c]] = max_v + adder
+                except RuntimeError:
+                    for c in p:
+                        new_clusters[points_dict[c]] = -1
+                    print("Cannot triangulate", v, i, len(p))
+    return new_clusters
 
 
 class Segmentor:
@@ -261,16 +339,16 @@ class Segmentor:
                 self.edges = pickle.load(fp)
         else:
             img_11 = neighborhood_average(self.image)
-            for i in range(2):
+            for i in range(5):
                 img_11 = neighborhood_average(img_11)
-            img_2 = filters.gaussian(img_11, sigma=2)
+            img_2 = filters.gaussian(img_11, sigma=0.5)
             img_2 = neighborhood_average(img_2 / np.max(img_2))
             img_2 = filters.meijering(img_2 / np.max(img_2))
-            img_2 = neighborhood_average(img_2)
+            # img_2 = neighborhood_average(img_2)
             self.edges = img_2 / np.max(img_2)
             self.write_edges_to_file()
-            # with open(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
-            #     pickle.dump(self.edges, fp)
+            with open(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
+                pickle.dump(self.edges, fp)
 
     def write_edges_to_file(self):
         with open(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
@@ -286,26 +364,31 @@ class Segmentor:
         self.set_edges()
 
         img = self.edges
-        if self.use_residuals:
-            coords = np.where(self.phases != 1)
-            img[coords] = -1
-        X_2d = build_features_matrix(img, self.image, self.threshold)
-        if not np.all(np.array(X_2d.shape) > 0):
-            return
-        y_predict = get_clustering_results(X_2d, **hdbscan_kwargs)
-        img_cluster_raw = -2 * np.ones(img.shape)  # -2, -1 are residual non-clustered
-
-        for v in np.unique(y_predict):
-            if v < 0:
-                continue
-            X_v = np.where(y_predict == v)[0]
-            coords = np.array([X_2d[ix, :2] for ix in X_v])
-            for (ix, iy) in coords:
-                img_cluster_raw[int(ix), int(iy)] = int(v)
-
-        img_cluster_enhanced = enhance_clusters(img_cluster_raw)
-
-        self._clusters = img_cluster_enhanced
+        for thresh in [self.threshold, -0.5, -0.8, ]:
+            if self.use_residuals:
+                coords = np.where(self.clusters > -1)
+                # coords = np.where(self.phases != 1)
+                img[coords] = -1
+            X_2d = build_features_matrix(img, self.image, thresh)
+            if not np.all(np.array(X_2d.shape) > 0):
+                return
+            y_predict = get_clustering_results(X_2d, **hdbscan_kwargs)
+            img_cluster_raw = -2 * np.ones(img.shape)  # -2, -1 are residual non-clustered
+    
+            for v in np.unique(y_predict):
+                if v < 0:
+                    continue
+                X_v = np.where(y_predict == v)[0]
+                coords = np.array([X_2d[ix, :2] for ix in X_v])
+                for (ix, iy) in coords:
+                    img_cluster_raw[int(ix), int(iy)] = int(v)
+    
+            img_cluster_enhanced = enhance_clusters(img_cluster_raw)
+            reclustered = recluster(img_cluster_enhanced)
+            coords2 = np.where(reclustered > -1)
+            self._clusters[coords2] = reclustered[coords2]
+        with open(os.path.join(self.clusters_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
+            pickle.dump(self.clusters, fp)
 
     def run(self, selection=None, phase=None, rerun=False, clustering=False, segmentation=False, use_residuals=True):
         self.rerun = rerun
@@ -319,15 +402,12 @@ class Segmentor:
             self.update_phases(selection, phase)
 
 
-
-
-
 class App:
-    def __init__(self, seg, selected_phase=-1, fs=None, fig=None, radio=None, ax=None):
+    def __init__(self, seg, selected_phase=-1, f_ind=0, t_ind=10, fs=None, fig=None, radio=None, ax=None):
         self.seg = seg
-        self.ind = 0
+        self.ind = f_ind
         self._selected_phase = selected_phase
-        self._threshold_index = 12
+        self._threshold_index = t_ind
         self._fs = fs
         self._fig = fig
         self._ax = ax
@@ -361,7 +441,7 @@ class App:
         f2.set_data(self.seg.edges)
         f3.set_data(self.seg.clusters)
         f4.set_data(self.seg.phases)
-        get_polygon(self.seg.clusters, self._ax[0, 0])
+        # get_polygon(self.seg.clusters, self._ax[0, 0], self.seg.image_id)
         self._fig.canvas.draw()
         self._fig.canvas.flush_events()
 
@@ -381,7 +461,6 @@ class App:
         f2.set_data(self.seg.edges)
         f3.set_data(self.seg.clusters)
         f4.set_data(self.seg.phases)
-        get_polygon(self.seg.clusters, self._ax[0, 0])
         self._fig.canvas.draw()
         self._fig.canvas.flush_events()
 
@@ -403,7 +482,6 @@ class App:
 
             f3.set_data(self.seg.clusters)      
             f4.set_data(self.seg.phases)
-            get_polygon(self.seg.clusters, self._ax[0, 0])
             self._fig.canvas.draw_idle()
             self._fig.canvas.flush_events()
 
@@ -416,7 +494,6 @@ class App:
         f1, f2, f3, f4 = self._fs
         f2.set_data(self.seg.edges)
         f3.set_data(self.seg.clusters)
-        get_polygon(self.seg.clusters, self._ax[0, 0])
         self._fig.canvas.draw_idle()
         self._fig.canvas.flush_events()
 
@@ -437,7 +514,6 @@ class App:
         f1, f2, f3, f4 = self._fs
         f3.set_data(self.seg.clusters)      
         f4.set_data(self.seg.phases)
-        get_polygon(self.seg.clusters, self._ax[0, 0])
         self._fig.canvas.draw_idle()
         self._fig.canvas.flush_events()
 
@@ -644,20 +720,50 @@ if __name__ == '__main__':
     # next and previous buttons
     axprev = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=2)
     axnext = inset_axes(ax[0, 2], width="49.5%", height='10%', loc=1)
+    cmap_name = 'seg'
+    colors = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]
+    cdict = {
+        'gray': (
+            (0.0,  0.0, 0.0),
+            (1.0,  1.0, 1.0),
+            (1.0,  1.0, 1.0),
+            ),
+        'red': (
+            (0.0,  0.0, 0.0),
+            (0.5,  1.0, 1.0),
+            (1.0,  1.0, 1.0),
+            ),
+        'green': (
+            (0.0,  0.0, 0.0),
+            (0.25, 0.0, 0.0),
+            (0.75, 1.0, 1.0),
+            (1.0,  1.0, 1.0),
+        ),
+        'blue': (
+            (0.0,  0.0, 0.0),
+            (0.5,  0.0, 0.0),
+            (1.0,  1.0, 1.0),
+        )
+        }
+
+    cmap = LinearSegmentedColormap.from_list(cmap_name, colors, N=4)
 
     radio = RadioButtons(
         rax,
         ('None', 'Void', 'Solid Electrolyte', 'Active Material'),
         active=0,
-        # label_props={'color': ['blue', 'red' , 'green']},
-        # radio_props={'edgecolor': ['darkblue', 'darkred', 'darkgreen'],
-        #               'facecolor': ['blue', 'red', 'green'],
+        # label_props={'color': ['gray', 'blue', 'red' , 'green']},
+        # radio_props={'edgecolor': ['gray', 'darkblue', 'darkred', 'darkgreen'],
+        #               'facecolor': ['gray', 'blue', 'red', 'green'],
         #               },
         )
 
     f1 = ax[0, 0].imshow(image, cmap='gray')
     ax[0, 0].set_title('Original')
     ax[0, 0].set_aspect('equal', 'box')
+    # ax[0, 0].set_xlim([0, 501])
+    # ax[0, 0].set_ylim([0, 501])
+
     fig.canvas.draw_idle()
 
     f2 = ax[0, 1].imshow(seg.edges, cmap='gray')
@@ -668,10 +774,9 @@ if __name__ == '__main__':
     ax[1, 0].set_title("Clusters")
     ax[1, 0].set_aspect('equal', 'box')
 
-    f4 = ax[1, 1].imshow(seg.phases, cmap='brg')
+    f4 = ax[1, 1].imshow(seg.phases, cmap=cmap)
     ax[1, 1].set_title("Segmented")
     ax[1, 1].set_aspect('equal', 'box')
-    get_polygon(seg.clusters, ax[0, 0])
 
     callback = App(seg, fs=[f1, f2, f3, f4], fig=fig, radio=radio, ax=ax)
     # edge_selector = LassoSelector(ax=ax[0, 1], onselect=callback.newEdges)

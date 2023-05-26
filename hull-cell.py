@@ -12,89 +12,83 @@ import numpy as np
 import pygmsh
 import pyvista
 import ufl
+import vtk  # do not remove, required for latex rendering in PyVista
 
-from dolfinx.fem import (Constant, FunctionSpace)
-from dolfinx.fem.petsc import LinearProblem
-from dolfinx.mesh import meshtags
+from dolfinx import fem, mesh, plot
 from mpi4py import MPI
 from petsc4py.PETSc import ScalarType
 from ufl import (Measure, TestFunction, TrialFunction, 
                  dx, grad, inner, lhs, rhs)
-from dolfinx.plot import create_vtk_mesh
 
 
 # pyvista.set_jupyter_backend("pythreejs")
 plotter = pyvista.Plotter(shape=(1, 2))
 comm = MPI.COMM_WORLD
 
-resolution = 0.05
+resolution = 0.05e-1
 
 # Channel parameters
-L1 = 3
-L2 = 2
+L1 = 3e-1
+L2 = 2e-1
 L = L1 + L2
-W = 5
+W = 5e-1
 
 insulated_marker = 2
 left_cc_marker = 3
 right_cc_marker = 4
 
 # starting
-c = [2.5, 2.5, 0]
-r = 0.5
+c = [2.5e-1, 2.5e-1, 0]
+r = 0.5e-1
 
-### PARAMETERS ##############
 # parameters
-R = 8.314 # J/K/mol
-T = 298 # K
-n = 1  # number of electrons involved
-F_farad = 96485  # C/mol
-i_exch = 10  # A/m^2
+R = 8.314  # J/K/mol
+T = 298  # K
+faraday_const = 96485  # C/mol
+KAPPA = 0.1  # S/m
 alpha_a = 0.5
-alpha_c = n - alpha_a
+alpha_c = 0.5
 
 
-def create_mesh(mesh, cell_type, prune_z=False):
-    cells = mesh.get_cells_type(cell_type)
-    cell_data = mesh.get_cell_data("gmsh:physical", cell_type)
-    points = mesh.points[:,:2] if prune_z else mesh.points
-    out_mesh = meshio.Mesh(points=points, cells={cell_type: cells}, cell_data={"name_to_read":[cell_data]})
+def create_mesh(domain, cell_type, prune_z=False):
+    cells = domain.get_cells_type(cell_type)
+    cell_data = domain.get_cell_data("gmsh:physical", cell_type)
+    points = domain.points[:, :2] if prune_z else domain.points
+    out_mesh = meshio.Mesh(points=points, cells={cell_type: cells}, cell_data={"name_to_read": [cell_data]})
     return out_mesh
 
 
 def create_geometry(c, r):
-    # Initialize empty geometry using the build in kernel in GMSH
-    geometry = pygmsh.geo.Geometry()
+    gmsh.initialize()
+    gmsh.model.add("hull cell")
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.005)
+
+    circle_tag = gmsh.model.occ.addCircle(*c, r)
+    circle_loop = gmsh.model.occ.addCurveLoop([circle_tag])
+
+    points = [gmsh.model.occ.addPoint(*(0, 0, 0)),
+              gmsh.model.occ.addPoint(*(0, W, 0)),
+              gmsh.model.occ.addPoint(*(L1, W, 0)),
+              gmsh.model.occ.addPoint(*(L, 0, 0))]
     
-    # Fetch model we would like to add data to
-    model = geometry.__enter__()
-    
-    # Add circle
-    circle = model.add_circle(c, r, mesh_size=resolution)
-    
-    
-    points = [model.add_point((0, 0, 0), mesh_size=resolution),
-              model.add_point((0, W, 0), mesh_size=resolution),
-              model.add_point((L1, W, 0), mesh_size=resolution),
-              model.add_point((L, 0, 0), mesh_size=resolution)]
-    
-    channel_lines = [model.add_line(points[i], points[i+1])
+    channel_lines = [gmsh.model.occ.addLine(points[i], points[i+1])
                      for i in range(-1, len(points)-1)]
-    channel_loop = model.add_curve_loop(channel_lines)
-    plane_surface = model.add_plane_surface(channel_loop, holes=[circle.curve_loop])
-    
-    # Call gmsh kernel before add physical entities
-    model.synchronize()
+    channel_loop = gmsh.model.occ.addCurveLoop(channel_lines)
+    plane_surface = gmsh.model.occ.addPlaneSurface((1, channel_loop, circle_loop))
 
-    model.add_physical([plane_surface], "domain")
-    model.add_physical([channel_lines[0], channel_lines[2]], "insulated")
-    model.add_physical([channel_lines[1]], "left")
-    model.add_physical([channel_lines[3]], "right")
-
-    geometry.generate_mesh(dim=2)
+    gmsh.model.occ.synchronize()
+    surf = gmsh.model.addPhysicalGroup(2, [plane_surface])
+    gmsh.model.setPhysicalName(2, surf, "domain")
+    ins_tag = gmsh.model.addPhysicalGroup(1, [channel_lines[0], channel_lines[2], circle_tag], insulated_marker)
+    gmsh.model.setPhysicalName(1, ins_tag, "insulated")
+    left_tag = gmsh.model.addPhysicalGroup(1, [channel_lines[1]], left_cc_marker)
+    gmsh.model.setPhysicalName(1, left_tag, "left")
+    right_tag = gmsh.model.addPhysicalGroup(1, [channel_lines[3]], right_cc_marker)
+    gmsh.model.setPhysicalName(1, right_tag, "right")
+    gmsh.model.mesh.generate(dim=2)
     gmsh.write("mesh.msh")
     gmsh.clear()
-    geometry.__exit__()
+    gmsh.finalize()
 
     mesh_from_file = meshio.read("mesh.msh")
     line_mesh = create_mesh(mesh_from_file, "line", prune_z=True)
@@ -104,7 +98,6 @@ def create_geometry(c, r):
     meshio.write("mesh.xdmf", triangle_mesh)
 
 
-######################## MODEL ####################################
 def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
     """Wrapper to allow value update on parameter change"""
     new_c = list(c)
@@ -126,80 +119,82 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
     try:
         create_geometry(tuple(new_c), r)
     except:
-        create_geometry([2.5, 2.5, 0], r)
+        create_geometry([2.5e-1, 2.5e-1, 0], r)
 
     with dolfinx.io.XDMFFile(comm, "mesh.xdmf", "r") as infile2:
-        mesh = infile2.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
-    mesh.topology.create_connectivity(mesh.topology.dim, mesh.topology.dim - 1)
+        domain = infile2.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
+    domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
 
     with dolfinx.io.XDMFFile(comm, 'facet_mesh.xdmf', "r") as xdmf:
-        ft = xdmf.read_meshtags(mesh, name="Grid")
+        ft = xdmf.read_meshtags(domain, name="Grid")
     
-    ft_tag = meshtags(mesh, mesh.topology.dim - 1, ft.indices, ft.values)
+    ft_tag = mesh.meshtags(domain, domain.topology.dim - 1, ft.indices, ft.values)
 
     # Define physical parameters and boundary conditions
-    phi_m_n = Constant(mesh, ScalarType(0))
-    phi_m_p = Constant(mesh, ScalarType(1))
-    f = Constant(mesh, ScalarType(0.0))
+    phi_m_n = fem.Constant(domain, ScalarType(0))
+    phi_m_p = fem.Constant(domain, ScalarType(1))
+    f = fem.Constant(domain, ScalarType(0.0))
+    n = ufl.FacetNormal(domain)
 
-    # Linear Butler-Volmer Kinetics
-    ds = Measure("ds", domain=mesh, subdomain_data=ft_tag)
+    ds = Measure("ds", domain=domain, subdomain_data=ft_tag)
 
-    g = Constant(mesh, ScalarType(0.0))
-    kappa = Constant(mesh, ScalarType(Wa * W * F_farad * i_exch * (alpha_a + alpha_c) / R / T))
-    # linear kinetics
-    r = Constant(mesh, ScalarType(i_exch * n * F_farad / (R * T)))
+    g = fem.Constant(domain, ScalarType(0.0))
+    kappa = fem.Constant(domain, ScalarType(KAPPA))
+    i_exch = KAPPA * R * T / (L * faraday_const * Wa * (alpha_a + alpha_c))
 
     # Define function space and standard part of variational form
-    V = FunctionSpace(mesh, ("CG", 1))
+    V = fem.FunctionSpace(domain, ("CG", 1))
     u, v = TrialFunction(V), TestFunction(V)
-    F = kappa * inner(grad(u), grad(v)) * dx - inner(f, v) * dx
+    F = inner(kappa * grad(u), grad(v)) * dx - inner(f, v) * dx
 
     bcs = []
 
     # Neumann boundary - insulated
-    F += inner(g, v) * ds(insulated_marker)
+    F -= inner(g, v) * ds(insulated_marker)
 
-    # Robin boundary - variable area - set kinetics expression
-    F += r * inner(u - phi_m_n, v) * ds(left_cc_marker)
-    F += r * inner(u - phi_m_p, v) * ds(right_cc_marker)
+    # set linear kinetics expression
+    F -= inner(i_exch * faraday_const * (1 / R / T) * (phi_m_p - u), v) * ds(left_cc_marker)
+    F -= inner(i_exch * faraday_const * (1 / R / T) * (phi_m_n - u), v) * ds(right_cc_marker)
 
     # Solve linear variational problem
     options = {
-                "ksp_type": "gmres",
-                "pc_type": "hypre",
+                "ksp_type": "preonly",
+                "pc_type": "lu",
                 "ksp_rtol": 1.0e-12,
             }
-    a = lhs(F)
-    L = rhs(F)
-    problem = LinearProblem(a, L, bcs=bcs, petsc_options=options)
+    a_form = lhs(F)
+    L_form = rhs(F)
+    problem = fem.petsc.LinearProblem(a_form, L_form, bcs=bcs, petsc_options=options)
     uh = problem.solve()
 
     # save to file
     with dolfinx.io.XDMFFile(comm, "secondary-potential.xdmf", "w") as outfile:
-        outfile.write_mesh(mesh)
+        outfile.write_mesh(domain)
         outfile.write_function(uh)
 
     grad_u = ufl.grad(uh)
 
-    W = dolfinx.fem.VectorFunctionSpace(mesh, ("Lagrange", 1))
-    current_expr = dolfinx.fem.Expression(kappa * grad_u, W.element.interpolation_points())
-    current_h = dolfinx.fem.Function(W)
+    W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
+    current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
+    current_h = fem.Function(W)
     current_h.interpolate(current_expr)
 
     with dolfinx.io.XDMFFile(comm, "secondary-current.xdmf", "w") as file:
-        file.write_mesh(mesh)
+        file.write_mesh(domain)
         file.write_function(current_h)
 
+    I_left_cc = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(left_cc_marker)))
+    I_right_cc = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(right_cc_marker)))
+    I_insulated = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(insulated_marker)))
+    print(f"left current [A/m^2]: {I_left_cc:.2e}, right current [A/m^2]: {I_right_cc:.2e}, insulated current [A/m^2]: {I_insulated:.2e}")
     # Visualize solution
-    pyvista_cells, cell_types, geometry = create_vtk_mesh(V)
+    pyvista_cells, cell_types, geometry = plot.create_vtk_mesh(V)
     grid = pyvista.UnstructuredGrid(pyvista_cells, cell_types, geometry)
-    grid.point_data["u"] = uh.x.array
-    grid.set_active_scalars("u")
+    grid.point_data["$\phi$ [V]"] = uh.x.array
+    grid.set_active_scalars("$\phi$ [V]")
 
     plotter.subplot(0, 0)
     plotter.add_title('Potential')
-    # plotter.add_text("Potential", position="lower_edge", font_size=14, color="black")
     plotter.add_mesh(grid, pickable=True, opacity=1, name='mesh')
     contours = grid.contour(20, compute_normals=True)
     plotter.add_mesh(contours, color="white", line_width=1, name='contours')
@@ -211,18 +206,17 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
     vectors = current_h.x.array.real.reshape(-1, 2)
     vectors = np.hstack((vectors, np.zeros((vectors.shape[0], 1))))
 
-    grid.point_data.set_vectors(vectors, 'i')
+    grid.point_data.set_vectors(vectors, 'i [A/m$^{2}$]')
     warped = grid.warp_by_scalar()
     # plotter.add_mesh(warped)
-    grid.set_active_vectors("i")
-    glyphs = grid.glyph(orient="i", factor=0.0015, tolerance=0.05)
-    plotter.add_mesh(glyphs, name='i', color='white')
+    grid.set_active_vectors("i [A/m$^{2}$]")
+    glyphs = grid.glyph(orient="i [A/m$^{2}$]", factor=0.5, tolerance=0.05)
+    plotter.add_mesh(glyphs, name='i [A/m$^{2}$]', color='white')
     plotter.add_mesh(grid, pickable=False, opacity=0.5, name='mesh')
-    # plotter.add_text("Current Density", position="lower_edge", font_size=14, color="black")
     plotter.view_xy()
+    plotter.screenshot('figures/hull-cell-demo.png')
 
 
-######################## INTERACTIVITY ####################################
 class VizRoutine:
     def __init__(self, c, r, Wa):
         self.kwargs = {
@@ -240,16 +234,17 @@ class VizRoutine:
             run_model(**self.kwargs)
         return
 
+
 if __name__ == '__main__':
-    engine = VizRoutine(c=c, r=r, Wa=10)
+    engine = VizRoutine(c=c, r=r, Wa=1)
     plotter.enable_point_picking(pickable_window=False,left_clicking=True, callback=lambda value: engine('c', value.tolist()))
     plotter.add_slider_widget(
         callback=lambda value: engine('Wa', value),
-        rng=[1e-12, 100],
-        value=10,
+        rng=[0.001, 10],
+        value=1,
         title="Wagner Number",
         pointa=(0.6, 0.825),
         pointb=(0.9, 0.825),
         style='modern',
     )
-    plotter.show()
+    plotter.show(screenshot='figures/hull-cell-demo.png')

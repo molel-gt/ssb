@@ -1,11 +1,14 @@
 argparse
+fenics-dolfinx
 gmsh-sdk
 h5py
 matplotlib
 meshio
+mpich
 networkx
 numpy
 opencv-python
+openpyxl
 pandas
 pybamm
 pyvista
