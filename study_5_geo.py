@@ -44,7 +44,7 @@ if __name__ == '__main__':
     gmsh.model.add("constriction")
     # gmsh.option.setNumber("General.ExpertMode", 1)
     gmsh.option.setNumber("Mesh.MeshSizeMin", resolution)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.005)
+    # gmsh.option.setNumber("Mesh.MeshSizeMax", 0.01)
     min_pos = 0.1
     max_pos = 0.9
     dx = Lx * (eps / n_pieces)
