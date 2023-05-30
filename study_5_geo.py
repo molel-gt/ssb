@@ -45,8 +45,8 @@ if __name__ == '__main__':
     # gmsh.option.setNumber("General.ExpertMode", 1)
     gmsh.option.setNumber("Mesh.MeshSizeMin", resolution)
     # gmsh.option.setNumber("Mesh.MeshSizeMax", 0.01)
-    min_pos = 0.1
-    max_pos = 0.9
+    min_pos = 0.05
+    max_pos = 0.95
     dx = Lx * (eps / n_pieces)
     intervals = []
     if np.isclose(n_pieces, 1):
@@ -158,7 +158,7 @@ if __name__ == '__main__':
     gmsh.model.mesh.field.setNumber(2, "LcMin", resolution)
     gmsh.model.mesh.field.setNumber(2, "LcMax", 10 * resolution)
     gmsh.model.mesh.field.setNumber(2, "DistMin", 0.001)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 500 * resolution)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 5000 * resolution)
     gmsh.model.mesh.field.add("Max", 5)
     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
     gmsh.model.mesh.field.setAsBackgroundMesh(5)
