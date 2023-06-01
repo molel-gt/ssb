@@ -20,7 +20,7 @@ markers = commons.SurfaceMarkers()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
-    parser.add_argument('--grid_extents', help='Lx-Ly-Lz', required=True)
+    parser.add_argument('--grid_extents', help='Nx-Ny-Nz_Ox-Oy-Oz size_location', required=True)
     parser.add_argument('--phase', default=1, type=int, nargs='?', help='0 - VOID, 1 - SE, 2 - AM')
     parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1)
 
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{data_dir}')
     logger.setLevel(loglevel)
-    Lx, Ly, Lz = [float(v) - 1 for v in grid_extents.split("-")]
+    Lx, Ly, Lz = [float(v) - 1 for v in grid_extents.split("_")[0].split("-")]
     Lx = Lx * scale_x
     Ly = Ly * scale_y
     Lz = Lz * scale_z
@@ -56,7 +56,7 @@ if __name__ == '__main__':
 
     logger.debug("Loading tetrahedra (dim = 3) mesh..")
     with io.XDMFFile(comm, tetr_mesh_path, "r") as infile3:
-        domain = infile3.read_mesh(dolfinx.cpp.mesh.GhostMode.none, 'Grid')
+        domain = infile3.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(domain, name="Grid")
     domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
 

@@ -13,7 +13,8 @@ import matplotlib.pyplot as plt
 import meshio
 import numpy as np
 
-from skimage import io
+from dolfinx import cpp, io, mesh
+from mpi4py import MPI
 
 import commons, configs, filter_voxels, geometry, utils
 
@@ -28,9 +29,9 @@ CELL_TYPES = commons.CellTypes()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Reconstructs volume from segemented images.')
-    parser.add_argument('--grid_info', help='Grid size is given by Nx-Ny-Nz such that the lengths are (Nx-1) by (Ny - 1) by (Nz - 1).',
+    parser.add_argument('--grid_extents', help='Grid size is given by Nx-Ny-Nz such that the lengths are (Nx-1) by (Ny - 1) by (Nz - 1).',
                         required=True)
-    parser.add_argument("--phase", help='Phase that we want to reconstruct, e.g. 0 for void, 1 for solid electrolyte and 2 for active material', nargs='?', const=1, default=1, type=int)
+    parser.add_argument("--phase", help='0 - VOID, 1 - SE, 2 - AM', nargs='?', const=1, default=1, type=int)
     start_time = time.time()
     args = parser.parse_args()
     phase = args.phase
@@ -42,15 +43,15 @@ if __name__ == "__main__":
     dp = int(configs.get_configs()['GEOMETRY']['dp'])
     h = float(configs.get_configs()['GEOMETRY']['h'])
     scale_factor = (scale_x, scale_y, scale_z)
-    origin = [int(v) for v in configs.get_configs()['GEOMETRY']['origin'].split(",")]
-    origin_str = "-".join([str(v).zfill(3) for v in origin])
-    grid_info = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
-    grid_size = int(args.grid_info.split("-")[0])
-    Nx, Ny, Nz = [int(v) for v in args.grid_info.split("-")]
+    origin_str = args.grid_extents.split("_")[1]{args.phase}/
+    origin = [int(v) for v in origin_str.split("-")]
+    grid_extents = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
+    grid_size = int(args.grid_extents.split("-")[0])
+    Nx, Ny, Nz = [int(v) for v in args.grid_extents.split("-")]
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
-    mesh_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], f"{phase}/{grid_info}_{origin_str}")
+    mesh_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], f"{args.grid_extents}/{phase}")
     utils.make_dir_if_missing(mesh_dir)
     im_files = sorted([os.path.join(img_folder, f) for
                        f in os.listdir(img_folder) if f.endswith(".tif")])
@@ -100,7 +101,7 @@ if __name__ == "__main__":
     gc.collect()
 
     # TetGen
-    retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -rkQFR", shell=True)
+    retcode_tetgen = subprocess.check_call(f"tetgen {tetfile} -rkQR", shell=True)
 
     # GMSH
     counter = 0
@@ -125,6 +126,12 @@ if __name__ == "__main__":
     tetr_mesh_unscaled.write(tetr_xdmf_unscaled)
     tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, CELL_TYPES.tetra, scale_factor=scale_factor)
     tetr_mesh_scaled.write(tetr_xdmf_scaled)
+    with io.XDMFFile(MPI.COMM_WORLD, tetr_xdmf_unscaled, "r") as fp:
+        domain = fp.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
+    domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
+    surfaces = mesh.locate_entities_boundary(domain, 2, lambda x: np.isreal(x[0]))
+    labels = np.zeros(surfaces.shape, dtype=np.int32)
+    tags = np.hstack((surfaces, labels))
 
     # retcode_paraview = subprocess.check_call("pvpython extract_surface_from_volume.py {}".format(os.path.dirname(tetr_xdmf_unscaled)), shell=True)
     # surf_msh = meshio.read(tria_xmf_unscaled)
@@ -133,10 +140,10 @@ if __name__ == "__main__":
 
     # tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, CELL_TYPES.triangle, scale_factor=scale_factor)
     # tria_mesh_scaled.write(tria_xdmf_scaled)
-    for f in [nodefile, tetfile, facesfile, vtkfile, surface_vtk, tetr_mshfile, surf_mshfile]:
-        try:
-            os.remove(f)
-        except:
-            continue
+    # for f in [nodefile, tetfile, facesfile, vtkfile, surface_vtk, tetr_mshfile, surf_mshfile, tetr_xdmf_unscaled, tria_xdmf_unscaled]:
+    #     try:
+    #         os.remove(f)
+    #     except:
+    #         continue
     
     logger.info("Took {:,} seconds".format(int(time.time() - start_time)))
