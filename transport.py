@@ -94,11 +94,11 @@ if __name__ == '__main__':
     x = ufl.SpatialCoordinate(mesh3d)
 
     # bulk conductivity [S.m-1]
-    kappa_0 = dolfinx.fem.Constant(mesh3d, PETSc.ScalarType(constants.KAPPA0))
+    kappa = dolfinx.fem.Constant(mesh3d, PETSc.ScalarType(constants.KAPPA0))
     f = dolfinx.fem.Constant(mesh3d, PETSc.ScalarType(0.0))
     g = dolfinx.fem.Constant(mesh3d, PETSc.ScalarType(0.0))
 
-    a = ufl.inner(kappa_0 * ufl.grad(u), ufl.grad(v)) * ufl.dx
+    a = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
     L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds
 
     options = {
@@ -124,7 +124,7 @@ if __name__ == '__main__':
     grad_u = ufl.grad(uh)
 
     W = dolfinx.fem.FunctionSpace(mesh3d, ("Lagrange", 1))
-    current_expr = dolfinx.fem.Expression(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
+    current_expr = dolfinx.fem.Expression(-kappa * grad_u, W.element.interpolation_points())
     current_h = dolfinx.fem.Function(W)
     current_h.interpolate(current_expr)
 
@@ -135,13 +135,14 @@ if __name__ == '__main__':
     insulated_area = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds))
     area_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_left_cc))
     area_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds_right_cc))
-    i_left_cc = (1/area_left_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds_left_cc))
-    i_right_cc = (1/area_right_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds_right_cc))
-    i_insulated = (1/insulated_area) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds))
+    I_left_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(current_h, n) * ds_left_cc))
+    i_left_cc = I_left_cc / area_left_cc
+    I_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(current_h, n) * ds_right_cc))
+    i_right_cc = I_right_cc / area_right_cc
+    I_insulated = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(current_h, n) * ds))
+    i_insulated = I_insulated / insulated_area
     volume = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ufl.dx(mesh3d)))
-    solution_trace_norm = dolfinx.fem.assemble_scalar(dolfinx.fem.form(ufl.inner(ufl.grad(uh), n) ** 2 * ds)) ** 0.5
-    avg_solution_trace_norm = solution_trace_norm / insulated_area
-    deviation_in_current = np.around(100 * 2 * np.abs(area_left_cc * i_left_cc - area_right_cc * i_right_cc) / (area_left_cc * i_left_cc + area_right_cc * i_right_cc), 2)
+    error = 100 * 2 * abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
     logger.info("**************************RESULTS-SUMMARY******************************************")
     logger.info("Contact Area @ left cc [sq. um]                 : {:.4e}".format(area_left_cc))
     logger.info("Contact Area @ right cc [sq. um]                : {:.4e}".format(area_right_cc))
@@ -153,9 +154,8 @@ if __name__ == '__main__':
     logger.info("Electrolyte Volume Fraction                     : {:.2%}".format(volume/(Lx * Ly * Lz)))
     logger.info("Bulk conductivity [S.m-1]                       : {:.4e}".format(0.1))
     logger.info("Effective conductivity [S.m-1]                  : {:.4e}".format(Ly * area_left_cc * i_left_cc / (voltage * (Lx * Lz))))
-    logger.info(f"Homogeneous Neumann BC trace                    : {solution_trace_norm:.2e}")
-    logger.info(f"Area-averaged Homogeneous Neumann BC trace      : {avg_solution_trace_norm:.2e}")
-    logger.info("Deviation in current at two current collectors  : {:.2f}%".format(deviation_in_current))
+    logger.info(f"Insulated Current                    : {I_insulated:.2e}")
+    logger.info(f"Deviation in current at two current collectors  : {error:.2f}%")
     logger.info(f"Voltage                                         : {args.voltage}")
     logger.info(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
     logger.info("*************************END-OF-SUMMARY*******************************************")
