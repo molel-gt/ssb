@@ -43,7 +43,7 @@ if __name__ == "__main__":
     dp = int(configs.get_configs()['GEOMETRY']['dp'])
     h = float(configs.get_configs()['GEOMETRY']['h'])
     scale_factor = (scale_x, scale_y, scale_z)
-    origin_str = args.grid_extents.split("_")[1]{args.phase}/
+    origin_str = args.grid_extents.split("_")[1]
     origin = [int(v) for v in origin_str.split("-")]
     grid_extents = "-".join([v.zfill(3) for v in args.grid_info.split("-")])
     grid_size = int(args.grid_extents.split("-")[0])
