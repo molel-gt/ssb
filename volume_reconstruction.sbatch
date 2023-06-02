@@ -14,4 +14,4 @@ cd $SLURM_SUBMIT_DIR
 export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
 export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/:/storage/home/hcoda1/0/emolel3/.local/
 
-mpirun python3 volume_reconstruction.py --phase 1 --grid_extents 220-220-200_000-000-000
+mpirun python3 volume_reconstruction.py --phase 1 --grid_extents 220-220-200_250-250-000
