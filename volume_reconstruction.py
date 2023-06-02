@@ -47,7 +47,7 @@ if __name__ == "__main__":
     origin = [int(v) for v in origin_str.split("-")]
     grid_extents = args.grid_extents.split("_")[0]
     grid_size = int(args.grid_extents.split("-")[0])
-    Nx, Ny, Nz = [int(v) for v in args.grid_extents.split("-")]
+    Nx, Ny, Nz = [int(v) for v in grid_extents.split("-")]
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
