@@ -126,12 +126,12 @@ if __name__ == "__main__":
     tetr_mesh_unscaled.write(tetr_xdmf_unscaled)
     tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, CELL_TYPES.tetra, scale_factor=scale_factor)
     tetr_mesh_scaled.write(tetr_xdmf_scaled)
-    with io.XDMFFile(MPI.COMM_WORLD, tetr_xdmf_unscaled, "r") as fp:
-        domain = fp.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
-    domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
-    surfaces = mesh.locate_entities_boundary(domain, 2, lambda x: np.isreal(x[0]))
-    labels = np.zeros(surfaces.shape, dtype=np.int32)
-    tags = np.hstack((surfaces, labels))
+    # with io.XDMFFile(MPI.COMM_WORLD, tetr_xdmf_unscaled, "r") as fp:
+    #     domain = fp.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
+    # domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
+    # surfaces = mesh.locate_entities_boundary(domain, 2, lambda x: np.isreal(x[0]))
+    # labels = np.zeros(surfaces.shape, dtype=np.int32)
+    # tags = np.hstack((surfaces, labels))
 
     # retcode_paraview = subprocess.check_call("pvpython extract_surface_from_volume.py {}".format(os.path.dirname(tetr_xdmf_unscaled)), shell=True)
     # surf_msh = meshio.read(tria_xmf_unscaled)
