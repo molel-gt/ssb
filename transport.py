@@ -25,7 +25,7 @@ if __name__ == '__main__':
     parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1)
 
     args = parser.parse_args()
-    data_dir = f'mesh/{args.grid_extents}/{args.phase}'
+    data_dir = f'mesh/study_2/{args.grid_extents}'
     voltage = args.voltage
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -57,7 +57,7 @@ if __name__ == '__main__':
     logger.debug("Loading tetrahedra (dim = 3) mesh..")
     with io.XDMFFile(comm, tetr_mesh_path, "r") as infile3:
         domain = infile3.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
-        ct = infile3.read_meshtags(domain, name="Grid")
+        # ct = infile3.read_meshtags(domain, name="Grid")
     domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
 
     # Dirichlet BCs
@@ -73,29 +73,31 @@ if __name__ == '__main__':
     x0facet = mesh.locate_entities_boundary(domain, 2, lambda x: np.isclose(x[1], 0.0))
     x1facet = mesh.locate_entities_boundary(domain, 2, lambda x: np.isclose(x[1], Ly))
     boundary_surface = mesh.locate_entities_boundary(domain, 2, lambda x: np.isfinite(x[0]))
+    print(boundary_surface)
     insulated_facet = np.asarray(sorted(
-        set(boundary_surface).difference(
-            set(x0facet).add(set(x1facet))
+        set(tuple(boundary_surface)).difference(
+            set(
+                list(x0facet) + list(x1facet)
+            )
         )
     )
     )
-    # insulated_facet = mesh.locate_entities_boundary(domain, 2, lambda x: np.logical_and(np.logical_not(np.isclose(x[1], 0)), np.logical_not(np.isclose(x[1], Ly))))
 
-    facets_ct_indices = np.hstack((x0facet, x1facet, insulated_facet))
-    facets_ct_values = np.hstack(
+    ft_indices = np.hstack((x0facet, x1facet, insulated_facet))
+    ft_values = np.hstack(
         (
             markers.left_cc * np.ones(x0facet.shape[0], dtype=np.int32),
             markers.right_cc * np.ones(x1facet.shape[0], dtype=np.int32),
             markers.insulated * np.ones(insulated_facet.shape[0], dtype=np.int32)
         )
                                  )
-    facets_ct = commons.Facet(facets_ct_indices, facets_ct_values)
-    surf_meshtags = mesh.meshtags(domain, 2, facets_ct.indices, facets_ct.values)
+    facets_ct = commons.Facet(ft_indices, ft_values)
+    meshtags = mesh.meshtags(domain, 2, facets_ct.indices, facets_ct.values)
 
     left_bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 2, x0facet))
     right_bc = fem.dirichletbc(u1, fem.locate_dofs_topological(V, 2, x1facet))
     n = ufl.FacetNormal(domain)
-    ds = ufl.Measure("ds", domain=domain, subdomain_data=surf_meshtags)
+    ds = ufl.Measure("ds", domain=domain, subdomain_data=meshtags)
 
     # Define variational problem
     u = ufl.TrialFunction(V)
