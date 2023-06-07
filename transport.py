@@ -57,9 +57,11 @@ if __name__ == '__main__':
     logger.debug("Loading tetrahedra (dim = 3) mesh..")
     with io.XDMFFile(comm, tetr_mesh_path, "r") as infile3:
         domain = infile3.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
-        # ct = infile3.read_meshtags(domain, name="Grid")
+        ct = infile3.read_meshtags(domain, name="Grid")
     domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
-
+    with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile3:
+        ft = infile3.read_meshtags(domain, name="Grid")
+    meshtags = mesh.meshtags(domain, 2, ft.indices, ft.values)
     # Dirichlet BCs
     V = fem.FunctionSpace(domain, ("Lagrange", 2))
     u0 = fem.Function(V)
@@ -69,33 +71,11 @@ if __name__ == '__main__':
     u1 = fem.Function(V)
     with u1.vector.localForm() as u1_loc:
         u1_loc.set(0.0)
-    
-    x0facet = mesh.locate_entities_boundary(domain, 2, lambda x: np.isclose(x[1], 0.0))
-    x1facet = mesh.locate_entities_boundary(domain, 2, lambda x: np.isclose(x[1], Ly))
-    boundary_surface = mesh.locate_entities_boundary(domain, 2, lambda x: np.isfinite(x[0]))
-    print(boundary_surface)
-    insulated_facet = np.asarray(sorted(
-        set(tuple(boundary_surface)).difference(
-            set(
-                list(x0facet) + list(x1facet)
-            )
-        )
-    )
-    )
 
-    ft_indices = np.hstack((x0facet, x1facet, insulated_facet))
-    ft_values = np.hstack(
-        (
-            markers.left_cc * np.ones(x0facet.shape[0], dtype=np.int32),
-            markers.right_cc * np.ones(x1facet.shape[0], dtype=np.int32),
-            markers.insulated * np.ones(insulated_facet.shape[0], dtype=np.int32)
-        )
-                                 )
-    facets_ct = commons.Facet(ft_indices, ft_values)
-    meshtags = mesh.meshtags(domain, 2, facets_ct.indices, facets_ct.values)
-
-    left_bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 2, x0facet))
-    right_bc = fem.dirichletbc(u1, fem.locate_dofs_topological(V, 2, x1facet))
+    left_boundary = ft.find(markers.left_cc)
+    right_boundary = ft.find(markers.right_cc)
+    left_bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 2, left_boundary))
+    right_bc = fem.dirichletbc(u1, fem.locate_dofs_topological(V, 2, right_boundary))
     n = ufl.FacetNormal(domain)
     ds = ufl.Measure("ds", domain=domain, subdomain_data=meshtags)
 
@@ -133,7 +113,7 @@ if __name__ == '__main__':
     # Post-processing: Compute derivatives
     grad_u = ufl.grad(uh)
 
-    W = fem.FunctionSpace(domain, ("Lagrange", 1))
+    W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
     current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
     current_h = fem.Function(W)
     current_h.interpolate(current_expr)
