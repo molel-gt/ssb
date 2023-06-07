@@ -1,19 +1,11 @@
-import os
+#!/usr/bin/env python3
 
 import alphashape
 import gmsh
-import h5py
 import matplotlib.pyplot as plt
 import meshio
 import numpy as np
-import shapely
 import warnings
-
-from concavehull import concavehull
-from descartes import PolygonPatch
-from dolfinx import cpp, fem, io, mesh, nls, plot
-from mpi4py import MPI
-from petsc4py import PETSc
 
 import commons, geometry, grapher, utils
 warnings.simplefilter('ignore')
@@ -21,48 +13,6 @@ warnings.simplefilter('ignore')
 
 markers = commons.SurfaceMarkers()
 cell_types = commons.CellTypes()
-
-
-def mesh_surface(coords, xmax=470, ymax=470):
-    points = {}
-    new_points = {}
-    count = 0
-    for row in coords:
-        points[(row[0], row[1])] = count
-        count += 1
-    points_set = set(points.keys())
-    no_full_neighbors = set()
-    triangles = []
-    for (x0, y0) in points_set:
-        p0 = points[(x0, y0)]
-        neighbors = [
-            (int(x0 + 1), y0),
-            (int(x0 + 1), int(y0 + 1)),
-            (x0, int(y0 + 1))
-        ]
-        neighbor_points = [p0]
-        for p in neighbors:
-            v = points.get(p)
-            neighbor_points.append(v)
-
-        midpoint = (x0 + 0.5, y0 + 0.5)
-        if midpoint[0] > xmax or midpoint[1] > ymax:
-            continue
-        points[midpoint] = count
-        p2 = count
-        count += 1
-        for i in range(4):
-            p0 = neighbor_points[i]
-            if i == 3:
-                p1 = neighbor_points[0]
-            else:
-                p1 = neighbor_points[i + 1]
-            if not p0 is None and not p1 is None:
-                triangles.append(
-                    (p0, p1, p2)
-                )
-
-    return triangles, points
 
 
 if __name__ == '__main__':
@@ -92,7 +42,6 @@ if __name__ == '__main__':
     graph = grapher.PixelGraph(points=points_view)
     graph.build_graph()
     graph.get_graph_pieces()
-    graph.n_pieces
 
     Lx = 470
     Ly = 470
@@ -217,9 +166,6 @@ if __name__ == '__main__':
     righttag = gmsh.model.addPhysicalGroup(2, right, markers.right_cc)
     insulatedtag = gmsh.model.addPhysicalGroup(2, insulated, markers.insulated)
     gmsh.model.occ.synchronize()
-    # extr = gmsh.model.occ.extrude(gmsh.model.getEntities(2), 0, 0, 25)
-    # gmsh.model.occ.synchronize()
-    # print(extr)
     print(gmsh.model.occ.getEntities(2), gmsh.model.getEntities(3))
     sloop = gmsh.model.occ.addSurfaceLoop(tuple([vv[1] for vv in gmsh.model.occ.getEntities(2)]))
     volz = gmsh.model.occ.addVolume((sloop,))
