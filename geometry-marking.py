@@ -70,15 +70,15 @@ if __name__ == '__main__':
     img_name = img_names[args.img_id]
     img = np.asarray(plt.imread(f'data/current_constriction/{img_name}.tif')[:, :, 0], dtype=np.uint8)
     img2 = img.copy()
-    img2[0:5, :] = 0
-    img2[-5:, :] = 0
-    img2[:, 0:5] = 0
-    img2[:, -5:,] = 0
+    img2[0, :] = 0
+    img2[-1, :] = 0
+    img2[:, 0] = 0
+    img2[:, -1] = 0
     coords = np.asarray(np.argwhere(img2 == 1), dtype=np.int32)
     Lx = 470
     Ly = 470
     Lz = 25
-    resolution = 0.5
+    resolution = 1# 0.5
     outdir = f'mesh/study_2/{img_name}/470-470-{Lz}_000-000-000/'
     utils.make_dir_if_missing(outdir)
     mshpath = os.path.join(f"{outdir}", "trial.msh")
@@ -103,12 +103,6 @@ if __name__ == '__main__':
     graph = grapher.PixelGraph(points=points_view)
     graph.build_graph()
     graph.get_graph_pieces()
-
-
-    try:
-        gmsh.finalize()
-    except:
-        pass
 
     gmsh.initialize()
     gmsh.model.add('area')
@@ -217,7 +211,7 @@ if __name__ == '__main__':
     left = []
     process_count = 0
     for p in graph.pieces:
-        if len(p) < 50:
+        if len(p) < 10:
             continue
         arr = []
         for c in p:
@@ -259,16 +253,28 @@ if __name__ == '__main__':
         )
         gmsh.model.occ.synchronize()
 
-    insulated += [gmsh.model.occ.addPlaneSurface((loops[0], *side_loops))]
+    if len(np.unique(img)) == 1 and np.isclose(np.unique(img)[0], 1):
+        insulated += [gmsh.model.occ.addPlaneSurface((loops[0], ))]
+    else:
+        insulated += [gmsh.model.occ.addPlaneSurface((loops[0], *side_loops))]
 
     gmsh.model.occ.healShapes()
     gmsh.model.occ.synchronize()
-    max_surf_id = np.max([vv[1] for vv in gmsh.model.occ.getEntities(2)])
-    lefttag = gmsh.model.addPhysicalGroup(2, list(range(7, max_surf_id)), markers.left_cc)
-    righttag = gmsh.model.addPhysicalGroup(2, [1], markers.right_cc)
-    insulatedtag = gmsh.model.addPhysicalGroup(2, [2, 3, 4, 5, 6], markers.insulated)
+
+    if len(np.unique(img)) == 1 and np.isclose(np.unique(img)[0], 1):
+        lefttag = gmsh.model.addPhysicalGroup(2, [6], markers.left_cc)
+        righttag = gmsh.model.addPhysicalGroup(2, [1], markers.right_cc)
+        insulatedtag = gmsh.model.addPhysicalGroup(2, [2, 3, 4, 5], markers.insulated)
+        surfaces = list(range(1, 7))
+    else:
+        left_surfs = [vv[1] for vv in gmsh.model.occ.getEntities(2) if vv[1] >= 7]
+        lefttag = gmsh.model.addPhysicalGroup(2, left_surfs, markers.left_cc)
+        righttag = gmsh.model.addPhysicalGroup(2, [1], markers.right_cc)
+        insulatedtag = gmsh.model.addPhysicalGroup(2, [2, 3, 4, 5, 6], markers.insulated)
+        surfaces = tuple(left + insulated + right)
+
     gmsh.model.occ.synchronize()
-    sloop = gmsh.model.occ.addSurfaceLoop(tuple(left + insulated + right))
+    sloop = gmsh.model.occ.addSurfaceLoop(surfaces)
     gmsh.model.occ.synchronize()
     physvol = gmsh.model.addPhysicalGroup(3, [1], 1)
     gmsh.model.occ.synchronize()
