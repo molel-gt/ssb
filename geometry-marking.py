@@ -73,7 +73,7 @@ def mesh_surface(coords, xmax=470, ymax=470):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
-    parser.add_argument('--img_id', help='contact area image index', required=True)
+    parser.add_argument('--img_id', help='contact area image index', required=True, type=int)
     args = parser.parse_args()
     img_names = ['test1', 'test6', 'test11', 'test16', 'test22']
     img_name = img_names[args.img_id]
