@@ -7,18 +7,10 @@ import sys
 import alphashape
 import argparse
 import gmsh
-import h5py
 import matplotlib.pyplot as plt
 import meshio
 import numpy as np
-import shapely
 import warnings
-
-from concavehull import concavehull
-from descartes import PolygonPatch
-from dolfinx import cpp, fem, io, mesh, nls, plot
-from mpi4py import MPI
-from petsc4py import PETSc
 
 import commons, geometry, grapher, utils
 warnings.simplefilter('ignore')
@@ -30,13 +22,12 @@ cell_types = commons.CellTypes()
 
 def mesh_surface(coords, xmax=470, ymax=470):
     points = {}
-    new_points = {}
     count = 0
     for row in coords:
         points[(row[0], row[1])] = count
         count += 1
     points_set = set(points.keys())
-    no_full_neighbors = set()
+
     triangles = []
     for (x0, y0) in points_set:
         p0 = points[(x0, y0)]
