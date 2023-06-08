@@ -144,7 +144,7 @@ if __name__ == '__main__':
     logger.info(f"Electrolyte Volume [cu. um]                     : {volume:.4e}")
     logger.info("Electrolyte Volume Fraction                     : {:.2%}".format(volume / (Lx * Ly * Lz)))
     logger.info(f"Bulk conductivity [S.m-1]                       : {constants.KAPPA0:.4e}")
-    logger.info("Effective conductivity [S.m-1]                  : {:.4e}".format(Ly * abs(I_left_cc) / (voltage * (Lx * Lz))))
+    logger.info("Effective conductivity [S.m-1]                  : {:.4e}".format(Lz * abs(I_left_cc) / (voltage * (Lx * Ly))))
     logger.info(f"Insulated Current [A] : {I_insulated:.2e}")
     logger.info(f"Deviation in current at two current collectors  : {error:.2f}%")
     logger.info(f"Voltage                                         : {args.voltage}")
