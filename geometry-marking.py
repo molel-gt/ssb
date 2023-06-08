@@ -10,6 +10,7 @@ import gmsh
 import matplotlib.pyplot as plt
 import meshio
 import numpy as np
+import scipy
 import warnings
 
 import commons, geometry, grapher, utils
@@ -216,11 +217,16 @@ if __name__ == '__main__':
         arr = []
         for c in p:
             arr.append(points_view[c])
-        alpha_shape = alphashape.alphashape(arr, 0.25)
-        exterior = alpha_shape.exterior
         hull = []
-        for c in exterior.coords:
-            hull.append((c[0], c[1]))
+        try:
+            alpha_shape = alphashape.alphashape(arr, 0.25)
+            exterior = alpha_shape.exterior
+            for c in exterior.coords:
+                hull.append((c[0], c[1]))
+        except scipy.spatial._qhull.QhullError as e:
+            print(len(p), e)
+            continue
+
         hull_arr = np.asarray(hull)
         hull_points = []
         for pp in hull[:-1]:
