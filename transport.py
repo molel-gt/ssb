@@ -21,11 +21,11 @@ markers = commons.SurfaceMarkers()
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument('--grid_extents', help='Nx-Ny-Nz_Ox-Oy-Oz size_location', required=True)
-    parser.add_argument('--phase', default=1, type=int, nargs='?', help='0 - VOID, 1 - SE, 2 - AM')
+    parser.add_argument('--root_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1)
 
     args = parser.parse_args()
-    data_dir = f'mesh/study_2/{args.grid_extents}'
+    data_dir = os.path.join(f'{args.root_folder}', f'{args.grid_extents}')
     voltage = args.voltage
     comm = MPI.COMM_WORLD
     rank = comm.rank
