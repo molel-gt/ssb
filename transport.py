@@ -59,8 +59,8 @@ if __name__ == '__main__':
         domain = infile3.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(domain, name="Grid")
     domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
-    with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile3:
-        ft = infile3.read_meshtags(domain, name="Grid")
+    with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile2:
+        ft = infile2.read_meshtags(domain, name="Grid")
     meshtags = mesh.meshtags(domain, 2, ft.indices, ft.values)
     # Dirichlet BCs
     V = fem.FunctionSpace(domain, ("Lagrange", 2))
@@ -144,7 +144,7 @@ if __name__ == '__main__':
     logger.info(f"Electrolyte Volume [cu. um]                     : {volume:.4e}")
     logger.info("Electrolyte Volume Fraction                     : {:.2%}".format(volume / (Lx * Ly * Lz)))
     logger.info(f"Bulk conductivity [S.m-1]                       : {constants.KAPPA0:.4e}")
-    logger.info("Effective conductivity [S.m-1]                  : {:.4e}".format(Ly * area_left_cc * i_left_cc / (voltage * (Lx * Lz))))
+    logger.info("Effective conductivity [S.m-1]                  : {:.4e}".format(Ly * abs(I_left_cc) / (voltage * (Lx * Lz))))
     logger.info(f"Insulated Current [A] : {I_insulated:.2e}")
     logger.info(f"Deviation in current at two current collectors  : {error:.2f}%")
     logger.info(f"Voltage                                         : {args.voltage}")
