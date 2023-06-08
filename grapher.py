@@ -1,23 +1,7 @@
 #!/usr/bin/env python3
-import datetime
-import itertools
-import os
-import time
 
-import alphashape
-import argparse
-import cartopy.crs as ccrs
-import cv2
-import hdbscan
+import networkx
 import igraph as ig
-import matplotlib.pyplot as plt
-import metis
-import networkx as nx
-import numpy as np
-
-
-import pickle
-import warnings
 
 
 class PixelGraph:
