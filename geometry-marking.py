@@ -5,6 +5,7 @@ import subprocess
 import sys
 
 import alphashape
+import argparse
 import gmsh
 import h5py
 import matplotlib.pyplot as plt
@@ -71,8 +72,11 @@ def mesh_surface(coords, xmax=470, ymax=470):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
+    parser.add_argument('--img_id', help='contact area image index', required=True)
+    args = parser.parse_args()
     img_names = ['test1', 'test6', 'test11', 'test16', 'test22']
-    img_name = img_names[sys.argv[1]]
+    img_name = img_names[args.img_id]
     img = np.asarray(plt.imread(f'data/current_constriction/{img_name}.tif')[:, :, 0], dtype=np.uint8)
     img2 = img.copy()
     img2[0:5, :] = 0
