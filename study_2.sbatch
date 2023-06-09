@@ -14,5 +14,5 @@ cd $SLURM_SUBMIT_DIR
 export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
 export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/:/storage/home/hcoda1/0/emolel3/.local/
 
-#mpirun python3 geometry-marking.py --img_id $1
-mpirun python3 transport.py --grid_extents 470-470-100_000-000-000 --root_folder mesh/study_2/test$1
+#mpiexec python3 geometry-marking.py --img_id $1
+mpiexec python3 transport.py --grid_extents 470-470-100_000-000-000 --root_folder mesh/study_2/test$1

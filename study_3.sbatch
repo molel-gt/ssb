@@ -16,4 +16,4 @@ conda activate fenicsx-env
 export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
 export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/:/storage/home/hcoda1/0/emolel3/.local/
 cd $SLURM_SUBMIT_DIR
-mpirun python3 study_3_geo.py --relative_radius $1 --outdir $2
+mpiexec python3 study_3_geo.py --relative_radius $1 --outdir $2
