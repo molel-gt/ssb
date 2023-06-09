@@ -67,8 +67,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument('--img_id', help='contact area image index', required=True, type=int)
     args = parser.parse_args()
-    img_names = ['test1', 'test6', 'test11', 'test16', 'test22']
-    img_name = img_names[args.img_id]
+    img_name = f'test{str(int(args.img_id))}'
     img = np.asarray(plt.imread(f'data/current_constriction/{img_name}.tif')[:, :, 0], dtype=np.uint8)
     img2 = img.copy()
     img2[0, :] = 0
