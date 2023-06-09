@@ -66,6 +66,7 @@ def mesh_surface(coords, xmax=470, ymax=470):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument('--img_id', help='contact area image index', required=True, type=int)
+    parser.add_argument('--Lz', help='length in z direction', nargs='?', const=1, default=10, type=int)
     args = parser.parse_args()
     img_name = f'test{str(int(args.img_id))}'
     img = np.asarray(plt.imread(f'data/current_constriction/{img_name}.tif')[:, :, 0], dtype=np.uint8)
@@ -77,8 +78,8 @@ if __name__ == '__main__':
     coords = np.asarray(np.argwhere(img2 == 1), dtype=np.int32)
     Lx = 470
     Ly = 470
-    Lz = 100
-    resolution = 1
+    Lz = args.Lz
+    resolution = 0.5
     outdir = f'mesh/study_2/{img_name}/470-470-{Lz}_000-000-000/'
     utils.make_dir_if_missing(outdir)
     mshpath = os.path.join(f"{outdir}", "trial.msh")
