@@ -78,8 +78,8 @@ if __name__ == '__main__':
     coords = np.asarray(np.argwhere(img2 == 1), dtype=np.int32)
     Lx = 470
     Ly = 470
-    Lz = 25
-    resolution = 0.5
+    Lz = 100
+    resolution = 1
     outdir = f'mesh/study_2/{img_name}/470-470-{Lz}_000-000-000/'
     utils.make_dir_if_missing(outdir)
     mshpath = os.path.join(f"{outdir}", "trial.msh")
