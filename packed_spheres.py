@@ -9,6 +9,10 @@ import gmsh
 import meshio
 import numpy as np
 
+import commons, geometry, utils
+
+
+cell_types = commons.CellTypes()
 
 def read_spheres_position_file(spheres_position_path):
     """
@@ -99,18 +103,23 @@ def create_mesh(mesh, cell_type, prune_z=False):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Effective Conductivity of Packed Spheres.')
-    parser.add_argument('--pf', help="Packing fraction (percent)", default=30)
+    parser = argparse.ArgumentParser(description='Packed Spheres.')
+    parser.add_argument('--packing_fraction', help="Packing fraction (percent)", default=0.3)
     args = parser.parse_args()
-    pf = args.pf
-    grid_size = '1-1-1'
-    spheres_locations_file = f"mesh/packed_spheres/{grid_size}_{pf}/{pf}.dat"
-    output_mesh_file = f"mesh/packed_spheres/{grid_size}_{pf}/spheres.msh"
+    scale_factor = [25e-6, 25e-6, 25e-6]  # microns
+    outdir = f'mesh/packed_spheres/2-2-2/{args.packing_fraction}'
+    spheres_locations_file = f"{outdir}/centers.dat"
+    output_mesh_file = f"{outdir}/spheres.msh"
     
     build_packed_spheres_mesh(output_mesh_file, spheres_locations_file)
     mesh_3d = meshio.read(output_mesh_file)
     tetrahedral_mesh = create_mesh(mesh_3d, "tetra")
-    meshio.write(f"mesh/packed_spheres/{grid_size}_{pf}/tetr.xdmf", tetrahedral_mesh)
+    meshio.write(f"{outdir}/tetr.xdmf", tetrahedral_mesh)
+    tetr_mesh_scaled = geometry.scale_mesh(f"{outdir}/tetr.xdmf", cell_types.tetra, scale_factor=scale_factor)
+    tetr_mesh_scaled.write(f"{outdir}/tetr.xdmf")
     tria_mesh = create_mesh(mesh_3d, "triangle")
-    meshio.write(f"mesh/packed_spheres/{grid_size}_{pf}/tria.xdmf", tria_mesh)
-    print(f"Wrote tetr.xdmf and tria.xdmf mesh files to directory: mesh/packed_spheres/{grid_size}_{pf}/")
+    meshio.write(f"{outdir}/tria.xdmf", tria_mesh)
+    tria_mesh_scaled = geometry.scale_mesh(f"{outdir}/tria.xdmf", cell_types.triangle, scale_factor=scale_factor)
+    tria_mesh_scaled.write(f"{outdir}/tria.xdmf")
+
+    print(f"Wrote tetr.xdmf and tria.xdmf mesh files to directory: {outdir}")
