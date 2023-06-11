@@ -60,16 +60,20 @@ def build_packed_spheres_mesh(output_mesh_file, spheres_locations_file):
     gmsh.model.setPhysicalName(volumes[0][0], marker, "conductor")
     surfaces = gmsh.model.occ.getEntities(dim=2)
     walls = []
+    left_surfs = []
+    right_surfs = []
     for surface in surfaces:
         com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
         if np.isclose(com[2], 0):
-            left_cc = gmsh.model.addPhysicalGroup(2, [surface[1]], markers.left_cc)
-            gmsh.model.setPhysicalName(2, left_cc, "left_cc")
+            left_surfs.append(surface[1])
         elif np.isclose(com[2], Lz):
-            right_cc = gmsh.model.addPhysicalGroup(2, [surface[1]], markers.right_cc)
-            gmsh.model.setPhysicalName(2, right_cc, "right_cc")
+            right_surfs.append(surface[1])
         elif np.isclose(com[1], 0) or np.isclose(com[1], Ly) or np.isclose(com[0], 0) or np.isclose(com[0], Lx):
             walls.append(surface[1])
+    left_cc = gmsh.model.addPhysicalGroup(2, left_surfs, markers.left_cc)
+    gmsh.model.setPhysicalName(2, left_cc, "left_cc")
+    right_cc = gmsh.model.addPhysicalGroup(2, right_surfs, markers.right_cc)
+    gmsh.model.setPhysicalName(2, right_cc, "right_cc")
     insulated = gmsh.model.addPhysicalGroup(2, walls, markers.insulated)
     gmsh.model.setPhysicalName(2, insulated, "insulated")
 
