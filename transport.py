@@ -25,7 +25,7 @@ if __name__ == '__main__':
     parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1)
 
     args = parser.parse_args()
-    data_dir = os.path.join(f'{args.root_folder}', f'{args.grid_extents}')
+    data_dir = os.path.join(f'{args.root_folder}')
     voltage = args.voltage
     comm = MPI.COMM_WORLD
     rank = comm.rank
