@@ -13,7 +13,7 @@ import numpy as np
 import scipy
 import warnings
 
-import commons, geometry, grapher, utils
+import commons, configs, geometry, grapher, utils
 warnings.simplefilter('ignore')
 
 
@@ -80,6 +80,10 @@ if __name__ == '__main__':
     Ly = 470
     Lz = args.Lz
     resolution = 0.5
+    scaling = configs.get_configs()['VOXEL_SCALING']
+    scale_x = float(scaling['x'])
+    scale_y = float(scaling['y'])
+    scale_z = float(scaling['z'])
     outdir = f'mesh/study_2/{img_name}/470-470-{Lz}_000-000-000/'
     utils.make_dir_if_missing(outdir)
     mshpath = os.path.join(f"{outdir}", "trial.msh")
@@ -288,7 +292,7 @@ if __name__ == '__main__':
     gmsh.write(f"{mshpath}")
     gmsh.finalize()
     # write to file
-    scale_factor = [0.045, 0.045, 0.05]
+    scale_factor = [scale_x, scale_y, scale_z]
     msh = meshio.read(f"{mshpath}")
 
     tria_mesh_unscaled = geometry.create_mesh(msh, cell_types.triangle)
