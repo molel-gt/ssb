@@ -13,6 +13,7 @@ import commons, geometry, utils
 
 
 cell_types = commons.CellTypes()
+markers = commons.SurfaceMarkers()
 
 def read_spheres_position_file(spheres_position_path):
     """
@@ -62,14 +63,14 @@ def build_packed_spheres_mesh(output_mesh_file, spheres_locations_file):
     for surface in surfaces:
         com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
         if np.isclose(com[2], 0):
-            left_cc = gmsh.model.addPhysicalGroup(2, [surface[1]])
+            left_cc = gmsh.model.addPhysicalGroup(2, [surface[1]], markers.left_cc)
             gmsh.model.setPhysicalName(2, left_cc, "left_cc")
         elif np.isclose(com[2], Lz):
-            right_cc = gmsh.model.addPhysicalGroup(2, [surface[1]])
+            right_cc = gmsh.model.addPhysicalGroup(2, [surface[1]], markers.right_cc)
             gmsh.model.setPhysicalName(2, right_cc, "right_cc")
         elif np.isclose(com[1], 0) or np.isclose(com[1], Ly) or np.isclose(com[0], 0) or np.isclose(com[0], Lx):
             walls.append(surface[1])
-    insulated = gmsh.model.addPhysicalGroup(2, walls)
+    insulated = gmsh.model.addPhysicalGroup(2, walls, markers.insulated)
     gmsh.model.setPhysicalName(2, insulated, "insulated")
 
     gmsh.model.mesh.field.add("Distance", 1)
