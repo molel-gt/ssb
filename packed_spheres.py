@@ -61,13 +61,13 @@ def build_packed_spheres_mesh(output_mesh_file, spheres_locations_file):
     walls = []
     for surface in surfaces:
         com = gmsh.model.occ.getCenterOfMass(surface[0], surface[1])
-        if np.isclose(com[1], 0):
+        if np.isclose(com[2], 0):
             left_cc = gmsh.model.addPhysicalGroup(2, [surface[1]])
             gmsh.model.setPhysicalName(2, left_cc, "left_cc")
-        elif np.isclose(com[1], Ly):
+        elif np.isclose(com[2], Lz):
             right_cc = gmsh.model.addPhysicalGroup(2, [surface[1]])
             gmsh.model.setPhysicalName(2, right_cc, "right_cc")
-        elif np.isclose(com[2], 0) or np.isclose(com[2], Lz) or np.isclose(com[0], 0) or np.isclose(com[0], Lx):
+        elif np.isclose(com[1], 0) or np.isclose(com[1], Ly) or np.isclose(com[0], 0) or np.isclose(com[0], Lx):
             walls.append(surface[1])
     insulated = gmsh.model.addPhysicalGroup(2, walls)
     gmsh.model.setPhysicalName(2, insulated, "insulated")
