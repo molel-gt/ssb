@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -A gts-tf74
-#SBATCH -Jpacked_spheres
+#SBATCH -Jpckd_sphrs
 #SBATCH -N 1
 #SBATCH --mem-per-cpu=128G
 #SBATCH -t36:00:00
