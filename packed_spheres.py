@@ -115,11 +115,11 @@ if __name__ == '__main__':
     mesh_3d = meshio.read(output_mesh_file)
     tetrahedral_mesh = create_mesh(mesh_3d, "tetra")
     meshio.write(f"{outdir}/tetr.xdmf", tetrahedral_mesh)
-    tetr_mesh_scaled = geometry.scale_mesh(f"{outdir}/tetr.xdmf", cell_types.tetra, scale_factor=scale_factor)
+    tetr_mesh_scaled = geometry.scale_mesh(tetrahedral_mesh, cell_types.tetra, scale_factor=scale_factor)
     tetr_mesh_scaled.write(f"{outdir}/tetr.xdmf")
     tria_mesh = create_mesh(mesh_3d, "triangle")
     meshio.write(f"{outdir}/tria.xdmf", tria_mesh)
-    tria_mesh_scaled = geometry.scale_mesh(f"{outdir}/tria.xdmf", cell_types.triangle, scale_factor=scale_factor)
+    tria_mesh_scaled = geometry.scale_mesh(tria_mesh, cell_types.triangle, scale_factor=scale_factor)
     tria_mesh_scaled.write(f"{outdir}/tria.xdmf")
 
     print(f"Wrote tetr.xdmf and tria.xdmf mesh files to directory: {outdir}")
