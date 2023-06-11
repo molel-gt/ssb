@@ -23,6 +23,7 @@ if __name__ == '__main__':
     parser.add_argument('--grid_extents', help='Nx-Ny-Nz_Ox-Oy-Oz size_location', required=True)
     parser.add_argument('--root_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1)
+    parser.add_argument("--scale", help="sx,sy,sz", nargs='?', const=1, default='-1,-1,-1')
 
     args = parser.parse_args()
     data_dir = os.path.join(f'{args.root_folder}')
@@ -30,10 +31,13 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     rank = comm.rank
     start_time = timeit.default_timer()
-    scaling = configs.get_configs()['VOXEL_SCALING']
-    scale_x = float(scaling['x'])
-    scale_y = float(scaling['y'])
-    scale_z = float(scaling['z'])
+    if args.scale == '-1,-1,-1':
+        scaling = configs.get_configs()['VOXEL_SCALING']
+        scale_x = float(scaling['x'])
+        scale_y = float(scaling['y'])
+        scale_z = float(scaling['z'])
+    else:
+        scale_x, scale_y, scale_z = [float(vv) for vv in args.scale.split(',')]
     loglevel = configs.get_configs()['LOGGING']['level']
 
     grid_extents = args.grid_extents
