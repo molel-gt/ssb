@@ -5,7 +5,7 @@
 #SBATCH --mem-per-cpu=384G
 #SBATCH -t6:00:00
 #SBATCH -qinferno
-#SBATCH -omesh/packed_spheres/2-2-2/$1/report.out
+#SBATCH -opacked_spheres_%j.out
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=emolel3@gatech.edu
 module load anaconda3
