@@ -288,6 +288,18 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
     physvol = gmsh.model.addPhysicalGroup(3, [1], 1)
     gmsh.model.occ.synchronize()
+
+    # refinement
+    gmsh.model.mesh.field.add("Distance", 1)
+    gmsh.model.mesh.field.setNumbers(1, "FacesList", [insulated, left_surfs, right])
+
+    gmsh.model.mesh.field.add("Threshold", 2)
+    gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    gmsh.model.mesh.field.setNumber(2, "LcMin", args.resolution / 100)
+    gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 0)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 0.1)
+
     gmsh.model.mesh.generate(3)
     gmsh.write(f"{mshpath}")
     gmsh.finalize()
