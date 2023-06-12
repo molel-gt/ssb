@@ -24,7 +24,8 @@ if __name__ == '__main__':
     parser.add_argument('--root_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1)
     parser.add_argument("--scale", help="sx,sy,sz", nargs='?', const=1, default='-1,-1,-1')
-
+    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
+                        const=1, default='VOXELSCALING', type=str)
     args = parser.parse_args()
     data_dir = os.path.join(f'{args.root_folder}')
     voltage = args.voltage
@@ -32,7 +33,7 @@ if __name__ == '__main__':
     rank = comm.rank
     start_time = timeit.default_timer()
     if args.scale == '-1,-1,-1':
-        scaling = configs.get_configs()['VOXEL_SCALING']
+        scaling = configs.get_configs()[args.scaling]
         scale_x = float(scaling['x'])
         scale_y = float(scaling['y'])
         scale_z = float(scaling['z'])
