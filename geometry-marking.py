@@ -291,7 +291,7 @@ if __name__ == '__main__':
 
     # refinement
     gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "FacesList", [insulated, left, right])
+    gmsh.model.mesh.field.setNumbers(1, "FacesList", [insulatedtag, lefttag, righttag])
 
     gmsh.model.mesh.field.add("Threshold", 2)
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
