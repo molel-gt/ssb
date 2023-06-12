@@ -297,8 +297,8 @@ if __name__ == '__main__':
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
     gmsh.model.mesh.field.setNumber(2, "LcMin", args.resolution / 100)
     gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 0.1)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.1)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 1)
 
     gmsh.model.mesh.generate(3)
     gmsh.write(f"{mshpath}")
