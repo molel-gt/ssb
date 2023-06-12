@@ -67,6 +67,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument('--img_id', help='contact area image index', required=True, type=int)
     parser.add_argument('--Lz', help='length in z direction', nargs='?', const=1, default=10, type=int)
+    parser.add_argument('--resolution', help='gmsh meshSize', nargs='?', const=1, default=1, type=float)
     args = parser.parse_args()
     img_name = f'test{str(int(args.img_id))}'
     img = np.asarray(plt.imread(f'data/current_constriction/{img_name}.tif')[:, :, 0], dtype=np.uint8)
@@ -79,7 +80,6 @@ if __name__ == '__main__':
     Lx = 470
     Ly = 470
     Lz = args.Lz
-    resolution = 0.5
     scaling = configs.get_configs()['VOXEL_SCALING']
     scale_x = float(scaling['x'])
     scale_y = float(scaling['y'])
@@ -128,10 +128,10 @@ if __name__ == '__main__':
     lines = []
 
     for i in range(4):
-        idx = gmsh.model.occ.addPoint(*z0_points[i], meshSize=resolution)
+        idx = gmsh.model.occ.addPoint(*z0_points[i], meshSize=args.resolution)
         points0.append(idx)
     for i in range(4):
-        idx = gmsh.model.occ.addPoint(*zL_points[i], meshSize=resolution)
+        idx = gmsh.model.occ.addPoint(*zL_points[i], meshSize=args.resolution)
         points1.append(
             idx
         )
