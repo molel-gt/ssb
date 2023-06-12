@@ -68,7 +68,7 @@ if __name__ == '__main__':
     parser.add_argument('--img_id', help='contact area image index', required=True, type=int)
     parser.add_argument('--Lz', help='length in z direction', nargs='?', const=1, default=10, type=int)
     parser.add_argument('--resolution', help='gmsh meshSize', nargs='?', const=1, default=1, type=float)
-    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?', const=1, default='VOXELSCALING2', type=str)
+    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?', const=1, default='VOXEL_SCALING2', type=str)
     args = parser.parse_args()
     img_name = f'test{str(int(args.img_id))}'
     img = np.asarray(plt.imread(f'data/current_constriction/{img_name}.tif')[:, :, 0], dtype=np.uint8)
