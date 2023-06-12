@@ -80,7 +80,7 @@ if __name__ == '__main__':
     Lx = 470
     Ly = 470
     Lz = args.Lz
-    scaling = configs.get_configs()['VOXEL_SCALING']
+    scaling = configs.get_configs()['VOXEL_SCALING2']
     scale_x = float(scaling['x'])
     scale_y = float(scaling['y'])
     scale_z = float(scaling['z'])
