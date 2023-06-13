@@ -217,7 +217,7 @@ if __name__ == '__main__':
     left = []
     process_count = 0
     for p in graph.pieces:
-        if len(p) < 10:
+        if len(p) < 4:
             continue
         arr = []
         for c in p:
@@ -231,6 +231,8 @@ if __name__ == '__main__':
         except scipy.spatial._qhull.QhullError as e:
             print(len(p), e)
             continue
+        except AttributeError as e2:
+            print(e2)
 
         hull_arr = np.asarray(hull)
         hull_points = []
