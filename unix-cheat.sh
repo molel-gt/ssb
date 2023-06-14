@@ -10,3 +10,4 @@ squeue -u emolel3 | awk '{split($0,a," "); print a[1]}' | xargs scancel
 
 # list file in human-readable
 ls -lh
+ls -l --block-size=M
