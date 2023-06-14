@@ -32,11 +32,15 @@ if __name__ == "__main__":
     parser.add_argument('--grid_extents', help='Grid size is given by Nx-Ny-Nz such that the lengths are (Nx-1) by (Ny - 1) by (Nz - 1).',
                         required=True)
     parser.add_argument("--phase", help='0 - VOID, 1 - SE, 2 - AM', nargs='?', const=1, default=1, type=int)
+    parser.add_argument("--segmentation_folder", help='folder containing segmented stack', nargs='?', const=1,
+                        default='segmented', type=str)
+    parser.add_argument("--output_folder", help='parent folder for output files', nargs='?', const=1,
+                        default='mesh/study_1', type=str)
     start_time = time.time()
     args = parser.parse_args()
     phase = args.phase
     scaling = configs.get_configs()['VOXEL_SCALING']
-    img_folder = configs.get_configs()['LOCAL_PATHS']['segmented_image_stack']
+    img_folder = args.segmentation_folder
     scale_x = float(scaling['x'])
     scale_y = float(scaling['y'])
     scale_z = float(scaling['z'])
@@ -51,7 +55,7 @@ if __name__ == "__main__":
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
-    mesh_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], f"{args.grid_extents}/{phase}")
+    mesh_dir = os.path.join(args.output_folder, f"{args.grid_extents}/{phase}")
     utils.make_dir_if_missing(mesh_dir)
     im_files = sorted([os.path.join(img_folder, f) for
                        f in os.listdir(img_folder) if f.endswith(".tif")])
@@ -143,6 +147,8 @@ if __name__ == "__main__":
     for f in [nodefile, tetfile, facesfile, vtkfile, surface_vtk, tetr_mshfile, surf_mshfile, tetr_xdmf_unscaled, tria_xdmf_unscaled]:
         try:
             os.remove(f)
+            new_f = f.split('.')[0] + '.1.' + f.split('.')[-1]
+            os.remove(new_f)
         except:
             continue
     
