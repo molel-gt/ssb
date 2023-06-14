@@ -95,18 +95,41 @@ def add_boundary_points(points, x_max=50, y_max=50, z_max=50, h=0.5, dp=1):
     max_id = max(points.values())
 
     for (x0, y0, z0), _ in points.items():
-        for sign_x in [-1, 0, 1]:
-            for sign_y in [-1, 0, 1]:
-                for sign_z in [-1, 0, 1]:
-                    coord = (round(x0 + h * sign_x, dp), round(y0 + h * sign_y, dp), round(z0 + h * sign_z, dp))
-                    if coord[0] > x_max or coord[1] > y_max or coord[2] > z_max:
-                        continue
-                    if np.less(coord, 0).any():
-                        continue
-                    v = new_points.get(coord)
-                    if v is None:
-                        max_id += 1
-                        new_points[coord] = max_id
+        for i in range(1, 7):
+            if i == 1:
+                new_point = (round(x0 + h, dp), y0, z0)
+            elif i == 2:
+                new_point = (round(x0 - h, dp), y0, z0)
+            elif i == 3:
+                new_point = (x0, round(y0 + h, dp), z0)
+            elif i == 4:
+                new_point = (x0, round(y0 - h, dp), z0)
+            elif i == 5:
+                new_point = (x0, y0, round(z0 + h, dp))
+            elif i == 6:
+                new_point = (x0, y0, round(z0 - h, dp))
+            if np.any(np.less(new_point, 0)):
+                continue
+            if new_point[0] > x_max:
+                continue
+            if new_point[1] > y_max:
+                continue
+            if new_point[2] > z_max:
+                continue
+            max_id += 1
+            new_points[new_point] = max_id
+        # for sign_x in [-1, 0, 1]:
+        #     for sign_y in [-1, 0, 1]:
+        #         for sign_z in [-1, 0, 1]:
+        #             coord = (round(x0 + h * sign_x, dp), round(y0 + h * sign_y, dp), round(z0 + h * sign_z, dp))
+        #             if coord[0] > x_max or coord[1] > y_max or coord[2] > z_max:
+        #                 continue
+        #             if np.less(coord, 0).any():
+        #                 continue
+        #             v = new_points.get(coord)
+        #             if v is None:
+        #                 max_id += 1
+        #                 new_points[coord] = max_id
 
     return new_points
 
