@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH -A gts-tf74
-#SBATCH -Jstudy_1
+#SBATCH -Jstudy_1g
 #SBATCH -N 1
-#SBATCH --mem-per-cpu=128G
+#SBATCH --mem-per-cpu=384G
 #SBATCH -t36:00:00
 #SBATCH -qinferno
 #SBATCH -ostudy-1-geo-%j.out
