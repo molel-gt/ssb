@@ -25,7 +25,7 @@ if __name__ == '__main__':
     parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1)
     parser.add_argument("--scale", help="sx,sy,sz", nargs='?', const=1, default='-1,-1,-1')
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
-                        const=1, default='VOXELSCALING', type=str)
+                        const=1, default='VOXEL_SCALING', type=str)
     args = parser.parse_args()
     data_dir = os.path.join(f'{args.root_folder}')
     voltage = args.voltage
