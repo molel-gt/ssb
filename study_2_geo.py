@@ -303,9 +303,9 @@ if __name__ == '__main__':
     gmsh.model.mesh.field.setNumber(2, "DistMin", 0.1)
     gmsh.model.mesh.field.setNumber(2, "DistMax", 1)
 
-    gmsh.model.mesh.field.add("Max", 5)
-    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    # gmsh.model.mesh.field.add("Max", 5)
+    # gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    # gmsh.model.mesh.field.setAsBackgroundMesh(5)
 
     gmsh.model.mesh.generate(3)
     gmsh.write(f"{mshpath}")
