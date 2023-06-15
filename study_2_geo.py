@@ -298,14 +298,14 @@ if __name__ == '__main__':
 
     gmsh.model.mesh.field.add("Threshold", 2)
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "LcMin", args.resolution / 100)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.1)
+    gmsh.model.mesh.field.setNumber(2, "LcMin", args.resolution)
+    gmsh.model.mesh.field.setNumber(2, "LcMax", 2.5)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 1)
     gmsh.model.mesh.field.setNumber(2, "DistMax", 5)
 
-    # gmsh.model.mesh.field.add("Max", 5)
-    # gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    # gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    gmsh.model.mesh.field.add("Max", 5)
+    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    gmsh.model.mesh.field.setAsBackgroundMesh(5)
 
     gmsh.model.mesh.generate(3)
     gmsh.write(f"{mshpath}")
