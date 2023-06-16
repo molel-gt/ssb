@@ -14,7 +14,7 @@ git clone https://github.com/spack/spack.git
 Edit the file `spack/etc/spack/defaults/config.yaml` to change the temporary directory, e.g.
 ```
 build_stage:
-    - /storage/coda1/p-tf74/0/shared/user3/tmp/spack-stage
+    - /storage/coda1/p-tf74/0/shared/emolel3/tmp/spack-stage
     - $user_cache_path/stage
 ```
 ```
