@@ -4,9 +4,7 @@ import os
 import timeit
 
 import argparse
-import dolfinx
 import logging
-import numpy as np
 import ufl
 
 from dolfinx import cpp, fem, io, mesh
@@ -64,7 +62,7 @@ if __name__ == '__main__':
         domain = infile3.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(domain, name="Grid")
     domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
-    with dolfinx.io.XDMFFile(comm, tria_mesh_path, "r") as infile2:
+    with io.XDMFFile(comm, tria_mesh_path, "r") as infile2:
         ft = infile2.read_meshtags(domain, name="Grid")
     meshtags = mesh.meshtags(domain, 2, ft.indices, ft.values)
     # Dirichlet BCs
