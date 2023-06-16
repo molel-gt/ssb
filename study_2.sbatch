@@ -8,8 +8,12 @@
 #SBATCH -ostudy-2-model-%j.out
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=emolel3@gatech.edu
-module load anaconda3
-conda activate fenicsx-env
+
+cd /storage/coda1/p-tf74/0/shared/leshinka/
+. ./spack/share/spack/setup-env.sh
+spack env activate fenicsx-env
+#module load anaconda3
+#conda activate fenicsx-env
 cd $SLURM_SUBMIT_DIR
 export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
 export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/:/storage/home/hcoda1/0/emolel3/.local/
