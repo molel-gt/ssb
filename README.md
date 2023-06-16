@@ -46,6 +46,11 @@ Other required Python packages are specified in the [requirements](requirements.
 ```
 python3 -m pip install -r requirements.txt --user
 ```
+While installing via spack, you may find it necessary to edit the version dependencies in case of failures. You can edit dependencies for `py-fenics-dolfinx` using
+```
+spack edit py-fenics-dolfinx
+```
+From the opened file, change existing dependencies or add new ones.
 ## Geometry Preparation
 The geometry used in our models is prepared from segmented tomograms. For ease of communication, we label our segmented phases as 0 for void, 1 for solid electrolyte and 2 for active material. The volume reconstruction from segmented images is achieved using the [volume_reconstruction](volume_reconstruction.py) program. The parameters are:
 ```
