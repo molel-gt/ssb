@@ -9,7 +9,7 @@
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=emolel3@gatech.edu
 
-cd /storage/coda1/p-tf74/0/shared/leshinka/
+cd /storage/coda1/p-tf74/0/shared/leshinka/dev
 . ./spack/share/spack/setup-env.sh
 spack env activate fenicsx-env
 #module load anaconda3
