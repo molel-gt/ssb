@@ -14,7 +14,7 @@ cd /storage/coda1/p-tf74/0/shared/leshinka/
 export PATH=/storage/coda1/p-tf74/0/shared/emolel3/opt/:/storage/coda1/p-tf74/0/shared/emolel3/opt/bin:$PATH
 
 spack env activate fenicsx-env
-cd dev/gmsh/build && make install
+cd dev/gmsh/build && make && make install
 #module load anaconda3
 #conda activate fenicsx-env
 cd $SLURM_SUBMIT_DIR
