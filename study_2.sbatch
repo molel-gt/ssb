@@ -10,14 +10,8 @@
 #SBATCH --mail-user=emolel3@gatech.edu
 
 cd /storage/coda1/p-tf74/0/shared/leshinka/
-. ./spack/share/spack/setup-env.sh
-export PATH=/storage/coda1/p-tf74/0/shared/emolel3/opt/:/storage/coda1/p-tf74/0/shared/emolel3/opt/bin:$PATH
+. ./spack/share/spack/setup-env.sh && spack env activate fenicsx-env
 
-spack env activate fenicsx-env
-cd dev/gmsh/build && make && make install
-#module load anaconda3
-#conda activate fenicsx-env
 cd $SLURM_SUBMIT_DIR
-
 
 mpiexec python3 transport.py --grid_extents 470-470-100_000-000-000 --root_folder mesh/study_2/test$1/470-470-100_000-000-000 --scaling VOXEL_SCALING2
