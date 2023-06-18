@@ -11,11 +11,13 @@
 
 cd /storage/coda1/p-tf74/0/shared/leshinka/dev
 . ./spack/share/spack/setup-env.sh
+export PATH=/storage/coda1/p-tf74/0/shared/emolel3/opt/:/storage/home/hcoda1/0/emolel3/.local/:$PATH
+export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
+
 spack env activate fenicsx-env
 #module load anaconda3
 #conda activate fenicsx-env
 cd $SLURM_SUBMIT_DIR
-export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
-export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/:/storage/home/hcoda1/0/emolel3/.local/
+
 
 mpiexec python3 transport.py --grid_extents 470-470-100_000-000-000 --root_folder mesh/study_2/test$1/470-470-100_000-000-000 --scaling VOXEL_SCALING2
