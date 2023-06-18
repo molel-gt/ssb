@@ -11,8 +11,7 @@
 
 cd /storage/coda1/p-tf74/0/shared/leshinka/
 . ./spack/share/spack/setup-env.sh
-export PATH=/storage/coda1/p-tf74/0/shared/emolel3/opt/:/storage/coda1/p-tf74/0/shared/emolel3/opt/bin:/storage/home/hcoda1/0/emolel3/.local/:$PATH
-export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
+export PATH=/storage/coda1/p-tf74/0/shared/emolel3/opt/:/storage/coda1/p-tf74/0/shared/emolel3/opt/bin:$PATH
 
 spack env activate fenicsx-env
 cd dev/gmsh/build && make install
