@@ -9,12 +9,13 @@
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=emolel3@gatech.edu
 
-cd /storage/coda1/p-tf74/0/shared/leshinka/dev
+cd /storage/coda1/p-tf74/0/shared/leshinka/
 . ./spack/share/spack/setup-env.sh
 export PATH=/storage/coda1/p-tf74/0/shared/emolel3/opt/:/storage/coda1/p-tf74/0/shared/emolel3/opt/bin:/storage/home/hcoda1/0/emolel3/.local/:$PATH
 export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
 
 spack env activate fenicsx-env
+cd dev/gmsh/build && make install
 #module load anaconda3
 #conda activate fenicsx-env
 cd $SLURM_SUBMIT_DIR
