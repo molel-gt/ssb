@@ -60,7 +60,6 @@ def mesh_surface(coords, xmax=470, ymax=470):
                     (p0, p1, p2)
                 )
 
-
     return triangles, points
 
 
