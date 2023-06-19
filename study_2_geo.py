@@ -21,6 +21,7 @@ markers = commons.SurfaceMarkers()
 cell_types = commons.CellTypes()
 max_resolution = 2.5
 
+
 def mesh_surface(coords, xmax=470, ymax=470):
     points = {}
     count = 0
