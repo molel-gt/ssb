@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for imgId in 0..202;
+for imgId in `seq 201`;
 do
   python3 edge_detection.py --img_id $imgId
 done
