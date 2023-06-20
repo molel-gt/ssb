@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -Jstudy_2g
 #SBATCH -N 1
-#SBATCH --mem-per-cpu=1G
+#SBATCH --mem-per-cpu=128G
 #SBATCH -t36:00:00
 #SBATCH -qinferno
 #SBATCH -ostudy-2-geo-%j.out
