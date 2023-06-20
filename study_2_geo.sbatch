@@ -1,4 +1,5 @@
 #!/bin/bash
+#SBATCH -A gts-tf74
 #SBATCH -Jstudy_2g
 #SBATCH -N 1
 #SBATCH --mem-per-cpu=128G
