@@ -4,6 +4,8 @@
    - name: Install APT Packages
      apt:
       pkg:
+      - mariadb-client
+      - mariadb-server
       - libnvidia-compute-530
       - nvidia-driver-530
       - paraview
