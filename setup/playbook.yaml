@@ -1,0 +1,8 @@
+- name: Installation of Packages
+  hosts: virtualmachines
+  tasks:
+   - name: Install APT Packages
+     apt:
+      pkg:
+      - slurmd
+      - slurmctld
