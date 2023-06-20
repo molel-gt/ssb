@@ -11,3 +11,6 @@ squeue -u emolel3 | awk '{split($0,a," "); print a[1]}' | xargs scancel
 # list file in human-readable
 ls -lh
 ls -l --block-size=M
+# slurmd slurmctld
+sudo scontrol update nodename=localhost state=idle
+sudo systemctl status slurmctld && sudo systemctl status slurmd
