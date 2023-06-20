@@ -13,4 +13,7 @@ ls -lh
 ls -l --block-size=M
 # slurmd slurmctld
 sudo scontrol update nodename=localhost state=idle
+sudo systemctl restart slurmctld && sudo systemctl restart slurmd
 sudo systemctl status slurmctld && sudo systemctl status slurmd
+
+squeue -u molel | grep local | tr -s ' ' | cut -d ' ' -f 2 | xargs scancel
