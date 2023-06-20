@@ -4,6 +4,8 @@
    - name: Install APT Packages
      apt:
       pkg:
+      - libnvidia-compute-530
+      - nvidia-driver-530
       - paraview
       - python3-dev
       - slurmctld
