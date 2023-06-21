@@ -330,36 +330,36 @@ class Segmentor:
         self._clusters[selection] = -2
         self.update_residuals()
 
-        with open(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
-            pickle.dump(self.phases, fp)
+        # with open(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
+        #     pickle.dump(self.phases, fp)
 
     def set_edges(self):
-        if not self.rerun and os.path.exists(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}')):
-            with open(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}'), 'rb') as fp:
-                self.edges = pickle.load(fp)
-        else:
-            img_11 = neighborhood_average(self.image)
-            for i in range(5):
-                img_11 = neighborhood_average(img_11)
-            img_2 = filters.gaussian(img_11, sigma=0.5)
-            img_2 = neighborhood_average(img_2 / np.max(img_2))
-            img_2 = filters.meijering(img_2 / np.max(img_2))
-            # img_2 = neighborhood_average(img_2)
-            self.edges = img_2 / np.max(img_2)
-            self.write_edges_to_file()
-            with open(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
-                pickle.dump(self.edges, fp)
+        # if not self.rerun and os.path.exists(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}')):
+        #     with open(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}'), 'rb') as fp:
+        #         self.edges = pickle.load(fp)
+        # else:
+        img_11 = neighborhood_average(self.image)
+        for i in range(5):
+            img_11 = neighborhood_average(img_11)
+        img_2 = filters.gaussian(img_11, sigma=0.5)
+        img_2 = neighborhood_average(img_2 / np.max(img_2))
+        img_2 = filters.meijering(img_2 / np.max(img_2))
+        # img_2 = neighborhood_average(img_2)
+        self.edges = img_2 / np.max(img_2)
+        self.write_edges_to_file()
+        # with open(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
+        #     pickle.dump(self.edges, fp)
 
     def write_edges_to_file(self):
         with open(os.path.join(self.edges_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
             pickle.dump(self.edges, fp)
 
     def clustering(self):
-        if os.path.exists(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}')):
-            with open(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}'), 'rb') as fp:
-                self._phases = pickle.load(fp)
-        else:
-            self._phases = np.ones(self.image.shape, dtype=np.intc)
+        # if os.path.exists(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}')):
+        #     with open(os.path.join(self.phases_dir, f'{str(self.image_id).zfill(3)}'), 'rb') as fp:
+        #         self._phases = pickle.load(fp)
+        # else:
+        # self._phases = np.ones(self.image.shape, dtype=np.intc)
 
         self.set_edges()
 
@@ -387,8 +387,8 @@ class Segmentor:
             reclustered = recluster(img_cluster_enhanced)
             coords2 = np.where(reclustered > -1)
             self._clusters[coords2] = reclustered[coords2]
-        with open(os.path.join(self.clusters_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
-            pickle.dump(self.clusters, fp)
+        # with open(os.path.join(self.clusters_dir, f'{str(self.image_id).zfill(3)}'), 'wb') as fp:
+        #     pickle.dump(self.clusters, fp)
 
     def run(self, selection=None, phase=None, rerun=False, clustering=False, segmentation=False, use_residuals=True):
         self.rerun = rerun
