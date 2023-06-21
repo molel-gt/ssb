@@ -35,7 +35,7 @@ NX = NY = 501
 
 
 def coord2idx(x, y, NY=NY):
-    return x * (NY - 1) + y
+    return int(x * (NY - 1) + y)
 
 
 def idx2coord(idx, NY=NY):
@@ -72,7 +72,7 @@ def get_raw_clusters(img, img_edges, condition='less_than', threshold=0.2):
 
 def get_edges(img_input, img_edges, levels):
     NX, NY = img_input.shape
-    edges = defaultdict(list)
+    edges_ = defaultdict(list)
     for level, (condition, threshold, size_check) in levels.items():
         clusters = get_raw_clusters(img_input, img_edges, condition=condition, threshold=threshold)
         for v in np.unique(clusters):
@@ -115,7 +115,7 @@ def get_edges(img_input, img_edges, levels):
                 for i in range(len(hull)):
                     idx = coord2idx(*hull[i], NY=NY)
                     hull_ids.append(idx)
-                edges[level].append(hull_ids)
+                edges_[int(level)].append(hull_ids)
 
             else:
                 for p in graph.pieces:
@@ -140,9 +140,9 @@ def get_edges(img_input, img_edges, levels):
                     for i in range(len(hull)):
                         idx = coord2idx(*hull[i], NY=NY)
                         hull_ids.append(idx)
-                    edges[level].append(hull_ids)
+                    edges_[int(level)].append(hull_ids)
 
-    return edges
+    return edges_
 
 
 if __name__ == '__main__':
@@ -186,7 +186,7 @@ if __name__ == '__main__':
             if inside_points.shape[0] == 0:
                 continue
             if inside_points.shape[0] == 1:
-                img_res[inside_points[0, 0], inside_points[0, 1]] = 0
+                img_res[inside_points[0, 0], inside_points[0, 1]] = 1
             else:
                 arr = np.asarray(inside_points)
                 if arr.shape[0] > 1000 and level == '0':
@@ -208,7 +208,13 @@ if __name__ == '__main__':
     edges2 = get_edges(img_input, img_res, levels2)
 
     edges_final = {}
-    edges_final.update(edges1)
-    edges_final.update(edges2)
+    for k, v in edges1.items():
+        if len(v) == 0:
+            continue
+        edges_final[int(k)] = v
+    for k, v in edges2.items():
+        if len(v) == 0:
+            continue
+        edges_final[int(k)] = v
 
     write_edges_to_file(edges_final, args.img_id, edges_dir)
