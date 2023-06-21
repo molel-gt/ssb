@@ -27,6 +27,16 @@ levels = {
     1: ('greater_than', 0.05, lambda size: False),
 }
 
+NX = NY = 501
+
+
+def coord2idx(x, y, NY=NY):
+    return x * (NY - 1) + y
+
+
+def idx2coord(idx, NY=NY):
+    return int(idx / (NY - 1)), int(idx % (NY - 1))
+
 
 def points_inside_polygon(polygon, points_arr):
     path = Path(polygon)
@@ -78,10 +88,9 @@ if __name__ == '__main__':
     counter = 0
     for ix in range(NX):
         for iy in range(NY):
-            idx = int((NX - 1) * iy + ix)
+            idx = coord2idx(ix, iy, NY=NY)
             points[ix, iy] = idx
-            points_arr[counter, :] = (ix, iy)
-            counter += 1
+            points_arr[idx, :] = (ix, iy)
 
     edges = defaultdict(list)
 
