@@ -4,15 +4,12 @@ import itertools
 import os
 import time
 
-import alphashape
 import argparse
-import cartopy.crs as ccrs
 import cv2
 import hdbscan
 import igraph as ig
 import matplotlib.pyplot as plt
 import metis
-import networkx as nx
 import numpy as np
 
 
@@ -20,23 +17,12 @@ import pickle
 import warnings
 
 from concavehull import concavehull
-from igraph import Graph
-from shapely import Polygon, MultiPoint
-from shapely.plotting import plot_polygon
-from shapely.validation import make_valid
-from descartes import PolygonPatch
-from ipywidgets import widgets, interactive
 from matplotlib.colors import LinearSegmentedColormap
-from matplotlib import patches
-from matplotlib.widgets import CheckButtons, Button, Slider, LassoSelector, RadioButtons, TextBox, RectangleSelector
+from matplotlib.widgets import CheckButtons, Button, RadioButtons, RectangleSelector
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 from skimage import filters
 from sklearn.ensemble import RandomForestClassifier
-
-from hulls import ConcaveHull
-
-import geometry
 
 
 warnings.simplefilter("ignore")
