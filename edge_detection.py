@@ -10,7 +10,6 @@ import argparse
 from collections import defaultdict
 from matplotlib.path import Path
 import matplotlib.pyplot as plt
-import metis
 import numpy as np
 import scipy
 
