@@ -22,9 +22,13 @@ import segmentation as seg, grapher, utils
 
 warnings.simplefilter("ignore")
 
-levels = {
+levels1 = {
     0: ('less_than', 0.2, lambda size: size >= 0.05),
     1: ('greater_than', 0.05, lambda size: False),
+}
+
+levels2 = {
+    2: ('less_than', 0.1, lambda size: size >= 0.05),
 }
 
 NX = NY = 501
@@ -66,42 +70,17 @@ def get_raw_clusters(img, img_edges, condition='less_than', threshold=0.2):
     return clusters
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Reconstructs volume from segemented images.')
-    parser.add_argument('--img_id', help='image id', type=int, required=True)
-    parser.add_argument('--indir', help='input directory', type=str, nargs='?', const=1, default='unsegmented')
-    parser.add_argument('--outdir', help='output directory', type=str, nargs='?', const=1, default='segmentation')
-    args = parser.parse_args()
-    img = np.asarray(plt.imread(os.path.join(args.indir, f'{str(args.img_id).zfill(3)}.tif')))
-    NX, NY = img.shape
-    utils.make_dir_if_missing(args.outdir)
-    edges_dir = os.path.join(args.outdir, 'edges')
-    utils.make_dir_if_missing(edges_dir)
-
-    img_01 = seg.neighborhood_average(img, d=(5, 5))
-    img_1 = filters.meijering(img_01)
-
-    img_trial = img * (1 - img_1 / np.max(img_1))
-    img_trial_edges = filters.meijering(img_trial)
-    points = {}
-    points_arr = np.zeros((NX * NY, 2), dtype=np.int32)
-    counter = 0
-    for ix in range(NX):
-        for iy in range(NY):
-            idx = coord2idx(ix, iy, NY=NY)
-            points[ix, iy] = idx
-            points_arr[idx, :] = (ix, iy)
-
+def get_edges(img_input, img_edges, levels):
+    NX, NY = img_input.shape
     edges = defaultdict(list)
-
     for level, (condition, threshold, size_check) in levels.items():
-        clusters = get_raw_clusters(img_trial, img_trial_edges, condition=condition, threshold=threshold)
+        clusters = get_raw_clusters(img_input, img_edges, condition=condition, threshold=threshold)
         for v in np.unique(clusters):
             if v < 0:
                 continue
             coords = np.where(np.isclose(clusters, v))
             if coords[0].shape[0] < 5:
-                    continue
+                continue
             size = coords[0].shape[0] / 500 ** 2
             if size <= 0:
                 continue
@@ -112,7 +91,7 @@ if __name__ == '__main__':
             points_view = {}
             for i in range(len(arr)):
                 coord = arr[i]
-                idx = int(points[coord])
+                idx = coord2idx(*coord, NY=NY)
                 points_view[idx] = coord
             graph = grapher.PixelGraph(points=points_view)
             graph.build_graph()
@@ -134,7 +113,7 @@ if __name__ == '__main__':
                     continue
                 hull_ids = []
                 for i in range(len(hull)):
-                    idx = points[hull[i]]
+                    idx = coord2idx(*hull[i], NY=NY)
                     hull_ids.append(idx)
                 edges[level].append(hull_ids)
 
@@ -159,10 +138,77 @@ if __name__ == '__main__':
                         continue
                     hull_ids = []
                     for i in range(len(hull)):
-                        idx = points[hull[i]]
+                        idx = coord2idx(*hull[i], NY=NY)
                         hull_ids.append(idx)
                     edges[level].append(hull_ids)
 
-    write_edges_to_file(edges, args.img_id, edges_dir)
+    return edges
 
-    print(points_inside_polygon(hull, points_arr))
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Reconstructs volume from segemented images.')
+    parser.add_argument('--img_id', help='image id', type=int, required=True)
+    parser.add_argument('--indir', help='input directory', type=str, nargs='?', const=1, default='unsegmented')
+    parser.add_argument('--outdir', help='output directory', type=str, nargs='?', const=1, default='segmentation')
+    args = parser.parse_args()
+    img = np.asarray(plt.imread(os.path.join(args.indir, f'{str(args.img_id).zfill(3)}.tif')))
+    NX, NY = img.shape
+    utils.make_dir_if_missing(args.outdir)
+    edges_dir = os.path.join(args.outdir, 'edges')
+    utils.make_dir_if_missing(edges_dir)
+
+    img_01 = seg.neighborhood_average(img, d=(5, 5))
+    img_1 = filters.meijering(img_01)
+
+    img_input = img * (1 - img_1 / np.max(img_1))
+    img_edges = filters.meijering(img_input)
+    points_arr = np.zeros((NX * NY, 2), dtype=np.int32)
+    counter = 0
+    for ix in range(NX):
+        for iy in range(NY):
+            idx = coord2idx(ix, iy, NY=NY)
+            points_arr[idx, :] = (ix, iy)
+
+    edges1 = get_edges(img_input, img_edges, levels1)
+
+    # process edges 1
+    img_res = img_edges.copy()
+    for level in ['0', '1']:
+        level_edges = edges1[level]
+        for point_set in level_edges:
+            polygon = []
+            for idx in point_set:
+                x, y = idx2coord(idx)
+                polygon.append((x, y))
+            #         if len(polygon) < 25:
+            #             continue
+            inside_points = points_inside_polygon(polygon, points_arr)
+            if inside_points.shape[0] == 0:
+                continue
+            if inside_points.shape[0] == 1:
+                img_res[inside_points[0, 0], inside_points[0, 1]] = 0
+            else:
+                arr = np.asarray(inside_points)
+                if arr.shape[0] > 1000 and level == '0':
+                    continue
+                if level == '1' and arr.shape[0] > 68000:
+                    continue
+                aspect = arr.shape[0] / len(polygon)
+                aspect2 = 4 * arr.shape[0] / len(polygon) ** 2
+                if aspect > 40 and len(polygon) < 500:
+                    print(aspect, aspect2, len(polygon))
+                    continue
+                elif 27 < aspect < 28:
+                    print(aspect, aspect2, len(polygon))
+                    continue
+                else:
+                    if 100 < aspect < 110:
+                        print(aspect, len(polygon))
+                    img_res[(arr[:, 0], arr[:, 1])] = 1
+    edges2 = get_edges(img_input, img_res, levels2)
+
+    edges_final = {}
+    edges_final.update(edges1)
+    edges_final.update(edges2)
+
+    write_edges_to_file(edges_final, args.img_id, edges_dir)
