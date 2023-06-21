@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import copy
 import json
 import os
 
@@ -63,12 +62,12 @@ def get_raw_clusters(img, img_edges, condition='less_than', threshold=0.2):
     else:
         features = seg.build_features_matrix(img_edges > threshold, img, 0.05)
     clusters_0 = seg.get_clustering_results(features[:, :3], **seg.hdbscan_kwargs)
-    clusters_ = -1 * np.ones(img.shape, dtype=np.int32)
+    clusters = -1 * np.ones(img.shape, dtype=np.int32)
     for i in range(features.shape[0]):
         x, y = [int(v) for v in features[i, :2]]
-        clusters_[x, y] = clusters_0[i]
+        clusters[x, y] = clusters_0[i]
     
-    return clusters_
+    return clusters
 
 
 def get_edges(img_input, img_edges, levels):
@@ -116,7 +115,7 @@ def get_edges(img_input, img_edges, levels):
                 for i in range(len(hull)):
                     idx = coord2idx(*hull[i], NY=NY)
                     hull_ids.append(idx)
-                edges_[level].append(hull_ids)
+                edges_[int(level)].append(hull_ids)
 
             else:
                 for p in graph.pieces:
@@ -141,7 +140,7 @@ def get_edges(img_input, img_edges, levels):
                     for i in range(len(hull)):
                         idx = coord2idx(*hull[i], NY=NY)
                         hull_ids.append(idx)
-                    edges_[level].append(hull_ids)
+                    edges_[int(level)].append(hull_ids)
 
     return edges_
 
@@ -160,22 +159,22 @@ if __name__ == '__main__':
 
     img_01 = seg.neighborhood_average(img, d=(5, 5))
     img_1 = filters.meijering(img_01)
-    img_filter = filters.meijering(img)
 
     img_input = img * (1 - img_1 / np.max(img_1))
     img_edges = filters.meijering(img_input)
     points_arr = np.zeros((NX * NY, 2), dtype=np.int32)
+    counter = 0
     for ix in range(NX):
         for iy in range(NY):
             idx = coord2idx(ix, iy, NY=NY)
             points_arr[idx, :] = (ix, iy)
 
-    edges_1 = get_edges(img_input, img_edges, levels1)
+    edges1 = get_edges(img_input, img_edges, levels1)
 
     # process edges 1
-    img_res = np.copy(img_filter)
+    img_res = img_edges.copy()
     for level in ['0', '1']:
-        level_edges = edges_1[level]
+        level_edges = edges1[level]
         for point_set in level_edges:
             polygon = []
             for idx in point_set:
@@ -187,7 +186,7 @@ if __name__ == '__main__':
             if inside_points.shape[0] == 0:
                 continue
             if inside_points.shape[0] == 1:
-                img_res[inside_points[0, 0], inside_points[0, 1]] = 0
+                img_res[inside_points[0, 0], inside_points[0, 1]] = 1
             else:
                 arr = np.asarray(inside_points)
                 if arr.shape[0] > 1000 and level == '0':
@@ -206,11 +205,16 @@ if __name__ == '__main__':
                     if 100 < aspect < 110:
                         print(aspect, len(polygon))
                     img_res[(arr[:, 0], arr[:, 1])] = 1
-    #
-    edges_final = get_edges(img_input, img_res, levels2)
-    edges_final[0] = edges_1[0]
-    edges_final[1] = edges_1[1]
-    # for k, v in edges_2.items():
-    #     edges_final[k] = v
+    edges2 = get_edges(img_input, img_res, levels2)
+
+    edges_final = {}
+    for k, v in edges1.items():
+        if len(v) == 0:
+            continue
+        edges_final[int(k)] = v
+    for k, v in edges2.items():
+        if len(v) == 0:
+            continue
+        edges_final[int(k)] = v
 
     write_edges_to_file(edges_final, args.img_id, edges_dir)
