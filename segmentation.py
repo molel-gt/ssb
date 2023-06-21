@@ -195,73 +195,73 @@ def get_clustering_results(X_2d, **hdbscan_kwargs):
     return y_predict
 
 
-def recluster(clusters):
-    max_v = np.max(clusters)
-    new_clusters = clusters.copy()
-    adder = 0
-    for v in np.unique(clusters):
-        if v < 0:
-            continue
-
-        coords = np.where(np.isclose(clusters, v))
-        points = [(coords[0][i], coords[1][i]) for i in range(coords[0].shape[0])]
-        points_arr = np.array(points).reshape(-1, 2)
-        points_dict = {}
-        for i in range(coords[0].shape[0]):
-            points_dict[int(i)] = (int(coords[0][i]), int(coords[1][i]))
-
-        PG = PixelGraph(points=points_dict)
-        PG.build_graph()
-        PG.get_graph_pieces()
-        pieces = PG.pieces
-        n_pieces = PG.n_pieces
-        def cut_graph():
-            return
-        if np.isclose(n_pieces, 1):
-            # print(f"Size: {coords[0].shape[0]:,}")
-            # hull = concavehull(points_arr, chi_factor=1e-12)
-            # ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
-            if coords[0].shape[0] / (500 ** 2) >= 0.05:
-                edgecuts, parts = metis.part_graph(PG.graph, 2)
-                print(edgecuts)
-        else:
-            # print(f"Size: {coords[0].shape[0]:,}")
-            for i, p in enumerate(pieces):
-                p_points = [points_dict[idx] for idx in p]
-                p_points_arr = np.array(p_points).reshape(-1, 2)
-                
-                if p_points_arr.shape[0] / (500 ** 2) >= 0.05:
-                    new_dict = {}
-                    for k, v in points_dict.items():
-                        if int(k) in p:
-                            new_dict[k] = v
-                        
-                    graph = PixelGraph(points=new_dict)
-                    graph.build_graph()
-                    G = graph.graph
-                    edgecuts, parts = metis.part_graph(G.to_networkx(), 3, [0.5, 0.3, 0.2])
-                    new_pieces = [[],[],[]]
-                    for idx, p in enumerate(parts):
-                        new_pieces[int(p)].append(int(idx))
-                    pieces += new_pieces
-
-            for i, p in enumerate(pieces):
-                p_points = [points_dict[idx] for idx in p]
-                p_points_arr = np.array(p_points).reshape(-1, 2)
-
-                try:
-                    hull = concavehull(p_points_arr, chi_factor=1e-12)
-                    # polygon = Polygon(p_points)
-                    # ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
-                    if i > 0:
-                        adder += 1
-                        for c in p:
-                            new_clusters[points_dict[c]] = max_v + adder
-                except RuntimeError:
-                    for c in p:
-                        new_clusters[points_dict[c]] = -1
-                    print("Cannot triangulate", v, i, len(p))
-    return new_clusters
+# def recluster(clusters):
+#     max_v = np.max(clusters)
+#     new_clusters = clusters.copy()
+#     adder = 0
+#     for v in np.unique(clusters):
+#         if v < 0:
+#             continue
+#
+#         coords = np.where(np.isclose(clusters, v))
+#         points = [(coords[0][i], coords[1][i]) for i in range(coords[0].shape[0])]
+#         points_arr = np.array(points).reshape(-1, 2)
+#         points_dict = {}
+#         for i in range(coords[0].shape[0]):
+#             points_dict[int(i)] = (int(coords[0][i]), int(coords[1][i]))
+#
+#         PG = PixelGraph(points=points_dict)
+#         PG.build_graph()
+#         PG.get_graph_pieces()
+#         pieces = PG.pieces
+#         n_pieces = PG.n_pieces
+#         def cut_graph():
+#             return
+#         if np.isclose(n_pieces, 1):
+#             # print(f"Size: {coords[0].shape[0]:,}")
+#             # hull = concavehull(points_arr, chi_factor=1e-12)
+#             # ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
+#             if coords[0].shape[0] / (500 ** 2) >= 0.05:
+#                 edgecuts, parts = metis.part_graph(PG.graph, 2)
+#                 print(edgecuts)
+#         else:
+#             # print(f"Size: {coords[0].shape[0]:,}")
+#             for i, p in enumerate(pieces):
+#                 p_points = [points_dict[idx] for idx in p]
+#                 p_points_arr = np.array(p_points).reshape(-1, 2)
+#
+#                 if p_points_arr.shape[0] / (500 ** 2) >= 0.05:
+#                     new_dict = {}
+#                     for k, v in points_dict.items():
+#                         if int(k) in p:
+#                             new_dict[k] = v
+#
+#                     graph = PixelGraph(points=new_dict)
+#                     graph.build_graph()
+#                     G = graph.graph
+#                     edgecuts, parts = metis.part_graph(G.to_networkx(), 3, [0.5, 0.3, 0.2])
+#                     new_pieces = [[],[],[]]
+#                     for idx, p in enumerate(parts):
+#                         new_pieces[int(p)].append(int(idx))
+#                     pieces += new_pieces
+#
+#             for i, p in enumerate(pieces):
+#                 p_points = [points_dict[idx] for idx in p]
+#                 p_points_arr = np.array(p_points).reshape(-1, 2)
+#
+#                 try:
+#                     hull = concavehull(p_points_arr, chi_factor=1e-12)
+#                     # polygon = Polygon(p_points)
+#                     # ax.plot(hull[:, 0] - 5, hull[:, 1] - 5, 'w--', linewidth=0.5)
+#                     if i > 0:
+#                         adder += 1
+#                         for c in p:
+#                             new_clusters[points_dict[c]] = max_v + adder
+#                 except RuntimeError:
+#                     for c in p:
+#                         new_clusters[points_dict[c]] = -1
+#                     print("Cannot triangulate", v, i, len(p))
+#     return new_clusters
 
 
 class Segmentor:
