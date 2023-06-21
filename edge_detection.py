@@ -27,15 +27,18 @@ levels = {
     1: ('greater_than', 0.05, lambda size: False),
 }
 
+
 def points_inside_polygon(polygon, points_arr):
     path = Path(polygon)
     containing = path.contains_points(points_arr)
 
     return points_arr[containing]
 
+
 def write_edges_to_file(edges, img_id, outdir):
     with open(os.path.join(outdir, f'{str(img_id).zfill(3)}.json'), 'w') as f:
         json.dump(edges, f)
+
 
 def get_raw_clusters(img, img_edges, condition='less_than', threshold=0.2):
     if condition not in ['less_than', 'greater_than']:
