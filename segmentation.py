@@ -9,14 +9,12 @@ import cv2
 import hdbscan
 import igraph as ig
 import matplotlib.pyplot as plt
-import metis
 import numpy as np
 
 
 import pickle
 import warnings
 
-from concavehull import concavehull
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.widgets import CheckButtons, Button, RadioButtons, RectangleSelector
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
