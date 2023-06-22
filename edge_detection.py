@@ -28,7 +28,7 @@ levels1 = {
 }
 
 levels2 = {
-    2: ('less_than', 0.1, lambda size: size >= 0.05),
+    2: ('less_than', 0.2, lambda size: size >= 0.05),
 }
 
 NX = NY = 501
@@ -180,19 +180,17 @@ if __name__ == '__main__':
             for idx in point_set:
                 x, y = idx2coord(idx)
                 polygon.append((x, y))
-            #         if len(polygon) < 25:
-            #             continue
             inside_points = points_inside_polygon(polygon, points_arr)
-            if inside_points.shape[0] == 0:
+            if inside_points.shape[0] < 25:
                 continue
             if inside_points.shape[0] == 1:
                 img_res[inside_points[0, 0], inside_points[0, 1]] = 1
             else:
                 arr = np.asarray(inside_points)
-                if arr.shape[0] > 1000 and level == '0':
-                    continue
-                if level == '1' and arr.shape[0] > 68000:
-                    continue
+                # if arr.shape[0] > 1000 and level == '0':
+                #     continue
+                # if level == '1' and arr.shape[0] > 68000:
+                #     continue
                 aspect = arr.shape[0] / len(polygon)
                 aspect2 = 4 * arr.shape[0] / len(polygon) ** 2
                 if aspect > 40 and len(polygon) < 500:
@@ -202,8 +200,6 @@ if __name__ == '__main__':
                     print(aspect, aspect2, len(polygon))
                     continue
                 else:
-                    if 100 < aspect < 110:
-                        print(aspect, len(polygon))
                     img_res[(arr[:, 0], arr[:, 1])] = 1
     edges2 = get_edges(img_input, img_res, levels2)
 
