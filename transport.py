@@ -5,6 +5,7 @@ import timeit
 
 import argparse
 import logging
+import numpy as np
 import ufl
 
 from dolfinx import cpp, fem, io, mesh
@@ -137,6 +138,12 @@ if __name__ == '__main__':
     volume = fem.assemble_scalar(fem.form(1 * ufl.dx(domain)))
     total_area = area_left_cc + area_right_cc + insulated_area
     error = 100 * 2 * abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
+    ## distribution at terminals
+    print(fem.assemble_vector((fem.form(ufl.inner(current_h, n) * ds(markers.left_cc)))))
+    lmin_current_density = np.min(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc)))
+    lmax_current_density = np.max(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc)))
+    rmin_current_density = np.min(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc)))
+    rmax_current_density = np.max(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc)))
     logger.info("**************************RESULTS-SUMMARY******************************************")
     logger.info(f"Contact Area @ left cc [sq. um]                 : {area_left_cc*1e12:.4e}")
     logger.info(f"Contact Area @ right cc [sq. um]                : {area_right_cc*1e12:.4e}")
@@ -153,3 +160,4 @@ if __name__ == '__main__':
     logger.info(f"Voltage                                         : {args.voltage}")
     logger.info(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
     logger.info("*************************END-OF-SUMMARY*******************************************")
+    print(lmin_current_density, lmax_current_density, rmin_current_density, rmax_current_density)
