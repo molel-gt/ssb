@@ -143,7 +143,7 @@ if __name__ == '__main__':
     error = 100 * 2 * abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
     ## distribution at terminals
     x = W.tabulate_dof_coordinates()
-    print(current_h[x])
+    # print(current_h[x])
     # print(cpp.common.Reduction().max(ufl.inner(current_h, n) * ds(markers.left_cc)))
     max_index = np.argmin(ufl.inner(current_h, n))
     # print(max_index)
