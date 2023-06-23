@@ -105,7 +105,7 @@ if __name__ == '__main__':
                }
 
     model = fem.petsc.LinearProblem(a, L, bcs=[left_bc, right_bc], petsc_options=options)
-
+    # logger.info(fem.form(ds(markers.left_cc)))
     logger.debug('Solving problem..')
     uh = model.solve()
     
@@ -128,7 +128,8 @@ if __name__ == '__main__':
     with io.XDMFFile(comm, output_current_path, "w") as file:
         file.write_mesh(domain)
         file.write_function(current_h)
-
+    # all_ones = np.ones(current_h.x.array.shape)
+    # print(fem.form(ds(markers.left_cc)))
     insulated_area = fem.assemble_scalar(fem.form(1 * ds(markers.insulated)))
     area_left_cc = fem.assemble_scalar(fem.form(1 * ds(markers.left_cc)))
     area_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
@@ -142,9 +143,11 @@ if __name__ == '__main__':
     total_area = area_left_cc + area_right_cc + insulated_area
     error = 100 * 2 * abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
     ## distribution at terminals
-    x = W.tabulate_dof_coordinates()
-    print(cpp.common.Reduction.max(ufl.inner(current_h, n) * ds(markers.left_cc)))
+    # x = W.tabulate_dof_coordinates()
+    # print(cpp.common.Reduction().max(ufl.inner(current_h, n) * ds(markers.left_cc)))
     max_index = np.argmax(current_h.vector()[:])
+    print(max_index)
+    print(np.where(ds(markers.left_cc) > 0))
     # print(fem.assemble_vector((fem.form(ufl.inner(current_h, n) * ds(markers.left_cc)))))
     # lmin_current_density = np.min(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc)))
     # lmax_current_density = np.max(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc)))
