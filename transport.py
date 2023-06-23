@@ -128,8 +128,7 @@ if __name__ == '__main__':
     with io.XDMFFile(comm, output_current_path, "w") as file:
         file.write_mesh(domain)
         file.write_function(current_h)
-    # all_ones = np.ones(current_h.x.array.shape)
-    # print(fem.form(ds(markers.left_cc)))
+
     insulated_area = fem.assemble_scalar(fem.form(1 * ds(markers.insulated)))
     area_left_cc = fem.assemble_scalar(fem.form(1 * ds(markers.left_cc)))
     area_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
@@ -146,9 +145,10 @@ if __name__ == '__main__':
     x = W.tabulate_dof_coordinates()
     print(x)
     # print(cpp.common.Reduction().max(ufl.inner(current_h, n) * ds(markers.left_cc)))
-    max_index = np.argmax(ufl.inner(current_h, n))
+    max_index = np.argmin(ufl.inner(current_h, n))
     print(max_index)
-    print(np.where(ds(markers.left_cc) > 0))
+    print(ufl.as_vector(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc))))
+    # print(np.where(ds(markers.left_cc) > 0))
     # print(fem.assemble_vector((fem.form(ufl.inner(current_h, n) * ds(markers.left_cc)))))
     # lmin_current_density = np.min(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc)))
     # lmax_current_density = np.max(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc)))
