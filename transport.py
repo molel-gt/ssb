@@ -147,6 +147,8 @@ if __name__ == '__main__':
     # print(cpp.common.Reduction().max(ufl.inner(current_h, n) * ds(markers.left_cc)))
     max_index = np.argmin(ufl.inner(current_h, n))
     # print(max_index)
+    print(ufl.facet(domain))
+    print(ufl.as_vector(0, 0, ds(markers.left_cc)))
     print(ufl.facet_avg(current_h))
     print(ds(markers.left_cc).subdomain_data)
     # print(ufl.as_vector(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc))))
