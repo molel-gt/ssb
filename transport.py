@@ -41,10 +41,13 @@ if __name__ == '__main__':
     loglevel = configs.get_configs()['LOGGING']['level']
 
     grid_extents = args.grid_extents
-    FORMAT = f'%(asctime)s: %(message)s'
-    logging.basicConfig(format=FORMAT)
-    logger = logging.getLogger(f'{data_dir}')
+    logger = logging.getLogger()
     logger.setLevel(loglevel)
+    formatter = logging.Formatter('%(levelname)s:%(asctime)s:%(message)s')
+    fh = logging.FileHandler('transport.log')
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+
     Lx, Ly, Lz = [float(v) - 1 for v in grid_extents.split("_")[0].split("-")]
     Lx = Lx * scale_x
     Ly = Ly * scale_y
