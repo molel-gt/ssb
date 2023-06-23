@@ -146,7 +146,7 @@ if __name__ == '__main__':
     x = W.tabulate_dof_coordinates()
     print(x)
     # print(cpp.common.Reduction().max(ufl.inner(current_h, n) * ds(markers.left_cc)))
-    max_index = np.argmax(current_h.vector()[:])
+    max_index = np.argmax(ufl.inner(current_h, n))
     print(max_index)
     print(np.where(ds(markers.left_cc) > 0))
     # print(fem.assemble_vector((fem.form(ufl.inner(current_h, n) * ds(markers.left_cc)))))
