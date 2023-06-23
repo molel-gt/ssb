@@ -143,7 +143,8 @@ if __name__ == '__main__':
     total_area = area_left_cc + area_right_cc + insulated_area
     error = 100 * 2 * abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
     ## distribution at terminals
-    # x = W.tabulate_dof_coordinates()
+    x = W.tabulate_dof_coordinates()
+    print(x)
     # print(cpp.common.Reduction().max(ufl.inner(current_h, n) * ds(markers.left_cc)))
     max_index = np.argmax(current_h.vector()[:])
     print(max_index)
