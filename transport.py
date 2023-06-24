@@ -133,6 +133,7 @@ if __name__ == '__main__':
     area_left_cc = fem.assemble_scalar(fem.form(1 * ds(markers.left_cc)))
     area_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
     I_left_cc = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc)))
+    print(W.element.interpolation_points())
     i_left_cc = I_left_cc / area_left_cc
     I_right_cc = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc)))
     i_right_cc = I_right_cc / area_right_cc
