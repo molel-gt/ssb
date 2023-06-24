@@ -133,7 +133,10 @@ if __name__ == '__main__':
     area_left_cc = fem.assemble_scalar(fem.form(1 * ds(markers.left_cc)))
     area_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
     I_left_cc = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc)))
-    print(W.element.interpolation_points())
+    print(W.element.interpolation_points().shape)
+    min_v = fem.Expression(np.min(ufl.inner(current_h, n)), W.element.interpolation_points())
+    max_v = fem.Expression(np.max(ufl.inner(current_h, n)), W.element.interpolation_points())
+    print(min_v, max_v)
     i_left_cc = I_left_cc / area_left_cc
     I_right_cc = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc)))
     i_right_cc = I_right_cc / area_right_cc
@@ -146,6 +149,7 @@ if __name__ == '__main__':
     x = W.tabulate_dof_coordinates()
     # print(current_h[x])
     # print(cpp.common.Reduction().max(ufl.inner(current_h, n) * ds(markers.left_cc)))
+    # print(current_h.evaluate(left_boundary), current_h.eval(right_boundary))
     max_index = np.argmin(ufl.inner(current_h, n))
     # print(max_index)
     # print(ufl.facet(domain))
