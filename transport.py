@@ -134,9 +134,12 @@ if __name__ == '__main__':
     area_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
     I_left_cc = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc)))
     print(W.element.interpolation_points().shape)
-    min_v = fem.Expression(np.min(ufl.inner(current_h, n)), W.element.interpolation_points())
-    max_v = fem.Expression(np.max(ufl.inner(current_h, n)), W.element.interpolation_points())
-    print(min_v, max_v)
+    print(np.min(current_h.sub(2)), np.max(current_h.sub(2)))
+    print(np.min(current_h.sub(1)), np.max(current_h.sub(1)))
+    print(np.min(current_h.sub(0)), np.max(current_h.sub(0)))
+    # min_v = fem.Expression(np.min(ufl.inner(current_h, n)), W.element.interpolation_points())
+    # max_v = fem.Expression(np.max(ufl.inner(current_h, n)), W.element.interpolation_points())
+    # print(min_v, max_v)
     i_left_cc = I_left_cc / area_left_cc
     I_right_cc = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc)))
     i_right_cc = I_right_cc / area_right_cc
