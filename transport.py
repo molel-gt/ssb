@@ -149,13 +149,12 @@ if __name__ == '__main__':
     def value_is_less_than(value_1, value_2):
         return ufl.conditional(ufl.le(value_1, value_2), 1, 0)
     check_arr = []
-    print(ufl.dot(np.asarray(current_h.x.array), n))
-    ufl.inner(current_h, n)
-    # print(fem.assemble_vector(ufl.inner(current_h, n)))
+    # print(ufl.dot(np.asarray(current_h.x.array), n))
+    # ufl.inner(current_h, n)
+    print(fem.assemble_vector(fem.form(ufl.inner(current_h, n))))
     for value in np.asarray(ufl.inner(current_h, n)):
         check_arr.append(value_is_less_than(value, 0))
     print(check_arr)
-    print(ufl.conditional(np.asarray(ufl.inner(current_h, n)) > 0, 1, 0))
     for v in cd_space:
         lpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.left_cc))) / area_left_cc
         rpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.right_cc))) / area_right_cc
