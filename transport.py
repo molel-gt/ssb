@@ -147,7 +147,6 @@ if __name__ == '__main__':
     cd_space = np.linspace(min_cd, max_cd, num=1000)
     cdf_values = []
     for v in cd_space:
-        # print(ufl.conditional(ufl.gt(ufl.inner(current_h, n), v)))
         lpvalue = fem.assemble_scalar(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.left_cc)) / area_left_cc
         rpvalue = fem.assemble_scalar(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.right_cc)) / area_right_cc
         cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
@@ -157,6 +156,7 @@ if __name__ == '__main__':
         writer.writeheader()
         for row in cdf_values:
             writer.writerow(row)
+    logger.debug(f"Wrote cdf stats in {stats_path}")
     logger.info("**************************RESULTS-SUMMARY******************************************")
     logger.info(f"Contact Area @ left cc [sq. um]                 : {area_left_cc*1e12:.4e}")
     logger.info(f"Contact Area @ right cc [sq. um]                : {area_right_cc*1e12:.4e}")
