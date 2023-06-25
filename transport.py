@@ -152,7 +152,8 @@ if __name__ == '__main__':
     # for value in np.asarray(ufl.inner(current_h, n)):
     #     check_arr.append(value_is_less_than(value, 0))
     # print(check_arr)
-    print(fem.assemble_scalar(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.left_cc)))
+    print(ufl.inner(ufl.conditional(ufl.le(current_h, 0.5), 1, 0), n))
+    print(fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h.x.array, n), v), 1, 0) * ds(markers.left_cc))))
     for v in cd_space:
         lpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.left_cc))) / area_left_cc
         rpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.right_cc))) / area_right_cc
