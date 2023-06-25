@@ -148,7 +148,7 @@ if __name__ == '__main__':
     cdf_values = []
     for v in cd_space:
         lpvalue = fem.assemble_scalar(fem.form(np.less_equal(ufl.inner(current_h, n), v) * ds(markers.left_cc))) / area_left_cc
-        rpvalue = fem.assemble_scalar(fem.form(np.less_equal(ufl.inner(current_h, n), v) * ds(markers.left_cc))) / area_right_cc
+        rpvalue = fem.assemble_scalar(fem.form(np.less_equal(ufl.inner(current_h, n), v) * ds(markers.right_cc))) / area_right_cc
         cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
     stats_path = os.path.join(data_dir, 'cdf.csv')
     with open(stats_path, 'w') as fp:
