@@ -149,8 +149,9 @@ if __name__ == '__main__':
     def value_is_less_than(value_1, value_2):
         return ufl.conditional(ufl.le(value_1, value_2), 1, 0)
     check_arr = []
+    print(ufl.dot(np.asarray(current_h.x.array), n))
+    ufl.inner(current_h, n)
     # print(fem.assemble_vector(ufl.inner(current_h, n)))
-    print(ufl.sym(ufl.inner(current_h, n)))
     for value in np.asarray(ufl.inner(current_h, n)):
         check_arr.append(value_is_less_than(value, 0))
     print(check_arr)
