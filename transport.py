@@ -147,7 +147,7 @@ if __name__ == '__main__':
     cd_space = np.linspace(min_cd, max_cd, num=1000)
     cdf_values = []
     for v in cd_space:
-        ufl.conditional(ufl.gt())
+        # print(ufl.conditional(ufl.gt(ufl.inner(current_h, n), v)))
         lpvalue = fem.assemble_scalar(fem.form(ufl.le(ufl.inner(current_h, n), v) * ds(markers.left_cc))) / area_left_cc
         rpvalue = fem.assemble_scalar(fem.form(ufl.le(ufl.inner(current_h, n), v) * ds(markers.right_cc))) / area_right_cc
         cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
