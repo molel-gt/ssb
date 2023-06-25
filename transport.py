@@ -146,7 +146,7 @@ if __name__ == '__main__':
     max_cd = np.max(current_h.x.array)
     cd_space = np.linspace(min_cd, max_cd, num=1000)
     cdf_values = []
-    print(ufl.inner(current_h, n))
+    print(np.asarray(ufl.inner(current_h, n)))
     for v in cd_space:
         lpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.left_cc))) / area_left_cc
         rpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.right_cc))) / area_right_cc
