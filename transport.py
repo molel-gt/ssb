@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import csv
 import os
 import timeit
 
@@ -133,9 +133,6 @@ if __name__ == '__main__':
     area_left_cc = fem.assemble_scalar(fem.form(1 * ds(markers.left_cc)))
     area_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
     I_left_cc = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc)))
-    min_cd = np.min(current_h.x.array)
-    max_cd = np.max(current_h.x.array)
-    cd_space = np.linspace(min_cd, max_cd, num=1000)
     i_left_cc = I_left_cc / area_left_cc
     I_right_cc = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc)))
     i_right_cc = I_right_cc / area_right_cc
@@ -144,7 +141,21 @@ if __name__ == '__main__':
     volume = fem.assemble_scalar(fem.form(1 * ufl.dx(domain)))
     total_area = area_left_cc + area_right_cc + insulated_area
     error = 100 * 2 * abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
-    ## distribution at terminals
+    # distribution at terminals
+    min_cd = np.min(current_h.x.array)
+    max_cd = np.max(current_h.x.array)
+    cd_space = np.linspace(min_cd, max_cd, num=1000)
+    cdf_values = []
+    for v in cd_space:
+        lpvalue = fem.assemble_scalar(fem.form(np.less_equal(ufl.inner(current_h, n), v) * ds(markers.left_cc))) / area_left_cc
+        rpvalue = fem.assemble_scalar(fem.form(np.less_equal(ufl.inner(current_h, n), v) * ds(markers.left_cc))) / area_right_cc
+        cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
+    stats_path = os.path.join(data_dir, 'cdf.csv')
+    with open(stats_path, 'w') as fp:
+        writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
+        writer.writeheader()
+        for row in cdf_values:
+            writer.writerow(row)
     logger.info("**************************RESULTS-SUMMARY******************************************")
     logger.info(f"Contact Area @ left cc [sq. um]                 : {area_left_cc*1e12:.4e}")
     logger.info(f"Contact Area @ right cc [sq. um]                : {area_right_cc*1e12:.4e}")
