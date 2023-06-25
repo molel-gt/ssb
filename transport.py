@@ -146,15 +146,12 @@ if __name__ == '__main__':
     max_cd = np.max(current_h.x.array)
     cd_space = np.linspace(min_cd, max_cd, num=1000)
     cdf_values = []
-    def value_is_less_than(value_1, value_2):
-        return ufl.conditional(ufl.le(value_1, value_2), 1, 0)
-    check_arr = []
-    # print(ufl.dot(np.asarray(current_h.x.array), n))
-    print(ufl.real(ufl.inner(current_h, n)))
-    # print(fem.assemble_vector(fem.form(ufl.dot(current_h, n))))
-    for value in np.asarray(ufl.inner(current_h, n)):
-        check_arr.append(value_is_less_than(value, 0))
-    print(check_arr)
+    # def value_is_less_than(value_1, value_2):
+    #     return ufl.conditional(ufl.le(value_1, value_2), 1, 0)
+    # check_arr = []
+    # for value in np.asarray(ufl.inner(current_h, n)):
+    #     check_arr.append(value_is_less_than(value, 0))
+    # print(check_arr)
     for v in cd_space:
         lpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.left_cc))) / area_left_cc
         rpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.right_cc))) / area_right_cc
