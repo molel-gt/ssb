@@ -123,6 +123,7 @@ if __name__ == '__main__':
     W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
     current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
     current_h = fem.Function(W)
+    new_fun = fem.Function(W)
     current_h.interpolate(current_expr)
 
     with io.XDMFFile(comm, output_current_path, "w") as file:
@@ -153,6 +154,11 @@ if __name__ == '__main__':
     #     check_arr.append(value_is_less_than(value, 0))
     # print(check_arr)
     print(ufl.le(current_h.x.array, 0.5))
+    x0 = lambda x: 0.5
+    new_fun.interpolate(x0)
+    new_express = fem.Expression(ufl.conditional(ufl.le(current_h, new_fun), current_h, new_fun), W.element.interpolation_points())
+    new_fun.interpolate(new_express)
+    print(new_fun.x.array)
     print(ufl.inner(ufl.conditional(ufl.le(current_h.x.array, 0.5), 1, 0), n))
     print(fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h.x.array, n), v), 1, 0) * ds(markers.left_cc))))
     for v in cd_space:
