@@ -130,6 +130,8 @@ if __name__ == '__main__':
         file.write_mesh(domain)
         file.write_function(current_h)
 
+    logger.debug("Post-process Results Summary")
+
     insulated_area = fem.assemble_scalar(fem.form(1 * ds(markers.insulated)))
     area_left_cc = fem.assemble_scalar(fem.form(1 * ds(markers.left_cc)))
     area_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
@@ -160,7 +162,7 @@ if __name__ == '__main__':
     dummy = tuple(2575446 * [0.5])
     # print(new_fun.x.array)
     new_fun.interpolate(lambda x: (dummy, dummy, dummy))
-    new_express = fem.Expression(ufl.conditional(ufl.le(current_h, 0.5), 1, 0), W.element.interpolation_points())
+    new_express = fem.Expression(ufl.conditional(ufl.le(current_h, new_fun), 1, 0), W.element.interpolation_points())
     new_fun.interpolate(new_express)
     print(new_fun.x.array)
     # print(ufl.inner(ufl.conditional(ufl.le(current_h.x.array, 0.5), 1, 0), n))
