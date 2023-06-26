@@ -155,7 +155,7 @@ if __name__ == '__main__':
     def check_condition(v1, check_value=1):
         v2 = lambda x: (check_value * (x[0] + EPS) / (x[0] + EPS), check_value * (x[0] + EPS) / (x[0] + EPS), check_value * (x[0] + EPS) / (x[0] + EPS))
         cdf_fun.interpolate(v2)
-        return ufl.conditional(ufl.le(v1, cdf_fun), v1, cdf_fun)
+        return ufl.conditional(ufl.le(v1, cdf_fun), 1, 0)
 
     for v in cd_space:
         logger.error(v)
