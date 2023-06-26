@@ -165,7 +165,7 @@ if __name__ == '__main__':
         return (np.zeros(x[0].shape), np.zeros(x[0].shape), np.zeros(x[0].shape))
     new_fun.interpolate(func_check)
     logger.debug("after 1")
-    logger.debug(current_h.vector())
+    logger.debug(current_h.vector)
     logger.debug(current_h.x.array[2])
     logger.debug(current_h.x.array[2] < new_fun.x.array[2])
     logger.debug(current_h[2])
