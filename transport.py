@@ -148,6 +148,7 @@ if __name__ == '__main__':
     max_cd = np.max(current_h.x.array)
     cd_space = np.linspace(min_cd, max_cd, num=1000)
     cdf_values = []
+    Id = ufl.Identity(3)
     # def value_is_less_than(value_1, value_2):
     #     return ufl.conditional(ufl.le(value_1, value_2), 1, 0)
     # check_arr = []
@@ -162,7 +163,7 @@ if __name__ == '__main__':
     logger.debug(current_h.x.array[2])
     logger.debug(current_h.x.array[2] < new_fun.x.array[2])
     logger.debug(ufl.conditional(ufl.le(current_h, 5), 1, 0))
-    logger.debug(ufl.conditional(ufl.le(ufl.as_vector(current_h.x), 5), 1, 0))
+    logger.debug(ufl.conditional(ufl.le(1, 0), current_h * Id, current_h * Id))
     def new_func(v1, v2):
         return ufl.conditional(ufl.le(v1, v2), v1, v2)
     # new_express = fem.Expression(ufl.conditional(ufl.le(current_h.x.array, 5), 1, 0), W.element.interpolation_points())
