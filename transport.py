@@ -116,7 +116,7 @@ if __name__ == '__main__':
 
     # # Update ghost entries and plot
     uh.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-    
+    logger.debug("Post-process calculations")
     # Post-processing: Compute derivatives
     grad_u = ufl.grad(uh)
 
