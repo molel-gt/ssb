@@ -162,7 +162,7 @@ if __name__ == '__main__':
     logger.debug(current_h.vector)
     logger.debug(current_h.x.array[2])
     logger.debug(current_h.x.array[2] < new_fun.x.array[2])
-    logger.debug(ufl.conditional(ufl.le(current_h, 5), 1, 0))
+    logger.debug(ufl.conditional(ufl.le(current_h * Id, 5), 1, 0))
     logger.debug(ufl.conditional(ufl.le(1, 0), current_h * Id, current_h * Id))
     def new_func(v1, v2):
         return ufl.conditional(ufl.le(v1, v2), v1, v2)
