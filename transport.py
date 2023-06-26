@@ -162,8 +162,8 @@ if __name__ == '__main__':
     new_express = fem.Expression(ufl.conditional(ufl.le(current_h, 0.5), 1, 0), W.element.interpolation_points())
     new_fun.interpolate(new_express)
     print(new_fun.x.array)
-    print(ufl.inner(ufl.conditional(ufl.le(current_h.x.array, 0.5), 1, 0), n))
-    print(fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h.x.array, n), v), 1, 0) * ds(markers.left_cc))))
+    # print(ufl.inner(ufl.conditional(ufl.le(current_h.x.array, 0.5), 1, 0), n))
+    # print(fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h.x.array, n), v), 1, 0) * ds(markers.left_cc))))
     for v in cd_space:
         lpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.left_cc))) / area_left_cc
         rpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.right_cc))) / area_right_cc
