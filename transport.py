@@ -153,7 +153,7 @@ if __name__ == '__main__':
     # for value in np.asarray(ufl.inner(current_h, n)):
     #     check_arr.append(value_is_less_than(value, 0))
     # print(check_arr)
-    print(ufl.le(current_h.x.array, 0.5))
+    # print(ufl.le(current_h.x.array, 0.5))
     x0 = lambda x: 0.5
     new_fun.interpolate(x0)
     new_express = fem.Expression(ufl.conditional(ufl.le(current_h, new_fun), current_h, new_fun), W.element.interpolation_points())
