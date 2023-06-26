@@ -84,6 +84,8 @@ if __name__ == '__main__':
     left_bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 2, left_boundary))
     right_bc = fem.dirichletbc(u1, fem.locate_dofs_topological(V, 2, right_boundary))
     n = ufl.FacetNormal(domain)
+    x = ufl.SpatialCoordinate(domain)
+    print(x[0])
     ds = ufl.Measure("ds", domain=domain, subdomain_data=meshtags)
 
     # Define variational problem
