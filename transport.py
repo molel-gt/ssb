@@ -162,8 +162,7 @@ if __name__ == '__main__':
     dummy = tuple(2575446 * [0.5])
     # print(new_fun.x.array)
     def func_check(x):
-        print(len(x[0]))
-        return (0, 0, 0)
+        return (np.zeros(x[0].shape), np.zeros(x[0].shape), np.zeros(x[0].shape))
     new_fun.interpolate(func_check)
     logger.debug("after 1")
     new_express = fem.Expression(ufl.conditional(ufl.le(current_h, new_fun), 1, 0), W.element.interpolation_points())
