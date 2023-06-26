@@ -161,7 +161,10 @@ if __name__ == '__main__':
     logger.debug("before")
     dummy = tuple(2575446 * [0.5])
     # print(new_fun.x.array)
-    new_fun.interpolate(lambda x: (dummy, dummy, dummy))
+    def func_check(x):
+        print(x)
+        return (0, 0, 0)
+    new_fun.interpolate(func_check)
     logger.debug("after 1")
     new_express = fem.Expression(ufl.conditional(ufl.le(current_h, new_fun), 1, 0), W.element.interpolation_points())
     logger.debug("after 2")
