@@ -150,16 +150,16 @@ if __name__ == '__main__':
     cd_space = np.linspace(min_cd, max_cd, num=1000)
     cdf_values = []
     Id = ufl.Identity(3)
-    ones = lambda x: x[0] / x[0]
     EPS = 1e-30
+    n1 = ufl.as_vector((0, 0, 1))
     def check_condition(v1, check_value=1):
-        v2 = lambda x: (check_value * (x[0] + EPS) / (x[0] + EPS), check_value * (x[0] + EPS) / (x[0] + EPS), check_value * (x[0] + EPS) / (x[0] + EPS))
+        v2 = lambda x: check_value * (x[0] + EPS) / (x[0] + EPS)
         cdf_fun.interpolate(v2)
         return ufl.conditional(ufl.le(v1, cdf_fun), 1, 0)
 
     for v in cd_space:
         logger.error(v)
-        new_v = fem.Expression(check_condition(current_h, v), W.element.interpolation_points())
+        new_v = fem.Expression(check_condition(ufl.inner(current_h, n), v), W.element.interpolation_points())
         cdf_fun2.interpolate(new_v)
         lpvalue = fem.assemble_scalar(fem.form(ufl.inner(cdf_fun2, n) * ds(markers.left_cc))) / area_left_cc
         rpvalue = fem.assemble_scalar(fem.form(ufl.inner(cdf_fun2, n) * ds(markers.right_cc))) / area_right_cc
