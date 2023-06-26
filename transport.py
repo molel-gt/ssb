@@ -170,7 +170,7 @@ if __name__ == '__main__':
     def new_func(v1, v2):
         return ufl.conditional(ufl.le(v1, v2), v1, v2)
     # new_express = fem.Expression(ufl.conditional(ufl.le(current_h, 5), 1, 0), W.element.interpolation_points())
-    newx = fem.Expression(new_func(current_h, new_fun))
+    newx = fem.Expression(new_func(current_h.x.array, new_fun.x.array))
     logger.debug("after 2")
     # new_fun.interpolate(new_express)
     logger.debug("after 3")
