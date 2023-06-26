@@ -59,7 +59,6 @@ if __name__ == '__main__':
     left_cc_marker = markers.left_cc
     right_cc_marker = markers.right_cc
     insulated_marker = markers.insulated
-    logger.debug(PETSc.PETSc.__arch__)
 
     logger.debug("Loading tetrahedra (dim = 3) mesh..")
     with io.XDMFFile(comm, tetr_mesh_path, "r") as infile3:
