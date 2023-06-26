@@ -165,9 +165,10 @@ if __name__ == '__main__':
         return (np.zeros(x[0].shape), np.zeros(x[0].shape), np.zeros(x[0].shape))
     new_fun.interpolate(func_check)
     logger.debug("after 1")
+    logger.debug(current_h.vector())
     logger.debug(current_h.x.array[2])
     logger.debug(current_h.x.array[2] < new_fun.x.array[2])
-    logger.debug(current_h.x[2])
+    logger.debug(current_h[2])
     def new_func(v1, v2):
         return ufl.conditional(ufl.le(v1, v2), v1, v2)
     new_express = fem.Expression(ufl.conditional(ufl.le(current_h.x.array, 5), 1, 0), W.element.interpolation_points())
@@ -175,7 +176,7 @@ if __name__ == '__main__':
     logger.debug("after 2")
     # new_fun.interpolate(new_express)
     logger.debug("after 3")
-    current_h.vector()
+
     print(new_fun.x.array)
     # print(ufl.inner(ufl.conditional(ufl.le(current_h.x.array, 0.5), 1, 0), n))
     # print(fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h.x.array, n), v), 1, 0) * ds(markers.left_cc))))
