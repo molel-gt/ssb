@@ -156,6 +156,7 @@ if __name__ == '__main__':
     # print(ufl.le(current_h.x.array, 0.5))
     # print(x[0], x[1], x[2], x.ufl_shape)
     # new_fun.x.array[:] = 0.5
+    print("before")
     dummy = tuple(2575446 * [0.5])
     # print(new_fun.x.array)
     new_fun.interpolate(lambda x: (dummy, dummy, dummy))
