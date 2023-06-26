@@ -158,7 +158,7 @@ if __name__ == '__main__':
     new_fun.x.array[:] = (0.5, 0.5, 0.5)
     print(new_fun.x.array)
     # new_fun.interpolate(lambda x: (x[0], x[0], x[0]))
-    new_express = fem.Expression(ufl.conditional(ufl.le(current_h, new_fun), 1, 0), W.element.interpolation_points())
+    new_express = fem.Expression(ufl.conditional(ufl.le(current_h, 0.5), 1, 0), W.element.interpolation_points())
     new_fun.interpolate(new_express)
     print(new_fun.x.array)
     print(ufl.inner(ufl.conditional(ufl.le(current_h.x.array, 0.5), 1, 0), n))
