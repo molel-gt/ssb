@@ -84,7 +84,7 @@ if __name__ == '__main__':
     left_bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 2, left_boundary))
     right_bc = fem.dirichletbc(u1, fem.locate_dofs_topological(V, 2, right_boundary))
     n = ufl.FacetNormal(domain)
-    x = ufl.SpatialCoordinate(domain)
+    # x = ufl.SpatialCoordinate(domain)
     ds = ufl.Measure("ds", domain=domain, subdomain_data=meshtags)
 
     # Define variational problem
@@ -155,8 +155,7 @@ if __name__ == '__main__':
     #     check_arr.append(value_is_less_than(value, 0))
     # print(check_arr)
     # print(ufl.le(current_h.x.array, 0.5))
-    x0 = lambda x: (0.5,)
-    new_fun.interpolate(x0)
+    new_fun.interpolate(lambda x: (0.5, 0.5, 0.5))
     new_express = fem.Expression(ufl.conditional(ufl.le(current_h, new_fun), current_h, new_fun), W.element.interpolation_points())
     new_fun.interpolate(new_express)
     print(new_fun.x.array)
