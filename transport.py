@@ -122,7 +122,7 @@ if __name__ == '__main__':
     W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
     current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
     current_h = fem.Function(W)
-    new_fun = fem.Function(W)
+    cdf_fun = fem.Function(W)
     current_h.interpolate(current_expr)
 
     with io.XDMFFile(comm, output_current_path, "w") as file:
@@ -149,32 +149,15 @@ if __name__ == '__main__':
     cd_space = np.linspace(min_cd, max_cd, num=1000)
     cdf_values = []
     Id = ufl.Identity(3)
-    # def value_is_less_than(value_1, value_2):
-    #     return ufl.conditional(ufl.le(value_1, value_2), 1, 0)
-    # check_arr = []
-    # for value in np.asarray(ufl.inner(current_h, n)):
-    #     check_arr.append(value_is_less_than(value, 0))
-    logger.debug("before")
-    def func_check(x):
-        return (np.zeros(x[0].shape), np.zeros(x[0].shape), np.zeros(x[0].shape))
-    new_fun.interpolate(func_check)
-    logger.debug("after 1")
-    logger.debug(current_h.vector)
-    logger.debug(current_h.x.array[2])
-    logger.debug(current_h.x.array[2] < new_fun.x.array[2])
-    logger.debug(ufl.rank(Id))
-    logger.debug(ufl.conditional(ufl.le(5, 2), 1, 0))
-    # logger.debug(ufl.conditional(ufl.le(current_h * Id, 5), 1, 0))
-    logger.debug(ufl.conditional(ufl.le(1, 0), current_h * Id, current_h * Id))
-    def new_func(v1, v2):
-        return ufl.conditional(ufl.le(v1, v2), v1, v2)
-    # new_express = fem.Expression(ufl.conditional(ufl.le(current_h.x.array, 5), 1, 0), W.element.interpolation_points())
-    newx = fem.Expression(new_func(current_h.x.array, new_fun.x.array), W.element.interpolation_points())
-    logger.debug("after 2")
-    new_fun.interpolate(newx)
+    ones = lambda x: x[0] / x[0]
+    def check_condition(v1, check_value=1):
+        v2 = lambda x: check_value * x[0] / x[0]
+        cdf_fun.interpolate(v2)
+        return ufl.conditional(ufl.le(v1, cdf_fun), v1, cdf_fun)
+
     for v in cd_space:
-        lpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.left_cc))) / area_left_cc
-        rpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.right_cc))) / area_right_cc
+        lpvalue = fem.assemble_scalar(fem.form(check_condition(current_h, v) * ds(markers.left_cc))) / area_left_cc
+        rpvalue = fem.assemble_scalar(fem.form(check_condition(current_h, v) * ds(markers.right_cc))) / area_right_cc
         cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
     stats_path = os.path.join(data_dir, 'cdf.csv')
     with open(stats_path, 'w') as fp:
