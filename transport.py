@@ -151,7 +151,7 @@ if __name__ == '__main__':
     Id = ufl.Identity(3)
     ones = lambda x: x[0] / x[0]
     def check_condition(v1, check_value=1):
-        v2 = lambda x: check_value * x[0] / x[0]
+        v2 = lambda x: (check_value * x[0] / x[0], check_value * x[0] / x[0], check_value * x[0] / x[0])
         cdf_fun.interpolate(v2)
         return ufl.conditional(ufl.le(v1, cdf_fun), v1, cdf_fun)
 
