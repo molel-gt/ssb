@@ -167,7 +167,10 @@ if __name__ == '__main__':
     logger.debug("after 1")
     logger.debug(current_h.x.array[2])
     logger.debug(current_h.x.array[2] < new_fun.x.array[2])
-    new_express = fem.Expression(ufl.conditional(ufl.le(current_h, 5), 1, 0), W.element.interpolation_points())
+    def new_func(v1, v2):
+        return ufl.conditional(ufl.le(v1, v2), v1, v2)
+    # new_express = fem.Expression(ufl.conditional(ufl.le(current_h, 5), 1, 0), W.element.interpolation_points())
+    newx = fem.Expression(new_func(current_h, new_fun))
     logger.debug("after 2")
     # new_fun.interpolate(new_express)
     logger.debug("after 3")
