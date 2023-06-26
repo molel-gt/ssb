@@ -165,7 +165,7 @@ if __name__ == '__main__':
         return (np.zeros(x[0].shape), np.zeros(x[0].shape), np.zeros(x[0].shape))
     new_fun.interpolate(func_check)
     logger.debug("after 1")
-    new_express = fem.Expression(ufl.conditional(ufl.le(current_h, new_fun), 1, 0), W.element.interpolation_points())
+    new_express = fem.Expression(ufl.conditional(ufl.le(current_h, new_fun), current_h, new_fun), W.element.interpolation_points())
     logger.debug("after 2")
     new_fun.interpolate(new_express)
     logger.debug("after 3")
