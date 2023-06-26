@@ -59,6 +59,7 @@ if __name__ == '__main__':
     left_cc_marker = markers.left_cc
     right_cc_marker = markers.right_cc
     insulated_marker = markers.insulated
+    logger.debug(PETSc.PETSc.__arch__)
 
     logger.debug("Loading tetrahedra (dim = 3) mesh..")
     with io.XDMFFile(comm, tetr_mesh_path, "r") as infile3:
@@ -144,41 +145,41 @@ if __name__ == '__main__':
     total_area = area_left_cc + area_right_cc + insulated_area
     error = 100 * 2 * abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
     # distribution at terminals
-    # min_cd = np.min(current_h.x.array)
-    # max_cd = np.max(current_h.x.array)
-    # cd_space = np.linspace(min_cd, max_cd, num=1000)
-    # cdf_values = []
+    min_cd = np.min(current_h.x.array)
+    max_cd = np.max(current_h.x.array)
+    cd_space = np.linspace(min_cd, max_cd, num=1000)
+    cdf_values = []
     # def value_is_less_than(value_1, value_2):
     #     return ufl.conditional(ufl.le(value_1, value_2), 1, 0)
     # check_arr = []
     # for value in np.asarray(ufl.inner(current_h, n)):
     #     check_arr.append(value_is_less_than(value, 0))
-    # logger.debug("before")
-    # def func_check(x):
-    #     return (np.zeros(x[0].shape), np.zeros(x[0].shape), np.zeros(x[0].shape))
-    # new_fun.interpolate(func_check)
-    # logger.debug("after 1")
-    # logger.debug(current_h.vector)
-    # logger.debug(current_h.x.array[2])
-    # logger.debug(current_h.x.array[2] < new_fun.x.array[2])
-    # logger.debug(current_h[2])
-    # def new_func(v1, v2):
-    #     return ufl.conditional(ufl.le(v1, v2), v1, v2)
-    # # new_express = fem.Expression(ufl.conditional(ufl.le(current_h.x.array, 5), 1, 0), W.element.interpolation_points())
-    # newx = fem.Expression(new_func(current_h.x.array, new_fun.x.array), W.element.interpolation_points())
-    # logger.debug("after 2")
-    # new_fun.interpolate(newx)
-    # for v in cd_space:
-    #     lpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.left_cc))) / area_left_cc
-    #     rpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.right_cc))) / area_right_cc
-    #     cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
-    # stats_path = os.path.join(data_dir, 'cdf.csv')
-    # with open(stats_path, 'w') as fp:
-    #     writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
-    #     writer.writeheader()
-    #     for row in cdf_values:
-    #         writer.writerow(row)
-    # logger.debug(f"Wrote cdf stats in {stats_path}")
+    logger.debug("before")
+    def func_check(x):
+        return (np.zeros(x[0].shape), np.zeros(x[0].shape), np.zeros(x[0].shape))
+    new_fun.interpolate(func_check)
+    logger.debug("after 1")
+    logger.debug(current_h.vector)
+    logger.debug(current_h.x.array[2])
+    logger.debug(current_h.x.array[2] < new_fun.x.array[2])
+    logger.debug(current_h[2])
+    def new_func(v1, v2):
+        return ufl.conditional(ufl.le(v1, v2), v1, v2)
+    # new_express = fem.Expression(ufl.conditional(ufl.le(current_h.x.array, 5), 1, 0), W.element.interpolation_points())
+    newx = fem.Expression(new_func(current_h.x.array, new_fun.x.array), W.element.interpolation_points())
+    logger.debug("after 2")
+    new_fun.interpolate(newx)
+    for v in cd_space:
+        lpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.left_cc))) / area_left_cc
+        rpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.right_cc))) / area_right_cc
+        cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
+    stats_path = os.path.join(data_dir, 'cdf.csv')
+    with open(stats_path, 'w') as fp:
+        writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
+        writer.writeheader()
+        for row in cdf_values:
+            writer.writerow(row)
+    logger.debug(f"Wrote cdf stats in {stats_path}")
     logger.info("**************************RESULTS-SUMMARY******************************************")
     logger.info(f"Contact Area @ left cc [sq. um]                 : {area_left_cc*1e12:.4e}")
     logger.info(f"Contact Area @ right cc [sq. um]                : {area_right_cc*1e12:.4e}")
