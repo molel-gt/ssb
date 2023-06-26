@@ -156,6 +156,7 @@ if __name__ == '__main__':
         return ufl.conditional(ufl.le(v1, cdf_fun), v1, cdf_fun)
 
     for v in cd_space:
+        logger.error(v)
         lpvalue = fem.assemble_scalar(fem.form(check_condition(current_h, v) * ds(markers.left_cc))) / area_left_cc
         rpvalue = fem.assemble_scalar(fem.form(check_condition(current_h, v) * ds(markers.right_cc))) / area_right_cc
         cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
