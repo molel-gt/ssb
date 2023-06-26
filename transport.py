@@ -165,6 +165,7 @@ if __name__ == '__main__':
         return (np.zeros(x[0].shape), np.zeros(x[0].shape), np.zeros(x[0].shape))
     new_fun.interpolate(func_check)
     logger.debug("after 1")
+    logger.debug(current_h.x.array[2])
     logger.debug(current_h.x.array[2] < new_fun.x.array[2])
     new_express = fem.Expression(ufl.conditional(ufl.le(current_h, 5), 1, 0), W.element.interpolation_points())
     logger.debug("after 2")
