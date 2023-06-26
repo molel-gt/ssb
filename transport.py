@@ -123,6 +123,7 @@ if __name__ == '__main__':
     current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
     current_h = fem.Function(W)
     cdf_fun = fem.Function(W)
+    cdf_fun2 = fem.Function(W)
     current_h.interpolate(current_expr)
 
     with io.XDMFFile(comm, output_current_path, "w") as file:
@@ -154,12 +155,14 @@ if __name__ == '__main__':
     def check_condition(v1, check_value=1):
         v2 = lambda x: (check_value * (x[0] + EPS) / (x[0] + EPS), check_value * (x[0] + EPS) / (x[0] + EPS), check_value * (x[0] + EPS) / (x[0] + EPS))
         cdf_fun.interpolate(v2)
-        return ufl.conditional(ufl.le(v1, cdf_fun), 1, 0)
+        return ufl.conditional(ufl.le(v1, cdf_fun), v1, cdf_fun)
 
     for v in cd_space:
         logger.error(v)
-        lpvalue = fem.assemble_scalar(fem.form(check_condition(current_h, v) * ds(markers.left_cc))) / area_left_cc
-        rpvalue = fem.assemble_scalar(fem.form(check_condition(current_h, v) * ds(markers.right_cc))) / area_right_cc
+        new_v = fem.Expression(check_condition(current_h, v), W.element.interpolation_points())
+        cdf_fun2.interpolate(new_v)
+        lpvalue = fem.assemble_scalar(fem.form(ufl.inner(cdf_fun2, n) * ds(markers.left_cc))) / area_left_cc
+        rpvalue = fem.assemble_scalar(fem.form(ufl.inner(cdf_fun2, n) * ds(markers.right_cc))) / area_right_cc
         cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
     stats_path = os.path.join(data_dir, 'cdf.csv')
     with open(stats_path, 'w') as fp:
