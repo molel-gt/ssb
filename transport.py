@@ -162,7 +162,7 @@ if __name__ == '__main__':
     dummy = tuple(2575446 * [0.5])
     # print(new_fun.x.array)
     def func_check(x):
-        print(x)
+        print(len(x[0]))
         return (0, 0, 0)
     new_fun.interpolate(func_check)
     logger.debug("after 1")
