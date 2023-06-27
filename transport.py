@@ -150,7 +150,7 @@ if __name__ == '__main__':
     logger.debug("Cumulative distribution function of current density at terminals")
     min_cd = np.min(current_h.x.array)
     max_cd = np.max(current_h.x.array)
-    cd_space = np.linspace(min_cd, max_cd, num=100)
+    cd_space = np.linspace(min_cd, max_cd, num=1000)
     cdf_values = []
     Id = ufl.Identity(3)
     EPS = 1e-30
