@@ -17,4 +17,4 @@
 module load anaconda3 && conda activate fenicsx-env
 cd $SLURM_SUBMIT_DIR
 
-mpiexec python3 study_2_geo.py --img_id 6 --Lz 100 --resolution 5
+mpiexec python3 study_2_geo.py --img_id $1 --Lz 100 --resolution 1
