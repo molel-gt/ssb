@@ -323,4 +323,5 @@ if __name__ == '__main__':
     tetr_mesh_unscaled.write(f"{outdir}" + 'tetr.xdmf')
     tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, cell_types.tetra, scale_factor=scale_factor)
     tetr_mesh_scaled.write(f"{outdir}" + 'tetr.xdmf')
+    os.remove(mshpath)
     # res = subprocess.check_call('mpirun python3 transport.py --grid_extents 470-470-25_000-000-000', shell=True)
