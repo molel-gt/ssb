@@ -121,7 +121,7 @@ if __name__ == '__main__':
     W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
     current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
     current_h = fem.Function(W)
-    cdf_fun = fem.Function(V)
+    tol_fun = fem.Function(V)
     current_h.interpolate(current_expr)
 
     with io.XDMFFile(comm, output_current_path, "w") as file:
@@ -149,9 +149,9 @@ if __name__ == '__main__':
     cdf_values = []
     EPS = 1e-30
 
-    def check_condition(v1, check_value=1):
-        cdf_fun.interpolate(lambda x: check_value * (x[0] + EPS) / (x[0] + EPS))
-        return ufl.conditional(ufl.le(v1, cdf_fun), 1, 0)
+    def check_condition(values, tol):
+        tol_fun.interpolate(lambda x: tol * (x[0] + EPS) / (x[0] + EPS))
+        return ufl.conditional(ufl.le(values, tol_fun), 1, 0)
 
     for v in cd_space:
         lpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), v) * ds(markers.left_cc)))
