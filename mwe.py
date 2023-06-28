@@ -82,8 +82,7 @@ if __name__ == '__main__':
     W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
     grad_expr = fem.Expression(-kappa * ufl.grad(uh), W.element.interpolation_points())
     grad_h = fem.Function(W)
-    cdf_fun = fem.Function(W)
-    cdf_fun2 = fem.Function(W)
+    cdf_fun = fem.Function(V)
     grad_h.interpolate(grad_expr)
 
     with io.XDMFFile(comm, "gradu.xdmf", "w") as file:
@@ -94,12 +93,8 @@ if __name__ == '__main__':
     # distribution at surfaces
     EPS = 1e-30
     def check_condition(v1, check_value=1):
-        v2 = lambda x: check_value * (x[0] + EPS) / (x[0] + EPS)
-        cdf_fun.interpolate(v2)
+        cdf_fun.interpolate(lambda x: check_value * (x[0] + EPS) / (x[0] + EPS))
         return ufl.conditional(ufl.le(v1, cdf_fun), v1, cdf_fun)
     tol = 0.5
-    new_v = fem.Expression(check_condition(ufl.inner(grad_h, n), tol), W.element.interpolation_points())
-    cdf_fun2.interpolate(new_v)
-    # lpvalue = fem.assemble_scalar(fem.form(ufl.inner(cdf_fun2, n) * ds(lmarker)))
-    # rpvalue = fem.assemble_scalar(fem.form(ufl.inner(cdf_fun2, n) * ds(rmarker)))
-    # logger.info((lpvalue, rpvalue))
+    new_v = fem.assemble_scalar(fem.form(check_condition(ufl.inner(grad_h, n), tol) * ufl.ds))
+    print(new_v)
