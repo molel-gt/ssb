@@ -118,13 +118,10 @@ if __name__ == '__main__':
 
     logger.debug("Post-process calculations")
     grad_u = ufl.grad(uh)
-    n1 = ufl.as_vector((0, 0, 1))
     W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
-    W2 = fem.FunctionSpace(domain, ("Lagrange", 1))
-    current_expr = fem.Expression(-kappa * grad_u, W2.element.interpolation_points())
+    current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
     current_h = fem.Function(W)
-    cdf_fun = fem.Function(W2)
-    cdf_fun2 = fem.Function(W2)
+    cdf_fun = fem.Function(V)
     current_h.interpolate(current_expr)
 
     with io.XDMFFile(comm, output_current_path, "w") as file:
@@ -132,8 +129,6 @@ if __name__ == '__main__':
         file.write_function(current_h)
 
     logger.debug("Post-process Results Summary")
-    facet_indices = mesh.exterior_facet_indices(domain.topology)
-    # logger.error(current_h.x.array[facet_indices])
     insulated_area = fem.assemble_scalar(fem.form(1 * ds(markers.insulated)))
     area_left_cc = fem.assemble_scalar(fem.form(1 * ds(markers.left_cc)))
     area_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
@@ -148,23 +143,19 @@ if __name__ == '__main__':
     error = 100 * 2 * abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
 
     logger.debug("Cumulative distribution function of current density at terminals")
-    min_cd = np.min(current_h.x.array)
-    max_cd = np.max(current_h.x.array)
+    min_cd = np.min(current_h.sub(0).x)
+    max_cd = np.max(current_h.sub(0).x)
     cd_space = np.linspace(min_cd, max_cd, num=1000)
     cdf_values = []
-    Id = ufl.Identity(3)
     EPS = 1e-30
 
     def check_condition(v1, check_value=1):
-        v2 = lambda x: check_value * (x[0] + EPS) / (x[0] + EPS)
-        cdf_fun.interpolate(v2)
+        cdf_fun.interpolate(lambda x: check_value * (x[0] + EPS) / (x[0] + EPS))
         return ufl.conditional(ufl.le(v1, cdf_fun), 1, 0)
 
     for v in cd_space:
-        new_v = fem.Expression(check_condition(current_h.sub(2), v), W2.element.interpolation_points())
-        cdf_fun2.interpolate(new_v)
-        lpvalue = fem.assemble_scalar(fem.form(cdf_fun2 * ds(markers.left_cc))) / area_left_cc
-        rpvalue = fem.assemble_scalar(fem.form(cdf_fun2 * ds(markers.right_cc))) / area_right_cc
+        lpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), v) * ds(markers.left_cc)))
+        rpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), v) * ds(markers.right_cc)))
         cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
     stats_path = os.path.join(data_dir, 'cdf.csv')
     with open(stats_path, 'w') as fp:
