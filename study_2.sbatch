@@ -16,4 +16,4 @@ export PATH=$PATH:/storage/coda1/p-tf74/0/shared/emolel3
 #module load anaconda3 && conda activate fenicsx-env
 cd $SLURM_SUBMIT_DIR
 
-mpiexec python3 transport.py --grid_extents 470-470-100_000-000-000 --root_folder mesh/study_2/test$1/470-470-100_000-000-000 --scaling VOXEL_SCALING2
+mpiexec python3 transport.py --grid_extents 470-470-$2_000-000-000 --root_folder mesh/study_2/test$1/470-470-$2_000-000-000 --scaling VOXEL_SCALING2
