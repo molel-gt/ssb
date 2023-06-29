@@ -154,8 +154,8 @@ if __name__ == '__main__':
         return ufl.conditional(ufl.le(values, tol_fun), 1, 0)
 
     for v in cd_space:
-        lpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), v) * ds(markers.left_cc)))
-        rpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), v) * ds(markers.right_cc)))
+        lpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), v) * ds(markers.left_cc))) / area_left_cc
+        rpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), v) * ds(markers.right_cc))) / area_right_cc
         cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
     stats_path = os.path.join(data_dir, 'cdf.csv')
     with open(stats_path, 'w') as fp:
