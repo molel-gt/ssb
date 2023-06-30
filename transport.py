@@ -21,7 +21,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument('--grid_extents', help='Nx-Ny-Nz_Ox-Oy-Oz size_location', required=True)
     parser.add_argument('--root_folder', help='parent folder containing mesh folder', required=True)
-    parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1)
+    parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1e-3)
     parser.add_argument("--scale", help="sx,sy,sz", nargs='?', const=1, default='-1,-1,-1')
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='VOXEL_SCALING', type=str)
@@ -121,7 +121,7 @@ if __name__ == '__main__':
     W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
     current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
     current_h = fem.Function(W)
-    tol_fun = fem.Function(V)
+    tol_fun = fem.Function(fem.FunctionSpace(domain, ("Lagrange", 1)))
     current_h.interpolate(current_expr)
 
     with io.XDMFFile(comm, output_current_path, "w") as file:
