@@ -14,4 +14,4 @@ cd $SLURM_SUBMIT_DIR
 export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
 export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/:/storage/home/hcoda1/0/emolel3/.local/
 
-mpiexec python3 transport.py --grid_extents 2-2-2 --root_folder mesh/packed_spheres/2-2-2/$1 --scale 25e-6,25e-6,25e-6
+srun python3 transport.py --grid_extents 2-2-2 --root_folder mesh/packed_spheres/2-2-2/$1 --scale 25e-6,25e-6,25e-6
