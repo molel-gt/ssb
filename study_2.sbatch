@@ -15,4 +15,4 @@
 module load anaconda3 && conda activate fenicsx-env
 cd $SLURM_SUBMIT_DIR
 
-srun python3 transport.py --grid_extents 470-470-"$(($2 + 1))"_000-000-000 --root_folder mesh/study_2/test$1/470-470-$2_000-000-000 --scaling VOXEL_SCALING2
+python3 transport.py --grid_extents 470-470-"$(($2 + 1))"_000-000-000 --root_folder mesh/study_2/test$1/470-470-$2_000-000-000 --scaling VOXEL_SCALING2

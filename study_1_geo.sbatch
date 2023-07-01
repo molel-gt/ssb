@@ -11,4 +11,4 @@
 module load anaconda3 && conda activate fenicsx-env
 cd $SLURM_SUBMIT_DIR
 
-srun python3 volume_reconstruction.py --grid_extents $1
+python3 volume_reconstruction.py --grid_extents $1
