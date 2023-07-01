@@ -121,7 +121,7 @@ if __name__ == '__main__':
     W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
     current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
     current_h = fem.Function(W)
-    tol_fun = fem.Function(fem.FunctionSpace(domain, ("Lagrange", 1)))
+    tol_fun = fem.Function(V)
     current_h.interpolate(current_expr)
 
     with io.XDMFFile(comm, output_current_path, "w") as file:
