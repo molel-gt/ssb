@@ -301,7 +301,7 @@ if __name__ == '__main__':
     gmsh.model.mesh.field.setNumber(2, "LcMin", args.resolution)
     gmsh.model.mesh.field.setNumber(2, "LcMax", 10 * args.resolution)
     gmsh.model.mesh.field.setNumber(2, "DistMin", 0.01)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 1)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", max(1, 0.05 * Lz))
 
     gmsh.model.mesh.field.add("Max", 5)
     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
