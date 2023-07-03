@@ -1,8 +1,13 @@
 argparse
+gmsh==4.8.4
 h5py
+hdbscan
+igraph
 jax
+jupyter
 matplotlib
 meshio
+nb_conda_kernels
 networkx
 numpy
 openpyxl
@@ -13,4 +18,5 @@ pyvista
 scipy
 scikit-image
 scikit-learn
+tetgen
 vtk
