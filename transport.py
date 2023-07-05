@@ -69,7 +69,7 @@ if __name__ == '__main__':
         ft = infile2.read_meshtags(domain, name="Grid")
     meshtags = mesh.meshtags(domain, 2, ft.indices, ft.values)
     # Dirichlet BCs
-    V = fem.FunctionSpace(domain, ("Lagrange", 2))
+    V = fem.FunctionSpace(domain, ("Lagrange", 3))
     u0 = fem.Function(V)
     with u0.vector.localForm() as u0_loc:
         u0_loc.set(voltage)
@@ -118,7 +118,7 @@ if __name__ == '__main__':
 
     logger.debug("Post-process calculations")
     grad_u = ufl.grad(uh)
-    W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
+    W = fem.VectorFunctionSpace(domain, ("Lagrange", 2))
     current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
     current_h = fem.Function(W)
     tol_fun = fem.Function(V)
