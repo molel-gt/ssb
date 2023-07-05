@@ -143,8 +143,8 @@ if __name__ == '__main__':
     error = 100 * 2 * abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
 
     logger.debug("Cumulative distribution function of current density at terminals")
-    min_cd = np.min(current_h.sub(2).x.array)
-    max_cd = np.max(current_h.sub(2).x.array)
+    min_cd = -150 # np.min(current_h.sub(2).x.array)
+    max_cd = 50  # np.max(current_h.sub(2).x.array)
     cd_space = np.linspace(min_cd, max_cd, num=1000)
     cdf_values = []
     EPS = 1e-30
@@ -155,7 +155,7 @@ if __name__ == '__main__':
 
     for v in cd_space:
         lpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), v) * ds(markers.left_cc))) / area_left_cc
-        rpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), v) * ds(markers.right_cc))) / area_right_cc
+        rpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), -v) * ds(markers.right_cc))) / area_right_cc
         cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
     stats_path = os.path.join(data_dir, 'cdf.csv')
     with open(stats_path, 'w') as fp:
