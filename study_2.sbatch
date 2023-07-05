@@ -9,12 +9,13 @@
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=emolel3@gatech.edu
 
+module purge
 . /storage/coda1/p-tf74/0/shared/leshinka/spack/share/spack/setup-env.sh
 spack env activate fenicsx-env
-module load pace-slurm
-module load gcc-compatibility/10.3.0
-module load intel/20.0.4
-module load openmpi/4.1.4
+#module load pace-slurm
+#module load gcc-compatibility/10.3.0
+#module load intel/20.0.4
+#module load openmpi/4.1.4
 
 export PATH=$PATH:/storage/coda1/p-tf74/0/shared/emolel3
 #module load anaconda3 && conda activate fenicsx-env
