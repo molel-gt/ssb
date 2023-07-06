@@ -67,7 +67,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument('--img_id', help='contact area image index', required=True, type=int)
     parser.add_argument('--Lz', help='length in z direction', nargs='?', const=1, default=10, type=int)
-    parser.add_argument('--resolution', help=f'resolution with max_resolution of {max_resolution}', nargs='?', const=1, default=1, type=float)
+    parser.add_argument('--resolution', help=f'resolution with max resolution of 10x resolution', nargs='?', const=1, default=1, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?', const=1, default='VOXEL_SCALING2', type=str)
     args = parser.parse_args()
     img_name = f'test{str(int(args.img_id))}'
@@ -299,9 +299,9 @@ if __name__ == '__main__':
     gmsh.model.mesh.field.add("Threshold", 2)
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
     gmsh.model.mesh.field.setNumber(2, "LcMin", args.resolution)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", max(args.resolution, max_resolution))
+    gmsh.model.mesh.field.setNumber(2, "LcMax", 10 * args.resolution)
     gmsh.model.mesh.field.setNumber(2, "DistMin", 0.01)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 10)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", max(1, 0.05 * Lz))
 
     gmsh.model.mesh.field.add("Max", 5)
     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
@@ -323,4 +323,5 @@ if __name__ == '__main__':
     tetr_mesh_unscaled.write(f"{outdir}" + 'tetr.xdmf')
     tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, cell_types.tetra, scale_factor=scale_factor)
     tetr_mesh_scaled.write(f"{outdir}" + 'tetr.xdmf')
+    os.remove(mshpath)
     # res = subprocess.check_call('mpirun python3 transport.py --grid_extents 470-470-25_000-000-000', shell=True)

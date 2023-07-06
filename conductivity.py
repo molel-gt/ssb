@@ -21,7 +21,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument('--grid_extents', help='Nx-Ny-Nz_Ox-Oy-Oz size_location', required=True)
     parser.add_argument('--root_folder', help='parent folder containing mesh folder', required=True)
-    parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1)
+    parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1e-3)
     parser.add_argument("--scale", help="sx,sy,sz", nargs='?', const=1, default='-1,-1,-1')
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='VOXEL_SCALING', type=str)
@@ -42,7 +42,7 @@ if __name__ == '__main__':
     grid_extents = args.grid_extents
     logger = logging.getLogger()
     logger.setLevel(loglevel)
-    formatter = logging.Formatter('%(levelname)s:%(asctime)s:%(message)s')
+    formatter = logging.Formatter(f'%(levelname)s:%(asctime)s:{grid_extents}:%(message)s')
     fh = logging.FileHandler('transport.log')
     fh.setFormatter(formatter)
     logger.addHandler(fh)
@@ -115,14 +115,13 @@ if __name__ == '__main__':
 
     # # Update ghost entries and plot
     uh.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-    logger.debug("Post-process calculations")
-    # Post-processing: Compute derivatives
-    grad_u = ufl.grad(uh)
 
+    logger.debug("Post-process calculations")
+    grad_u = ufl.grad(uh)
     W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
     current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
     current_h = fem.Function(W)
-    new_fun = fem.Function(W)
+    tol_fun = fem.Function(V)
     current_h.interpolate(current_expr)
 
     with io.XDMFFile(comm, output_current_path, "w") as file:
@@ -130,7 +129,6 @@ if __name__ == '__main__':
         file.write_function(current_h)
 
     logger.debug("Post-process Results Summary")
-
     insulated_area = fem.assemble_scalar(fem.form(1 * ds(markers.insulated)))
     area_left_cc = fem.assemble_scalar(fem.form(1 * ds(markers.left_cc)))
     area_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
@@ -143,42 +141,29 @@ if __name__ == '__main__':
     volume = fem.assemble_scalar(fem.form(1 * ufl.dx(domain)))
     total_area = area_left_cc + area_right_cc + insulated_area
     error = 100 * 2 * abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
-    # distribution at terminals
-    # min_cd = np.min(current_h.x.array)
-    # max_cd = np.max(current_h.x.array)
-    # cd_space = np.linspace(min_cd, max_cd, num=1000)
-    # cdf_values = []
-    # def value_is_less_than(value_1, value_2):
-    #     return ufl.conditional(ufl.le(value_1, value_2), 1, 0)
-    # check_arr = []
-    # for value in np.asarray(ufl.inner(current_h, n)):
-    #     check_arr.append(value_is_less_than(value, 0))
-    # logger.debug("before")
-    # def func_check(x):
-    #     return (np.zeros(x[0].shape), np.zeros(x[0].shape), np.zeros(x[0].shape))
-    # new_fun.interpolate(func_check)
-    # logger.debug("after 1")
-    # logger.debug(current_h.vector)
-    # logger.debug(current_h.x.array[2])
-    # logger.debug(current_h.x.array[2] < new_fun.x.array[2])
-    # logger.debug(current_h[2])
-    # def new_func(v1, v2):
-    #     return ufl.conditional(ufl.le(v1, v2), v1, v2)
-    # # new_express = fem.Expression(ufl.conditional(ufl.le(current_h.x.array, 5), 1, 0), W.element.interpolation_points())
-    # newx = fem.Expression(new_func(current_h.x.array, new_fun.x.array), W.element.interpolation_points())
-    # logger.debug("after 2")
-    # new_fun.interpolate(newx)
-    # for v in cd_space:
-    #     lpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.left_cc))) / area_left_cc
-    #     rpvalue = fem.assemble_scalar(fem.form(ufl.conditional(ufl.le(ufl.inner(current_h, n), v), 1, 0) * ds(markers.right_cc))) / area_right_cc
-    #     cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
-    # stats_path = os.path.join(data_dir, 'cdf.csv')
-    # with open(stats_path, 'w') as fp:
-    #     writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
-    #     writer.writeheader()
-    #     for row in cdf_values:
-    #         writer.writerow(row)
-    # logger.debug(f"Wrote cdf stats in {stats_path}")
+
+    logger.debug("Cumulative distribution function of current density at terminals")
+    min_cd = -100  # np.min(current_h.sub(2).x.array)
+    max_cd = 0  # np.max(current_h.sub(2).x.array)
+    cd_space = np.linspace(min_cd, max_cd, num=1000)
+    cdf_values = []
+    EPS = 1e-30
+
+    def check_condition(values, tol):
+        tol_fun.interpolate(lambda x: tol * (x[0] + EPS) / (x[0] + EPS))
+        return ufl.conditional(ufl.le(values, tol_fun), 1, 0)
+
+    for v in cd_space:
+        lpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), v) * ds(markers.left_cc))) / area_left_cc
+        rpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), -v) * ds(markers.right_cc))) / area_right_cc
+        cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
+    stats_path = os.path.join(data_dir, 'cdf.csv')
+    with open(stats_path, 'w') as fp:
+        writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
+        writer.writeheader()
+        for row in cdf_values:
+            writer.writerow(row)
+    logger.debug(f"Wrote cdf stats in {stats_path}")
     logger.info("**************************RESULTS-SUMMARY******************************************")
     logger.info(f"Contact Area @ left cc [sq. um]                 : {area_left_cc*1e12:.4e}")
     logger.info(f"Contact Area @ right cc [sq. um]                : {area_right_cc*1e12:.4e}")
@@ -190,7 +175,8 @@ if __name__ == '__main__':
     logger.info("Electrolyte Volume Fraction                     : {:.2%}".format(volume / (Lx * Ly * Lz)))
     logger.info(f"Bulk conductivity [S.m-1]                       : {constants.KAPPA0:.4e}")
     logger.info("Effective conductivity [S.m-1]                  : {:.4e}".format(Lz * abs(I_left_cc) / (voltage * (Lx * Ly))))
-    logger.info(f"Insulated Current [A] : {I_insulated:.2e}")
+    logger.info(f"Insulated Current [A]                          : {I_insulated:.2e}")
+    logger.info(f"Conductor Length, L_z [um]                     : {Lz * 1e6:.1e}")
     logger.info(f"Deviation in current at two current collectors  : {error:.2f}%")
     logger.info(f"Voltage                                         : {args.voltage}")
     logger.info(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
