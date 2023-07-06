@@ -170,7 +170,7 @@ if __name__ == '__main__':
     while t < T:
         t += dt
         ret = solver.solve(c)
-        print(f"Step {int(t / dt)}: num iterations: {ret[0]}")
+        logger.debug(f"Step {int(t / dt)}: num iterations: {ret[0]}")
         c0.x.array[:] = c.x.array
         file.write_function(c, t)
     file.close()
