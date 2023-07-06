@@ -1,3 +1,4 @@
+alphashape
 argparse
 gmsh==4.8.4
 h5py
