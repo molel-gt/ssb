@@ -12,7 +12,7 @@ from dolfinx import cpp, fem, io, mesh, nls, plot
 from mpi4py import MPI
 from petsc4py import PETSc
 
-import commons, configs, constants, geometry, utils
+import commons, configs, constants, utils
 
 markers = commons.SurfaceMarkers()
 
