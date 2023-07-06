@@ -15,4 +15,4 @@ export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
 export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/:/storage/home/hcoda1/0/emolel3/.local/
 
 python3 packed_spheres.py --packing_fraction $1
-#python3 transport.py --grid_extents 2-2-2 --root_folder mesh/packed_spheres/2-2-2/$1
+#python3 conductivity.py --grid_extents 2-2-2 --root_folder mesh/packed_spheres/2-2-2/$1
