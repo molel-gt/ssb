@@ -176,7 +176,7 @@ if __name__ == '__main__':
     logger.info(f"Bulk conductivity [S.m-1]                       : {constants.KAPPA0:.4e}")
     logger.info("Effective conductivity [S.m-1]                  : {:.4e}".format(Lz * abs(I_left_cc) / (voltage * (Lx * Ly))))
     logger.info(f"Insulated Current [A]                          : {I_insulated:.2e}")
-    logger.info(f"Conductor Length, L_z [um]                     : {Lz*1e6:.1e}")
+    logger.info(f"Conductor Length, L_z [um]                     : {Lz * 1e6:.1e}")
     logger.info(f"Deviation in current at two current collectors  : {error:.2f}%")
     logger.info(f"Voltage                                         : {args.voltage}")
     logger.info(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
