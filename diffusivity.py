@@ -52,6 +52,7 @@ if __name__ == '__main__':
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
     output_current_path = os.path.join(data_dir, 'current.xdmf')
     output_potential_path = os.path.join(data_dir, 'potential.xdmf')
+    concentration_path = os.path.join(data_dir, "concentration.xdmf")
 
     left_cc_marker = markers.left_cc
     right_cc_marker = markers.right_cc
@@ -135,8 +136,8 @@ if __name__ == '__main__':
     V = fem.FunctionSpace(domain, ("Lagrange", 2))
     dt = 1e-3  # [ms]
     theta = 0.5  # crank-nicholson time-stepping
-    c = ufl.TrialFunction(V)
-    c0 = ufl.TrialFunction(V)  # solution from previous converged step
+    c = fem.Function(V)
+    c0 = fem.Function(V)  # solution from previous converged step
     r = ufl.TestFunction(V)
     c.x.array[:] = 1e3  # [mol/m3]
 
@@ -166,7 +167,9 @@ if __name__ == '__main__':
     c0.x.array[:] = c.x.array
     # step in time
     t = 0.0
-    T = 50 * dt
+    T = 5 * dt
+    file = io.XDMFFile(MPI.COMM_WORLD, concentration_path, "w")
+    file.write_mesh(domain)
     while t < T:
         t += dt
         ret = solver.solve(c)
