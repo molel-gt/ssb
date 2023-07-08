@@ -151,7 +151,7 @@ if __name__ == '__main__':
         50: [-25, 0],
         100: [-25, 0],
     }
-    min_cd, max_cd = cd_lims[int(grid_extents.split("_")[0].split("-")[-1])]
+    min_cd, max_cd = cd_lims[int(int(grid_extents.split("_")[0].split("-")[-1]) - 1)]
     cd_space = np.linspace(min_cd, max_cd, num=1000)
     cdf_values = []
     EPS = 1e-30
