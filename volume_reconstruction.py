@@ -36,10 +36,12 @@ if __name__ == "__main__":
                         default='segmented', type=str)
     parser.add_argument("--output_folder", help='parent folder for output files', nargs='?', const=1,
                         default='mesh/study_1', type=str)
+    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
+                        const=1, default='VOXEL_SCALING', type=str)
     start_time = time.time()
     args = parser.parse_args()
     phase = args.phase
-    scaling = configs.get_configs()['VOXEL_SCALING']
+    scaling = configs.get_configs()[args.scaling]
     img_folder = args.segmentation_folder
     scale_x = float(scaling['x'])
     scale_y = float(scaling['y'])
