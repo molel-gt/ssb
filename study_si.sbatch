@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH -A gts-tf74
-#SBATCH -Jstudy_5g
+#SBATCH -Jstudy_si
 #SBATCH -N 1
-#SBATCH --mem-per-cpu=32G
+#SBATCH --mem-per-cpu=128G
 #SBATCH -t6:00:00
 #SBATCH -qinferno
 #SBATCH -osilicon-%j.out
