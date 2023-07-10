@@ -144,10 +144,10 @@ if __name__ == '__main__':
     c_mid = (1.0 - theta) * c0 + theta * c
     g0 = fem.Constant(domain, PETSc.ScalarType(0.0))
 
-    F = ufl.inner(c, r) * ufl.dx - ufl.inner(c0, r) * ufl.dx + dt * ufl.inner(D * ufl.grad(c_mid), ufl.grad(r)) * ufl.dx
+    F = ufl.inner(c, r) * ufl.dx - ufl.inner(c0, r) * ufl.dx + dt * ufl.inner(D * ufl.grad(c), ufl.grad(r)) * ufl.dx
     F -= ufl.inner(g0, r) * ds(markers.insulated)
     F -= ufl.inner(g0, r) * ds(markers.left_cc)
-    F -= ufl.inner(ufl.inner((1 / D / f_farad) * current_h, n), r) * ds(markers.right_cc)
+    F -= ufl.inner(ufl.inner((-1 / f_farad) * current_h, n), r) * ds(markers.right_cc)
 
     # Create nonlinear problem and Newton solver
     problem = fem.petsc.NonlinearProblem(F, c)
