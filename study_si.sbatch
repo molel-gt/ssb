@@ -13,5 +13,5 @@ conda activate fenicsx-env
 cd $SLURM_SUBMIT_DIR
 export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
 export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/:/storage/home/hcoda1/0/emolel3/.local/
-
-python3 conductivity.py --grid_extents 1100-1100-11_400-1500-000 --root_folder mesh/study_si/$1/1101-1101-12_400-1500-000 --scaling VOXEL_SCALING3
+python3 volume_reconstruction.py --grid_extents 1100-1100-11_400-1500-000 --segmentation_folder crack-volumes/$1 --phase 2 --scaling VOXEL_SCALING3
+python3 conductivity.py --grid_extents 1100-1100-11_400-1500-000 --root_folder mesh/study_si/$1/1101-1101-12_400-1500-000/2 --scaling VOXEL_SCALING3
