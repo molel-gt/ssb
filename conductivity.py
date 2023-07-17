@@ -55,6 +55,8 @@ if __name__ == '__main__':
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
     output_current_path = os.path.join(data_dir, 'current.xdmf')
     output_potential_path = os.path.join(data_dir, 'potential.xdmf')
+    stats_path = os.path.join(data_dir, 'cdf.csv')
+    grad_cd_path = os.path.join(data_dir, 'cdf_grad_cd.csv')
 
     left_cc_marker = markers.left_cc
     right_cc_marker = markers.right_cc
@@ -142,7 +144,7 @@ if __name__ == '__main__':
     total_area = area_left_cc + area_right_cc + insulated_area
     error = 100 * 2 * abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
 
-    logger.debug("Cumulative distribution function of current density at terminals")
+    logger.debug("Cumulative distribution lines of current density at terminals")
     # min_cd = -100  # np.min(current_h.sub(2).x.array)
     # max_cd = 0  # np.max(current_h.sub(2).x.array)
     cd_lims = {
@@ -164,13 +166,33 @@ if __name__ == '__main__':
         lpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), v) * ds(markers.left_cc))) / area_left_cc
         rpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), -v) * ds(markers.right_cc))) / area_right_cc
         cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
-    stats_path = os.path.join(data_dir, 'cdf.csv')
+
     with open(stats_path, 'w') as fp:
         writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
         writer.writeheader()
         for row in cdf_values:
             writer.writerow(row)
     logger.debug(f"Wrote cdf stats in {stats_path}")
+    logger.debug(f"Cumulative distribution lines of derivative of current density at terminals")
+    grad2 = ufl.sqrt(ufl.inner(ufl.grad(ufl.inner(current_h, n)), ufl.as_vector((1, 1, 0))) ** 2)
+    mean_left = fem.assemble_scalar(fem.form(grad2 * ds(markers.left_cc))) / area_left_cc
+    sd_left = (fem.assemble_scalar(fem.form((grad2 - mean_left) ** 2 * ds(markers.left_cc))) / area_left_cc) ** 0.5
+    mean_right = fem.assemble_scalar(fem.form(grad2 * ds(markers.right_cc))) / area_right_cc
+    sd_right = (fem.assemble_scalar(fem.form((grad2 - mean_right) ** 2 * ds(markers.right_cc))) / area_right_cc) ** 0.5
+    grad_cd_min, grad_cd_max = [0, int(mean_left + 3 * sd_left)]
+    print(mean_left, sd_left)
+    print(mean_right, sd_right)
+    grad_cd_space = np.linspace(grad_cd_min, grad_cd_max, num=1000)
+    grad_cd_cdf_values = []
+    for v in grad_cd_space:
+        lpvalue = fem.assemble_scalar(fem.form(check_condition(grad2, v) * ds(markers.left_cc))) / area_left_cc
+        grad_cd_cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": "-"})
+    with open(grad_cd_path, 'w') as fp:
+        writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
+        writer.writeheader()
+        for row in grad_cd_cdf_values:
+            writer.writerow(row)
+    logger.debug(f"Wrote cdf stats in {grad_cd_path}")
     logger.info("**************************RESULTS-SUMMARY******************************************")
     logger.info(f"Contact Area @ left cc [sq. um]                 : {area_left_cc*1e12:.4e}")
     logger.info(f"Contact Area @ right cc [sq. um]                : {area_right_cc*1e12:.4e}")
