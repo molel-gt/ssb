@@ -180,14 +180,12 @@ if __name__ == '__main__':
             ufl.grad(ufl.inner(current_h, n))
         )
     )
-    mean_left = fem.assemble_scalar(fem.form(grad2 * ds(markers.left_cc))) / area_left_cc
-    sd_left = (fem.assemble_scalar(fem.form((grad2 - mean_left) ** 2 * ds(markers.left_cc))) / area_left_cc) ** 0.5
-    mean_right = fem.assemble_scalar(fem.form(grad2 * ds(markers.right_cc))) / area_right_cc
-    sd_right = (fem.assemble_scalar(fem.form((grad2 - mean_right) ** 2 * ds(markers.right_cc))) / area_right_cc) ** 0.5
-    grad_cd_min, grad_cd_max = [0, int(mean_left + 3 * sd_left)]
-    print(mean_left, sd_left)
-    print(mean_right, sd_right)
-    grad_cd_space = np.linspace(grad_cd_min, grad_cd_max, num=1000)
+    # mean_left = fem.assemble_scalar(fem.form(grad2 * ds(markers.left_cc))) / area_left_cc
+    # sd_left = (fem.assemble_scalar(fem.form((grad2 - mean_left) ** 2 * ds(markers.left_cc))) / area_left_cc) ** 0.5
+    # mean_right = fem.assemble_scalar(fem.form(grad2 * ds(markers.right_cc))) / area_right_cc
+    # sd_right = (fem.assemble_scalar(fem.form((grad2 - mean_right) ** 2 * ds(markers.right_cc))) / area_right_cc) ** 0.5
+    # grad_cd_min, grad_cd_max = [0, int(mean_left + 3 * sd_left)]
+    grad_cd_space = [0, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5] + list(np.linspace(1e-5 + 1e-6, 1e-4, num=100)) + [1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7]
     grad_cd_cdf_values = []
     for v in grad_cd_space:
         lpvalue = fem.assemble_scalar(fem.form(check_condition(grad2, v) * ds(markers.left_cc))) / area_left_cc
