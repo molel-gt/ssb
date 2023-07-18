@@ -9,6 +9,7 @@
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=emolel3@gatech.edu
 
+module purge > /dev/null 2>&1
 cd $SLURM_SUBMIT_DIR
 module load anaconda3
 conda activate fenicsx-env
