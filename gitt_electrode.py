@@ -21,6 +21,7 @@ resolution = 0.05
 L_coating = L - 5 * resolution
 
 gmsh.initialize()
+gmsh.option.setNumber('General.Verbosity', 1)
 gmsh.model.add("AM/SE")
 # gmsh.option.setNumber("Mesh.MeshSizeMax", resolution)
 

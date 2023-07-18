@@ -22,6 +22,7 @@ scaling_factor = (100e-6, 100e-6, 0)
 
 def create_geometry(relative_radius, outdir, scale_factor=scaling_factor):
     gmsh.initialize()
+    gmsh.option.setNumber('General.Verbosity', 1)
     gmsh.model.add("domain")
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 1e-3)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.05)

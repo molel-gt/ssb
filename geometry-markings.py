@@ -47,6 +47,7 @@ if __name__ == '__main__':
     Ly = 470
     Lz = 2
     gmsh.initialize()
+    gmsh.option.setNumber('General.Verbosity', 1)
     gmsh.model.add('area')
     z0_points = [
         (0, 0, 0),

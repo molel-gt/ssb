@@ -40,6 +40,7 @@ if __name__ == '__main__':
     utils.make_dir_if_missing(outdir)
 
     gmsh.initialize()
+    gmsh.option.setNumber('General.Verbosity', 1)
     gmsh.model.add("constriction")
     # gmsh.option.setNumber("General.ExpertMode", 1)
     # gmsh.option.setNumber("Mesh.MeshSizeMin", 0.0001)

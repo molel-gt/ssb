@@ -19,6 +19,7 @@ program = 'gitt_geometry.geo'  # 'semicircle.geo'  # 'gitt.geo'
 msh_fpath = "mesh/gitt/mesh.msh"
 
 gmsh.initialize()
+gmsh.option.setNumber('General.Verbosity', 1)
 gmsh.model.add("gitt")
 gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 1e-3)
 gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.1)

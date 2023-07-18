@@ -37,6 +37,7 @@ points2 = np.arange(0, W, 1)
 serrated = sorted(list(points1) + list(points2) + [W], reverse=True)
 
 gmsh.initialize()
+gmsh.option.setNumber('General.Verbosity', 1)
 gmsh.model.add("AM/SE")
 # gmsh.option.setNumber("Mesh.MeshSizeMax", resolution)
 

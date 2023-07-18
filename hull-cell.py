@@ -60,6 +60,7 @@ def create_mesh(domain, cell_type, prune_z=False):
 
 def create_geometry(c, r):
     gmsh.initialize()
+    gmsh.option.setNumber('General.Verbosity', 1)
     gmsh.model.add("hull cell")
     gmsh.option.setNumber("Mesh.MeshSizeMax", 0.005)
 

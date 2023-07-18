@@ -111,6 +111,7 @@ if __name__ == '__main__':
     graph.get_graph_pieces()
 
     gmsh.initialize()
+    gmsh.option.setNumber('General.Verbosity', 1)
     gmsh.model.add('area')
     z0_points = [
         (0, 0, 0),

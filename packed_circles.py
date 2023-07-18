@@ -42,6 +42,7 @@ def read_circles_position_file(circles_position_path):
 
 def build_packed_circles_mesh(output_mesh_file, circles_locations_files):
     gmsh.initialize()
+    gmsh.option.setNumber('General.Verbosity', 1)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 1e-6)
     gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1e-2)
     gmsh.model.add("GITT")

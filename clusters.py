@@ -127,6 +127,7 @@ if __name__ == "__main__":
         # GMSH
         counter = 0
         gmsh.initialize()
+        gmsh.option.setNumber('General.Verbosity', 1)
         gmsh.model.add("porous")
         gmsh.merge(vtkfile)
         gmsh.model.occ.synchronize()
