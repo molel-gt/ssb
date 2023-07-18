@@ -3,6 +3,7 @@
 #SBATCH -Jstudy_4
 #SBATCH -N 1
 #SBATCH --mem-per-cpu=64G
+#SBATCH --ntasks-per-node=20
 #SBATCH -t6:00:00
 #SBATCH -qinferno
 #SBATCH -ostudy-4-geo.out
