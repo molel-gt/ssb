@@ -174,7 +174,12 @@ if __name__ == '__main__':
             writer.writerow(row)
     logger.debug(f"Wrote cdf stats in {stats_path}")
     logger.debug(f"Cumulative distribution lines of derivative of current density at terminals")
-    grad2 = ufl.sqrt(ufl.inner(ufl.grad(ufl.inner(current_h, n)), ufl.as_vector((1, 1, 0))) ** 2)
+    grad2 = ufl.sqrt(
+        ufl.inner(
+            ufl.grad(ufl.inner(current_h, n)),
+            ufl.grad(ufl.inner(current_h, n))
+        )
+    )
     mean_left = fem.assemble_scalar(fem.form(grad2 * ds(markers.left_cc))) / area_left_cc
     sd_left = (fem.assemble_scalar(fem.form((grad2 - mean_left) ** 2 * ds(markers.left_cc))) / area_left_cc) ** 0.5
     mean_right = fem.assemble_scalar(fem.form(grad2 * ds(markers.right_cc))) / area_right_cc
