@@ -3,7 +3,7 @@
 #SBATCH -Jstudy_si
 #SBATCH -N 1
 #SBATCH --mem-per-cpu=128G
-#SBATCH --ntasks-per-node=20
+#SBATCH --ntasks-per-node=1
 #SBATCH -t6:00:00
 #SBATCH -qinferno
 #SBATCH -osilicon-%j.out
