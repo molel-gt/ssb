@@ -3,7 +3,7 @@
 #SBATCH -Jstudy_2
 #SBATCH -N 1
 #SBATCH --mem-per-cpu=384G
-#SBATCH --ntasks-per-node=20
+#SBATCH --ntasks-per-node=1
 #SBATCH -t36:00:00
 #SBATCH -qinferno
 #SBATCH -ostudy-2-model-%j.out
