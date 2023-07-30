@@ -85,6 +85,7 @@ if __name__ == "__main__":
         pickle.dump(effective_electrolyte, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
     nodefile = os.path.join(mesh_dir, "porous.node")
+    edgefile = os.path.join(mesh_dir, "porous.edge")
     tetfile = os.path.join(mesh_dir, "porous.ele")
     facesfile = os.path.join(mesh_dir, "porous.face")
     vtkfile = os.path.join(mesh_dir, "porous.1.vtk")
@@ -147,7 +148,7 @@ if __name__ == "__main__":
 
     # tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, CELL_TYPES.triangle, scale_factor=scale_factor)
     # tria_mesh_scaled.write(tria_xdmf_scaled)
-    for f in [nodefile, tetfile, facesfile, vtkfile, surface_vtk, tetr_mshfile, surf_mshfile, tetr_xdmf_unscaled, tria_xdmf_unscaled]:
+    for f in [nodefile, edgefile, tetfile, facesfile, vtkfile, surface_vtk, tetr_mshfile, surf_mshfile, tetr_xdmf_unscaled, tria_xdmf_unscaled]:
         try:
             os.remove(f)
             new_f = f.split('.')[0] + '.1.' + f.split('.')[-1]
