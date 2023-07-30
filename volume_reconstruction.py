@@ -57,7 +57,7 @@ if __name__ == "__main__":
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
-    mesh_dir = os.path.join(args.output_folder, f"{args.grid_extents}/{phase}")
+    mesh_dir = os.path.join(args.output_folder, args.segmentation_folder, f"{args.grid_extents}/{phase}")
     utils.make_dir_if_missing(mesh_dir)
     im_files = sorted([os.path.join(img_folder, f) for
                        f in os.listdir(img_folder) if f.endswith(".tif")])
