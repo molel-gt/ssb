@@ -129,7 +129,7 @@ if __name__ == "__main__":
     right = []
     insulated = []
     for surface in gmsh.model.getEntities(2):
-        com = gmsh.model.occ.getCenterOfMass(2, surface[1])
+        com = gmsh.model.occ.getCenterOfMass(*surface)
         if np.isclose(com[2], 0):
             left.append(surface[1])
         elif np.isclose(com[2], Lz):
@@ -138,7 +138,8 @@ if __name__ == "__main__":
             insulated.append(surface[1])
     gmsh.model.addPhysicalGroup(2, left, markers.left_cc)
     gmsh.model.addPhysicalGroup(2, right, markers.right_cc)
-    gmsh.model.addPhysicalGroup(insulated, left, markers.insulated)
+    gmsh.model.addPhysicalGroup(2, insulated, markers.insulated)
+    gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
     gmsh.write(tetr_mshfile)
     gmsh.finalize()
