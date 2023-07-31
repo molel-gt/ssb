@@ -119,27 +119,26 @@ if __name__ == "__main__":
     gmsh.merge(vtkfile)
     gmsh.model.occ.synchronize()
 
-    volumes = gmsh.model.getEntities(dim=3)
-    for i, volume in enumerate(volumes):
-        marker = int(counter + i)
-        gmsh.model.addPhysicalGroup(3, [volume[1]], marker)
-        gmsh.model.setPhysicalName(3, marker, f"V{marker}")
+    volumes = [v[1] for v in gmsh.model.getEntities(dim=3)]
+    gmsh.model.addPhysicalGroup(3, volumes, phase)
     gmsh.model.occ.synchronize()
-    # left = []
-    # right = []
-    # insulated = []
-    # for surface in gmsh.model.getEntities(2):
-    #     com = gmsh.model.occ.getCenterOfMass(*surface)
-    #     if np.isclose(com[2], 0):
-    #         left.append(surface[1])
-    #     elif np.isclose(com[2], Lz):
-    #         right.append(surface[1])
-    #     else:
-    #         insulated.append(surface[1])
-    # gmsh.model.addPhysicalGroup(2, left, markers.left_cc)
-    # gmsh.model.addPhysicalGroup(2, right, markers.right_cc)
-    # gmsh.model.addPhysicalGroup(2, insulated, markers.insulated)
-    # gmsh.model.occ.synchronize()
+    surf = gmsh.model.mesh.classify_surfaces(angle=np.pi)
+    print(surf)
+    left = []
+    right = []
+    insulated = []
+    for surface in gmsh.model.getEntities(2):
+        com = gmsh.model.occ.getCenterOfMass(*surface)
+        if np.isclose(com[2], 0):
+            left.append(surface[1])
+        elif np.isclose(com[2], Lz):
+            right.append(surface[1])
+        else:
+            insulated.append(surface[1])
+    gmsh.model.addPhysicalGroup(2, left, markers.left_cc)
+    gmsh.model.addPhysicalGroup(2, right, markers.right_cc)
+    gmsh.model.addPhysicalGroup(2, insulated, markers.insulated)
+    gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
     gmsh.write(tetr_mshfile)
     gmsh.finalize()
@@ -150,10 +149,39 @@ if __name__ == "__main__":
     tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, CELL_TYPES.tetra, scale_factor=scale_factor)
     tetr_mesh_scaled.write(tetr_xdmf_scaled)
 
-    # tria_mesh_unscaled = geometry.create_mesh(msh, CELL_TYPES.triangle)
-    # tria_mesh_unscaled.write(tria_xdmf_unscaled)
-    # tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, CELL_TYPES.triangle, scale_factor=scale_factor)
-    # tria_mesh_scaled.write(tria_xdmf_scaled)
+    # extract surface
+    comm = MPI.COMM_WORLD
+    with io.XDMFFile(comm, "tetr_unscaled.xdmf", "r") as fp:
+        domain = fp.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
+        ct = fp.read_meshtags(domain, name="Grid")
+    domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
+
+    facets = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
+                                           marker=lambda x: np.isfinite(x[0]))
+    # submesh = mesh.create_submesh(domain, domain.topology.dim - 1, facets)
+    tags = mesh.meshtags_from_entities(domain, domain.topology.dim - 1, facets)
+    facets_l0 = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
+                                           marker=lambda x: np.isclose(x[2], 0))
+    facets_lz = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
+                                           marker=lambda x: np.isclose(x[2], 11))
+    all_indices = set(list(facets.reshape(-1, 1)))
+    l0_indices = set(list(facets_l0.reshape(-1, 1)))
+    lz_indices = set(list(facets_lz.reshape(-1, 1)))
+    insulator_indices = all_indices.difference(lz_indices | lz_indices)
+    ft_indices = list(l0_indices) + list(lz_indices) + list(insulator_indices)
+    ft_values = [markers.left_cc] * len(l0_indices) + [markers.right_cc] * len(lz_indices) + [markers.insulated] * len(insulator_indices)
+    cells = msh.get_cells_type(CELL_TYPES.tetra)
+    # print(cells)
+    # cell_data = msh.get_cell_data("gmsh:physical", CELL_TYPES.tetra)
+    # print(cell_data)
+    # out_mesh = meshio.Mesh(points=msh.points,
+    #                        cells={"tetra": cells},
+    #                        cell_data={"name_to_read": [cell_data]}
+    #                        )
+    tria_mesh_unscaled = geometry.create_mesh(msh, CELL_TYPES.triangle)
+    tria_mesh_unscaled.write(tria_xdmf_unscaled)
+    tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, CELL_TYPES.triangle, scale_factor=scale_factor)
+    tria_mesh_scaled.write(tria_xdmf_scaled)
 
     for f in [nodefile, edgefile, tetfile, facesfile, vtkfile, surface_vtk, tetr_mshfile, surf_mshfile, tetr_xdmf_unscaled, tria_xdmf_unscaled]:
         try:
