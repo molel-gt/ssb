@@ -57,6 +57,7 @@ if __name__ == "__main__":
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
+    markers = commons.SurfaceMarkers()
     mesh_dir = os.path.join(args.output_folder, args.segmentation_folder, f"{args.grid_extents}/{phase}")
     utils.make_dir_if_missing(mesh_dir)
     im_files = sorted([os.path.join(img_folder, f) for
@@ -124,30 +125,35 @@ if __name__ == "__main__":
         gmsh.model.addPhysicalGroup(3, [volume[1]], marker)
         gmsh.model.setPhysicalName(3, marker, f"V{marker}")
     gmsh.model.occ.synchronize()
-
+    left = []
+    right = []
+    insulated = []
+    for surface in gmsh.model.getEntities(2):
+        com = gmsh.model.occ.getCenterOfMass(2, surface[1])
+        if np.isclose(com[2], 0):
+            left.append(surface[1])
+        elif np.isclose(com[2], Lz):
+            right.append(surface[1])
+        else:
+            insulated.append(surface[1])
+    gmsh.model.addPhysicalGroup(2, left, markers.left_cc)
+    gmsh.model.addPhysicalGroup(2, right, markers.right_cc)
+    gmsh.model.addPhysicalGroup(insulated, left, markers.insulated)
     gmsh.model.mesh.generate(3)
     gmsh.write(tetr_mshfile)
     gmsh.finalize()
 
-    tet_msh = meshio.read(tetr_mshfile)
-    tetr_mesh_unscaled = geometry.create_mesh(tet_msh, CELL_TYPES.tetra)
+    msh = meshio.read(tetr_mshfile)
+    tetr_mesh_unscaled = geometry.create_mesh(msh, CELL_TYPES.tetra)
     tetr_mesh_unscaled.write(tetr_xdmf_unscaled)
     tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, CELL_TYPES.tetra, scale_factor=scale_factor)
     tetr_mesh_scaled.write(tetr_xdmf_scaled)
-    # with io.XDMFFile(MPI.COMM_WORLD, tetr_xdmf_unscaled, "r") as fp:
-    #     domain = fp.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
-    # domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
-    # surfaces = mesh.locate_entities_boundary(domain, 2, lambda x: np.isreal(x[0]))
-    # labels = np.zeros(surfaces.shape, dtype=np.int32)
-    # tags = np.hstack((surfaces, labels))
 
-    # retcode_paraview = subprocess.check_call("pvpython extract_surface_from_volume.py {}".format(os.path.dirname(tetr_xdmf_unscaled)), shell=True)
-    # surf_msh = meshio.read(tria_xmf_unscaled)
-    # tria_mesh_unscaled = geometry.label_surface_mesh(surf_msh, effective_electrolyte, Ly)
-    # tria_mesh_unscaled.write(tria_xdmf_unscaled)
+    tria_mesh_unscaled = geometry.create_mesh(msh, CELL_TYPES.triangle)
+    tria_mesh_unscaled.write(tria_xdmf_unscaled)
+    tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, CELL_TYPES.triangle, scale_factor=scale_factor)
+    tria_mesh_scaled.write(tria_xdmf_scaled)
 
-    # tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, CELL_TYPES.triangle, scale_factor=scale_factor)
-    # tria_mesh_scaled.write(tria_xdmf_scaled)
     for f in [nodefile, edgefile, tetfile, facesfile, vtkfile, surface_vtk, tetr_mshfile, surf_mshfile, tetr_xdmf_unscaled, tria_xdmf_unscaled]:
         try:
             os.remove(f)
