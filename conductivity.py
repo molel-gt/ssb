@@ -67,9 +67,26 @@ if __name__ == '__main__':
         domain = infile3.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(domain, name="Grid")
     domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
-    with io.XDMFFile(comm, tria_mesh_path, "r") as infile2:
-        ft = infile2.read_meshtags(domain, name="Grid")
-    meshtags = mesh.meshtags(domain, 2, ft.indices, ft.values)
+    try:
+        with io.XDMFFile(comm, tria_mesh_path, "r") as infile2:
+            ft = infile2.read_meshtags(domain, name="Grid")
+        meshtags = mesh.meshtags(domain, 2, ft.indices, ft.values)
+    except FileNotFoundError as e:
+        facets = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
+                                               marker=lambda x: np.isfinite(x[0]))
+        # submesh = mesh.create_submesh(domain, domain.topology.dim - 1, facets)
+        facets_l0 = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
+                                               marker=lambda x: np.isclose(x[2], 0))
+        facets_lz = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
+                                               marker=lambda x: np.isclose(x[2], 11))
+        all_indices = set(list(facets.reshape(-1, 1)))
+        l0_indices = set(list(facets_l0.reshape(-1, 1)))
+        lz_indices = set(list(facets_lz.reshape(-1, 1)))
+        insulator_indices = all_indices.difference(lz_indices | lz_indices)
+        ft_indices = list(l0_indices) + list(lz_indices) + list(insulator_indices)
+        ft_values = [markers.left_cc] * len(l0_indices) + [markers.right_cc] * len(lz_indices) + [markers.insulated] * len(insulator_indices)
+        meshtags = mesh.meshtags_from_entities(domain, domain.topology.dim - 1, ft_indices, ft_values)
+
     # Dirichlet BCs
     V = fem.FunctionSpace(domain, ("Lagrange", 2))
     u0 = fem.Function(V)
@@ -85,7 +102,7 @@ if __name__ == '__main__':
     left_bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 2, left_boundary))
     right_bc = fem.dirichletbc(u1, fem.locate_dofs_topological(V, 2, right_boundary))
     n = ufl.FacetNormal(domain)
-    x = ufl.SpatialCoordinate(domain)
+    # x = ufl.SpatialCoordinate(domain)
     ds = ufl.Measure("ds", domain=domain, subdomain_data=meshtags)
 
     # Define variational problem
