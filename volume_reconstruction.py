@@ -125,21 +125,21 @@ if __name__ == "__main__":
         gmsh.model.addPhysicalGroup(3, [volume[1]], marker)
         gmsh.model.setPhysicalName(3, marker, f"V{marker}")
     gmsh.model.occ.synchronize()
-    left = []
-    right = []
-    insulated = []
-    for surface in gmsh.model.getEntities(2):
-        com = gmsh.model.occ.getCenterOfMass(*surface)
-        if np.isclose(com[2], 0):
-            left.append(surface[1])
-        elif np.isclose(com[2], Lz):
-            right.append(surface[1])
-        else:
-            insulated.append(surface[1])
-    gmsh.model.addPhysicalGroup(2, left, markers.left_cc)
-    gmsh.model.addPhysicalGroup(2, right, markers.right_cc)
-    gmsh.model.addPhysicalGroup(2, insulated, markers.insulated)
-    gmsh.model.occ.synchronize()
+    # left = []
+    # right = []
+    # insulated = []
+    # for surface in gmsh.model.getEntities(2):
+    #     com = gmsh.model.occ.getCenterOfMass(*surface)
+    #     if np.isclose(com[2], 0):
+    #         left.append(surface[1])
+    #     elif np.isclose(com[2], Lz):
+    #         right.append(surface[1])
+    #     else:
+    #         insulated.append(surface[1])
+    # gmsh.model.addPhysicalGroup(2, left, markers.left_cc)
+    # gmsh.model.addPhysicalGroup(2, right, markers.right_cc)
+    # gmsh.model.addPhysicalGroup(2, insulated, markers.insulated)
+    # gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
     gmsh.write(tetr_mshfile)
     gmsh.finalize()
@@ -150,10 +150,10 @@ if __name__ == "__main__":
     tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, CELL_TYPES.tetra, scale_factor=scale_factor)
     tetr_mesh_scaled.write(tetr_xdmf_scaled)
 
-    tria_mesh_unscaled = geometry.create_mesh(msh, CELL_TYPES.triangle)
-    tria_mesh_unscaled.write(tria_xdmf_unscaled)
-    tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, CELL_TYPES.triangle, scale_factor=scale_factor)
-    tria_mesh_scaled.write(tria_xdmf_scaled)
+    # tria_mesh_unscaled = geometry.create_mesh(msh, CELL_TYPES.triangle)
+    # tria_mesh_unscaled.write(tria_xdmf_unscaled)
+    # tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, CELL_TYPES.triangle, scale_factor=scale_factor)
+    # tria_mesh_scaled.write(tria_xdmf_scaled)
 
     for f in [nodefile, edgefile, tetfile, facesfile, vtkfile, surface_vtk, tetr_mshfile, surf_mshfile, tetr_xdmf_unscaled, tria_xdmf_unscaled]:
         try:
