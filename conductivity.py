@@ -165,15 +165,15 @@ if __name__ == '__main__':
     error = 100 * 2 * abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
 
     logger.debug("Cumulative distribution lines of current density at terminals")
-    # min_cd = -100  # np.min(current_h.sub(2).x.array)
-    # max_cd = 0  # np.max(current_h.sub(2).x.array)
-    cd_lims = {
-        1: [-60, -55],
-        5: [-25, 0],
-        50: [-25, 0],
-        100: [-25, 0],
-    }
-    min_cd, max_cd = cd_lims[int(int(grid_extents.split("_")[0].split("-")[-1]) - 1)]
+    min_cd = 100 * min([i_left_cc, i_right_cc])
+    max_cd = 100 * max([i_left_cc, i_right_cc])
+    # cd_lims = {
+    #     1: [-60, -55],
+    #     5: [-25, 0],
+    #     50: [-25, 0],
+    #     100: [-25, 0],
+    # }
+    # min_cd, max_cd = cd_lims[int(int(grid_extents.split("_")[0].split("-")[-1]) - 1)]
     cd_space = np.linspace(min_cd, max_cd, num=1000)
     cdf_values = []
     EPS = 1e-30
