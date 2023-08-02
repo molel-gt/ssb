@@ -71,7 +71,7 @@ if __name__ == '__main__':
         with io.XDMFFile(comm, tria_mesh_path, "r") as infile2:
             ft = infile2.read_meshtags(domain, name="Grid")
         meshtags = mesh.meshtags(domain, 2, ft.indices, ft.values)
-    except FileNotFoundError as e:
+    except Exception as e:
         facets = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
                                                marker=lambda x: np.isfinite(x[0]))
         # submesh = mesh.create_submesh(domain, domain.topology.dim - 1, facets)
