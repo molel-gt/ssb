@@ -85,7 +85,7 @@ if __name__ == '__main__':
         all_indices = set(tuple([val for val in facets]))
         l0_indices = set(tuple([val for val in facets_l0]))
         lz_indices = set(tuple([val for val in facets_lz]))
-        insulator_indices = all_indices.difference(lz_indices | lz_indices)
+        insulator_indices = all_indices.difference(l0_indices | lz_indices)
         ft_indices = np.asarray(list(l0_indices) + list(lz_indices) + list(insulator_indices), dtype=np.int32)
         ft_values = np.asarray([markers.left_cc] * len(l0_indices) + [markers.right_cc] * len(lz_indices) + [markers.insulated] * len(insulator_indices), dtype=np.int32)
         left_boundary = facets_l0
