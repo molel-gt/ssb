@@ -8,8 +8,6 @@ import itertools
 import meshio
 import numpy as np
 
-from mpi4py import MPI
-
 import commons, geometry, utils
 
 
@@ -35,7 +33,7 @@ if __name__ == '__main__':
     w = args.w / Lx
     h = args.h / Ly
     resolution = 0.00005
-    # resolution = 0.0001
+
     outdir = f'mesh/study_5/{eps:.3f}'
     meshname = os.path.join(outdir, f'{h:.3f}_{w:.3f}_pos-{pos:.3f}_pieces-{n_pieces}')
     utils.make_dir_if_missing(outdir)
@@ -105,20 +103,6 @@ if __name__ == '__main__':
     channel_loop = gmsh.model.occ.addCurveLoop(channel_lines)
 
     if not np.isclose(args.h, 0) and not np.isclose(args.h, 0) and not np.isclose(args.pos, 0):
-        # origin = [args.pos * Lx - 0.5 * args.w, 0.5 * Ly - 0.5 * args.h, 0]
-        # points_slit = [origin, [origin[0] + args.w, origin[1], 0],[origin[0] + args.w, origin[1] + args.h, 0], [origin[0], origin[1] + args.h, 0] ]
-        # new_points = []
-        # for coord in points_slit:
-        #     new_points.append(
-        #         gmsh.model.occ.addPoint(*coord)
-        #     )
-        # new_lines = []
-        # for i in range(-1, len(new_points) - 1):
-        #     new_lines.append(
-        #         gmsh.model.occ.addLine(new_points[i], new_points[i + 1])
-        #     )
-        # insulated += new_lines
-        # slit_loop = gmsh.model.occ.addCurveLoop(new_lines)
         circle_points = [
             (pos, 0.5 * Ly, 0),
             (pos + args.w, 0.5 * Ly, 0),
