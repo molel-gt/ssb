@@ -22,7 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('--grid_extents', help='Nx-Ny-Nz_Ox-Oy-Oz size_location', required=True)
     parser.add_argument('--root_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1e-3)
-    parser.add_argument("--scale", help="sx,sy,sz", nargs='?', const=1, default='-1,-1,-1')
+    parser.add_argument("--scale", help="sx,sy,sz", nargs='?', const=1, default=None)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='VOXEL_SCALING', type=str)
     args = parser.parse_args()
@@ -31,7 +31,7 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     rank = comm.rank
     start_time = timeit.default_timer()
-    if args.scale == '-1,-1,-1':
+    if args.scale is None:
         scaling = configs.get_configs()[args.scaling]
         scale_x = float(scaling['x'])
         scale_y = float(scaling['y'])
