@@ -77,7 +77,7 @@ if __name__ == '__main__':
     except RuntimeError as e:
         logger.error("Missing xdmf file for triangle mesh!")
         facets = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
-                                               marker=lambda x: np.isfinite(x[0]))
+                                               marker=lambda x: np.isfinite(x[2]))
         facets_l0 = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
                                                marker=lambda x: np.isclose(x[2], 0))
         facets_lz = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
