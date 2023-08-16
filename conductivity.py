@@ -22,7 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('--grid_extents', help='Nx-Ny-Nz_Ox-Oy-Oz size_location', required=True)
     parser.add_argument('--root_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1e-3)
-    parser.add_argument("--scale", help="sx,sy,sz", nargs='?', const=1, default='-1,-1,-1')
+    parser.add_argument("--scale", help="sx,sy,sz", nargs='?', const=1, default=None)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='VOXEL_SCALING', type=str)
     args = parser.parse_args()
@@ -31,7 +31,7 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     rank = comm.rank
     start_time = timeit.default_timer()
-    if args.scale == '-1,-1,-1':
+    if args.scale is None:
         scaling = configs.get_configs()[args.scaling]
         scale_x = float(scaling['x'])
         scale_y = float(scaling['y'])
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     except RuntimeError as e:
         logger.error("Missing xdmf file for triangle mesh!")
         facets = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
-                                               marker=lambda x: np.isfinite(x[0]))
+                                               marker=lambda x: np.isfinite(x[2]))
         facets_l0 = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
                                                marker=lambda x: np.isclose(x[2], 0))
         facets_lz = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
