@@ -22,16 +22,17 @@ if __name__ == '__main__':
     parser.add_argument('--grid_extents', help='Nx-Ny-Nz_Ox-Oy-Oz size_location', required=True)
     parser.add_argument('--root_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1e-3)
-    parser.add_argument("--scale", help="sx,sy,sz", nargs='?', const=1, default='-1,-1,-1')
+    parser.add_argument("--scale", help="sx,sy,sz", nargs='?', const=1, default=None)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='VOXEL_SCALING', type=str)
+    parser.add_argument("--compute_distribution", help="compute current distribution stats", nargs='?', const=1, default=False, type=bool)
     args = parser.parse_args()
     data_dir = os.path.join(f'{args.root_folder}')
     voltage = args.voltage
     comm = MPI.COMM_WORLD
     rank = comm.rank
     start_time = timeit.default_timer()
-    if args.scale == '-1,-1,-1':
+    if args.scale is None:
         scaling = configs.get_configs()[args.scaling]
         scale_x = float(scaling['x'])
         scale_y = float(scaling['y'])
@@ -67,9 +68,31 @@ if __name__ == '__main__':
         domain = infile3.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(domain, name="Grid")
     domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
-    with io.XDMFFile(comm, tria_mesh_path, "r") as infile2:
-        ft = infile2.read_meshtags(domain, name="Grid")
-    meshtags = mesh.meshtags(domain, 2, ft.indices, ft.values)
+    try:
+        logger.debug("Attempting to load xmdf file for triangle mesh")
+        with io.XDMFFile(comm, tria_mesh_path, "r") as infile2:
+            ft = infile2.read_meshtags(domain, name="Grid")
+        left_boundary = ft.find(markers.left_cc)
+        right_boundary = ft.find(markers.right_cc)
+        meshtags = mesh.meshtags(domain, 2, ft.indices, ft.values)
+    except RuntimeError as e:
+        logger.error("Missing xdmf file for triangle mesh!")
+        facets = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
+                                               marker=lambda x: np.isfinite(x[2]))
+        facets_l0 = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
+                                               marker=lambda x: np.isclose(x[2], 0))
+        facets_lz = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
+                                               marker=lambda x: np.isclose(x[2], Lz))
+        all_indices = set(tuple([val for val in facets]))
+        l0_indices = set(tuple([val for val in facets_l0]))
+        lz_indices = set(tuple([val for val in facets_lz]))
+        insulator_indices = all_indices.difference(l0_indices | lz_indices)
+        ft_indices = np.asarray(list(l0_indices) + list(lz_indices) + list(insulator_indices), dtype=np.int32)
+        ft_values = np.asarray([markers.left_cc] * len(l0_indices) + [markers.right_cc] * len(lz_indices) + [markers.insulated] * len(insulator_indices), dtype=np.int32)
+        left_boundary = facets_l0
+        right_boundary = facets_lz
+        meshtags = mesh.meshtags(domain, domain.topology.dim - 1, ft_indices, ft_values)
+
     # Dirichlet BCs
     V = fem.FunctionSpace(domain, ("Lagrange", 2))
     u0 = fem.Function(V)
@@ -80,12 +103,10 @@ if __name__ == '__main__':
     with u1.vector.localForm() as u1_loc:
         u1_loc.set(0.0)
 
-    left_boundary = ft.find(markers.left_cc)
-    right_boundary = ft.find(markers.right_cc)
     left_bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 2, left_boundary))
     right_bc = fem.dirichletbc(u1, fem.locate_dofs_topological(V, 2, right_boundary))
     n = ufl.FacetNormal(domain)
-    x = ufl.SpatialCoordinate(domain)
+    # x = ufl.SpatialCoordinate(domain)
     ds = ufl.Measure("ds", domain=domain, subdomain_data=meshtags)
 
     # Define variational problem
@@ -143,59 +164,59 @@ if __name__ == '__main__':
     volume = fem.assemble_scalar(fem.form(1 * ufl.dx(domain)))
     total_area = area_left_cc + area_right_cc + insulated_area
     error = 100 * 2 * abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
+    if args.compute_distribution:
+        logger.debug("Cumulative distribution lines of current density at terminals")
+        min_cd = 100 * min([i_left_cc, i_right_cc])
+        max_cd = 100 * max([i_left_cc, i_right_cc])
+        # cd_lims = {
+        #     1: [-60, -55],
+        #     5: [-25, 0],
+        #     50: [-25, 0],
+        #     100: [-25, 0],
+        # }
+        # min_cd, max_cd = cd_lims[int(int(grid_extents.split("_")[0].split("-")[-1]) - 1)]
+        cd_space = np.linspace(min_cd, max_cd, num=1000)
+        cdf_values = []
+        EPS = 1e-30
 
-    logger.debug("Cumulative distribution lines of current density at terminals")
-    # min_cd = -100  # np.min(current_h.sub(2).x.array)
-    # max_cd = 0  # np.max(current_h.sub(2).x.array)
-    cd_lims = {
-        1: [-60, -55],
-        5: [-25, 0],
-        50: [-25, 0],
-        100: [-25, 0],
-    }
-    min_cd, max_cd = cd_lims[int(int(grid_extents.split("_")[0].split("-")[-1]) - 1)]
-    cd_space = np.linspace(min_cd, max_cd, num=1000)
-    cdf_values = []
-    EPS = 1e-30
+        def check_condition(values, tol):
+            tol_fun.interpolate(lambda x: tol * (x[0] + EPS) / (x[0] + EPS))
+            return ufl.conditional(ufl.le(values, tol_fun), 1, 0)
 
-    def check_condition(values, tol):
-        tol_fun.interpolate(lambda x: tol * (x[0] + EPS) / (x[0] + EPS))
-        return ufl.conditional(ufl.le(values, tol_fun), 1, 0)
+        for v in cd_space:
+            lpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), v) * ds(markers.left_cc))) / area_left_cc
+            rpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), -v) * ds(markers.right_cc))) / area_right_cc
+            cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
 
-    for v in cd_space:
-        lpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), v) * ds(markers.left_cc))) / area_left_cc
-        rpvalue = fem.assemble_scalar(fem.form(check_condition(ufl.inner(current_h, n), -v) * ds(markers.right_cc))) / area_right_cc
-        cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
-
-    with open(stats_path, 'w') as fp:
-        writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
-        writer.writeheader()
-        for row in cdf_values:
-            writer.writerow(row)
-    logger.debug(f"Wrote cdf stats in {stats_path}")
-    logger.debug(f"Cumulative distribution lines of derivative of current density at terminals")
-    grad2 = ufl.sqrt(
-        ufl.inner(
-            ufl.grad(ufl.inner(current_h, n)),
-            ufl.grad(ufl.inner(current_h, n))
+        with open(stats_path, 'w') as fp:
+            writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
+            writer.writeheader()
+            for row in cdf_values:
+                writer.writerow(row)
+        logger.debug(f"Wrote cdf stats in {stats_path}")
+        logger.debug(f"Cumulative distribution lines of derivative of current density at terminals")
+        grad2 = ufl.sqrt(
+            ufl.inner(
+                ufl.grad(ufl.inner(current_h, n)),
+                ufl.grad(ufl.inner(current_h, n))
+            )
         )
-    )
-    # mean_left = fem.assemble_scalar(fem.form(grad2 * ds(markers.left_cc))) / area_left_cc
-    # sd_left = (fem.assemble_scalar(fem.form((grad2 - mean_left) ** 2 * ds(markers.left_cc))) / area_left_cc) ** 0.5
-    # mean_right = fem.assemble_scalar(fem.form(grad2 * ds(markers.right_cc))) / area_right_cc
-    # sd_right = (fem.assemble_scalar(fem.form((grad2 - mean_right) ** 2 * ds(markers.right_cc))) / area_right_cc) ** 0.5
-    # grad_cd_min, grad_cd_max = [0, int(mean_left + 3 * sd_left)]
-    grad_cd_space = [0, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5] + list(np.linspace(1e-5 + 1e-6, 1e-4, num=100)) + [1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7]
-    grad_cd_cdf_values = []
-    for v in grad_cd_space:
-        lpvalue = fem.assemble_scalar(fem.form(check_condition(grad2, v) * ds(markers.left_cc))) / area_left_cc
-        grad_cd_cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": "-"})
-    with open(grad_cd_path, 'w') as fp:
-        writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
-        writer.writeheader()
-        for row in grad_cd_cdf_values:
-            writer.writerow(row)
-    logger.debug(f"Wrote cdf stats in {grad_cd_path}")
+        # mean_left = fem.assemble_scalar(fem.form(grad2 * ds(markers.left_cc))) / area_left_cc
+        # sd_left = (fem.assemble_scalar(fem.form((grad2 - mean_left) ** 2 * ds(markers.left_cc))) / area_left_cc) ** 0.5
+        # mean_right = fem.assemble_scalar(fem.form(grad2 * ds(markers.right_cc))) / area_right_cc
+        # sd_right = (fem.assemble_scalar(fem.form((grad2 - mean_right) ** 2 * ds(markers.right_cc))) / area_right_cc) ** 0.5
+        # grad_cd_min, grad_cd_max = [0, int(mean_left + 3 * sd_left)]
+        grad_cd_space = [0, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5] + list(np.linspace(1e-5 + 1e-6, 1e-4, num=100)) + [1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7]
+        grad_cd_cdf_values = []
+        for v in grad_cd_space:
+            lpvalue = fem.assemble_scalar(fem.form(check_condition(grad2, v) * ds(markers.left_cc))) / area_left_cc
+            grad_cd_cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": "-"})
+        with open(grad_cd_path, 'w') as fp:
+            writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
+            writer.writeheader()
+            for row in grad_cd_cdf_values:
+                writer.writerow(row)
+        logger.debug(f"Wrote cdf stats in {grad_cd_path}")
     logger.info("**************************RESULTS-SUMMARY******************************************")
     logger.info(f"Contact Area @ left cc [sq. um]                 : {area_left_cc*1e12:.4e}")
     logger.info(f"Contact Area @ right cc [sq. um]                : {area_right_cc*1e12:.4e}")

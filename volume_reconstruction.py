@@ -57,7 +57,8 @@ if __name__ == "__main__":
     Lx = Nx - 1
     Ly = Ny - 1
     Lz = Nz - 1
-    mesh_dir = os.path.join(args.output_folder, f"{args.grid_extents}/{phase}")
+    markers = commons.SurfaceMarkers()
+    mesh_dir = os.path.join(args.output_folder, args.segmentation_folder, f"{args.grid_extents}/{phase}")
     utils.make_dir_if_missing(mesh_dir)
     im_files = sorted([os.path.join(img_folder, f) for
                        f in os.listdir(img_folder) if f.endswith(".tif")])
@@ -85,6 +86,7 @@ if __name__ == "__main__":
         pickle.dump(effective_electrolyte, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
     nodefile = os.path.join(mesh_dir, "porous.node")
+    edgefile = os.path.join(mesh_dir, "porous.edge")
     tetfile = os.path.join(mesh_dir, "porous.ele")
     facesfile = os.path.join(mesh_dir, "porous.face")
     vtkfile = os.path.join(mesh_dir, "porous.1.vtk")
@@ -117,37 +119,41 @@ if __name__ == "__main__":
     gmsh.merge(vtkfile)
     gmsh.model.occ.synchronize()
 
-    volumes = gmsh.model.getEntities(dim=3)
-    for i, volume in enumerate(volumes):
-        marker = int(counter + i)
-        gmsh.model.addPhysicalGroup(3, [volume[1]], marker)
-        gmsh.model.setPhysicalName(3, marker, f"V{marker}")
+    volumes = [v[1] for v in gmsh.model.getEntities(dim=3)]
+    gmsh.model.addPhysicalGroup(3, volumes, phase)
     gmsh.model.occ.synchronize()
 
+    left = []
+    right = []
+    insulated = []
+    for surface in gmsh.model.getEntities(2):
+        com = gmsh.model.occ.getCenterOfMass(*surface)
+        if np.isclose(com[2], 0):
+            left.append(surface[1])
+        elif np.isclose(com[2], Lz):
+            right.append(surface[1])
+        else:
+            insulated.append(surface[1])
+    gmsh.model.addPhysicalGroup(2, left, markers.left_cc)
+    gmsh.model.addPhysicalGroup(2, right, markers.right_cc)
+    gmsh.model.addPhysicalGroup(2, insulated, markers.insulated)
+    gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
     gmsh.write(tetr_mshfile)
     gmsh.finalize()
 
-    tet_msh = meshio.read(tetr_mshfile)
-    tetr_mesh_unscaled = geometry.create_mesh(tet_msh, CELL_TYPES.tetra)
+    msh = meshio.read(tetr_mshfile)
+    tetr_mesh_unscaled = geometry.create_mesh(msh, CELL_TYPES.tetra)
     tetr_mesh_unscaled.write(tetr_xdmf_unscaled)
     tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, CELL_TYPES.tetra, scale_factor=scale_factor)
     tetr_mesh_scaled.write(tetr_xdmf_scaled)
-    # with io.XDMFFile(MPI.COMM_WORLD, tetr_xdmf_unscaled, "r") as fp:
-    #     domain = fp.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
-    # domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
-    # surfaces = mesh.locate_entities_boundary(domain, 2, lambda x: np.isreal(x[0]))
-    # labels = np.zeros(surfaces.shape, dtype=np.int32)
-    # tags = np.hstack((surfaces, labels))
 
-    # retcode_paraview = subprocess.check_call("pvpython extract_surface_from_volume.py {}".format(os.path.dirname(tetr_xdmf_unscaled)), shell=True)
-    # surf_msh = meshio.read(tria_xmf_unscaled)
-    # tria_mesh_unscaled = geometry.label_surface_mesh(surf_msh, effective_electrolyte, Ly)
+    # tria_mesh_unscaled = geometry.create_mesh(msh, CELL_TYPES.triangle)
     # tria_mesh_unscaled.write(tria_xdmf_unscaled)
-
     # tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, CELL_TYPES.triangle, scale_factor=scale_factor)
     # tria_mesh_scaled.write(tria_xdmf_scaled)
-    for f in [nodefile, tetfile, facesfile, vtkfile, surface_vtk, tetr_mshfile, surf_mshfile, tetr_xdmf_unscaled, tria_xdmf_unscaled]:
+
+    for f in [nodefile, edgefile, tetfile, facesfile, vtkfile, surface_vtk, tetr_mshfile, surf_mshfile, tetr_xdmf_unscaled, tria_xdmf_unscaled]:
         try:
             os.remove(f)
             new_f = f.split('.')[0] + '.1.' + f.split('.')[-1]
