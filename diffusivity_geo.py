@@ -93,8 +93,10 @@ if __name__ == '__main__':
     left = [lines[5]]
     right = [lines[2]]
     middle = lines[6:]
+    insulated = lines[:2] + lines[3:5]
     left_cc = gmsh.model.addPhysicalGroup(1, left, markers.left_cc)
     right_cc = gmsh.model.addPhysicalGroup(1, right, markers.right_cc)
+    insulated_ = gmsh.model.addPhysicalGroup(1, insulated, markers.insulated)
     am_se = gmsh.model.addPhysicalGroup(1, middle, markers.am_se_interface)
     gmsh.model.occ.synchronize()
     se_phase = [lines[idx] for idx in [0, 6, 7, 8, 9, 10, 4, 5]]
