@@ -21,3 +21,4 @@ DZ = 0.050  # [um]
 EXP_DIGITS = 4
 
 KAPPA0 = 0.1  # bulk ionic conductivity Siemens/meter
+SIGMA0 = 10  # bulk electronic conductivity Siemens/meter

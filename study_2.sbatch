@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH -A gts-tf74
 #SBATCH -Jstudy_2
-#SBATCH -N 1
-#SBATCH --mem-per-cpu=384G
+#SBATCH -N 10
+#SBATCH --mem-per-cpu=192G
 #SBATCH --ntasks-per-node=1
 #SBATCH -t36:00:00
 #SBATCH -qinferno
