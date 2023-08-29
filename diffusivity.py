@@ -116,8 +116,7 @@ if __name__ == '__main__':
 
     F = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * dx(phases.electrolyte)
     F += ufl.inner(sigma * ufl.grad(u), ufl.grad(v)) * dx(phases.active_material)
-    F += ufl.inner((i_exchange / R / F_farad) * (n("-") * v("-") - n("+") * v("+")), kappa * ufl.grad(u("-"))) * dS(markers.am_se_interface)
-    # F -= ufl.inner(n("+") * v("+"), sigma * ufl.grad(u("+"))) * dS(markers.am_se_interface)
+    F += ufl.inner((i_exchange / R / F_farad) * (-n("-") * v("-") + n("+") * v("+")), kappa * ufl.grad(u("-"))) * dS(markers.am_se_interface)
     F -= ufl.inner(f, v) * dx(phases.electrolyte)
     F -= ufl.inner(f, v) * dx(phases.active_material)
     F -= ufl.inner(g, v) * ds(markers.insulated)
