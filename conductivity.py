@@ -43,8 +43,8 @@ if __name__ == '__main__':
     grid_extents = args.grid_extents
     logger = logging.getLogger()
     logger.setLevel(loglevel)
-    formatter = logging.Formatter(f'%(levelname)s:%(asctime)s:{grid_extents}:%(message)s')
-    fh = logging.FileHandler('transport.log')
+    formatter = logging.Formatter(f'%(levelname)s:%(asctime)s:{data_dir}:{grid_extents}:%(message)s')
+    fh = logging.FileHandler(os.path.basename(__file__).replace(".py", ".log"))
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
