@@ -110,6 +110,20 @@ if __name__ == '__main__':
     se_domain = gmsh.model.addPhysicalGroup(2, [se_surf], phases.electrolyte)
     am_domain = gmsh.model.addPhysicalGroup(2, [am_surf], phases.active_material)
     gmsh.model.occ.synchronize()
+
+    # refinement
+    resolution = 0.1
+    gmsh.model.mesh.field.add("Distance", 1)
+    gmsh.model.mesh.field.setNumbers(1, "EdgesList", [insulated_, left_cc, right_cc, am_se])
+
+    gmsh.model.mesh.field.add("Threshold", 2)
+    gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    gmsh.model.mesh.field.setNumber(2, "LcMin", resolution)
+    gmsh.model.mesh.field.setNumber(2, "LcMax", 20 * resolution)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 0)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 0.1)
+
+    gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(2)
     gmsh.write(output_meshfile)
     gmsh.finalize()
