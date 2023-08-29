@@ -2,6 +2,7 @@
 
 import os
 import time
+import timeit
 
 import argparse
 import logging
@@ -16,6 +17,10 @@ import commons, configs, constants, utils
 
 markers = commons.SurfaceMarkers()
 phases = commons.Phases()
+i_exchange = 10
+R = 8.314
+F_farad = 96485
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Diffusivity')
@@ -25,13 +30,16 @@ if __name__ == '__main__':
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='VOXEL_SCALING4', type=str)
     args = parser.parse_args()
+    start_time = timeit.default_timer()
     data_dir = os.path.join(args.root_folder, args.grid_extents)
     loglevel = configs.get_configs()['LOGGING']['level']
     grid_extents = args.grid_extents
     logger = logging.getLogger()
     logger.setLevel(loglevel)
+    logger = logging.getLogger()
+    logger.setLevel(loglevel)
     formatter = logging.Formatter(f'%(levelname)s:%(asctime)s:{grid_extents}:%(message)s')
-    fh = logging.FileHandler('transport.log')
+    fh = logging.FileHandler(os.path.basename(__file__).replace(".py", ".log"))
     fh.setFormatter(formatter)
     logger.addHandler(fh)
     comm = MPI.COMM_WORLD
@@ -67,7 +75,7 @@ if __name__ == '__main__':
     domaintags = mesh.meshtags(domain, domain.topology.dim, ct.indices, ct.values)
 
     # potential problem
-    Q = fem.FunctionSpace(domain, ("Discontinuous Lagrange", 2))
+    Q = fem.FunctionSpace(domain, ("Lagrange", 2))
 
     u0 = fem.Function(Q)
     with u0.vector.localForm() as u0_loc:
@@ -79,6 +87,8 @@ if __name__ == '__main__':
 
     left_boundary = ft.find(markers.left_cc)
     right_boundary = ft.find(markers.right_cc)
+    cells_am = ct.find(phases.active_material)
+    cells_se = ct.find(phases.electrolyte)
     left_bc = fem.dirichletbc(u0, fem.locate_dofs_topological(Q, domain.topology.dim - 1, left_boundary))
     right_bc = fem.dirichletbc(u1, fem.locate_dofs_topological(Q, domain.topology.dim - 1, right_boundary))
     n = ufl.FacetNormal(domain)
@@ -88,43 +98,54 @@ if __name__ == '__main__':
     dx = ufl.Measure('dx', domain=domain, subdomain_data=domaintags)
 
     # Define variational problem
-    u = ufl.TrialFunction(Q)
+    u = fem.Function(Q)
     v = ufl.TestFunction(Q)
 
     # bulk conductivity [S.m-1]
+    # kappa = fem.Function(Q)
+    # kappa.x.array[cells_se] = np.full_like(cells_se, constants.KAPPA0, dtype=PETSc.ScalarType)
+    # kappa.x.array[cells_am] = np.full_like(cells_am, 0, dtype=PETSc.ScalarType)
+    # sigma = fem.Function(Q)
+    # sigma.x.array[cells_se] = np.full_like(cells_se, 0, dtype=PETSc.ScalarType)
+    # sigma.x.array[cells_am] = np.full_like(cells_am, constants.SIGMA0, dtype=PETSc.ScalarType)
+
     kappa = fem.Constant(domain, PETSc.ScalarType(constants.KAPPA0))
     sigma = fem.Constant(domain, PETSc.ScalarType(constants.SIGMA0))
     f = fem.Constant(domain, PETSc.ScalarType(0.0))
     g = fem.Constant(domain, PETSc.ScalarType(0.0))
 
-    a = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * dx(phases.electrolyte) +\
-        ufl.inner(sigma * ufl.grad(u), ufl.grad(v)) * dx(phases.active_material) + \
-        ufl.inner(n("-") * v("-"), kappa * ufl.grad(u("-"))) * dS(markers.am_se_interface) - \
-        ufl.inner(n("+") *  v("+"), sigma * ufl.grad(u("+"))) * dS(markers.am_se_interface)
-    L = ufl.inner(f, v) * dx(phases.electrolyte) + ufl.inner(g, v) * ds(markers.insulated)
+    F = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * dx(phases.electrolyte)
+    F += ufl.inner(sigma * ufl.grad(u), ufl.grad(v)) * dx(phases.active_material)
+    F += ufl.inner((i_exchange / R / F_farad) * (n("-") * v("-") - n("+") * v("+")), kappa * ufl.grad(u("-"))) * dS(markers.am_se_interface)
+    # F -= ufl.inner(n("+") * v("+"), sigma * ufl.grad(u("+"))) * dS(markers.am_se_interface)
+    F -= ufl.inner(f, v) * dx(phases.electrolyte)
+    F -= ufl.inner(f, v) * dx(phases.active_material)
+    F -= ufl.inner(g, v) * ds(markers.insulated)
+    # F += ufl.inner(-kappa * ufl.grad(u)("-"), (i_exchange / R / F_farad) * ufl.jump(v, n)) * dS(markers.am_se_interface)
 
-    options = {
-        "ksp_type": "gmres",
-        "pc_type": "hypre",
-        "ksp_rtol": 1.0e-12
-    }
+    problem = fem.petsc.NonlinearProblem(F, u, bcs=[left_bc, right_bc])
+    solver = nls.petsc.NewtonSolver(comm, problem)
+    solver.convergence_criterion = "residual"
+    solver.rtol = 1e-10
 
-    model = fem.petsc.LinearProblem(a, L, bcs=[left_bc, right_bc], petsc_options=options)
-    logger.debug('Solving problem..')
-    uh = model.solve()
+    ksp = solver.krylov_solver
+    opts = PETSc.Options()
+    option_prefix = ksp.getOptionsPrefix()
+    opts[f"{option_prefix}ksp_type"] = "preonly"
+    opts[f"{option_prefix}pc_type"] = "lu"
+    opts['maximum_iterations'] = 100
+    ksp.setFromOptions()
+    ret = solver.solve(u)
 
     # Save solution in XDMF format
     with io.XDMFFile(comm, output_potential_path, "w") as outfile:
         outfile.write_mesh(domain)
-        outfile.write_function(uh)
-
-    # # Update ghost entries and plot
-    uh.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+        outfile.write_function(u)
 
     logger.debug("Post-process calculations")
-    grad_u = ufl.grad(uh)
-    W = fem.VectorFunctionSpace(domain, ("Discontinuous Lagrange", 1))
-    current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
+    grad_u = ufl.grad(u)
+    W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
+    current_expr = fem.Expression(-grad_u, W.element.interpolation_points())
     current_h = fem.Function(W)
     tol_fun = fem.Function(Q)
     current_h.interpolate(current_expr)
@@ -133,52 +154,37 @@ if __name__ == '__main__':
         file.write_mesh(domain)
         file.write_function(current_h)
 
-    # # concentration problem
-    # # bulk diffusivity
-    # D = fem.Constant(domain, PETSc.ScalarType(1e-10))
-    # f_farad = fem.Constant(domain, PETSc.ScalarType(96485))
-    # # surface flux conditions
-    # V = fem.FunctionSpace(domain, ("Lagrange", 2))
-    # dt = 1e-3  # [ms]
-    # theta = 0.5  # crank-nicholson time-stepping
-    # c = fem.Function(V)
-    # c0 = fem.Function(V)  # solution from previous converged step
-    # r = ufl.TestFunction(V)
-    # c.x.array[:] = 1e3  # [mol/m3]
-    #
-    # c_mid = (1.0 - theta) * c0 + theta * c
-    # g0 = fem.Constant(domain, PETSc.ScalarType(0.0))
-    #
-    # F = ufl.inner(c, r) * ufl.dx - ufl.inner(c0, r) * ufl.dx + dt * ufl.inner(D * ufl.grad(c), ufl.grad(r)) * ufl.dx
-    # F -= ufl.inner(g0, r) * ds(markers.insulated)
-    # F -= ufl.inner(g0, r) * ds(markers.left_cc)
-    # F -= ufl.inner(ufl.inner((-1 / f_farad) * current_h, n), r) * ds(markers.right_cc)
-    #
-    # # Create nonlinear problem and Newton solver
-    # problem = fem.petsc.NonlinearProblem(F, c)
-    # solver = nls.petsc.NewtonSolver(comm, problem)
-    # solver.convergence_criterion = "incremental"
-    # solver.rtol = np.sqrt(np.finfo(np.float64).eps) * 1e-2
-    #
-    # # We can customize the linear solver used inside the NewtonSolver by
-    # # modifying the PETSc options
-    # ksp = solver.krylov_solver
-    # opts = PETSc.Options()
-    # option_prefix = ksp.getOptionsPrefix()
-    # opts[f"{option_prefix}ksp_type"] = "gmres"
-    # opts[f"{option_prefix}pc_type"] = "hypre"
-    # ksp.setFromOptions()
-    #
-    # c0.x.array[:] = c.x.array
-    # # step in time
-    # t = 0.0
-    # T = 5 * dt
-    # file = io.XDMFFile(MPI.COMM_WORLD, concentration_path, "w")
-    # file.write_mesh(domain)
-    # while t < T:
-    #     t += dt
-    #     ret = solver.solve(c)
-    #     logger.debug(f"Step {int(t / dt)}: num iterations: {ret[0]}")
-    #     c0.x.array[:] = c.x.array
-    #     file.write_function(c, t)
-    # file.close()
+    logger.debug("Post-process Results Summary")
+    insulated_area = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.insulated))), op=MPI.SUM, root=0)
+    area_left_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.left_cc))), op=MPI.SUM, root=0)
+    area_right_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.right_cc))), op=MPI.SUM, root=0)
+    I_left_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(kappa * current_h, n) * ds(markers.left_cc))), op=MPI.SUM, root=0)
+    I_right_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(sigma * current_h, n) * ds(markers.right_cc))), op=MPI.SUM, root=0)
+    I_insulated = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner((kappa + sigma) * current_h, n) * ds)), op=MPI.SUM, root=0)
+    volume = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ufl.dx(domain))), op=MPI.SUM, root=0)
+    total_area = area_left_cc + area_right_cc + insulated_area
+    error = 100 * 2 * abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
+
+    if domain.comm.rank == 0:
+        print(I_left_cc, I_right_cc)
+        logger.info("**************************RESULTS-SUMMARY******************************************")
+        logger.info(f"Contact Area @ left cc [sq. um]                 : {area_left_cc * 1e12:.4e}")
+        logger.info(f"Contact Area @ right cc [sq. um]                : {area_right_cc * 1e12:.4e}")
+        logger.info(f"Insulated Area [sq. um]                         : {insulated_area * 1e12:.4e}")
+        logger.info(f"Total Area [sq. um]                             : {total_area * 1e12:.4e}")
+        logger.info(f"Current density @ left cc [A/m2]                : {I_left_cc/area_left_cc:.4e}")
+        logger.info(f"Current density @ right cc [A/m2]               : {I_right_cc/area_right_cc:.4e}")
+        logger.info(f"Current @ left cc [A]                           : {I_left_cc:.4e}")
+        logger.info(f"Current @ right cc [A]                          : {I_right_cc:.4e}")
+        logger.info(f"Insulated Current [A]                           : {I_insulated:.2e}")
+        logger.info(f"Electrolyte Volume [cu. um]                     : {volume * 1e18:.4e}")
+        logger.info("Electrolyte Volume Fraction                     : {:.2%}".format(volume / (Lx * Ly * Lz)))
+        logger.info(f"Bulk conductivity [S.m-1]                       : {constants.KAPPA0:.4e}")
+        logger.info("Effective conductivity [S.m-1]                  : {:.4e}".format(
+            Lz * abs(I_left_cc) / (args.voltage * (Lx * Ly))))
+        logger.info(f"Conductor Length, L_z [um]                      : {Lz * 1e6:.1e}")
+        logger.info(f"Deviation in current at two current collectors  : {error:.2f}%")
+        logger.info(f"Voltage                                         : {args.voltage}")
+        logger.info(
+            f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
+        logger.info("*************************END-OF-SUMMARY*******************************************")
