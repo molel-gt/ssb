@@ -17,7 +17,7 @@ import commons, configs, constants, utils
 
 markers = commons.SurfaceMarkers()
 phases = commons.Phases()
-i_exchange = 10
+i_exchange = 1e-2
 R = 8.314
 F_farad = 96485
 T = 298
@@ -117,7 +117,7 @@ if __name__ == '__main__':
 
     F = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * dx(phases.electrolyte)
     F += ufl.inner(sigma * ufl.grad(u), ufl.grad(v)) * dx(phases.active_material)
-    F += ufl.inner((i_exchange * F_farad / R / T) * (n("+") * v("+") - n("-") * v("-")), kappa * ufl.grad(u("-"))) * dS(markers.am_se_interface)
+    F += ufl.inner((i_exchange * F_farad / R / T) * (-n("-") * v("-") + n("+") * v("+")), kappa * ufl.grad(u("-"))) * dS(markers.am_se_interface)
     F -= ufl.inner(f, v) * dx(phases.electrolyte)
     F -= ufl.inner(f, v) * dx(phases.active_material)
     F -= ufl.inner(g, v) * ds(markers.insulated)
@@ -126,7 +126,7 @@ if __name__ == '__main__':
     problem = fem.petsc.NonlinearProblem(F, u, bcs=[left_bc, right_bc])
     solver = nls.petsc.NewtonSolver(comm, problem)
     solver.convergence_criterion = "residual"
-    solver.rtol = 1e-10
+    solver.rtol = 1e-12
 
     ksp = solver.krylov_solver
     opts = PETSc.Options()
