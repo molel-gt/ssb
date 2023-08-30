@@ -37,20 +37,23 @@ if __name__ == '__main__':
     parser.add_argument('--root_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='VOXEL_SCALING4', type=str)
+    parser.add_argument('--resolution', help='resolution used in gmsh', nargs='?',
+                        const=1, default=0.1, type=float)
     args = parser.parse_args()
     utils.make_dir_if_missing(args.root_folder)
     output_meshfile = os.path.join(args.root_folder, 'mesh.msh')
     gmsh.initialize()
     gmsh.model.add('diffusivity')
+    gmsh.option.setNumber('Mesh.Smoothing', 100)
     gpoints_round = []
     gpoints_mid = []
     for p in points_round:
         gpoints_round.append(
-            gmsh.model.occ.addPoint(*p)
+            gmsh.model.occ.addPoint(*p, meshSize=args.resolution)
         )
     for p in points_mid:
         gpoints_mid.append(
-            gmsh.model.occ.addPoint(*p)
+            gmsh.model.occ.addPoint(*p, meshSize=args.resolution)
         )
     gmsh.model.occ.synchronize()
     lines = []
@@ -112,7 +115,7 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
 
     # refinement
-    resolution = 0.1
+    resolution = args.resolution
     gmsh.model.mesh.field.add("Distance", 1)
     gmsh.model.mesh.field.setNumbers(1, "EdgesList", [insulated_, left_cc, right_cc, am_se])
 
