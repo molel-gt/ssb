@@ -17,7 +17,7 @@ import commons, configs, constants, utils
 
 markers = commons.SurfaceMarkers()
 phases = commons.Phases()
-i_exchange = 1e-2
+i_exchange = 1e-4
 R = 8.314
 F_farad = 96485
 T = 298
@@ -76,7 +76,7 @@ if __name__ == '__main__':
     domaintags = mesh.meshtags(domain, domain.topology.dim, ct.indices, ct.values)
 
     # potential problem
-    Q = fem.FunctionSpace(domain, ("Lagrange", 2))
+    Q = fem.FunctionSpace(domain, ("CG", 2))
 
     u0 = fem.Function(Q)
     with u0.vector.localForm() as u0_loc:
@@ -94,12 +94,14 @@ if __name__ == '__main__':
     right_bc = fem.dirichletbc(u1, fem.locate_dofs_topological(Q, domain.topology.dim - 1, right_boundary))
     n = ufl.FacetNormal(domain)
     x = ufl.SpatialCoordinate(domain)
+    h = 2 * ufl.Circumradius(domain)
     dS = ufl.Measure('dS', domain=domain, subdomain_data=meshtags)
     ds = ufl.Measure("ds", domain=domain, subdomain_data=meshtags)
     dx = ufl.Measure('dx', domain=domain, subdomain_data=domaintags)
 
     # Define variational problem
     u = fem.Function(Q)
+    u.name = "potential"
     v = ufl.TestFunction(Q)
 
     # bulk conductivity [S.m-1]
@@ -117,15 +119,15 @@ if __name__ == '__main__':
 
     F = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * dx(phases.electrolyte)
     F += ufl.inner(sigma * ufl.grad(u), ufl.grad(v)) * dx(phases.active_material)
-    F += ufl.inner((i_exchange * F_farad / R / T) * (-n("-") * v("-") + n("+") * v("+")), kappa * ufl.grad(u("-"))) * dS(markers.am_se_interface)
     F -= ufl.inner(f, v) * dx(phases.electrolyte)
     F -= ufl.inner(f, v) * dx(phases.active_material)
     F -= ufl.inner(g, v) * ds(markers.insulated)
-    # F += ufl.inner(-kappa * ufl.grad(u)("-"), (i_exchange / R / F_farad) * ufl.jump(v, n)) * dS(markers.am_se_interface)
+    F += ufl.inner(kappa * ufl.grad(u("-")), v("-") * n("-")) * dS(markers.am_se_interface)
+    F -= (i_exchange * F_farad / R / T) * ufl.inner(ufl.jump(u, n), ufl.jump(v, n))  * dS(markers.am_se_interface)
 
     problem = fem.petsc.NonlinearProblem(F, u, bcs=[left_bc, right_bc])
     solver = nls.petsc.NewtonSolver(comm, problem)
-    solver.convergence_criterion = "residual"
+    solver.convergence_criterion = "incremental"
     solver.rtol = 1e-12
 
     ksp = solver.krylov_solver
@@ -144,9 +146,10 @@ if __name__ == '__main__':
 
     logger.debug("Post-process calculations")
     grad_u = ufl.grad(u)
-    W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
+    W = fem.VectorFunctionSpace(domain, ("CG", 1))
     current_expr = fem.Expression(-grad_u, W.element.interpolation_points())
     current_h = fem.Function(W)
+    current_h.name = "current_density"
     tol_fun = fem.Function(Q)
     current_h.interpolate(current_expr)
 
