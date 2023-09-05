@@ -6,8 +6,7 @@ import ufl
 from dolfinx import cpp, fem, io, mesh, plot
 from mpi4py import MPI
 from petsc4py import PETSc
-from ufl import (Circumradius, FacetNormal, SpatialCoordinate, TrialFunction, TestFunction,
-                 div, dx, ds, grad, inner, grad)
+from ufl import (div, dx, ds, grad, inner, grad)
 
 comm = MPI.COMM_WORLD
 N = 8
@@ -22,9 +21,9 @@ n = ufl.FacetNormal(domain)
 
 f = -div(grad(1 + x[0] ** 2 + 2 * x[1] ** 2))
 
-u = TrialFunction(V)
-v = TestFunction(V)
-h = 2 * Circumradius(domain)
+u = ufl.TrialFunction(V)
+v = ufl.TestFunction(V)
+h = 2 * ufl.Circumradius(domain)
 alpha = 10
 a = inner(grad(u), grad(v)) * dx - inner(n, grad(u)) * v * ds
 a += - inner(n, grad(v)) * u * ds + alpha / h * inner(u, v) * ds
