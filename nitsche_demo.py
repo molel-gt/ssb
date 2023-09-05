@@ -1,7 +1,8 @@
 import dolfinx
-import dolfinx.plot
 import numpy
 import pyvista
+
+from dolfinx import plot
 from mpi4py import MPI
 from petsc4py import PETSc
 from ufl import (Circumradius, FacetNormal, SpatialCoordinate, TrialFunction, TestFunction,
@@ -38,7 +39,7 @@ u_vertex_values = uh.compute_point_values()
 u_ex_vertex_values = uD.compute_point_values()
 error_max = numpy.max(numpy.abs(u_vertex_values - u_ex_vertex_values))
 print(f"Error_max : {error_max:.2e}")
-
+topology, cell_types, x = plot.create_vtk_mesh(V)
 grid = pyvista.UnstructuredGrid(topology, cell_types, mesh.geometry.x)
 grid.point_arrays["u"] = u_vertex_values.real
 grid.set_active_scalars("u")
