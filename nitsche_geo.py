@@ -22,7 +22,7 @@ points_all = [
     (50, 50, 0),
     (50, 0, 0),
     (60, 0, 0),
-    (60, 5, 0)
+    (60, 50, 0),
 ]
 
 
@@ -44,7 +44,7 @@ if __name__ == '__main__':
 
     for p in points_all:
         gpoints.append(
-            gmsh.model.occ.addPoint(*p, meshSize=args.resolution)
+            gmsh.model.occ.addPoint(*p)
         )
 
     gmsh.model.occ.synchronize()
@@ -95,20 +95,20 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
 
     # refinement
-    resolution = args.resolution
-    gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "EdgesList", [insulated_, left_cc, right_cc, am_se])
-
-    gmsh.model.mesh.field.add("Threshold", 2)
-    gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "LcMin", resolution/100)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 0.5)
-
-    gmsh.model.mesh.field.add("Max", 5)
-    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    # resolution = args.resolution
+    # gmsh.model.mesh.field.add("Distance", 1)
+    # gmsh.model.mesh.field.setNumbers(1, "EdgesList", [insulated_, left_cc, right_cc, am_se])
+    #
+    # gmsh.model.mesh.field.add("Threshold", 2)
+    # gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    # gmsh.model.mesh.field.setNumber(2, "LcMin", resolution/100)
+    # gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
+    # gmsh.model.mesh.field.setNumber(2, "DistMin", 0)
+    # gmsh.model.mesh.field.setNumber(2, "DistMax", 0.5)
+    #
+    # gmsh.model.mesh.field.add("Max", 5)
+    # gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    # gmsh.model.mesh.field.setAsBackgroundMesh(5)
 
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(2)
