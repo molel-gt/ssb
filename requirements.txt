@@ -4,6 +4,7 @@ gmsh==4.8.4
 h5py
 hdbscan
 igraph
+ipympl
 jax
 jupyter
 matplotlib
@@ -15,9 +16,13 @@ openpyxl
 pandas
 pybamm
 python-gmsh
+pythreejs
 pyvista
 scipy
 scikit-image
 scikit-learn
 tetgen
+trame-vtk
+trame-vuetify
+trame-plotly
 vtk
