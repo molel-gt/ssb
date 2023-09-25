@@ -191,7 +191,7 @@ if __name__ == '__main__':
         def frequency_condition(values, vleft, vright):
             tol_fun_left.interpolate(lambda x: vleft * (x[0] + EPS) / (x[0] + EPS))
             tol_fun_right.interpolate(lambda x: vright * (x[0] + EPS) / (x[0] + EPS))
-            return ufl.conditional(ufl.ge(values, tol_fun_left) and ufl.lt(values, tol_fun_right), 1, 0)
+            return ufl.conditional(ufl.ge(values, tol_fun_left), 1, 0) * ufl.conditional(ufl.lt(values, tol_fun_right), 1, 0)
 
         def check_condition(values, tol):
             tol_fun.interpolate(lambda x: tol * (x[0] + EPS) / (x[0] + EPS))
