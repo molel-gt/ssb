@@ -60,6 +60,7 @@ if __name__ == '__main__':
     output_current_path = os.path.join(data_dir, 'current.xdmf')
     output_potential_path = os.path.join(data_dir, 'potential.xdmf')
     stats_path = os.path.join(data_dir, 'cdf.csv')
+    frequency_path = os.path.join(data_dir, 'frequency.csv')
     grad_cd_path = os.path.join(data_dir, 'cdf_grad_cd.csv')
 
     left_cc_marker = markers.left_cc
@@ -148,6 +149,8 @@ if __name__ == '__main__':
     current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
     current_h = fem.Function(W)
     tol_fun = fem.Function(V)
+    tol_fun_left = fem.Function(V)
+    tol_fun_right = fem.Function(V)
     current_h.interpolate(current_expr)
 
     with io.XDMFFile(comm, output_current_path, "w") as file:
@@ -182,7 +185,13 @@ if __name__ == '__main__':
         min_cd, max_cd = cd_lims[int(int(grid_extents.split("_")[0].split("-")[-1]) - 1)]
         cd_space = np.linspace(min_cd, max_cd, num=1000)
         cdf_values = []
+        freq_values = []
         EPS = 1e-30
+
+        def frequency_condition(values, vleft, vright):
+            tol_fun_left.interpolate(lambda x: vleft * (x[0] + EPS) / (x[0] + EPS))
+            tol_fun_right.interpolate(lambda x: vright * (x[0] + EPS) / (x[0] + EPS))
+            return ufl.conditional(ufl.ge(values, tol_fun_left), 1, 0) * ufl.conditional(ufl.lt(values, tol_fun_right), 1, 0)
 
         def check_condition(values, tol):
             tol_fun.interpolate(lambda x: tol * (x[0] + EPS) / (x[0] + EPS))
@@ -192,11 +201,30 @@ if __name__ == '__main__':
             lpvalue = domain.comm.reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.left_cc))) / area_left_cc, op=MPI.SUM, root=0)
             rpvalue = domain.comm.reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.right_cc))) / area_right_cc, op=MPI.SUM, root=0)
             cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
+        for i, vleft in enumerate(list(cd_space)[:-1]):
+            vright = cd_space[i+1]
+            freql = domain.comm.reduce(
+                fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(markers.left_cc))) / area_left_cc,
+                op=MPI.SUM,
+                root=0
+            )
+            freqr = domain.comm.reduce(
+                fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(
+                    markers.right_cc))) / area_right_cc,
+                op=MPI.SUM,
+                root=0
+            )
+            freq_values.append({"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql": freql, "freqr": freqr})
         if domain.comm.rank == 0:
             with open(stats_path, 'w') as fp:
                 writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
                 writer.writeheader()
                 for row in cdf_values:
+                    writer.writerow(row)
+            with open(frequency_path, "w") as fp:
+                writer = csv.DictWriter(fp, fieldnames=["vleft [A/m2]", "vright [A/m2]", "freql", "freqr"])
+                writer.writeheader()
+                for row in freq_values:
                     writer.writerow(row)
         logger.debug(f"Wrote cdf stats in {stats_path}")
         if args.compute_grad_distribution:
