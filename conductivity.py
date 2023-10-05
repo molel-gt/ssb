@@ -184,7 +184,7 @@ if __name__ == '__main__':
         )
         min_cd, max_cd = cd_lims[int(int(grid_extents.split("_")[0].split("-")[-1]) - 1)]
         if np.isclose(int(int(grid_extents.split("_")[0].split("-")[-1]) - 1), 1):
-            cd_space = np.vstack(np.linspace(0, min_cd, num=1000), np.linspace(min_cd, max_cd, num=1000))
+            cd_space = np.hstack((np.linspace(0, min_cd, num=1000), np.linspace(min_cd, max_cd, num=1000)))
         else:
             cd_space = np.linspace(min_cd, max_cd, num=1000)
         cdf_values = []
