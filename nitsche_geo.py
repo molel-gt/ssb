@@ -16,20 +16,15 @@ markers = commons.SurfaceMarkers()
 phases = commons.Phases()
 cell_types = commons.CellTypes()
 
-points_round = [
+points_all = [
     (0, 0, 0),
-    (140, 0, 0),
-    (150, 0, 0),
-    (150, 40, 0),
-    (140, 40, 0),
-    (0, 40, 0),
+    (0, 50, 0),
+    (50, 50, 0),
+    (50, 0, 0),
+    (60, 0, 0),
+    (60, 50, 0),
 ]
-points_mid = [
-    (140, 10, 0),
-    (50, 10, 0),
-    (50, 30, 0),
-    (140, 30, 0),
-]
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
@@ -45,65 +40,50 @@ if __name__ == '__main__':
     gmsh.initialize()
     gmsh.model.add('diffusivity')
     gmsh.option.setNumber('Mesh.Smoothing', 100)
-    gpoints_round = []
-    gpoints_mid = []
-    for p in points_round:
-        gpoints_round.append(
-            gmsh.model.occ.addPoint(*p, meshSize=args.resolution)
+    gpoints = []
+
+    for p in points_all:
+        gpoints.append(
+            gmsh.model.occ.addPoint(*p)
         )
-    for p in points_mid:
-        gpoints_mid.append(
-            gmsh.model.occ.addPoint(*p, meshSize=args.resolution)
-        )
+
     gmsh.model.occ.synchronize()
     lines = []
     # round loop
     lines.append(
-        gmsh.model.occ.addLine(gpoints_round[0], gpoints_round[1])
+        gmsh.model.occ.addLine(gpoints[0], gpoints[1])
     )
     lines.append(
-        gmsh.model.occ.addLine(gpoints_round[1], gpoints_round[2])
+        gmsh.model.occ.addLine(gpoints[1], gpoints[2])
     )
     lines.append(
-        gmsh.model.occ.addLine(gpoints_round[2], gpoints_round[3])
+        gmsh.model.occ.addLine(gpoints[2], gpoints[3])
     )
     lines.append(
-        gmsh.model.occ.addLine(gpoints_round[3], gpoints_round[4])
+        gmsh.model.occ.addLine(gpoints[3], gpoints[0])
     )
     lines.append(
-        gmsh.model.occ.addLine(gpoints_round[4], gpoints_round[5])
+        gmsh.model.occ.addLine(gpoints[3], gpoints[4])
     )
     lines.append(
-        gmsh.model.occ.addLine(gpoints_round[5], gpoints_round[0])
-    )
-    # middle lines
-    lines.append(
-        gmsh.model.occ.addLine(gpoints_round[1], gpoints_mid[0])
+        gmsh.model.occ.addLine(gpoints[4], gpoints[5])
     )
     lines.append(
-        gmsh.model.occ.addLine(gpoints_mid[0], gpoints_mid[1])
+        gmsh.model.occ.addLine(gpoints[5], gpoints[2])
     )
-    lines.append(
-        gmsh.model.occ.addLine(gpoints_mid[1], gpoints_mid[2])
-    )
-    lines.append(
-        gmsh.model.occ.addLine(gpoints_mid[2], gpoints_mid[3])
-    )
-    lines.append(
-        gmsh.model.occ.addLine(gpoints_mid[3], gpoints_round[4])
-    )
+
     gmsh.model.occ.synchronize()
-    left = [lines[5]]
-    right = [lines[2]]
-    middle = lines[6:]
-    insulated = lines[:2] + lines[3:5]
+    left = [lines[0]]
+    right = [lines[5]]
+    middle = [lines[2]]
+    insulated = [lines[idx] for idx in [1, 6, 3, 4]]
     left_cc = gmsh.model.addPhysicalGroup(1, left, markers.left_cc)
     right_cc = gmsh.model.addPhysicalGroup(1, right, markers.right_cc)
     insulated_ = gmsh.model.addPhysicalGroup(1, insulated, markers.insulated)
     am_se = gmsh.model.addPhysicalGroup(1, middle, markers.am_se_interface)
     gmsh.model.occ.synchronize()
-    se_phase = [lines[idx] for idx in [0, 6, 7, 8, 9, 10, 4, 5]]
-    am_phase = [lines[idx] for idx in [6, 7, 8, 9, 10, 3, 2, 1]]
+    se_phase = [lines[idx] for idx in [0, 1, 2, 3]]
+    am_phase = [lines[idx] for idx in [2, 4, 5, 6]]
     se_loop = gmsh.model.occ.addCurveLoop(se_phase)
     am_loop = gmsh.model.occ.addCurveLoop(am_phase)
     gmsh.model.occ.synchronize()
@@ -115,20 +95,20 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
 
     # refinement
-    resolution = args.resolution
-    gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "EdgesList", [insulated_, left_cc, right_cc, am_se])
-
-    gmsh.model.mesh.field.add("Threshold", 2)
-    gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "LcMin", resolution/100)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 0.5)
-
-    gmsh.model.mesh.field.add("Max", 5)
-    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    # resolution = args.resolution
+    # gmsh.model.mesh.field.add("Distance", 1)
+    # gmsh.model.mesh.field.setNumbers(1, "EdgesList", [insulated_, left_cc, right_cc, am_se])
+    #
+    # gmsh.model.mesh.field.add("Threshold", 2)
+    # gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    # gmsh.model.mesh.field.setNumber(2, "LcMin", resolution/100)
+    # gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
+    # gmsh.model.mesh.field.setNumber(2, "DistMin", 0)
+    # gmsh.model.mesh.field.setNumber(2, "DistMax", 0.5)
+    #
+    # gmsh.model.mesh.field.add("Max", 5)
+    # gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    # gmsh.model.mesh.field.setAsBackgroundMesh(5)
 
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(2)
