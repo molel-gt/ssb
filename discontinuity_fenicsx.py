@@ -80,49 +80,49 @@ F += + alpha/avg(h) * dot(jump(v, n), jump(u, n)) * dS(2)
 problem = dolfinx.fem.petsc.NonlinearProblem(F, u)
 solver = dolfinx.nls.petsc.NewtonSolver(MPI.COMM_WORLD, problem)
 solver.solve(u)
-
+u.name = 'potential'
 with io.XDMFFile(comm, 'potential-discontinuous.xdmf', 'w') as fp:
     fp.write_mesh(domain)
     fp.write_function(u)
 
-bb_tree = geometry.bb_tree(domain, domain.topology.dim)
-n_points = 1000
-tol = 0.001  # Avoid hitting the outside of the domain
-x = np.linspace(0 + tol, 1 - tol, n_points)
-y = np.ones(n_points) * 0.5
-points = np.zeros((3, n_points))
-points[0] = x
-points[1] = y
-u_values = []
-cells = []
-points_on_proc = []
-# Find cells whose bounding-box collide with the the points
-cell_candidates = geometry.compute_collisions_points(bb_tree, points.T)
-# Choose one of the cells that contains the point
-colliding_cells = geometry.compute_colliding_cells(domain, cell_candidates, points.T)
-for i, point in enumerate(points.T):
-    if len(colliding_cells.links(i)) > 0:
-        points_on_proc.append(point)
-        cells.append(colliding_cells.links(i)[0])
-points_on_proc = np.array(points_on_proc, dtype=np.float64)
-u_values = u.eval(points_on_proc, cells)
-fig = plt.figure()
-plt.plot(points_on_proc[:, 0], u_values, "k", linewidth=2)
-plt.grid(True)
-plt.show()
-
-pyvista.OFF_SCREEN = True
-
-pyvista.start_xvfb()
-
-u_topology, u_cell_types, u_geometry = plot.vtk_mesh(V)
-u_grid = pyvista.UnstructuredGrid(u_topology, u_cell_types, u_geometry)
-u_grid.point_data["u"] = u.x.array.real
-u_grid.set_active_scalars("u")
-u_plotter = pyvista.Plotter()
-u_plotter.add_mesh(u_grid, show_edges=False)
-u_plotter.view_xy()
-if not pyvista.OFF_SCREEN:
-    u_plotter.show()
-else:
-    figure = u_plotter.screenshot("DG.png")
+# bb_tree = geometry.bb_tree(domain, domain.topology.dim)
+# n_points = 1000
+# tol = 0.001  # Avoid hitting the outside of the domain
+# x = np.linspace(0 + tol, 1 - tol, n_points)
+# y = np.ones(n_points) * 0.5
+# points = np.zeros((3, n_points))
+# points[0] = x
+# points[1] = y
+# u_values = []
+# cells = []
+# points_on_proc = []
+# # Find cells whose bounding-box collide with the the points
+# cell_candidates = geometry.compute_collisions_points(bb_tree, points.T)
+# # Choose one of the cells that contains the point
+# colliding_cells = geometry.compute_colliding_cells(domain, cell_candidates, points.T)
+# for i, point in enumerate(points.T):
+#     if len(colliding_cells.links(i)) > 0:
+#         points_on_proc.append(point)
+#         cells.append(colliding_cells.links(i)[0])
+# points_on_proc = np.array(points_on_proc, dtype=np.float64)
+# u_values = u.eval(points_on_proc, cells)
+# fig = plt.figure()
+# plt.plot(points_on_proc[:, 0], u_values, "k", linewidth=2)
+# plt.grid(True)
+# plt.show()
+#
+# pyvista.OFF_SCREEN = True
+#
+# pyvista.start_xvfb()
+#
+# u_topology, u_cell_types, u_geometry = plot.vtk_mesh(V)
+# u_grid = pyvista.UnstructuredGrid(u_topology, u_cell_types, u_geometry)
+# u_grid.point_data["u"] = u.x.array.real
+# u_grid.set_active_scalars("u")
+# u_plotter = pyvista.Plotter()
+# u_plotter.add_mesh(u_grid, show_edges=False)
+# u_plotter.view_xy()
+# if not pyvista.OFF_SCREEN:
+#     u_plotter.show()
+# else:
+#     figure = u_plotter.screenshot("DG.png")
