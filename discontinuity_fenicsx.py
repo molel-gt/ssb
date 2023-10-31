@@ -1,4 +1,4 @@
-from dolfinx import mesh, fem, plot, geometry
+from dolfinx import mesh, fem, plot, geometry, io
 import dolfinx.fem.petsc
 import dolfinx.nls.petsc
 from mpi4py import MPI
@@ -9,8 +9,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pyvista
 
-
-domain = mesh.create_unit_square(MPI.COMM_WORLD, 100, 100)
+comm = MPI.COMM_WORLD
+domain = mesh.create_unit_square(comm, 100, 100)
 V = fem.FunctionSpace(domain, ("DG", 1))
 uD = fem.Function(V)
 uD.interpolate(lambda x: np.full(x[0].shape, 0.0))
@@ -80,6 +80,10 @@ F += + alpha/avg(h) * dot(jump(v, n), jump(u, n)) * dS(2)
 problem = dolfinx.fem.petsc.NonlinearProblem(F, u)
 solver = dolfinx.nls.petsc.NewtonSolver(MPI.COMM_WORLD, problem)
 solver.solve(u)
+
+with io.XDMFFile(comm, 'potential-discontinuous.xdmf', 'w') as fp:
+    fp.write_mesh(domain)
+    fp.write_function(u)
 
 bb_tree = geometry.bb_tree(domain, domain.topology.dim)
 n_points = 1000
