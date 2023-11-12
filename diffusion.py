@@ -128,7 +128,7 @@ solver.setOperators(A)
 solver.setType(PETSc.KSP.Type.PREONLY)
 solver.getPC().setType(PETSc.PC.Type.LU)
 
-file = io.XDMFFile(comm, "output/full-cell/concentration.xdmf", "w")
+file = io.XDMFFile(comm, "output/full-cell/concentration.xdmf", "w", encoding=io.XDMFFile.Encoding.HDF5)
 file.write_mesh(domain)
 file.write_function(c_n, 0)
 
