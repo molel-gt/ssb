@@ -76,10 +76,10 @@ for i, entity in enumerate(entity_map):
 sub_meshtag = dolfinx.mesh.meshtags(domain, domain.topology.dim - 1, np.arange(
     num_sub_facets, dtype=np.int32), sub_values)
 domain.topology.create_connectivity(domain.topology.dim - 1, domain.topology.dim)
-
-# with dolfinx.io.XDMFFile(MPI.COMM_WORLD, "submesh.xdmf", "w") as xdmf:
-#     xdmf.write_mesh(domain)
-    # xdmf.write_meshtags(sub_meshtag, x=ufl.SpatialCoordinate(domain))
+# cpp.mesh.g
+with dolfinx.io.XDMFFile(comm, "submesh.xdmf", "w") as xdmf:
+    xdmf.write_mesh(domain)
+    xdmf.write_meshtags(sub_meshtag, x=domain.geometry)
 
 dx = ufl.Measure("dx", domain=domain)
 ds = ufl.Measure("ds", domain=domain, subdomain_data=sub_meshtag)
