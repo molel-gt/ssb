@@ -43,20 +43,20 @@ line_meshfile = os.path.join(workdir, "line.xdmf")
 comm = MPI.COMM_WORLD
 
 # create submesh
-mesh, cell_tags, facet_tags = dolfinx.io.gmshio.read_from_msh(output_meshfile, comm, 0)
+full_mesh, cell_tags, facet_tags = dolfinx.io.gmshio.read_from_msh(output_meshfile, comm, 0)
 
 # Check physical volumes and surfaces of the mesh
 print(np.unique(cell_tags.values))
 print(np.unique(facet_tags.values))
 
 # Create submesh for pe
-domain, entity_map, vertex_map, geom_map = dolfinx.mesh.create_submesh(mesh, mesh.topology.dim, cell_tags.indices[(cell_tags.values == markers['pe'])])
+domain, entity_map, vertex_map, geom_map = dolfinx.mesh.create_submesh(full_mesh, full_mesh.topology.dim, cell_tags.indices[(cell_tags.values == markers['pe'])])
 
 # Transfer facet tags from parent mesh to submesh
-tdim = mesh.topology.dim
+tdim = full_mesh.topology.dim
 fdim = tdim - 1
-c_to_f = mesh.topology.connectivity(tdim, fdim)
-f_map = mesh.topology.index_map(fdim)
+c_to_f = full_mesh.topology.connectivity(tdim, fdim)
+f_map = full_mesh.topology.index_map(fdim)
 all_facets = f_map.size_local + f_map.num_ghosts
 all_values = np.zeros(all_facets, dtype=np.int32)
 all_values[facet_tags.indices] = facet_tags.values
