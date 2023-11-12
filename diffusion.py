@@ -16,7 +16,7 @@ have_pyvista = True
 if pv.OFF_SCREEN:
     pv.start_xvfb(wait=0.5)
 
-
+encoding = io.XDMFFile.Encoding.HDF5
 markers = {
     'ne_pcc': 0,  # boundary not included yet
     'ne_se': 1,  # left boundary
@@ -77,7 +77,7 @@ sub_meshtag = dolfinx.mesh.meshtags(domain, domain.topology.dim - 1, np.arange(
     num_sub_facets, dtype=np.int32), sub_values)
 domain.topology.create_connectivity(domain.topology.dim - 1, domain.topology.dim)
 
-with dolfinx.io.XDMFFile(comm, "submesh.xdmf", "w", encoding=io.XDMFFile.Encoding.HDF5) as xdmf:
+with dolfinx.io.XDMFFile(comm, "submesh.xdmf", "w", encoding=encoding) as xdmf:
     xdmf.write_mesh(domain)
     xdmf.write_meshtags(sub_meshtag, x=domain.geometry)
 
@@ -128,7 +128,7 @@ solver.setOperators(A)
 solver.setType(PETSc.KSP.Type.PREONLY)
 solver.getPC().setType(PETSc.PC.Type.LU)
 
-file = io.XDMFFile(comm, "output/full-cell/concentration.xdmf", "w", encoding=io.XDMFFile.Encoding.HDF5)
+file = io.XDMFFile(comm, "output/full-cell/concentration.xdmf", "w", encoding=encoding)
 file.write_mesh(domain)
 file.write_function(c_n, 0)
 
@@ -144,6 +144,7 @@ p = pvqt.BackgroundPlotter(title="concentration", auto_update=True)
 p.add_mesh(grid, clim=[0, 1])
 p.view_xy(True)
 p.add_text(f"time: {t}", font_size=12, name="timelabel")
+p.add_axes()
 
 while t < T:
     t += dt
@@ -172,6 +173,3 @@ while t < T:
     grid.point_data["c"] = ch.x.array.real
     p.app.processEvents()
 file.close()
-# ch.x.scatter_forward()
-# grid.point_data["c"] = ch.x.array.real
-pv.plot(grid, show_edges=True)
