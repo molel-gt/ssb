@@ -52,9 +52,10 @@ int main(int argc, char **argv)
     KSPSetFromOptions(ksp);
     KSPSolve(ksp, b, x);
     VecView(x, PETSC_VIEWER_STDOUT_WORLD);
-    KSPDestroy(&ksp);
+
     MatDestroy(&A);
     VecDestroy(&b);
     VecDestroy(&x);
+    KSPDestroy(&ksp);
     return PetscFinalize();
 }
