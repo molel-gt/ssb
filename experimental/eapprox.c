@@ -14,6 +14,6 @@ int main(int argc, char **argv){
     }
     PetscPrintf(PETSC_COMM_SELF, "%d \t %lf\n", rank, localfact);
     ierr = MPI_Allreduce(&localfact, &eapp, 1, MPI_DOUBLE, MPI_SUM, PETSC_COMM_WORLD);  CHKERRQ(ierr);
-    printf("%3.10f\n", eapp);
+    PetscPrintf(PETSC_COMM_WORLD, "%3.10f\n", eapp);
     return PetscFinalize();
 }
