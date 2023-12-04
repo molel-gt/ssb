@@ -12,3 +12,7 @@ petscvec: petsc_vec.o chkopts
 ksp_prob: ksp_problem.o chkopts
 	-${CLINKER} -o ksp_problem ksp_problem.o ${PETSC_LIB}
 	${RM} ksp_problem.o
+
+laplace_prob: laplace_ksp.o chkopts
+	-${CLINKER} -o laplace_ksp laplace_ksp.o ${PETSC_LIB}
+	${RM} laplace_ksp.o
