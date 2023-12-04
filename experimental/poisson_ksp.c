@@ -20,7 +20,12 @@
           mpiexec -n 4 ./poisson_ksp -da_grid_x 3 -da_grid_y 3 -pc_type mg -da_refine 10 -ksp_monitor -ksp_view -log_view
 */
 
+static char help[] = "Solves 2D Poisson equation using multigrid.\n\n";
+
 #include <petsc.h>
+
+
+
 
 
 extern PetscErrorCode formRHS(KSP, Vec, void *);
@@ -30,22 +35,21 @@ typedef struct {
   PetscScalar uu, tt;
 } UserContext;
 
-
 int main(int argc, char **argv)
 {
-    DM da;
     KSP ksp;
+    DM da;
     UserContext user;
 
     PetscFunctionBeginUser;
-    PetscCall(PetscInitialize(&argc, &argv, NULL, "Solve 2D Poisson"));
-    PetscCall(DMDACreate2d(PETSC_COMM_WORLD, DM_BOUNDARY_NONE, DM_BOUNDARY_NONE, DMDA_STENCIL_STAR, 9, 9,
-    PETSC_DECIDE, PETSC_DECIDE, 1, 1, NULL, NULL, &da));
-
+    PetscCall(PetscInitialize(&argc, &argv, (char *)0, help));
+    PetscCall(KSPCreate(PETSC_COMM_WORLD, &ksp));
+    PetscCall(DMDACreate2d(PETSC_COMM_WORLD, DM_BOUNDARY_NONE, DM_BOUNDARY_NONE, DMDA_STENCIL_STAR, 11, 11, PETSC_DECIDE, PETSC_DECIDE, 1, 1, NULL, NULL, &da));
     PetscCall(DMSetFromOptions(da));
     PetscCall(DMSetUp(da));
     PetscCall(KSPSetDM(ksp, (DM)da));
     PetscCall(DMSetApplicationContext(da, &user));
+
     user.uu = 1.0;
     user.tt = 1.0;
 
@@ -105,7 +109,6 @@ PetscErrorCode formRHS(KSP ksp, Vec b, void *ctx)
     PetscCall(MatNullSpaceDestroy(&nullspace));
     PetscFunctionReturn(PETSC_SUCCESS);
 }
-
 
 PetscErrorCode formJacobian(KSP ksp, Mat J, Mat jac, void *ctx)
 {
@@ -192,7 +195,7 @@ PetscErrorCode formJacobian(KSP ksp, Mat J, Mat jac, void *ctx)
                 v[4] = -HxdHy;
                 col[4].i = i;
                 col[4].j = j + 1;
-                PetscCall(MatSetValuesStencil(jac, 1, &row, num, col, v, INSERT_VALUES));
+                PetscCall(MatSetValuesStencil(jac, 1, &row, 5, col, v, INSERT_VALUES));
             }
         }
     }

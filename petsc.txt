@@ -1,0 +1,1 @@
+./configure --with-cc=gcc --with-cxx=g++ --with-fc=gfortran --download-f2cblaslapack --download-mpich --download-hypre --with-64-bit-indices=no --download-metis --download-parmetis --download-eigen --download-hdf5 PETSC_ARCH=linux-real-32 --with-scalar-type=real --with-shared-libraries --with-debugging=no
