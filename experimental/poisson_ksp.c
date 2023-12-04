@@ -63,7 +63,46 @@ int main(int argc, char **argv)
 
 PetscErrorCode formRHS(KSP ksp, Vec b, void *ctx)
 {
-    DMDALocalInfo info;
+    UserContext  *user = (UserContext *)ctx;
+    PetscInt      i, j, M, N, xm, ym, xs, ys;
+    PetscScalar   Hx, Hy, pi, uu, tt;
+    PetscScalar **array;
+    DM            da;
+    MatNullSpace  nullspace;
+
+    PetscFunctionBeginUser;
+    PetscCall(KSPGetDM(ksp, &da));
+    PetscCall(DMDAGetInfo(da, 0, &M, &N, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+    uu = user->uu;
+    tt = user->tt;
+    pi = 4 * atan(1.0);
+    Hx = 1.0 / (PetscReal)(M);
+    Hy = 1.0 / (PetscReal)(N);
+
+    PetscCall(DMDAGetCorners(da, &xs, &ys, 0, &xm, &ym, 0)); /* Fine grid */
+    PetscCall(DMDAVecGetArray(da, b, &array));
+    for (j = ys; j < ys + ym; j++) {
+        for (i = xs; i < xs + xm; i++){
+            // if (i == M - 1)
+            // {
+            //     array[i][j] = 1;
+            // }
+            // else
+            // {
+            //     array[i][j] = 0;
+            // }
+            array[j][i] = -PetscCosScalar(uu * pi * ((PetscReal)i + 0.5) * Hx) * PetscCosScalar(tt * pi * ((PetscReal)j + 0.5) * Hy) * Hx * Hy;
+            }
+    }
+    PetscCall(DMDAVecRestoreArray(da, b, &array));
+    PetscCall(VecAssemblyBegin(b));
+    PetscCall(VecAssemblyEnd(b));
+
+    /* force right hand side to be consistent for singular matrix */
+    /* note this is really a hack, normally the model would provide you with a consistent right handside */
+    PetscCall(MatNullSpaceCreate(PETSC_COMM_WORLD, PETSC_TRUE, 0, 0, &nullspace));
+    PetscCall(MatNullSpaceRemove(nullspace, b));
+    PetscCall(MatNullSpaceDestroy(&nullspace));
     PetscFunctionReturn(PETSC_SUCCESS);
 }
 
