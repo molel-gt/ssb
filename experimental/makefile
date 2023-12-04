@@ -16,3 +16,7 @@ ksp_prob: ksp_problem.o chkopts
 laplace_prob: laplace_ksp.o chkopts
 	-${CLINKER} -o laplace_ksp laplace_ksp.o ${PETSC_LIB}
 	${RM} laplace_ksp.o
+
+poisson_prob: poisson_ksp.o chkopts
+	-${CLINKER} -o poisson_ksp laplace_ksp.o ${PETSC_LIB}
+	${RM} poisson_ksp.o
