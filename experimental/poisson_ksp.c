@@ -36,6 +36,7 @@ int main(int argc, char **argv)
     KSP ksp;
     DM da;
     UserContext user;
+    Vec u;
 
     PetscFunctionBeginUser;
     PetscCall(PetscInitialize(&argc, &argv, (char *)0, help));
@@ -46,13 +47,17 @@ int main(int argc, char **argv)
     PetscCall(KSPSetDM(ksp, (DM)da));
     PetscCall(DMSetApplicationContext(da, &user));
 
+    PetscCall(DMCreateGlobalVector(da, &u));
+
     user.uu = 1.0;
     user.tt = 1.0;
 
     PetscCall(KSPSetComputeRHS(ksp, formRHS, &user));
     PetscCall(KSPSetComputeOperators(ksp, formJacobian, &user));
     PetscCall(KSPSetFromOptions(ksp));
-    PetscCall(KSPSolve(ksp, NULL, NULL));
+    PetscCall(KSPSolve(ksp, NULL, u));
+
+    PetscCall(VecView(u, PETSC_VIEWER_DRAW_WORLD));
 
     PetscCall(DMDestroy(&da));
     PetscCall(KSPDestroy(&ksp));
