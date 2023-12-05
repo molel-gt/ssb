@@ -24,10 +24,6 @@ static char help[] = "Solves 2D Poisson equation using multigrid.\n\n";
 
 #include <petsc.h>
 
-
-
-
-
 extern PetscErrorCode formRHS(KSP, Vec, void *);
 extern PetscErrorCode formJacobian(KSP, Mat, Mat, void *);
 
@@ -87,15 +83,15 @@ PetscErrorCode formRHS(KSP ksp, Vec b, void *ctx)
     PetscCall(DMDAVecGetArray(da, b, &array));
     for (j = ys; j < ys + ym; j++) {
         for (i = xs; i < xs + xm; i++){
-            // if (i == M - 1)
-            // {
-            //     array[i][j] = 1;
-            // }
-            // else
-            // {
-            //     array[i][j] = 0;
-            // }
-            array[j][i] = -PetscCosScalar(uu * pi * ((PetscReal)i + 0.5) * Hx) * PetscCosScalar(tt * pi * ((PetscReal)j + 0.5) * Hy) * Hx * Hy;
+            if (i == M - 1)
+            {
+                array[i][j] = 1;
+            }
+            else
+            {
+                array[i][j] = 0;
+            }
+            // array[j][i] = -PetscCosScalar(uu * pi * ((PetscReal)i + 0.5) * Hx) * PetscCosScalar(tt * pi * ((PetscReal)j + 0.5) * Hy) * Hx * Hy;
             }
     }
     PetscCall(DMDAVecRestoreArray(da, b, &array));
