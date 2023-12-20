@@ -172,21 +172,20 @@ if __name__ == '__main__':
     error = 100 * 2 * abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
     if args.compute_distribution:
         logger.debug("Cumulative distribution lines of current density at terminals")
-        cd_lims = defaultdict(lambda : [0, 100])
+        cd_lims = defaultdict(lambda : [0, 25])
         cd_lims.update(
             {
-                1: [55, 60],
+                1: [0, 60],
                 5: [0, 25],
+                15: [0, 25],
+                30: [0, 25],
                 50: [0, 25],
                 100: [0, 25],
                 200: [0, 25],
             }
         )
         min_cd, max_cd = cd_lims[int(int(grid_extents.split("_")[0].split("-")[-1]) - 1)]
-        if np.isclose(int(int(grid_extents.split("_")[0].split("-")[-1]) - 1), 1):
-            cd_space = np.hstack((np.linspace(0, min_cd, num=1000), np.linspace(min_cd, max_cd, num=1000)))
-        else:
-            cd_space = np.linspace(min_cd, max_cd, num=1000)
+        cd_space = np.linspace(min_cd, max_cd, num=10000)
         cdf_values = []
         freq_values = []
         EPS = 1e-30
