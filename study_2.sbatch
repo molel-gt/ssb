@@ -12,9 +12,9 @@
 
 module purge > /dev/null 2>&1
 
-export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
-export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/:/storage/home/hcoda1/0/emolel3/.local/
-module load anaconda3 && conda activate fenicsx-env
+source :/storage/home/hcoda1/0/emolel3/.bashrc
+
+mamba activate fea-env
 
 cd $SLURM_SUBMIT_DIR
 
