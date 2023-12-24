@@ -19,16 +19,19 @@ if __name__ == '__main__':
     # parser.add_argument("--contact_map", help="Image to generate contact map", required=True)
     parser.add_argument("--phase", help="0 -> void, 1 -> SE, 2 -> AM", nargs='?', const=1, default=1)
     parser.add_argument("--eps", help="coverage of area at left cc", nargs='?', const=1, default=0.05)
+    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
+                        const=1, default='STUDY4_VOXEL_SCALING', type=str)
     args = parser.parse_args()
     grid_extents = args.grid_extents
     # contact_img_file = args.contact_map
     phase = args.phase
     eps = float(args.eps)
-    scaling = configs.get_configs()['VOXEL_SCALING']
-    scale_x = 10e-6  # float(scaling['x'])
-    scale_y = 10e-6  # float(scaling['y'])
-    scale_z = 10e-6  # float(scaling['z'])
+    scaling = args.scaling
+    scale_x = float(scaling['x'])
+    scale_y = float(scaling['y'])
+    scale_z = float(scaling['z'])
     scale_factor = (scale_x, scale_y, scale_z)
+
     dp = int(configs.get_configs()['GEOMETRY']['dp'])
     h = float(configs.get_configs()['GEOMETRY']['h'])
     origin_str = 'study_4'
