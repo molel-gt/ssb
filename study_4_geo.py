@@ -27,7 +27,7 @@ if __name__ == '__main__':
     # contact_img_file = args.contact_map
     phase = args.phase
     eps = float(args.eps)
-    scaling = args.scaling
+    scaling = configs.get_configs()[args.scaling]
     scale_x = float(scaling['x'])
     scale_y = float(scaling['y'])
     scale_z = float(scaling['z'])
