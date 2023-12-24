@@ -37,14 +37,17 @@ if __name__ == '__main__':
     parser.add_argument("--voltage", nargs='?', const=1, default=1)
     parser.add_argument("--eps", help='fraction of area at left current collector that is in contact',
                         nargs='?', const=1, default=0.05, type=np.double)
+    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
+                        const=1, default='STUDY4_VOXEL_SCALING', type=str)
+    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="study_4")
 
     args = parser.parse_args()
-    data_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], 'study_4', args.grid_extents, str(args.eps))
+    data_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.grid_extents, str(args.eps))
     voltage = args.voltage
-    scaling = configs.get_configs()['VOXEL_SCALING']
-    scale_x = 10e-6  # float(scaling['x'])
-    scale_y = 10e-6  # float(scaling['y'])
-    scale_z = 10e-6  # float(scaling['z'])
+    scaling = args.scaling
+    scale_x = float(scaling['x'])
+    scale_y = float(scaling['y'])
+    scale_z = float(scaling['z'])
     loglevel = configs.get_configs()['LOGGING']['level']
     comm = MPI.COMM_WORLD
     rank = comm.rank

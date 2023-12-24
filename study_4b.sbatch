@@ -2,7 +2,7 @@
 #SBATCH -A gts-tf74
 #SBATCH -Jstudy_4
 #SBATCH -N 1
-#SBATCH --mem-per-cpu=64G
+#SBATCH --mem-per-cpu=192G
 #SBATCH --ntasks-per-node=1
 #SBATCH -t6:00:00
 #SBATCH -qinferno

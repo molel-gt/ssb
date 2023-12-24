@@ -21,6 +21,7 @@ if __name__ == '__main__':
     parser.add_argument("--eps", help="coverage of area at left cc", nargs='?', const=1, default=0.05)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='STUDY4_VOXEL_SCALING', type=str)
+    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="study_4")
     args = parser.parse_args()
     grid_extents = args.grid_extents
     # contact_img_file = args.contact_map
@@ -34,8 +35,8 @@ if __name__ == '__main__':
 
     dp = int(configs.get_configs()['GEOMETRY']['dp'])
     h = float(configs.get_configs()['GEOMETRY']['h'])
-    origin_str = 'study_4'
-    mesh_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], 'study_4', grid_extents, str(eps))
+    origin_str = args.name_of_study
+    mesh_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, grid_extents, str(eps))
     Nx, Ny, Nz = [float(v) for v in grid_extents.split("-")]
     Lx = Nx - 1
     Ly = Ny - 1
