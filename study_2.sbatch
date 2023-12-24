@@ -12,7 +12,7 @@
 
 module purge > /dev/null 2>&1
 
-source :/storage/home/hcoda1/0/emolel3/.bashrc
+source $HOME/.bashrc
 
 mamba activate fea-env
 

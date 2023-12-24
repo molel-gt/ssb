@@ -11,12 +11,9 @@
 #SBATCH --mail-user=emolel3@gatech.edu
 
 module purge > /dev/null 2>&1
-cd $SLURM_SUBMIT_DIR
+source $HOME/.bashrc
 
-module load anaconda3
-conda activate fenicsx-env
-export PYTHONPATH=$PYTHONPATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/
-export PATH=$PATH:/storage/coda1/p-tf74/0/shared/leshinka/opt/:/storage/home/hcoda1/0/emolel3/.local/
 cd $SLURM_SUBMIT_DIR
+mamba activate fea-env
 
 python3 study_4_geo.py --eps $1 --grid_extents $2 --scaling CONTACT_LOSS_SCALING --study_name contact_loss_ref
