@@ -16,4 +16,4 @@ source $HOME/.bashrc
 cd $SLURM_SUBMIT_DIR
 mamba activate fea-env
 
-python3 study_4_geo.py --eps $1 --grid_extents $2 --scaling CONTACT_LOSS_SCALING --study_name contact_loss_ref
+python3 study_4_geo.py --eps $1 --grid_extents $2 --scaling CONTACT_LOSS_SCALING --name_of_study contact_loss_ref
