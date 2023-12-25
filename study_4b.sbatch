@@ -4,7 +4,7 @@
 #SBATCH -N 1
 #SBATCH --mem-per-cpu=192G
 #SBATCH --ntasks-per-node=1
-#SBATCH -t6:00:00
+#SBATCH -t96:00:00
 #SBATCH -qinferno
 #SBATCH -ostudy-4-geo.out
 #SBATCH --mail-type=BEGIN,END,FAIL
