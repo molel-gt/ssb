@@ -6,7 +6,7 @@ SetFactory('OpenCASCADE');
 R = Lx * Sqrt(eps/Pi);
 xc = 0.5 * Lx;
 yc = 0.5 * Ly;
-//Mesh.CharacteristicLengthMin = 0.05;
+General.ExpertMode = 1;
 Mesh.CharacteristicLengthMin = 0.5 + 4 * Lz/100;
 //Mesh.CharacteristicLengthMax = 0.05;
 //General.NumThreads = 16;
