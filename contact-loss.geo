@@ -7,7 +7,7 @@ R = Lx * Sqrt(eps/Pi);
 xc = 0.5 * Lx;
 yc = 0.5 * Ly;
 General.ExpertMode = 1;
-Mesh.CharacteristicLengthMin = 0.5 + 4 * Lz/100;
+Mesh.CharacteristicLengthMin = 0.5 *(1 + 10 * Lz/100);
 //Mesh.CharacteristicLengthMax = 0.05;
 //General.NumThreads = 16;
 //Mesh.MaxNumThreads1D = 16;
@@ -69,4 +69,4 @@ Surface Loop(1) = {1, 2, 3, 4, 5, 6, 7};
 Volume(1) = {1};
 Physical Volume(1) = {1};
 // refining
-Characteristic Length {1:6, 109, 110, 111, 112, 113} = 0.0001;
+Characteristic Length {1:6, 109, 110, 111, 112, 113} = 0.5 * (1 + 3 * Lz/100);
