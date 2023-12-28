@@ -8,8 +8,11 @@ import logging
 import numpy as np
 import ufl
 
+from basix.ufl import element
 from collections import defaultdict
 from dolfinx import cpp, fem, io, mesh
+from dolfinx.fem import petsc
+from dolfinx.io import VTXWriter
 from mpi4py import MPI
 from petsc4py import PETSc
 
@@ -29,6 +32,7 @@ if __name__ == '__main__':
     parser.add_argument("--compute_distribution", help="compute current distribution stats", nargs='?', const=1, default=False, type=bool)
     parser.add_argument("--compute_grad_distribution", help="compute current distribution stats", nargs='?', const=1,
                         default=False, type=bool)
+
     args = parser.parse_args()
     data_dir = os.path.join(f'{args.root_folder}')
     voltage = args.voltage
@@ -57,8 +61,8 @@ if __name__ == '__main__':
     Lz = Lz * scale_z
     tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
-    output_current_path = os.path.join(data_dir, 'current.xdmf')
-    output_potential_path = os.path.join(data_dir, 'potential.xdmf')
+    output_current_path = os.path.join(data_dir, 'current.bp')
+    output_potential_path = os.path.join(data_dir, 'potential.bp')
     stats_path = os.path.join(data_dir, 'cdf.csv')
     frequency_path = os.path.join(data_dir, 'frequency.csv')
     grad_cd_path = os.path.join(data_dir, 'cdf_grad_cd.csv')
@@ -131,21 +135,25 @@ if __name__ == '__main__':
                "ksp_rtol": 1.0e-12
                }
 
-    model = fem.petsc.LinearProblem(a, L, bcs=[left_bc, right_bc], petsc_options=options)
+    model = petsc.LinearProblem(a, L, bcs=[left_bc, right_bc], petsc_options=options)
     logger.debug('Solving problem..')
     uh = model.solve()
     
     # Save solution in XDMF format
-    with io.XDMFFile(comm, output_potential_path, "w") as outfile:
-        outfile.write_mesh(domain)
-        outfile.write_function(uh)
+    # with io.XDMFFile(comm, output_potential_path, "w") as outfile:
+    #     outfile.write_mesh(domain)
+    #     outfile.write_function(uh)
+    with VTXWriter(comm, output_potential_path, [uh], engine="BP4") as vtx:
+        vtx.write(0.0)
 
     # # Update ghost entries and plot
     uh.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     logger.debug("Post-process calculations")
     grad_u = ufl.grad(uh)
-    W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
+    # W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
+    e = element("Lagrange", "tetrahedron", 1, shape=(3,))
+    W = fem.FunctionSpace(domain, e)
     current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
     current_h = fem.Function(W)
     tol_fun = fem.Function(V)
@@ -153,9 +161,11 @@ if __name__ == '__main__':
     tol_fun_right = fem.Function(V)
     current_h.interpolate(current_expr)
 
-    with io.XDMFFile(comm, output_current_path, "w") as file:
-        file.write_mesh(domain)
-        file.write_function(current_h)
+    # with io.XDMFFile(comm, output_current_path, "w") as file:
+    #     file.write_mesh(domain)
+    #     file.write_function(current_h)
+    with VTXWriter(comm, output_current_path, [current_h], engine="BP4") as vtx:
+        vtx.write(0.0)
 
     logger.debug("Post-process Results Summary")
     insulated_area = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.insulated))), op=MPI.SUM, root=0)
