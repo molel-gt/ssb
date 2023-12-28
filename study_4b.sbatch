@@ -6,7 +6,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH -t96:00:00
 #SBATCH -qinferno
-#SBATCH -ostudy-4-geo.out
+#SBATCH -ostudy-4b-%j.out
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=emolel3@gatech.edu
 
