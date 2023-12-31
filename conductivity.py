@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import csv
+import json
 import os
 import timeit
 
@@ -23,7 +24,7 @@ markers = commons.SurfaceMarkers()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
-    parser.add_argument('--grid_extents', help='Nx-Ny-Nz_Ox-Oy-Oz size_location', required=True)
+    parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
     parser.add_argument('--root_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1e-3)
     parser.add_argument("--scale", help="sx,sy,sz", nargs='?', const=1, default=None)
@@ -32,6 +33,7 @@ if __name__ == '__main__':
     parser.add_argument("--compute_distribution", help="compute current distribution stats", nargs='?', const=1, default=False, type=bool)
     parser.add_argument("--compute_grad_distribution", help="compute current distribution stats", nargs='?', const=1,
                         default=False, type=bool)
+    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="conductivity")
 
     args = parser.parse_args()
     data_dir = os.path.join(f'{args.root_folder}')
@@ -47,15 +49,15 @@ if __name__ == '__main__':
     else:
         scale_x, scale_y, scale_z = [float(vv) for vv in args.scale.split(',')]
     loglevel = configs.get_configs()['LOGGING']['level']
-    grid_extents = args.grid_extents
+    dimensions = args.dimensions
     logger = logging.getLogger()
     logger.setLevel(loglevel)
-    formatter = logging.Formatter(f'%(levelname)s:%(asctime)s:{data_dir}:{grid_extents}:%(message)s')
+    formatter = logging.Formatter(f'%(levelname)s:%(asctime)s:{data_dir}:{dimensions}:%(message)s')
     fh = logging.FileHandler(os.path.basename(__file__).replace(".py", ".log"))
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
-    Lx, Ly, Lz = [float(v) - 1 for v in grid_extents.split("_")[0].split("-")]
+    Lx, Ly, Lz = [float(v) for v in dimensions.split("-")]
     Lx = Lx * scale_x
     Ly = Ly * scale_y
     Lz = Lz * scale_z
@@ -66,6 +68,7 @@ if __name__ == '__main__':
     stats_path = os.path.join(data_dir, 'cdf.csv')
     frequency_path = os.path.join(data_dir, 'frequency.csv')
     grad_cd_path = os.path.join(data_dir, 'cdf_grad_cd.csv')
+    simulation_metafile = os.path.join(data_dir, 'simulation.json')
 
     left_cc_marker = markers.left_cc
     right_cc_marker = markers.right_cc
@@ -171,15 +174,16 @@ if __name__ == '__main__':
     insulated_area = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.insulated))), op=MPI.SUM, root=0)
     area_left_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.left_cc))), op=MPI.SUM, root=0)
     area_right_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.right_cc))), op=MPI.SUM, root=0)
-    I_left_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc))), op=MPI.SUM, root=0)
+    I_left_cc = abs(domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc))), op=MPI.SUM, root=0))
     i_left_cc = I_left_cc / area_left_cc
-    I_right_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc))), op=MPI.SUM, root=0)
+    I_right_cc = abs(domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc))), op=MPI.SUM, root=0))
     i_right_cc = I_right_cc / area_right_cc
     I_insulated = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds)), op=MPI.SUM, root=0)
     i_insulated = I_insulated / insulated_area
     volume = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ufl.dx(domain))), op=MPI.SUM, root=0)
+    volume_fraction = volume / (Lx * Ly * Lz)
     total_area = area_left_cc + area_right_cc + insulated_area
-    error = 100 * 2 * abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
+    error = max([I_left_cc, I_right_cc]) / min([I_left_cc, I_right_cc])
     if args.compute_distribution:
         logger.debug("Cumulative distribution lines of current density at terminals")
         cd_lims = defaultdict(lambda : [0, 25])
@@ -247,11 +251,6 @@ if __name__ == '__main__':
                     ufl.grad(ufl.inner(current_h, n))
                 )
             )
-            # mean_left = fem.assemble_scalar(fem.form(grad2 * ds(markers.left_cc))) / area_left_cc
-            # sd_left = (fem.assemble_scalar(fem.form((grad2 - mean_left) ** 2 * ds(markers.left_cc))) / area_left_cc) ** 0.5
-            # mean_right = fem.assemble_scalar(fem.form(grad2 * ds(markers.right_cc))) / area_right_cc
-            # sd_right = (fem.assemble_scalar(fem.form((grad2 - mean_right) ** 2 * ds(markers.right_cc))) / area_right_cc) ** 0.5
-            # grad_cd_min, grad_cd_max = [0, int(mean_left + 3 * sd_left)]
             grad_cd_space = [0, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5] + list(np.linspace(1e-5 + 1e-6, 1e-4, num=100)) + [1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7]
             grad_cd_cdf_values = []
             for v in grad_cd_space:
@@ -263,6 +262,30 @@ if __name__ == '__main__':
                 for row in grad_cd_cdf_values:
                     writer.writerow(row)
             logger.debug(f"Wrote cdf stats in {grad_cd_path}")
+    simulation_metadata = {
+        "Wagner number": Wa,
+        "Contact area fraction at left electrode": args.eps,
+        "Contact area at left electrode [sq. m]": area_left_cc,
+        "Contact area at right electrode [sq. m]": area_right_cc,
+        "Average current density at active area of left electrode": i_left_cc,
+        "Average current density at active area of right electrode": i_right_cc,
+        "Dimensions": args.dimensions,
+        "Scaling for dimensions x,y,z to meters": args.scaling,
+        "Bulk conductivity [S.m-1]": KAPPA,
+        "Effective conductivity [S.m-1]": kappa_eff,
+        "Current density at insulated area": i_insulated,
+        "Area-averaged Homogeneous Neumann BC trace": avg_solution_trace_norm,
+        "Max electrode current over min electrode current (error)": error,
+        "Simulation time (seconds)": f"{int(timeit.default_timer() - start_time):3.5f}",
+        "Voltage": args.voltage,
+        "Insulated area [sq. m]": insulated_area,
+        "Electrolyte volume fraction": volume_fraction,
+        "Electrolyte volume [cu. m]": volume,
+    }
+    if domain.comm.rank == 0:
+        with open(simulation_metafile, "w", encoding='utf-8') as f:
+            json.dump(simulation_metadata, f, ensure_ascii=False, indent=4)
+
     if domain.comm.rank == 0:
         logger.info("**************************RESULTS-SUMMARY******************************************")
         logger.info(f"Contact Area @ left cc [sq. um]                 : {area_left_cc*1e12:.4e}")
@@ -275,11 +298,11 @@ if __name__ == '__main__':
         logger.info(f"Current @ right cc [A]                          : {I_right_cc:.4e}")
         logger.info(f"Insulated Current [A]                           : {I_insulated:.2e}")
         logger.info(f"Electrolyte Volume [cu. um]                     : {volume*1e18:.4e}")
-        logger.info("Electrolyte Volume Fraction                     : {:.2%}".format(volume / (Lx * Ly * Lz)))
+        logger.info("Electrolyte Volume Fraction                     : {:.2%}".format(volume_fraction))
         logger.info(f"Bulk conductivity [S.m-1]                       : {constants.KAPPA0:.4e}")
         logger.info("Effective conductivity [S.m-1]                  : {:.4e}".format(Lz * abs(I_left_cc) / (voltage * (Lx * Ly))))
         logger.info(f"Conductor Length, L_z [um]                      : {Lz * 1e6:.1e}")
-        logger.info(f"Deviation in current at two current collectors  : {error:.2f}%")
+        logger.info(f"Max electrode current over min electrode current (error): {error:.4f}")
         logger.info(f"Voltage                                         : {args.voltage}")
         logger.info(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
         logger.info("*************************END-OF-SUMMARY*******************************************")
