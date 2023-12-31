@@ -198,7 +198,7 @@ if __name__ == '__main__':
                 200: [0, 25],
             }
         )
-        min_cd, max_cd = cd_lims[int(int(grid_extents.split("_")[0].split("-")[-1]) - 1)]
+        min_cd, max_cd = cd_lims[int(int(dimensions.split("-")[-1]) - 1)]
         cd_space = np.linspace(min_cd, max_cd, num=10000)
         cdf_values = []
         freq_values = []
