@@ -114,8 +114,7 @@ int main(int argc, char* argv[])
 {
   po::options_description desc("Allowed options");
   desc.add_options()
-      ("help", "produce help message")
-      ("compression", po::value<int>(), "set compression level")
+      ("help", "Simulates mechanics of separator given current distribution")
       ("mesh_directory", po::value<std::vector<std::string>>(), "path to folder of mesh file")
       ("dimensions", po::value<std::string>(), "integer representation of Lx-Ly-Lz in the grid")
   ;
