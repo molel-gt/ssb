@@ -25,7 +25,6 @@ if __name__ == '__main__':
     dimensions = args.dimensions
     max_resolution = args.max_resolution
     # contact_img_file = args.contact_map
-    phase = args.phase
     eps = float(args.eps)
     scaling = configs.get_configs()[args.scaling]
     scale_x = float(scaling['x'])
