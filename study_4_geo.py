@@ -38,7 +38,7 @@ if __name__ == '__main__':
     mesh_dir = study_4_utils.meshfile_subfolder_path(eps=args.eps, name_of_study=args.name_of_study, dimensions=args.dimensions, max_resolution=args.max_resolution)
     Lx, Ly, Lz = [int(v) for v in dimensions.split("-")]
     utils.make_dir_if_missing(mesh_dir)
-    geometry_metafile = os.path.join(data_dir, "geometry.json")
+    geometry_metafile = os.path.join(mesh_dir, "geometry.json")
     nodefile = os.path.join(mesh_dir, "porous.node")
     tetfile = os.path.join(mesh_dir, "porous.ele")
     facesfile = os.path.join(mesh_dir, "porous.face")
