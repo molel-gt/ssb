@@ -4,8 +4,6 @@ import os
 import json
 import subprocess
 
-from utc import datetime
-
 import argparse
 import gmsh
 import meshio
