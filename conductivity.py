@@ -265,6 +265,7 @@ if __name__ == '__main__':
         volume_fraction = volume / (Lx * Ly * Lz)
         total_area = area_left_cc + area_right_cc + insulated_area
         error = (max([I_left_cc ** 2, I_right_cc ** 2]) / min([I_left_cc ** 2, I_right_cc ** 2])) ** 0.5
+        kappa_eff = Lz * abs(I_left_cc) / (voltage * (Lx * Ly))
 
         simulation_metadata = {
             "Wagner number": args.Wa,
