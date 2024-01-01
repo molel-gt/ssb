@@ -157,7 +157,7 @@ if __name__ == '__main__':
     grad_u = ufl.grad(uh)
     # W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
     # e = element("CG", "tetrahedron", 1, shape=(3,))
-    W = fem.functionspace(domain, ("CG", 1, (3,), False))
+    W = fem.functionspace(domain, ("CG", 1, (3,)))
     current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
     current_h = fem.Function(W)
     tol_fun = fem.Function(V)
@@ -176,14 +176,9 @@ if __name__ == '__main__':
     area_left_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.left_cc))), op=MPI.SUM, root=0)
     area_right_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.right_cc))), op=MPI.SUM, root=0)
     I_left_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc))), op=MPI.SUM, root=0)
-    i_left_cc = I_left_cc / area_left_cc
     I_right_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc))), op=MPI.SUM, root=0)
-    i_right_cc = I_right_cc / area_right_cc
     I_insulated = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds)), op=MPI.SUM, root=0)
-    i_insulated = I_insulated / insulated_area
     volume = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ufl.dx(domain))), op=MPI.SUM, root=0)
-    volume_fraction = volume / (Lx * Ly * Lz)
-    total_area = area_left_cc + area_right_cc + insulated_area
 
     if args.compute_distribution:
         logger.debug("Cumulative distribution lines of current density at terminals")
@@ -264,7 +259,13 @@ if __name__ == '__main__':
                     writer.writerow(row)
             logger.debug(f"Wrote cdf stats in {grad_cd_path}")
     if domain.comm.rank == 0:
+        i_right_cc = I_right_cc / area_right_cc
+        i_left_cc = I_left_cc / area_left_cc
+        i_insulated = I_insulated / insulated_area
+        volume_fraction = volume / (Lx * Ly * Lz)
+        total_area = area_left_cc + area_right_cc + insulated_area
         error = (max([I_left_cc ** 2, I_right_cc ** 2]) / min([I_left_cc ** 2, I_right_cc ** 2])) ** 0.5
+
         simulation_metadata = {
             "Wagner number": args.Wa,
             "Contact area fraction at left electrode": area_left_cc / (Lx * Ly),
