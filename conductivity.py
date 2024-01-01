@@ -181,83 +181,83 @@ if __name__ == '__main__':
     volume = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ufl.dx(domain))), op=MPI.SUM, root=0)
 
     if args.compute_distribution:
-        logger.debug("Cumulative distribution lines of current density at terminals")
-        cd_lims = defaultdict(lambda : [0, 25])
-        cd_lims.update(
-            {
-                1: [0, 60],
-                5: [0, 25],
-                15: [0, 25],
-                30: [0, 25],
-                50: [0, 25],
-                100: [0, 25],
-                200: [0, 25],
-            }
-        )
-        min_cd, max_cd = cd_lims[int(dimensions.split("-")[-1])]
-        cd_space = np.linspace(min_cd, max_cd, num=10000)
-        cdf_values = []
-        freq_values = []
-        EPS = 1e-30
+        # logger.debug("Cumulative distribution lines of current density at terminals")
+        # cd_lims = defaultdict(lambda : [0, 25])
+        # cd_lims.update(
+        #     {
+        #         1: [0, 60],
+        #         5: [0, 25],
+        #         15: [0, 25],
+        #         30: [0, 25],
+        #         50: [0, 25],
+        #         100: [0, 25],
+        #         200: [0, 25],
+        #     }
+        # )
+        # min_cd, max_cd = cd_lims[int(dimensions.split("-")[-1])]
+        # cd_space = np.linspace(min_cd, max_cd, num=10000)
+        # cdf_values = []
+        # freq_values = []
+        # EPS = 1e-30
 
-        def frequency_condition(values, vleft, vright):
-            tol_fun_left.interpolate(lambda x: vleft * (x[0] + EPS) / (x[0] + EPS))
-            tol_fun_right.interpolate(lambda x: vright * (x[0] + EPS) / (x[0] + EPS))
-            return ufl.conditional(ufl.ge(values, tol_fun_left), 1, 0) * ufl.conditional(ufl.lt(values, tol_fun_right), 1, 0)
+        # def frequency_condition(values, vleft, vright):
+        #     tol_fun_left.interpolate(lambda x: vleft * (x[0] + EPS) / (x[0] + EPS))
+        #     tol_fun_right.interpolate(lambda x: vright * (x[0] + EPS) / (x[0] + EPS))
+        #     return ufl.conditional(ufl.ge(values, tol_fun_left), 1, 0) * ufl.conditional(ufl.lt(values, tol_fun_right), 1, 0)
 
-        def check_condition(values, tol):
-            tol_fun.interpolate(lambda x: tol * (x[0] + EPS) / (x[0] + EPS))
-            return ufl.conditional(ufl.le(values, tol_fun), 1, 0)
+        # def check_condition(values, tol):
+        #     tol_fun.interpolate(lambda x: tol * (x[0] + EPS) / (x[0] + EPS))
+        #     return ufl.conditional(ufl.le(values, tol_fun), 1, 0)
 
-        for v in cd_space:
-            lpvalue = domain.comm.reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.left_cc))) / area_left_cc, op=MPI.SUM, root=0)
-            rpvalue = domain.comm.reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.right_cc))) / area_right_cc, op=MPI.SUM, root=0)
-            cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
-        for i, vleft in enumerate(list(cd_space)[:-1]):
-            vright = cd_space[i+1]
-            freql = domain.comm.reduce(
-                fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(markers.left_cc))) / area_left_cc,
-                op=MPI.SUM,
-                root=0
-            )
-            freqr = domain.comm.reduce(
-                fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(
-                    markers.right_cc))) / area_right_cc,
-                op=MPI.SUM,
-                root=0
-            )
-            freq_values.append({"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql": freql, "freqr": freqr})
-        if domain.comm.rank == 0:
-            with open(stats_path, 'w') as fp:
-                writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
-                writer.writeheader()
-                for row in cdf_values:
-                    writer.writerow(row)
-            with open(frequency_path, "w") as fp:
-                writer = csv.DictWriter(fp, fieldnames=["vleft [A/m2]", "vright [A/m2]", "freql", "freqr"])
-                writer.writeheader()
-                for row in freq_values:
-                    writer.writerow(row)
-        logger.debug(f"Wrote cdf stats in {stats_path}")
-        if args.compute_grad_distribution:
-            logger.debug(f"Cumulative distribution lines of derivative of current density at terminals")
-            grad2 = ufl.sqrt(
-                ufl.inner(
-                    ufl.grad(ufl.inner(current_h, n)),
-                    ufl.grad(ufl.inner(current_h, n))
-                )
-            )
-            grad_cd_space = [0, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5] + list(np.linspace(1e-5 + 1e-6, 1e-4, num=100)) + [1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7]
-            grad_cd_cdf_values = []
-            for v in grad_cd_space:
-                lpvalue = fem.assemble_scalar(fem.form(check_condition(grad2, v) * ds(markers.left_cc))) / area_left_cc
-                grad_cd_cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": "-"})
-            with open(grad_cd_path, 'w') as fp:
-                writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
-                writer.writeheader()
-                for row in grad_cd_cdf_values:
-                    writer.writerow(row)
-            logger.debug(f"Wrote cdf stats in {grad_cd_path}")
+        # for v in cd_space:
+        #     lpvalue = domain.comm.reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.left_cc))) / area_left_cc, op=MPI.SUM, root=0)
+        #     rpvalue = domain.comm.reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.right_cc))) / area_right_cc, op=MPI.SUM, root=0)
+        #     cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
+        # for i, vleft in enumerate(list(cd_space)[:-1]):
+        #     vright = cd_space[i+1]
+        #     freql = domain.comm.reduce(
+        #         fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(markers.left_cc))) / area_left_cc,
+        #         op=MPI.SUM,
+        #         root=0
+        #     )
+        #     freqr = domain.comm.reduce(
+        #         fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(
+        #             markers.right_cc))) / area_right_cc,
+        #         op=MPI.SUM,
+        #         root=0
+        #     )
+        #     freq_values.append({"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql": freql, "freqr": freqr})
+        # if domain.comm.rank == 0:
+        #     with open(stats_path, 'w') as fp:
+        #         writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
+        #         writer.writeheader()
+        #         for row in cdf_values:
+        #             writer.writerow(row)
+        #     with open(frequency_path, "w") as fp:
+        #         writer = csv.DictWriter(fp, fieldnames=["vleft [A/m2]", "vright [A/m2]", "freql", "freqr"])
+        #         writer.writeheader()
+        #         for row in freq_values:
+        #             writer.writerow(row)
+        # logger.debug(f"Wrote cdf stats in {stats_path}")
+        # if args.compute_grad_distribution:
+        #     logger.debug(f"Cumulative distribution lines of derivative of current density at terminals")
+        #     grad2 = ufl.sqrt(
+        #         ufl.inner(
+        #             ufl.grad(ufl.inner(current_h, n)),
+        #             ufl.grad(ufl.inner(current_h, n))
+        #         )
+        #     )
+        #     grad_cd_space = [0, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5] + list(np.linspace(1e-5 + 1e-6, 1e-4, num=100)) + [1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7]
+        #     grad_cd_cdf_values = []
+        #     for v in grad_cd_space:
+        #         lpvalue = fem.assemble_scalar(fem.form(check_condition(grad2, v) * ds(markers.left_cc))) / area_left_cc
+        #         grad_cd_cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": "-"})
+        #     with open(grad_cd_path, 'w') as fp:
+        #         writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
+        #         writer.writeheader()
+        #         for row in grad_cd_cdf_values:
+        #             writer.writerow(row)
+        #     logger.debug(f"Wrote cdf stats in {grad_cd_path}")
     if domain.comm.rank == 0:
         i_right_cc = I_right_cc / area_right_cc
         i_left_cc = I_left_cc / area_left_cc
