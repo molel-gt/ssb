@@ -276,7 +276,7 @@ if __name__ == '__main__':
             "Average current density at active area of right electrode [A.m-2]": i_right_cc,
             "Dimensions Lx-Ly-Lz (unscaled)": args.dimensions,
             "Scaling for dimensions x,y,z to meters": args.scaling,
-            "Bulk conductivity [S.m-1]": KAPPA,
+            "Bulk conductivity [S.m-1]": constants.KAPPA0,
             "Effective conductivity [S.m-1]": kappa_eff,
             "Current density at insulated area [A.m-2]": i_insulated,
             "Area-averaged Homogeneous Neumann BC trace": avg_solution_trace_norm,
