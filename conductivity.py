@@ -288,7 +288,7 @@ if __name__ == '__main__':
             "Simulation time (seconds)": f"{int(timeit.default_timer() - start_time):3.5f}",
             "Voltage drop [V]": args.voltage,
             "Electrolyte volume fraction": f"{volume_fraction:.4f}",
-            "Electrolyte volume [cu. m]": f"{volume:.4f}",
+            "Electrolyte volume [cu. m]": f"{volume:.4e}",
         }
         with open(simulation_metafile, "w", encoding='utf-8') as f:
             json.dump(simulation_metadata, f, ensure_ascii=False, indent=4)
