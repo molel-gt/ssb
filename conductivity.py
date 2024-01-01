@@ -180,7 +180,7 @@ if __name__ == '__main__':
     I_insulated = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds)), op=MPI.SUM, root=0)
     volume = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ufl.dx(domain))), op=MPI.SUM, root=0)
 
-    if args.compute_distribution:
+    # if args.compute_distribution:
         # logger.debug("Cumulative distribution lines of current density at terminals")
         # cd_lims = defaultdict(lambda : [0, 25])
         # cd_lims.update(
