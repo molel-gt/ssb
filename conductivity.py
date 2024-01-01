@@ -285,7 +285,7 @@ if __name__ == '__main__':
             "Bulk conductivity [S.m-1]": constants.KAPPA0,
             "Effective conductivity [S.m-1]": f"{kappa_eff:.4f}",
             "Max electrode current over min electrode current (error)": error,
-            "Simulation time (seconds)": f"{int(timeit.default_timer() - start_time):3.5f}",
+            "Simulation time (seconds)": f"{int(timeit.default_timer() - start_time):,}",
             "Voltage drop [V]": args.voltage,
             "Electrolyte volume fraction": f"{volume_fraction:.4f}",
             "Electrolyte volume [cu. m]": f"{volume:.4e}",
