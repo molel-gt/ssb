@@ -210,8 +210,8 @@ if __name__ == '__main__':
             return ufl.conditional(ufl.le(values, tol_fun), 1, 0)
 
         for v in cd_space:
-            lpvalue = domain.comm.allreduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.left_cc))), op=MPI.SUM, root=0)
-            rpvalue = domain.comm.allreduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.right_cc))), op=MPI.SUM, root=0)
+            lpvalue = domain.comm.allreduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.left_cc))), op=MPI.SUM)
+            rpvalue = domain.comm.allreduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.right_cc))), op=MPI.SUM)
             cdf_values.append({'i [A/m2]': v, "p_left [sq. m]": lpvalue, "p_right [sq. m]": rpvalue})
         for i, vleft in enumerate(list(cd_space)[:-1]):
             vright = cd_space[i+1]
