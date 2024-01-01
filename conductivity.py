@@ -174,16 +174,16 @@ if __name__ == '__main__':
     insulated_area = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.insulated))), op=MPI.SUM, root=0)
     area_left_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.left_cc))), op=MPI.SUM, root=0)
     area_right_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.right_cc))), op=MPI.SUM, root=0)
-    I_left_cc = abs(domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc))), op=MPI.SUM, root=0))
+    I_left_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc))), op=MPI.SUM, root=0)
     i_left_cc = I_left_cc / area_left_cc
-    I_right_cc = abs(domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc))), op=MPI.SUM, root=0))
+    I_right_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc))), op=MPI.SUM, root=0)
     i_right_cc = I_right_cc / area_right_cc
     I_insulated = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds)), op=MPI.SUM, root=0)
     i_insulated = I_insulated / insulated_area
     volume = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ufl.dx(domain))), op=MPI.SUM, root=0)
     volume_fraction = volume / (Lx * Ly * Lz)
     total_area = area_left_cc + area_right_cc + insulated_area
-    error = max([I_left_cc, I_right_cc]) / min([I_left_cc, I_right_cc])
+
     if args.compute_distribution:
         logger.debug("Cumulative distribution lines of current density at terminals")
         cd_lims = defaultdict(lambda : [0, 25])
@@ -262,48 +262,30 @@ if __name__ == '__main__':
                 for row in grad_cd_cdf_values:
                     writer.writerow(row)
             logger.debug(f"Wrote cdf stats in {grad_cd_path}")
-    simulation_metadata = {
-        "Wagner number": Wa,
-        "Contact area fraction at left electrode": area_left_cc / (Lx * Ly),
-        "Contact area fraction at left electrode": area_right_cc / (Lx * Ly),
-        "Contact area at left electrode [sq. m]": area_left_cc,
-        "Contact area at right electrode [sq. m]": area_right_cc,
-        "Average current density at active area of left electrode [A.m-2]": i_left_cc,
-        "Average current density at active area of right electrode [A.m-2]": i_right_cc,
-        "Dimensions Lx-Ly-Lz (unscaled)": args.dimensions,
-        "Scaling for dimensions x,y,z to meters": args.scaling,
-        "Bulk conductivity [S.m-1]": KAPPA,
-        "Effective conductivity [S.m-1]": kappa_eff,
-        "Current density at insulated area [A.m-2]": i_insulated,
-        "Area-averaged Homogeneous Neumann BC trace": avg_solution_trace_norm,
-        "Max electrode current over min electrode current (error)": error,
-        "Simulation time (seconds)": f"{int(timeit.default_timer() - start_time):3.5f}",
-        "Voltage drop [V]": args.voltage,
-        "Insulated area [sq. m]": insulated_area,
-        "Electrolyte volume fraction": volume_fraction,
-        "Electrolyte volume [cu. m]": volume,
-    }
     if domain.comm.rank == 0:
+        error = (max([I_left_cc ** 2, I_right_cc ** 2]) / min([I_left_cc ** 2, I_right_cc ** 2])) ** 0.5
+        simulation_metadata = {
+            "Wagner number": Wa,
+            "Contact area fraction at left electrode": area_left_cc / (Lx * Ly),
+            "Contact area fraction at left electrode": area_right_cc / (Lx * Ly),
+            "Contact area at left electrode [sq. m]": area_left_cc,
+            "Contact area at right electrode [sq. m]": area_right_cc,
+            "Average current density at active area of left electrode [A.m-2]": i_left_cc,
+            "Average current density at active area of right electrode [A.m-2]": i_right_cc,
+            "Dimensions Lx-Ly-Lz (unscaled)": args.dimensions,
+            "Scaling for dimensions x,y,z to meters": args.scaling,
+            "Bulk conductivity [S.m-1]": KAPPA,
+            "Effective conductivity [S.m-1]": kappa_eff,
+            "Current density at insulated area [A.m-2]": i_insulated,
+            "Area-averaged Homogeneous Neumann BC trace": avg_solution_trace_norm,
+            "Max electrode current over min electrode current (error)": error,
+            "Simulation time (seconds)": f"{int(timeit.default_timer() - start_time):3.5f}",
+            "Voltage drop [V]": args.voltage,
+            "Insulated area [sq. m]": insulated_area,
+            "Electrolyte volume fraction": volume_fraction,
+            "Electrolyte volume [cu. m]": volume,
+        }
         with open(simulation_metafile, "w", encoding='utf-8') as f:
             json.dump(simulation_metadata, f, ensure_ascii=False, indent=4)
 
-    if domain.comm.rank == 0:
-        logger.info("**************************RESULTS-SUMMARY******************************************")
-        logger.info(f"Contact Area @ left cc [sq. um]                 : {area_left_cc*1e12:.4e}")
-        logger.info(f"Contact Area @ right cc [sq. um]                : {area_right_cc*1e12:.4e}")
-        logger.info(f"Insulated Area [sq. um]                         : {insulated_area*1e12:.4e}")
-        logger.info(f"Total Area [sq. um]                             : {total_area*1e12:.4e}")
-        logger.info(f"Current density @ left cc [A/m2]                : {i_left_cc:.4e}")
-        logger.info(f"Current density @ right cc [A/m2]               : {i_right_cc:.4e}")
-        logger.info(f"Current @ left cc [A]                           : {I_left_cc:.4e}")
-        logger.info(f"Current @ right cc [A]                          : {I_right_cc:.4e}")
-        logger.info(f"Insulated Current [A]                           : {I_insulated:.2e}")
-        logger.info(f"Electrolyte Volume [cu. um]                     : {volume*1e18:.4e}")
-        logger.info("Electrolyte Volume Fraction                     : {:.2%}".format(volume_fraction))
-        logger.info(f"Bulk conductivity [S.m-1]                       : {constants.KAPPA0:.4e}")
-        logger.info("Effective conductivity [S.m-1]                  : {:.4e}".format(Lz * abs(I_left_cc) / (voltage * (Lx * Ly))))
-        logger.info(f"Conductor Length, L_z [um]                      : {Lz * 1e6:.1e}")
-        logger.info(f"Max electrode current over min electrode current (error): {error:.4f}")
-        logger.info(f"Voltage                                         : {args.voltage}")
         logger.info(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
-        logger.info("*************************END-OF-SUMMARY*******************************************")
