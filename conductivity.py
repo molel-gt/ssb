@@ -279,6 +279,7 @@ if __name__ == '__main__':
             "Average current density at insulated area [A.m-2]": f"{i_insulated:.4e}",
             "Current at active area of left electrode [A]": f"{np.abs(I_left_cc):.4e}",
             "Current at active area of right electrode [A]": f"{np.abs(I_right_cc):.4e}",
+            "Current at insulated area [A]": f"{np.abs(I_insulated):.4e}",
             "Dimensions Lx-Ly-Lz (unscaled)": args.dimensions,
             "Scaling for dimensions x,y,z to meters": args.scaling,
             "Bulk conductivity [S.m-1]": constants.KAPPA0,
