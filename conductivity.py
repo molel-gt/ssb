@@ -270,9 +270,10 @@ if __name__ == '__main__':
         simulation_metadata = {
             "Wagner number": args.Wa,
             "Contact area fraction at left electrode": f"{area_left_cc / (Lx * Ly):.4f}",
-            "Contact area fraction at left electrode": f"{area_right_cc / (Lx * Ly):.4f}",
+            "Contact area fraction at right electrode": f"{area_right_cc / (Lx * Ly):.4f}",
             "Contact area at left electrode [sq. m]": f"{area_left_cc:.4e}",
             "Contact area at right electrode [sq. m]": f"{area_right_cc:.4e}",
+            "Insulated area [sq. m]": f"{insulated_area:.4e}",
             "Average current density at active area of left electrode [A.m-2]": f"{i_left_cc:.4e}",
             "Average current density at active area of right electrode [A.m-2]": f"{i_right_cc:.4e}",
             "Average current density at insulated area [A.m-2]": f"{i_insulated:.4e}",
@@ -283,7 +284,6 @@ if __name__ == '__main__':
             "Max electrode current over min electrode current (error)": error,
             "Simulation time (seconds)": f"{int(timeit.default_timer() - start_time):3.5f}",
             "Voltage drop [V]": args.voltage,
-            "Insulated area [sq. m]": insulated_area,
             "Electrolyte volume fraction": f"{volume_fraction:.4f}",
             "Electrolyte volume [cu. m]": f"{volume:.4f}",
         }
