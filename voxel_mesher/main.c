@@ -132,6 +132,7 @@ int main(int argc, char *argv[]){
                         {
                             tet = {invalid, invalid, invalid, invalid};
                         }
+                        std::sort(tet.begin(), tet.end());
                         if (std::find(tet.begin(), tet.end(), invalid) != tet.end()){
                             tetrahedrons.push_back(tet);
                         }
