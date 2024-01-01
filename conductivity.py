@@ -106,7 +106,7 @@ if __name__ == '__main__':
         meshtags = mesh.meshtags(domain, domain.topology.dim - 1, ft_indices, ft_values)
 
     # Dirichlet BCs
-    V = fem.FunctionSpace(domain, ("Lagrange", 2))
+    V = fem.functionspace(domain, ("Lagrange", 2))
     u0 = fem.Function(V)
     with u0.vector.localForm() as u0_loc:
         u0_loc.set(voltage)
