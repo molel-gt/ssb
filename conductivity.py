@@ -217,14 +217,12 @@ if __name__ == '__main__':
             vright = cd_space[i+1]
             freql = domain.comm.allreduce(
                 fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(markers.left_cc))),
-                op=MPI.SUM,
-                root=0
+                op=MPI.SUM
             )
             freqr = domain.comm.allreduce(
                 fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(
                     markers.right_cc))),
-                op=MPI.SUM,
-                root=0
+                op=MPI.SUM
             )
             freq_values.append({"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql [sq. m]": freql, "freqr [sq. m]": freqr})
         if domain.comm.rank == 0:
