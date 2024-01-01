@@ -269,23 +269,23 @@ if __name__ == '__main__':
 
         simulation_metadata = {
             "Wagner number": args.Wa,
-            "Contact area fraction at left electrode": area_left_cc / (Lx * Ly),
-            "Contact area fraction at left electrode": area_right_cc / (Lx * Ly),
-            "Contact area at left electrode [sq. m]": area_left_cc,
-            "Contact area at right electrode [sq. m]": area_right_cc,
-            "Average current density at active area of left electrode [A.m-2]": i_left_cc,
-            "Average current density at active area of right electrode [A.m-2]": i_right_cc,
+            "Contact area fraction at left electrode": f"{area_left_cc / (Lx * Ly):.4f}",
+            "Contact area fraction at left electrode": f"{area_right_cc / (Lx * Ly):.4f}",
+            "Contact area at left electrode [sq. m]": f"{area_left_cc:.4e}",
+            "Contact area at right electrode [sq. m]": f"{area_right_cc:.4e}",
+            "Average current density at active area of left electrode [A.m-2]": f"{i_left_cc:.4e}",
+            "Average current density at active area of right electrode [A.m-2]": f"{i_right_cc:.4e}",
+            "Average current density at insulated area [A.m-2]": f"{i_insulated:.4e}",
             "Dimensions Lx-Ly-Lz (unscaled)": args.dimensions,
             "Scaling for dimensions x,y,z to meters": args.scaling,
             "Bulk conductivity [S.m-1]": constants.KAPPA0,
-            "Effective conductivity [S.m-1]": kappa_eff,
-            "Current density at insulated area [A.m-2]": i_insulated,
+            "Effective conductivity [S.m-1]": f"{kappa_eff:.4f}",
             "Max electrode current over min electrode current (error)": error,
             "Simulation time (seconds)": f"{int(timeit.default_timer() - start_time):3.5f}",
             "Voltage drop [V]": args.voltage,
             "Insulated area [sq. m]": insulated_area,
-            "Electrolyte volume fraction": volume_fraction,
-            "Electrolyte volume [cu. m]": volume,
+            "Electrolyte volume fraction": f"{volume_fraction:.4f}",
+            "Electrolyte volume [cu. m]": f"{volume:.4f}",
         }
         with open(simulation_metafile, "w", encoding='utf-8') as f:
             json.dump(simulation_metadata, f, ensure_ascii=False, indent=4)
