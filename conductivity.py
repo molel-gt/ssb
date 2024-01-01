@@ -27,6 +27,7 @@ if __name__ == '__main__':
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
     parser.add_argument('--root_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1e-3)
+    parser.add_argument("--Wa", help="Wagna number -> charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=np.nan)
     parser.add_argument("--scale", help="sx,sy,sz", nargs='?', const=1, default=None)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='VOXEL_SCALING', type=str)
@@ -265,7 +266,7 @@ if __name__ == '__main__':
     if domain.comm.rank == 0:
         error = (max([I_left_cc ** 2, I_right_cc ** 2]) / min([I_left_cc ** 2, I_right_cc ** 2])) ** 0.5
         simulation_metadata = {
-            "Wagner number": Wa,
+            "Wagner number": args.Wa,
             "Contact area fraction at left electrode": area_left_cc / (Lx * Ly),
             "Contact area fraction at left electrode": area_right_cc / (Lx * Ly),
             "Contact area at left electrode [sq. m]": area_left_cc,
