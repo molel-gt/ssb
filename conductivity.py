@@ -210,23 +210,23 @@ if __name__ == '__main__':
             return ufl.conditional(ufl.le(values, tol_fun), 1, 0)
 
         for v in cd_space:
-            lpvalue = domain.comm.reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.left_cc))), op=MPI.SUM, root=0) / area_left_cc
-            rpvalue = domain.comm.reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.right_cc))), op=MPI.SUM, root=0) / area_left_cc
-            cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
+            lpvalue = domain.comm.reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.left_cc))), op=MPI.SUM, root=0)
+            rpvalue = domain.comm.reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.right_cc))), op=MPI.SUM, root=0)
+            cdf_values.append({'i [A/m2]': v, "p_left": lpvalue / area_left_cc, "p_right": rpvalue / area_right_cc})
         for i, vleft in enumerate(list(cd_space)[:-1]):
             vright = cd_space[i+1]
             freql = domain.comm.reduce(
-                fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(markers.left_cc))) / area_left_cc,
+                fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(markers.left_cc))),
                 op=MPI.SUM,
                 root=0
             )
             freqr = domain.comm.reduce(
                 fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(
-                    markers.right_cc))) / area_right_cc,
+                    markers.right_cc))),
                 op=MPI.SUM,
                 root=0
             )
-            freq_values.append({"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql": freql, "freqr": freqr})
+            freq_values.append({"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql": freql / area_left_cc, "freqr": freqr / area_right_cc})
         if domain.comm.rank == 0:
             with open(stats_path, 'w') as fp:
                 writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
@@ -250,8 +250,8 @@ if __name__ == '__main__':
             grad_cd_space = [0, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5] + list(np.linspace(1e-5 + 1e-6, 1e-4, num=100)) + [1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7]
             grad_cd_cdf_values = []
             for v in grad_cd_space:
-                lpvalue = fem.assemble_scalar(fem.form(check_condition(grad2, v) * ds(markers.left_cc))) / area_left_cc
-                grad_cd_cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": "-"})
+                lpvalue = fem.assemble_scalar(fem.form(check_condition(grad2, v) * ds(markers.left_cc)))
+                grad_cd_cdf_values.append({'i [A/m2]': v, "p_left": lpvalue / area_left_cc, "p_right": "-"})
             with open(grad_cd_path, 'w') as fp:
                 writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
                 writer.writeheader()
