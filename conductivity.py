@@ -264,7 +264,7 @@ if __name__ == '__main__':
         i_insulated = I_insulated / insulated_area
         volume_fraction = volume / (Lx * Ly * Lz)
         total_area = area_left_cc + area_right_cc + insulated_area
-        error = (max([I_left_cc ** 2, I_right_cc ** 2]) / min([I_left_cc ** 2, I_right_cc ** 2])) ** 0.5
+        error = max([np.abs(I_left_cc), np.abs(I_right_cc)]) / min([np.abs(I_left_cc), np.abs(I_right_cc)])
         kappa_eff = Lz * abs(I_left_cc) / (voltage * (Lx * Ly))
 
         simulation_metadata = {
@@ -274,9 +274,11 @@ if __name__ == '__main__':
             "Contact area at left electrode [sq. m]": f"{area_left_cc:.4e}",
             "Contact area at right electrode [sq. m]": f"{area_right_cc:.4e}",
             "Insulated area [sq. m]": f"{insulated_area:.4e}",
-            "Average current density at active area of left electrode [A.m-2]": f"{i_left_cc:.4e}",
-            "Average current density at active area of right electrode [A.m-2]": f"{i_right_cc:.4e}",
+            "Average current density at active area of left electrode [A.m-2]": f"{np.abs(i_left_cc):.4e}",
+            "Average current density at active area of right electrode [A.m-2]": f"{np.abs(i_right_cc):.4e}",
             "Average current density at insulated area [A.m-2]": f"{i_insulated:.4e}",
+            "Current at active area of left electrode [A]": f"{np.abs(I_left_cc):.4e}",
+            "Current at active area of right electrode [A]": f"{np.abs(I_right_cc):.4e}",
             "Dimensions Lx-Ly-Lz (unscaled)": args.dimensions,
             "Scaling for dimensions x,y,z to meters": args.scaling,
             "Bulk conductivity [S.m-1]": constants.KAPPA0,
