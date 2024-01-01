@@ -212,7 +212,7 @@ if __name__ == '__main__':
         for v in cd_space:
             lpvalue = domain.comm.reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.left_cc))), op=MPI.SUM, root=0)
             rpvalue = domain.comm.reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.right_cc))), op=MPI.SUM, root=0)
-            cdf_values.append({'i [A/m2]': v, "p_left": lpvalue / area_left_cc, "p_right": rpvalue / area_right_cc})
+            cdf_values.append({'i [A/m2]': v, "p_left [sq. m]": lpvalue, "p_right [sq. m]": rpvalue})
         for i, vleft in enumerate(list(cd_space)[:-1]):
             vright = cd_space[i+1]
             freql = domain.comm.reduce(
@@ -226,7 +226,7 @@ if __name__ == '__main__':
                 op=MPI.SUM,
                 root=0
             )
-            freq_values.append({"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql": freql / area_left_cc, "freqr": freqr / area_right_cc})
+            freq_values.append({"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql [sq. m]": freql, "freqr [sq. m]": freqr})
         if domain.comm.rank == 0:
             with open(stats_path, 'w') as fp:
                 writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
@@ -234,7 +234,7 @@ if __name__ == '__main__':
                 for row in cdf_values:
                     writer.writerow(row)
             with open(frequency_path, "w") as fp:
-                writer = csv.DictWriter(fp, fieldnames=["vleft [A/m2]", "vright [A/m2]", "freql", "freqr"])
+                writer = csv.DictWriter(fp, fieldnames=["vleft [A/m2]", "vright [A/m2]", "freql [sq. m]", "freqr [sq. m]"])
                 writer.writeheader()
                 for row in freq_values:
                     writer.writerow(row)
@@ -251,9 +251,9 @@ if __name__ == '__main__':
             grad_cd_cdf_values = []
             for v in grad_cd_space:
                 lpvalue = fem.assemble_scalar(fem.form(check_condition(grad2, v) * ds(markers.left_cc)))
-                grad_cd_cdf_values.append({'i [A/m2]': v, "p_left": lpvalue / area_left_cc, "p_right": "-"})
+                grad_cd_cdf_values.append({'i [A/m2]': v, "p_left [sq. m]": lpvalue, "p_right [sq. m]": "-"})
             with open(grad_cd_path, 'w') as fp:
-                writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
+                writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left [sq. m]', 'p_right [sq. m]'])
                 writer.writeheader()
                 for row in grad_cd_cdf_values:
                     writer.writerow(row)
