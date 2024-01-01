@@ -172,13 +172,13 @@ if __name__ == '__main__':
         vtx.write(0.0)
 
     logger.debug("Post-process Results Summary")
-    insulated_area = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.insulated))), op=MPI.SUM, root=0)
-    area_left_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.left_cc))), op=MPI.SUM, root=0)
-    area_right_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.right_cc))), op=MPI.SUM, root=0)
-    I_left_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc))), op=MPI.SUM, root=0)
-    I_right_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc))), op=MPI.SUM, root=0)
-    I_insulated = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds)), op=MPI.SUM, root=0)
-    volume = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ufl.dx(domain))), op=MPI.SUM, root=0)
+    insulated_area = domain.comm.all_reduce(fem.assemble_scalar(fem.form(1 * ds(markers.insulated))), op=MPI.SUM, root=0)
+    area_left_cc = domain.comm.all_reduce(fem.assemble_scalar(fem.form(1 * ds(markers.left_cc))), op=MPI.SUM, root=0)
+    area_right_cc = domain.comm.all_reduce(fem.assemble_scalar(fem.form(1 * ds(markers.right_cc))), op=MPI.SUM, root=0)
+    I_left_cc = domain.comm.all_reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc))), op=MPI.SUM, root=0)
+    I_right_cc = domain.comm.all_reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc))), op=MPI.SUM, root=0)
+    I_insulated = domain.comm.all_reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds)), op=MPI.SUM, root=0)
+    volume = domain.comm.all_reduce(fem.assemble_scalar(fem.form(1 * ufl.dx(domain))), op=MPI.SUM, root=0)
 
     if args.compute_distribution:
         logger.debug("Cumulative distribution lines of current density at terminals")
@@ -210,17 +210,17 @@ if __name__ == '__main__':
             return ufl.conditional(ufl.le(values, tol_fun), 1, 0)
 
         for v in cd_space:
-            lpvalue = domain.comm.reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.left_cc))), op=MPI.SUM, root=0)
-            rpvalue = domain.comm.reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.right_cc))), op=MPI.SUM, root=0)
+            lpvalue = domain.comm.all_reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.left_cc))), op=MPI.SUM, root=0)
+            rpvalue = domain.comm.all_reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.right_cc))), op=MPI.SUM, root=0)
             cdf_values.append({'i [A/m2]': v, "p_left [sq. m]": lpvalue, "p_right [sq. m]": rpvalue})
         for i, vleft in enumerate(list(cd_space)[:-1]):
             vright = cd_space[i+1]
-            freql = domain.comm.reduce(
+            freql = domain.comm.all_reduce(
                 fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(markers.left_cc))),
                 op=MPI.SUM,
                 root=0
             )
-            freqr = domain.comm.reduce(
+            freqr = domain.comm.all_reduce(
                 fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(
                     markers.right_cc))),
                 op=MPI.SUM,
