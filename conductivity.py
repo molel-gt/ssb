@@ -280,7 +280,6 @@ if __name__ == '__main__':
             "Bulk conductivity [S.m-1]": constants.KAPPA0,
             "Effective conductivity [S.m-1]": kappa_eff,
             "Current density at insulated area [A.m-2]": i_insulated,
-            "Area-averaged Homogeneous Neumann BC trace": avg_solution_trace_norm,
             "Max electrode current over min electrode current (error)": error,
             "Simulation time (seconds)": f"{int(timeit.default_timer() - start_time):3.5f}",
             "Voltage drop [V]": args.voltage,
