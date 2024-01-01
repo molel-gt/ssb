@@ -25,7 +25,7 @@ markers = commons.SurfaceMarkers()
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
-    parser.add_argument('--root_folder', help='parent folder containing mesh folder', required=True)
+    parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1e-3)
     parser.add_argument("--Wa", help="Wagna number -> charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=np.nan)
     parser.add_argument("--scale", help="sx,sy,sz", nargs='?', const=1, default=None)
@@ -37,7 +37,7 @@ if __name__ == '__main__':
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="conductivity")
 
     args = parser.parse_args()
-    data_dir = os.path.join(f'{args.root_folder}')
+    data_dir = os.path.join(f'{args.mesh_folder}')
     voltage = args.voltage
     comm = MPI.COMM_WORLD
     rank = comm.rank

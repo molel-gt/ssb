@@ -18,4 +18,4 @@ mamba activate fea-env
 
 cd $SLURM_SUBMIT_DIR
 
-python3 conductivity.py --grid_extents 470-470-"$(($2 + 1))"_000-000-000 --root_folder mesh/study_2/test$1/470-470-$2_000-000-000 --scaling VOXEL_SCALING2 --compute_distribution 1
+python3 conductivity.py --dimensions 470-470-$2 --mesh_folder mesh/study_2/test$1/470-470-$2_000-000-000 --scaling VOXEL_SCALING2 --compute_distribution 1
