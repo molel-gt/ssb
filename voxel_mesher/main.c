@@ -4,22 +4,58 @@
 #include <vector>
 // #include "entities.h"
 
-// float *a;
-// int n;
-// err = cudaMalloc(&a, sizeof(float)*n);
-// kernel<<<n/32,32>>>(a,...);
-// incr(a,n);
 
-// void incr(float* x, int n){
-// #pragma acc parallel loop deviceptr(x)
-// for (int i = 0; i < n; ++i)
-//     x[i] += 1.0f;
-// }
-
-struct Voxel {
-    int p000, p100, p110, p010, p001, p101, p111, p011;
-} Voxel;
-
+std::vector<std::vector<int>> get_tetrahedron_faces(std::map<int, int> local_cube_points, int tet_number){
+    std::vector<std::vector<int>> local_tet_faces;
+    switch (tet_number){
+        case 0:
+        {
+            local_tet_faces = {
+                {local_cube_points[0], local_cube_points[1], local_cube_points[4]},
+                {local_cube_points[0], local_cube_points[3], local_cube_points[4]},
+                {local_cube_points[1], local_cube_points[0], local_cube_points[3]},
+                {local_cube_points[4], local_cube_points[1], local_cube_points[3]},
+            };
+        }
+        case 1:
+        {
+            local_tet_faces = {
+                {local_cube_points[1], local_cube_points[2], local_cube_points[6]},
+                {local_cube_points[6], local_cube_points[2], local_cube_points[3]},
+                {local_cube_points[1], local_cube_points[2], local_cube_points[3]},
+                {local_cube_points[1], local_cube_points[6], local_cube_points[3]},
+            };
+        }
+        case 2:
+        {
+            local_tet_faces = {
+                {local_cube_points[1], local_cube_points[5], local_cube_points[4]},
+                {local_cube_points[1], local_cube_points[6], local_cube_points[5]},
+                {local_cube_points[4], local_cube_points[5], local_cube_points[6]},
+                {local_cube_points[4], local_cube_points[6], local_cube_points[1]},
+            };
+        }
+        case 3:
+        {
+            local_tet_faces = {
+                {local_cube_points[4], local_cube_points[7], local_cube_points[3]},
+                {local_cube_points[3], local_cube_points[7], local_cube_points[6]},
+                {local_cube_points[4], local_cube_points[7], local_cube_points[6]},
+                {local_cube_points[4], local_cube_points[6], local_cube_points[3]},
+            };
+        }
+        case 4:
+        {
+            local_tet_faces = {
+                {local_cube_points[4], local_cube_points[3], local_cube_points[1]},
+                {local_cube_points[1], local_cube_points[3], local_cube_points[6]},
+                {local_cube_points[4], local_cube_points[1], local_cube_points[6]},
+                {local_cube_points[4], local_cube_points[3], local_cube_points[6]},
+            };
+        }
+    }
+    return local_tet_faces;
+}
 
 int main(int argc, char *argv[]){
     int Nx = 2, Ny = 2, Nz = 2;
@@ -80,9 +116,10 @@ int main(int argc, char *argv[]){
     // build tetrahedrons and faces
     std::vector<std::vector<int>> cube;
     std::map<int, int> cube_points;
-    std::vector<std::vector<int>> faces;
     std::vector<std::vector<int>> tetrahedrons;
+    std::vector<std::vector<std::vector<int>>> tetrahedrons_faces;
     std::vector<int> tet;
+    std::vector<int> tet_faces;
     int invalid = -1;
 
     for (int i = 0; i < Nx; i++){
@@ -114,7 +151,7 @@ int main(int argc, char *argv[]){
                         }
                         case 1:
                         {
-                            tet = {cube_points[1], cube_points[1], cube_points[3], cube_points[6]};
+                            tet = {cube_points[1], cube_points[2], cube_points[3], cube_points[6]};
                         }
                         case 2:
                         {
