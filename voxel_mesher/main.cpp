@@ -2,11 +2,12 @@
 #include <iostream>
 #include <map>
 #include <vector>
-// #include <hdf5.hpp>
+// #include <hdf5.h>
 #include <boost/program_options.hpp>
-// #include <boost/filesystem.hpp>
+#include <boost/filesystem.hpp>
 
 namespace po = boost::program_options;
+namespace fs = boost::filesystem;
 
 bool is_boundary_point(std::map<std::vector<int>, int> all_points, std::vector<int> check_point){
     int num_neighbors = 0;
@@ -129,22 +130,23 @@ std::vector<std::vector<int>> get_tetrahedron_faces(std::map<int, int> local_cub
 }
 
 int main(int argc, char* argv[]){
+    fs::path mesh_folder_path;
     po::options_description desc("Allowed options");
     desc.add_options()
     ("help", "Creates tetrahedral and triangle mesh in xdmf format from input voxels")
-    ("mesh_folder_path,MESH_FOLDER_PATH", po::value<std::vector<std::string>>(),  "mesh folder path")
-    ("boundary_layer", po::value<bool>()->default_value(false), "<bool> whether to add half pixel boundary layer");
+    ("mesh_folder_path,MESH_FOLDER_PATH", po::value<fs::path>(&mesh_folder_path),  "mesh folder path")
+    ("boundary_layer", po::value<bool>()->default_value(false), "whether or not to add half pixel boundary layer");
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
     po::notify(vm);
     if (vm.count("help")) {
         std::cout << desc << "\n";
-        return 1;
+        return 0;
     }
-    std::vector<std::string> mesh_folder_path;
+    
     bool boundary_layer = false;
     if (vm.count("mesh_folder_path")){
-        mesh_folder_path = vm["mesh_folder_path"].as<std::vector<std::string>>();
+        mesh_folder_path = vm["mesh_folder_path"].as<fs::path>();
     }
     else {
         return 1;
@@ -152,7 +154,7 @@ int main(int argc, char* argv[]){
     if (vm.count("boundary_layer")){
         boundary_layer = vm["boundary_layer"].as<bool>();
     }
-    // std::cout << mesh_folder_path << "\n";
+    std::cout << mesh_folder_path << "\n";
 
     int Nx = 2, Ny = 2, Nz = 2;
     std::map<std::vector<int>, int> voxels;
