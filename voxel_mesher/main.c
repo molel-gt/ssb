@@ -2,7 +2,27 @@
 #include <iostream>
 #include <map>
 #include <vector>
+#include <hdf5.h>
+
 // #include "entities.h"
+
+bool is_boundary_point(std::map<std::vector<int>, int> all_points, std::vector<int> check_point){
+    int num_neighbors = 0;
+    std::vector<std::vector<int>> neighor_points = {
+        {i + 1, j, k},
+        {i, j + 1, k},
+        {i, j, k + 1},
+        {i - 1, j, k},
+        {i, j - 1, k},
+        {i, j, k - 1},
+    };
+    for (int idx = 0; idx < 6; idx++){
+        if (all_points.count(num_neighbors[idx]) > 0){
+            num_neighbors++;
+        }
+    }
+    return num_neighbors != 6;
+}
 
 std::vector<int> get_tetrahedron(std::map<int, int> cube_points, int tet_number){
     std::vector<int> tet;
