@@ -141,12 +141,12 @@ int main(int argc, char* argv[]){
     voxels[{0, 0, 0}] = 1;
     voxels[{1, 0, 0}] = 1;
     voxels[{0, 1, 0}] = 1;
-    voxels[{1, 1, 0}] = 1;
+    voxels[{1, 1, 0}] = 0;
     voxels[{0, 0, 1}] = 1;
     voxels[{1, 0, 1}] = 1;
     voxels[{0, 1, 1}] = 1;
     voxels[{1, 1, 1}] = 1;
-    std::cout << voxels.count({13, 4, 5}) << "\n";
+    // std::cout << voxels.count({13, 4, 5}) << "\n";
 
     // build points dictionary
     int num_points = 0;
@@ -169,10 +169,9 @@ int main(int argc, char* argv[]){
             for (int k = 0; k < Nz; k++){
                 int value = points[{i, j, k}];
                 if (points.count({i, j, k}) > 0){
-                    std::vector<std::vector<int>> neighbors{{i + 1, j, k}, {i, j + 1}, {i, j, k + 1}, {i - 1, j, k}, {i, j - 1, k}, {i, j, k - 1}};
+                    std::vector<std::vector<int>> neighbors = {{i + 1, j, k}, {i, j + 1}, {i, j, k + 1}, {i - 1, j, k}, {i, j - 1, k}, {i, j, k - 1}};
                     for (int idx = 0; idx < 6; idx ++){
                         int value1 = points[neighbors[idx]];
-                        std::cout << points.count(neighbors[idx]) << "\n";
                         if (points.count(neighbors[idx]) > 0)
                         {
                             std::vector edge = {value, value1};
