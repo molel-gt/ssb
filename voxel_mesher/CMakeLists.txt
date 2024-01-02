@@ -1,0 +1,35 @@
+cmake_minimum_required(VERSION 3.19)
+
+set(PROJECT_NAME voxel_mesher)
+project(${PROJECT_NAME} LANGUAGES C CXX)
+
+# Set C++20 standard
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# boost
+FIND_PACKAGE(Boost COMPONENTS program_options REQUIRED)
+FIND_PACKAGE(Boost COMPONENTS filesystem REQUIRED)
+INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+
+FIND_PACKAGE(HDF5 COMPONENTS C HL NO_MODULE REQUIRED shared)
+
+set(CMAKE_INCLUDE_CURRENT_DIR ON)
+
+add_executable(
+  ${PROJECT_NAME} main.cpp
+)
+target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${Hdf5_LIBRARIES})
+
+# Do not throw error for 'multi-line comments' (these are typical in rst which
+# includes LaTeX)
+include(CheckCXXCompilerFlag)
+check_cxx_compiler_flag("-Wno-comment" HAVE_NO_MULTLINE)
+set_source_files_properties(
+  main.cpp
+  PROPERTIES
+    COMPILE_FLAGS
+    "$<$<BOOL:${HAVE_NO_MULTLINE}>:-Wno-comment -Wall -Wextra -pedantic -Werror>"
+)

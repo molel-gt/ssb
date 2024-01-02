@@ -8,7 +8,12 @@
 
 bool is_boundary_point(std::map<std::vector<int>, int> all_points, std::vector<int> check_point){
     int num_neighbors = 0;
-    std::vector<std::vector<int>> neighor_points = {
+    int i, j, k;
+    i = check_point[0];
+    j = check_point[1];
+    k = check_point[2];
+
+    std::vector<std::vector<int>> neighbor_points = {
         {i + 1, j, k},
         {i, j + 1, k},
         {i, j, k + 1},
@@ -17,7 +22,7 @@ bool is_boundary_point(std::map<std::vector<int>, int> all_points, std::vector<i
         {i, j, k - 1},
     };
     for (int idx = 0; idx < 6; idx++){
-        if (all_points.count(num_neighbors[idx]) > 0){
+        if (all_points.count(neighbor_points[idx]) > 0){
             num_neighbors++;
         }
     }
@@ -31,26 +36,32 @@ std::vector<int> get_tetrahedron(std::map<int, int> cube_points, int tet_number)
         case 0:
         {
             tet = {cube_points[0], cube_points[1], cube_points[3], cube_points[4]};
+            break;
         }
         case 1:
         {
             tet = {cube_points[1], cube_points[2], cube_points[3], cube_points[6]};
+            break;
         }
         case 2:
         {
             tet = {cube_points[4], cube_points[5], cube_points[6], cube_points[1]};
+            break;
         }
         case 3:
         {
             tet = {cube_points[4], cube_points[7], cube_points[6], cube_points[3]};
+            break;
         }
         case 4:
         {
             tet = {cube_points[0], cube_points[1], cube_points[3], cube_points[4]};
+            break;
         }
         default:
         {
             tet = {invalid, invalid, invalid, invalid};
+            break;
         }
     }
 
@@ -69,6 +80,7 @@ std::vector<std::vector<int>> get_tetrahedron_faces(std::map<int, int> local_cub
                 {local_cube_points[1], local_cube_points[0], local_cube_points[3]},
                 {local_cube_points[4], local_cube_points[1], local_cube_points[3]},
             };
+            break;
         }
         case 1:
         {
@@ -78,6 +90,7 @@ std::vector<std::vector<int>> get_tetrahedron_faces(std::map<int, int> local_cub
                 {local_cube_points[1], local_cube_points[2], local_cube_points[3]},
                 {local_cube_points[1], local_cube_points[6], local_cube_points[3]},
             };
+            break;
         }
         case 2:
         {
@@ -87,6 +100,7 @@ std::vector<std::vector<int>> get_tetrahedron_faces(std::map<int, int> local_cub
                 {local_cube_points[4], local_cube_points[5], local_cube_points[6]},
                 {local_cube_points[4], local_cube_points[6], local_cube_points[1]},
             };
+            break;
         }
         case 3:
         {
@@ -96,6 +110,7 @@ std::vector<std::vector<int>> get_tetrahedron_faces(std::map<int, int> local_cub
                 {local_cube_points[4], local_cube_points[7], local_cube_points[6]},
                 {local_cube_points[4], local_cube_points[6], local_cube_points[3]},
             };
+            break;
         }
         case 4:
         {
@@ -105,12 +120,17 @@ std::vector<std::vector<int>> get_tetrahedron_faces(std::map<int, int> local_cub
                 {local_cube_points[4], local_cube_points[1], local_cube_points[6]},
                 {local_cube_points[4], local_cube_points[3], local_cube_points[6]},
             };
+            break;
         }
     }
     return local_tet_faces;
 }
 
-int main(int argc, char *argv[]){
+int main(int argc, char* argv[]){
+    char *prog = argv[0];
+    (void)argc;
+    std::cout << "Running program " << prog << "\n";
+
     int Nx = 2, Ny = 2, Nz = 2;
     std::map<std::vector<int>, int> voxels;
     std::map<std::vector<int>, int> points;
