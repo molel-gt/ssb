@@ -62,8 +62,6 @@ int main(int argc, char *argv[]){
     std::map<std::vector<int>, int> voxels;
     std::map<std::vector<int>, int> points;
     std::map<std::vector<int>, int> edges;
-    // std::map<std::vector<int>, int> faces;
-    // std::map<std::vector<int>, int> tetrahedrons;
 
     voxels[{0, 0, 0}] = 1;
     voxels[{1, 0, 0}] = 1;
@@ -90,7 +88,6 @@ int main(int argc, char *argv[]){
 
     // build edges
     // id of points corresponding to unit cube
-    int p000, p100, p110, p010, p001, p101, p111, p011;
     int num_edges = 0;
     for (int i = 0; i < Nx; i++){
         for (int j = 0; j < Ny; j++){
@@ -119,7 +116,7 @@ int main(int argc, char *argv[]){
     std::vector<std::vector<int>> tetrahedrons;
     std::vector<std::vector<std::vector<int>>> tetrahedrons_faces;
     std::vector<int> tet;
-    std::vector<int> tet_faces;
+    std::vector<std::vector<int>> tet_faces;
     int invalid = -1;
 
     for (int i = 0; i < Nx; i++){
@@ -173,6 +170,8 @@ int main(int argc, char *argv[]){
                         if (std::find(tet.begin(), tet.end(), invalid) != tet.end()){
                             tetrahedrons.push_back(tet);
                         }
+                        tet_faces = get_tetrahedron_faces(cube_points, idx);
+                        tetrahedrons_faces.push_back(tet_faces);
                     }
                 }
             }
