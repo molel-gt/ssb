@@ -3,6 +3,8 @@
 #include <map>
 #include <vector>
 #include <hdf5.h>
+#include <boost/program_options.hpp>
+#include <boost/filesystem.hpp>
 
 // #include "entities.h"
 
