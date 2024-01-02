@@ -4,6 +4,39 @@
 #include <vector>
 // #include "entities.h"
 
+std::vector<int> get_tetrahedron(std::map<int, int> cube_points, int tet_number){
+    std::vector<int> tet;
+    int invalid = -1;
+    switch(tet_number){
+        case 0:
+        {
+            tet = {cube_points[0], cube_points[1], cube_points[3], cube_points[4]};
+        }
+        case 1:
+        {
+            tet = {cube_points[1], cube_points[2], cube_points[3], cube_points[6]};
+        }
+        case 2:
+        {
+            tet = {cube_points[4], cube_points[5], cube_points[6], cube_points[1]};
+        }
+        case 3:
+        {
+            tet = {cube_points[4], cube_points[7], cube_points[6], cube_points[3]};
+        }
+        case 4:
+        {
+            tet = {cube_points[0], cube_points[1], cube_points[3], cube_points[4]};
+        }
+        default:
+        {
+            tet = {invalid, invalid, invalid, invalid};
+        }
+    }
+
+    std::sort(tet.begin(), tet.end());
+    return tet;
+}
 
 std::vector<std::vector<int>> get_tetrahedron_faces(std::map<int, int> local_cube_points, int tet_number){
     std::vector<std::vector<int>> local_tet_faces;
@@ -140,43 +173,17 @@ int main(int argc, char *argv[]){
                         cube_points[idx] = invalid;
                     }
                 }
-                for (int idx = 0; idx < 5; idx ++){
-                    switch(idx){
-                        case 0:
-                        {
-                            tet = {cube_points[0], cube_points[1], cube_points[3], cube_points[4]};
-                        }
-                        case 1:
-                        {
-                            tet = {cube_points[1], cube_points[2], cube_points[3], cube_points[6]};
-                        }
-                        case 2:
-                        {
-                            tet = {cube_points[4], cube_points[5], cube_points[6], cube_points[1]};
-                        }
-                        case 3:
-                        {
-                            tet = {cube_points[4], cube_points[7], cube_points[6], cube_points[3]};
-                        }
-                        case 4:
-                        {
-                            tet = {cube_points[0], cube_points[1], cube_points[3], cube_points[4]};
-                        }
-                        default:
-                        {
-                            tet = {invalid, invalid, invalid, invalid};
-                        }
-                        std::sort(tet.begin(), tet.end());
-                        if (std::find(tet.begin(), tet.end(), invalid) != tet.end()){
-                            tetrahedrons.push_back(tet);
-                        }
+                for (int idx = 0; idx < 5; idx++){
+                    tet = get_tetrahedron(cube_points, idx);
+                    if (std::find(tet.begin(), tet.end(), invalid) != tet.end()){
+                        tetrahedrons.push_back(tet);
                         tet_faces = get_tetrahedron_faces(cube_points, idx);
                         tetrahedrons_faces.push_back(tet_faces);
                     }
                 }
             }
         }
-    }
+        }
 
     return 0;
 }
