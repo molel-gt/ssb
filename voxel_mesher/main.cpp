@@ -154,7 +154,7 @@ int main(int argc, char* argv[]){
     if (vm.count("boundary_layer")){
         boundary_layer = vm["boundary_layer"].as<bool>();
     }
-    std::cout << mesh_folder_path << "\n";
+    std::cout << mesh_folder_path << boundary_layer << "\n";
 
     int Nx = 2, Ny = 2, Nz = 2;
     std::map<std::vector<int>, int> voxels;

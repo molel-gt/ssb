@@ -9,18 +9,24 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # boost
-FIND_PACKAGE(Boost COMPONENTS program_options REQUIRED)
-FIND_PACKAGE(Boost COMPONENTS filesystem REQUIRED)
-INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
-
-FIND_PACKAGE(HDF5 COMPONENTS C HL NO_MODULE REQUIRED shared)
+set(BOOST_REQUIRED_COMPONENTS
+    filesystem
+    program_options
+)
+find_package(Boost COMPONENTS ${BOOST_REQUIRED_COMPONENTS} REQUIRED)
+find_package(HDF5 COMPONENTS C HL NO_MODULE REQUIRED shared)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 add_executable(
   ${PROJECT_NAME} main.cpp
 )
-target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES})
+
+target_link_libraries(${PROJECT_NAME} PUBLIC  
+    Boost::filesystem
+    Boost::program_options
+)
+target_include_directories(${PROJECT_NAME} PRIVATE include)
 target_link_libraries(${PROJECT_NAME} ${Hdf5_LIBRARIES})
 
 # Do not throw error for 'multi-line comments' (these are typical in rst which
