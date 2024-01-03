@@ -2,7 +2,7 @@
 #include <iostream>
 #include <map>
 #include <vector>
-// #include <hdf5.h>
+#include <hdf5.h>
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 
@@ -134,7 +134,7 @@ int main(int argc, char* argv[]){
     po::options_description desc("Allowed options");
     desc.add_options()
     ("help", "Creates tetrahedral and triangle mesh in xdmf format from input voxels")
-    ("mesh_folder_path,MESH_FOLDER_PATH", po::value<fs::path>(&mesh_folder_path),  "mesh folder path")
+    ("mesh_folder_path,MESH_FOLDER_PATH", po::value<fs::path>(&mesh_folder_path)->required(),  "mesh folder path")
     ("boundary_layer", po::value<bool>()->default_value(false), "whether or not to add half pixel boundary layer");
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -143,17 +143,8 @@ int main(int argc, char* argv[]){
         std::cout << desc << "\n";
         return 0;
     }
-    
-    bool boundary_layer = false;
-    if (vm.count("mesh_folder_path")){
-        mesh_folder_path = vm["mesh_folder_path"].as<fs::path>();
-    }
-    else {
-        return 1;
-    }
-    if (vm.count("boundary_layer")){
-        boundary_layer = vm["boundary_layer"].as<bool>();
-    }
+    mesh_folder_path = vm["mesh_folder_path"].as<fs::path>();
+    bool boundary_layer = vm["boundary_layer"].as<bool>();
     std::cout << mesh_folder_path << boundary_layer << "\n";
 
     int Nx = 2, Ny = 2, Nz = 2;
