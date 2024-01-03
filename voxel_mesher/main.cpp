@@ -1,10 +1,11 @@
 #include <algorithm> 
-#include <iostream>
-#include <map>
-#include <vector>
-#include <hdf5.h>
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
+#include <hdf5.h>
+#include <iostream>
+#include <map>
+#include <ranges>
+#include <vector>
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -129,12 +130,60 @@ std::vector<std::vector<int>> get_tetrahedron_faces(std::map<int, int> local_cub
     return local_tet_faces;
 }
 
+std::map<std::vector<int>, int> build_points_from_voxels(std::map<std::vector<int>, int> voxels, int phase, int Nx, int Ny, int Nz){
+    std::map<std::vector<int>, int> output_points;
+    int num_points = 0;
+    for (int i = 0; i < Nx; i++){
+        for (int j = 0; j < Ny; j++){
+            for (int k = 0; k < Nz; k++){
+                if (voxels.contains({i, j, k})){
+                    if (voxels.at({i, j, k}) == phase){
+                        output_points[{i, j, k}] = num_points++;
+                    }
+                }
+            }
+        }
+    }
+
+    return output_points;
+
+}
+
+std::vector<std::vector<int>> make_cube(int x, int y, int z){
+    return {
+            {x, y, z},
+            {x + 1, y, z},
+            {x + 1, y + 1, z},
+            {x, y + 1, z},
+            {x, y, z + 1},
+            {x + 1, y, z + 1},
+            {x + 1, y + 1, z + 1},
+            {x, y + 1, z + 1}
+        };
+}
+
+std::vector<int> remap_tetrahedrons(std::vector<int> tet, std::map<int, int> remap_dict){
+    return {remap_dict.at(tet[0]), remap_dict.at(tet[1]), remap_dict.at(tet[2]), remap_dict.at(tet[3])};
+}
+
+std::vector<std::vector<int>> remap_tetrahedron_faces(std::vector<std::vector<int>> tet_faces, std::map<int, int> remap_dict){
+    return {
+        {remap_dict.at(tet_faces[0][0]), remap_dict.at(tet_faces[0][1]), remap_dict.at(tet_faces[0][2]), remap_dict.at(tet_faces[0][3])},
+        {remap_dict.at(tet_faces[1][0]), remap_dict.at(tet_faces[1][1]), remap_dict.at(tet_faces[1][2]), remap_dict.at(tet_faces[1][3])},
+        {remap_dict.at(tet_faces[2][0]), remap_dict.at(tet_faces[2][1]), remap_dict.at(tet_faces[2][2]), remap_dict.at(tet_faces[2][3])},
+        {remap_dict.at(tet_faces[3][0]), remap_dict.at(tet_faces[3][1]), remap_dict.at(tet_faces[3][2]), remap_dict.at(tet_faces[3][3])},
+    };
+
+}
+
 int main(int argc, char* argv[]){
     fs::path mesh_folder_path;
+    int phase;
     po::options_description desc("Allowed options");
     desc.add_options()
     ("help", "Creates tetrahedral and triangle mesh in xdmf format from input voxels")
     ("mesh_folder_path,MESH_FOLDER_PATH", po::value<fs::path>(&mesh_folder_path)->required(),  "mesh folder path")
+    ("phase,PHASE", po::value<int>(&phase)->required(),  "phase to reconstruct volume for")
     ("boundary_layer", po::value<bool>()->default_value(false), "whether or not to add half pixel boundary layer");
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -145,100 +194,85 @@ int main(int argc, char* argv[]){
     }
     mesh_folder_path = vm["mesh_folder_path"].as<fs::path>();
     bool boundary_layer = vm["boundary_layer"].as<bool>();
+    phase = vm["phase"].as<int>();
     std::cout << mesh_folder_path << boundary_layer << "\n";
 
     int Nx = 2, Ny = 2, Nz = 2;
     std::map<std::vector<int>, int> voxels;
     std::map<std::vector<int>, int> points;
-    std::map<std::vector<int>, int> edges;
 
     voxels[{0, 0, 0}] = 1;
     voxels[{1, 0, 0}] = 1;
-    voxels[{0, 1, 0}] = 1;
-    voxels[{1, 1, 0}] = 0;
+    voxels[{1, 1, 0}] = 1;
+    voxels[{0, 1, 0}] = 0;
     voxels[{0, 0, 1}] = 1;
     voxels[{1, 0, 1}] = 1;
-    voxels[{0, 1, 1}] = 1;
     voxels[{1, 1, 1}] = 1;
-    // std::cout << voxels.count({13, 4, 5}) << "\n";
+    voxels[{0, 1, 1}] = 1;
+    points = build_points_from_voxels(voxels, phase, Nx, Ny, Nz);
 
-    // build points dictionary
-    int num_points = 0;
-    for (int i = 0; i < Nx; i++){
-        for (int j = 0; j < Ny; j++){
-            for (int k = 0; k < Nz; k++){
-                if (voxels[{i, j, k}] == 1){
-                    points[{i, j, k}] = num_points;
-                    num_points ++;
-                }
-            }
-        }
-    }
-
-    // build edges
-    // id of points corresponding to unit cube
-    int num_edges = 0;
-    for (int i = 0; i < Nx; i++){
-        for (int j = 0; j < Ny; j++){
-            for (int k = 0; k < Nz; k++){
-                int value = points[{i, j, k}];
-                if (points.count({i, j, k}) > 0){
-                    std::vector<std::vector<int>> neighbors = {{i + 1, j, k}, {i, j + 1}, {i, j, k + 1}, {i - 1, j, k}, {i, j - 1, k}, {i, j, k - 1}};
-                    for (int idx = 0; idx < 6; idx ++){
-                        int value1 = points[neighbors[idx]];
-                        if (points.count(neighbors[idx]) > 0)
-                        {
-                            std::vector edge = {value, value1};
-                            std::sort(edge.begin(), edge.end()); 
-                            edges[edge] = num_edges;
-                            num_edges ++;
-                        }
-                    }
-                }
-            }
-        }
-    }
     // build tetrahedrons and faces
-    std::vector<std::vector<int>> cube;
-    std::map<int, int> cube_points;
     std::vector<std::vector<int>> tetrahedrons;
     std::vector<std::vector<std::vector<int>>> tetrahedrons_faces;
-    std::vector<int> tet;
-    std::vector<std::vector<int>> tet_faces;
     int invalid = -1;
-
+    // build tetrahedrons -- these are refined to remove
+    // reference to voxel coordinates that are not composing
+    // any tetrahedron
     for (int i = 0; i < Nx; i++){
         for (int j = 0; j < Ny; j++){
             for (int k = 0; k < Nz; k++){
-                cube = {
-                    {i, j, k},
-                    {i + 1, j, k},
-                    {i + 1, j + 1, k},
-                    {i, j + 1, k},
-                    {i, j, k + 1},
-                    {i + 1, j, k + 1},
-                    {i + 1, j + 1, k + 1},
-                    {i, j + 1, k + 1}
-                    };
+                std::vector<std::vector<int>> cube = make_cube(i, j, k);
+                std::map<int, int> cube_points;
                 for (int idx = 0; idx < 8; idx++){
-                    int value = points[{i, j, k}];
-                    if (points.count({i, j, k}) > 0){
-                        cube_points[idx] = value;
+                    std::vector<int> key = {cube[idx][0], cube[idx][1], cube[idx][2]};
+                    if (points.contains(key)){
+                        cube_points[idx] = points.at(key);
                     } else {
                         cube_points[idx] = invalid;
                     }
                 }
                 for (int idx = 0; idx < 5; idx++){
-                    tet = get_tetrahedron(cube_points, idx);
+                    std::vector<int> tet = get_tetrahedron(cube_points, idx);
                     if (std::find(tet.begin(), tet.end(), invalid) != tet.end()){
                         tetrahedrons.push_back(tet);
-                        tet_faces = get_tetrahedron_faces(cube_points, idx);
+                        std::vector<std::vector<int>> tet_faces = get_tetrahedron_faces(cube_points, idx);
                         tetrahedrons_faces.push_back(tet_faces);
                     }
                 }
             }
         }
     }
+
+    // points with <key,value> inverted to <value,key>
+    std::map<int, std::vector<int>> points_inverse;
+    std::vector<int> key;
+    std::map<int, int> points_id_remapping;
+    for (int i = 0; i < Nx; i++){
+        for (int j = 0; j < Ny; j++){
+            for (int k = 0; k < Nz; k++){
+                key = {i, j, k};
+                if (points.contains(key)){
+                    points_inverse[points[key]] = key;
+                }
+            }
+        }
+    }
+    // for ()
+    int num_points = 0;
+    int n_tets = tetrahedrons.size() / tetrahedrons[0].size();
+    for (int idx = 0; idx < n_tets; idx++){
+        std::vector<int> tet_points = tetrahedrons[idx];
+        for (auto tet_point: tet_points){
+            if (!points_id_remapping.contains(tet_point)){
+                points_id_remapping[tet_point] = num_points++;
+            }
+        }
+    }
+    for (int idx = 0; idx < n_tets; idx++){
+        tetrahedrons[idx] = remap_tetrahedrons(tetrahedrons[idx], points_id_remapping);
+        tetrahedrons_faces[idx] = remap_tetrahedron_faces(tetrahedrons_faces[idx], points_id_remapping);
+    }
+    std::cout << tetrahedrons_faces[0].size()  << "," << tetrahedrons[0].size() << "," << num_points << ","  << points.size() << "\n";
 
     return 0;
 }
