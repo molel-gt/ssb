@@ -339,21 +339,21 @@ int main(int argc, char* argv[]){
 
     file_id = H5Fcreate(TETR_FILE, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     dataspace_id = H5Screate_simple(2, dims, NULL);
-    dataset_id = H5Dcreate(file_id, "/data0", H5T_NATIVE_DOUBLE, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    H5Dwrite(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_0);
+    dataset_id = H5Dcreate(file_id, "/data0", H5T_NATIVE_INT32, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_0);
     H5Dclose(dataset_id);
     H5Sclose(dataspace_id);
 
     // tetrahedrons data
     total_size = 0;
-    for (auto& vec : tetrahedrons) total_size += vec.size();
+    for (auto& vec : new_tetrahedrons) total_size += vec.size();
 
     // 2. Create a vector to hold the data.
     std::vector<int> flattened_1;
     flattened_1.reserve(total_size);
 
     // 3. Fill it
-    for (auto& vec : tetrahedrons)
+    for (auto& vec : new_tetrahedrons)
         for (auto& elem : vec)
             flattened_1.push_back(elem);
 
@@ -363,8 +363,8 @@ int main(int argc, char* argv[]){
     dims[0] = n_tets;
     dims[1] = 4;
     dataspace_id = H5Screate_simple(2, dims, NULL);
-    dataset_id = H5Dcreate(file_id, "/data1", H5T_NATIVE_INT64, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    H5Dwrite(dataset_id, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_1);
+    dataset_id = H5Dcreate(file_id, "/data1", H5T_NATIVE_INT32, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_1);
     H5Dclose(dataset_id);
     H5Sclose(dataspace_id);
 
@@ -376,15 +376,15 @@ int main(int argc, char* argv[]){
     dims[0] = n_tets;
     dims[1] = 1;
     dataspace_id = H5Screate_simple(1, dims, NULL);
-    dataset_id = H5Dcreate(file_id, "/data2", H5T_NATIVE_INT64, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    H5Dwrite(dataset_id, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, markers.data());
+    dataset_id = H5Dcreate(file_id, "/data2", H5T_NATIVE_INT32, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, markers.data());
     H5Dclose(dataset_id);
     H5Sclose(dataspace_id);
 
     H5Fclose(file_id);
     write_tetrahedral_xdmf(num_points, n_tets);
     std::cout << "tetr.h5 file written to " << mesh_folder_path << "\n";
-    std::cout << "tria.h5 file written to " << mesh_folder_path << "\n";
+    // std::cout << "tria.h5 file written to " << mesh_folder_path << "\n";
     std::cout << "Finished processing voxels to tetrahedral and triangle mesh!" << "\n";
 
     return 0;
