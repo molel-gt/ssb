@@ -155,7 +155,11 @@ std::map<std::vector<int>, int> build_points_from_voxels(std::map<std::vector<in
 
 }
 
-std::vector<std::vector<int>> make_cube(int x, int y, int z){
+std::vector<std::vector<int>> make_cube(std::vector<int> coord){
+    int x, y, z;
+    x = coord[0];
+    y = coord[1];
+    z = coord[2];
     return {
             {x, y, z},
             {x + 1, y, z},
@@ -203,7 +207,8 @@ void write_tetrahedral_xdmf(int points_count, int tets_count)
     fclose(xdmf);
 }
 
-int read_input_voxels(fs::path voxels_folder, int num_files, std::map<std::vector<int>, int>& voxels, std::string ext){
+std::vector<int> read_input_voxels(fs::path voxels_folder, int num_files, std::map<std::vector<int>, int>& voxels, int phase, std::string ext){
+    int NX, NY, n_points = 0;
     for (int idx = 0; idx < num_files; idx++){
         std::string text_idx = std::to_string(idx);
         fs::path filename = std::string(3 - text_idx.length(), '0').append(text_idx) + "." + ext;
@@ -211,19 +216,48 @@ int read_input_voxels(fs::path voxels_folder, int num_files, std::map<std::vecto
         cv::Mat3b img = cv::imread(full_path.string(), cv::IMREAD_ANYCOLOR | cv::IMREAD_ANYDEPTH);
         if (img.empty()) {
             std::cout << "Could not read the image.\n";
-            return -1;
+            std::vector<int> error = {-1, -1, -1};
+            return error;
         }
-        int NX, NY;
         NX = img.size().width;
         NY = img.size().height;
         for (int i = 0; i < NX; i++){
             for (int j = 0; j < NY; j++){
                 int value = img(i, j)[0];
-                voxels[{i, j, idx}] = value;
+                if (value == phase){
+                    voxels[{i, j, idx}] = value;
+                    n_points++;
+                }
             }
         }
     }
-    return 0;
+
+    std::vector<int> stats = {NX, NY, n_points};
+    return stats;
+}
+
+void invert_point(std::map<std::vector<int>, int>& points, std::map<int, std::vector<int>>& points_inverse, const std::vector<int> coord){
+    if (points.contains(coord)){
+        points_inverse[points.at(coord)] = coord;
+    }
+
+}
+
+std::map<int, int> make_cube_points(const std::map<std::vector<int>, int>& points, const std::vector<int> coord){
+    std::map<int, int> cube_points; int invalid = -1;
+
+    std::vector<std::vector<int>> cube = make_cube(coord);
+    for (int idx = 0; idx < 8; idx++){
+        std::vector<int> key = {cube[idx][0], cube[idx][1], cube[idx][2]};
+        if (points.contains(key)){
+            cube_points[idx] = points.at(key);
+        } else {
+            cube_points[idx] = invalid;
+        }
+    }
+
+    return cube_points;
+
 }
 
 int main(int argc, char* argv[]){
@@ -249,20 +283,16 @@ int main(int argc, char* argv[]){
         std::cout << "No boundary layer is written\n";
     }
 
-    int Nx = 2, Ny = 2, Nz = 2;
+    int Nx, Ny, n_points, Nz = num_files;
     std::map<std::vector<int>, int> voxels;
     std::map<std::vector<int>, int> points;
 
-    read_input_voxels(mesh_folder_path, num_files, voxels, "tif");
+    std::vector<int> voxel_stats = read_input_voxels(mesh_folder_path, num_files, voxels, phase, "tif");
+    Nx = voxel_stats[0];
+    Ny = voxel_stats[1];
+    n_points = voxel_stats[2];
+    std::cout << "Read " << n_points << " coordinates from voxels of phase " << phase << "\n";
 
-    voxels[{0, 0, 0}] = 1;
-    voxels[{1, 0, 0}] = 1;
-    voxels[{1, 1, 0}] = 1;
-    voxels[{0, 1, 0}] = 0;
-    voxels[{0, 0, 1}] = 1;
-    voxels[{1, 0, 1}] = 1;
-    voxels[{1, 1, 1}] = 1;
-    voxels[{0, 1, 1}] = 1;
     points = build_points_from_voxels(voxels, phase, Nx, Ny, Nz);
 
     // build tetrahedrons and faces
@@ -275,16 +305,7 @@ int main(int argc, char* argv[]){
     for (int i = 0; i < Nx; i++){
         for (int j = 0; j < Ny; j++){
             for (int k = 0; k < Nz; k++){
-                std::vector<std::vector<int>> cube = make_cube(i, j, k);
-                std::map<int, int> cube_points;
-                for (int idx = 0; idx < 8; idx++){
-                    std::vector<int> key = {cube[idx][0], cube[idx][1], cube[idx][2]};
-                    if (points.contains(key)){
-                        cube_points[idx] = points.at(key);
-                    } else {
-                        cube_points[idx] = invalid;
-                    }
-                }
+                std::map<int, int> cube_points = make_cube_points(points, {i, j, k});
                 for (int idx = 0; idx < 5; idx++){
                     std::vector<int> tet = get_tetrahedron(cube_points, idx);
                     if (std::find(tet.begin(), tet.end(), invalid) == tet.end()){
@@ -296,6 +317,7 @@ int main(int argc, char* argv[]){
             }
         }
     }
+    std::cout << "Generated " << tetrahedrons.size() << " tetrahedrons\n";
 
     // points with <key,value> inverted to <value,key>
     std::map<int, std::vector<int>> points_inverse;
@@ -307,12 +329,15 @@ int main(int argc, char* argv[]){
         for (int j = 0; j < Ny; j++){
             for (int k = 0; k < Nz; k++){
                 key = {i, j, k};
-                if (points.contains(key)){
-                    points_inverse[points.at(key)] = key;
-                }
+                invert_point(points, points_inverse, key);
             }
         }
     }
+    std::cout << "Generated inverted points\n";
+
+    // free up some memory
+    points.clear(); voxels.clear();
+
     // remap points
     int num_points = 0;
     int n_tets = tetrahedrons.size();
@@ -328,10 +353,14 @@ int main(int argc, char* argv[]){
         }
     }
 
+    std::cout << "Finished remapping points to account for orphaned points\n";
+
     for (int idx = 0; idx < n_tets; idx++){
         new_tetrahedrons.push_back(remap_tetrahedrons(tetrahedrons[idx], points_id_remapping));
         // new_tetrahedrons_faces.push_back(remap_tetrahedron_faces(tetrahedrons_faces[idx], points_id_remapping));
     }
+    // free up memory
+    tetrahedrons.clear();
 
     // write hdf5 file
     std::cout << "Number of of valid points: " << num_points << "\n";
