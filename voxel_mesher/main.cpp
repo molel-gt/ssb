@@ -203,11 +203,7 @@ void write_tetrahedral_xdmf(int points_count, int tets_count)
     fclose(xdmf);
 }
 
-int read_input_voxels(fs::path voxels_folder, int num_files, std::map<std::vector<int>, int> voxels, std::string ext){
-    // 1. list files matching ext in voxels_folder
-    // 2. read through matching files
-    // 3. build map of coordinates vector -> int
-    // 4. update voxels object
+int read_input_voxels(fs::path voxels_folder, int num_files, std::map<std::vector<int>, int>& voxels, std::string ext){
     for (int idx = 0; idx < num_files; idx++){
         std::string text_idx = std::to_string(idx);
         fs::path filename = std::string(3 - text_idx.length(), '0').append(text_idx) + "." + ext;
