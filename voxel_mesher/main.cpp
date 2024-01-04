@@ -339,8 +339,8 @@ int main(int argc, char* argv[]){
 
     file_id = H5Fcreate(TETR_FILE, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     dataspace_id = H5Screate_simple(2, dims, NULL);
-    dataset_id = H5Dcreate(file_id, "/data0", H5T_NATIVE_INT, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    H5Dwrite(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_0);
+    dataset_id = H5Dcreate(file_id, "/data0", H5T_NATIVE_DOUBLE, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dataset_id, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_0);
     H5Dclose(dataset_id);
     H5Sclose(dataspace_id);
 
@@ -363,8 +363,8 @@ int main(int argc, char* argv[]){
     dims[0] = n_tets;
     dims[1] = 4;
     dataspace_id = H5Screate_simple(2, dims, NULL);
-    dataset_id = H5Dcreate(file_id, "/data1", H5T_NATIVE_INT, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    H5Dwrite(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_1);
+    dataset_id = H5Dcreate(file_id, "/data1", H5T_NATIVE_INT64, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dataset_id, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_1);
     H5Dclose(dataset_id);
     H5Sclose(dataspace_id);
 
@@ -376,8 +376,8 @@ int main(int argc, char* argv[]){
     dims[0] = n_tets;
     dims[1] = 1;
     dataspace_id = H5Screate_simple(1, dims, NULL);
-    dataset_id = H5Dcreate(file_id, "/data2", H5T_NATIVE_INT, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    H5Dwrite(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, markers.data());
+    dataset_id = H5Dcreate(file_id, "/data2", H5T_NATIVE_INT64, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dataset_id, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, markers.data());
     H5Dclose(dataset_id);
     H5Sclose(dataspace_id);
 
