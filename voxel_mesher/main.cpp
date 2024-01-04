@@ -63,7 +63,7 @@ std::vector<int> get_tetrahedron(std::map<int, int> cube_points, int tet_number)
         }
         case 4:
         {
-            tet = {cube_points[0], cube_points[1], cube_points[3], cube_points[4]};
+            tet = {cube_points[4], cube_points[6], cube_points[1], cube_points[3]};
             break;
         }
         default:
@@ -74,6 +74,9 @@ std::vector<int> get_tetrahedron(std::map<int, int> cube_points, int tet_number)
     }
 
     std::sort(tet.begin(), tet.end());
+    if (std::find(tet.begin(), tet.end(), -1) == tet.end()){
+        std::cout << tet[0] << "," << tet[1] << "," << tet[2] << "," << tet[3] << "\n";
+}
     return tet;
 }
 
@@ -199,7 +202,10 @@ int main(int argc, char* argv[]){
     mesh_folder_path = vm["mesh_folder_path"].as<fs::path>();
     bool boundary_layer = vm["boundary_layer"].as<bool>();
     phase = vm["phase"].as<int>();
-    std::cout << mesh_folder_path << boundary_layer << "\n";
+
+    if (!boundary_layer){
+        std::cout << "No boundary layer is written\n";
+    }
 
     int Nx = 2, Ny = 2, Nz = 2;
     std::map<std::vector<int>, int> voxels;
@@ -237,7 +243,8 @@ int main(int argc, char* argv[]){
                 }
                 for (int idx = 0; idx < 5; idx++){
                     std::vector<int> tet = get_tetrahedron(cube_points, idx);
-                    if (std::find(tet.begin(), tet.end(), invalid) != tet.end()){
+                    if (std::find(tet.begin(), tet.end(), invalid) == tet.end()){
+                        std::cout << tet[0] << tet[1] << tet[2] << tet[3] << "\n";
                         tetrahedrons.push_back(tet);
                         std::vector<std::vector<int>> tet_faces = get_tetrahedron_faces(cube_points, idx);
                         tetrahedrons_faces.push_back(tet_faces);
@@ -258,20 +265,23 @@ int main(int argc, char* argv[]){
             for (int k = 0; k < Nz; k++){
                 key = {i, j, k};
                 if (points.contains(key)){
-                    points_inverse[points[key]] = key;
+                    points_inverse[points.at(key)] = key;
                 }
             }
         }
     }
-    // for ()
+    // remap points
     int num_points = 0;
     int n_tets = tetrahedrons.size() / tetrahedrons[0].size();
     for (int idx = 0; idx < n_tets; idx++){
         std::vector<int> tet_points = tetrahedrons[idx];
         for (auto tet_point: tet_points){
+            std::cout << tet_point << "\n";
             if (!points_id_remapping.contains(tet_point)){
                 points_id_remapping[tet_point] = num_points;
-                points_remapped[num_points] = points_inverse[tet_point];
+                std::cout << tet_point << "\n";
+                points_remapped[num_points] = points_inverse.at(tet_point);
+                num_points ++;
             }
         }
     }
@@ -283,37 +293,33 @@ int main(int argc, char* argv[]){
     // write hdf5 file
     std::vector<std::vector<int>> final_points;
     for (int idx = 0; idx < num_points; idx++){
-        final_points[idx] = points_remapped[idx];
+        std::cout << points_remapped[idx][0] << points_remapped[idx][1] << points_remapped[idx][2] << "\n";
+        final_points.push_back(points_remapped[idx]);
     }
 
-    hid_t   file_id, dataset_id, dataspace_id; /* identifiers */
-    hsize_t dims[3];
-    herr_t  status;
+    // hid_t   file_id, dataset_id, dataspace_id; /* identifiers */
+    // hsize_t dims[2];
+    // herr_t  status;
 
-    /* Create a new file using default properties. */
-    file_id = H5Fcreate(TETR_FILE, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
-    /* Create the data space for the dataset. */
-    dims[0] = num_points - 1;
-    dims[1] = 3;
+    // /* Create a new file using default properties. */
+    // file_id = H5Fcreate(TETR_FILE, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    // /* Create the data space for the dataset. */
+    // dims[0] = num_points - 1;
+    // dims[1] = 3;
+    // // dims[0] = 4;
+    // // dims[1] = 6;
+    // dataspace_id = H5Screate_simple(2, dims, NULL);
 
-    dataspace_id = H5Screate_simple(3, dims, NULL);
-    std::cout << "Debug print\n";
-
-    /* Create the dataset. */
-    dataset_id = H5Dcreate(file_id, "/data0", H5T_STD_I32BE, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    std::cout << "Debug print\n"; 
-
-    status = H5Dwrite(dataset_id, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, final_points.data());
-
-    /* End access to the dataset and release resources used by it. */
-    status = H5Dclose(dataset_id);
-
-    /* Terminate access to the data space. */
-    status = H5Sclose(dataspace_id);
-
-    /* Close the file. */
-    status = H5Fclose(file_id);
-    std::cout << status << "\n";
+    // /* Create the dataset. */
+    // dataset_id = H5Dcreate(file_id, "/data0", H5T_STD_I32BE, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    // // status = H5Dwrite(dataset_id, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, final_points.data());
+    // status = H5Dclose(dataset_id);
+    // status = H5Sclose(dataspace_id);
+    // status = H5Fclose(file_id);
+    // std::cout << status << "\n";
+    // std::cout << "tetr.h5 file written to " << mesh_folder_path << "\n";
+    // std::cout << "tria.h5 file written to " << mesh_folder_path << "\n";
+    // std::cout << "Finished processing voxels to tetrahedral and triangle mesh!" << "\n";
 
     return 0;
 }
