@@ -13,11 +13,17 @@ set(BOOST_REQUIRED_COMPONENTS
     filesystem
     program_options
 )
+set (OPENCV_REQUIRED_COMPONENTS
+     opencv_core
+     opencv_imgcodecs
+     )
 find_package(Boost COMPONENTS ${BOOST_REQUIRED_COMPONENTS} REQUIRED)
 
 set(HDF5_PREFER_PARALLEL TRUE)
 set(HDF5_FIND_DEBUG TRUE)
 find_package(HDF5 REQUIRED COMPONENTS C)
+find_package(OpenCV COMPONENTS ${OPENCV_REQUIRED_COMPONENTS} REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
@@ -29,9 +35,10 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     Boost::filesystem
     Boost::program_options
     hdf5::hdf5
+    ${OpenCV_LIBS}
+    opencv_core
+    opencv_imgcodecs
 )
-
-# target_link_libraries(${PROJECT_NAME} ${HDF5_C_LIBRARIES})
 
 # Do not throw error for 'multi-line comments' (these are typical in rst which
 # includes LaTeX)

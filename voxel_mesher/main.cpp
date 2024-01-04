@@ -4,6 +4,9 @@
 #include <hdf5.h>
 #include <iostream>
 #include <map>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/core.hpp>
+#include <opencv2/opencv.hpp>
 #include <ranges>
 #include <vector>
 
@@ -200,15 +203,44 @@ void write_tetrahedral_xdmf(int points_count, int tets_count)
     fclose(xdmf);
 }
 
+int read_input_voxels(fs::path voxels_folder, int num_files, std::map<std::vector<int>, int> voxels, std::string ext){
+    // 1. list files matching ext in voxels_folder
+    // 2. read through matching files
+    // 3. build map of coordinates vector -> int
+    // 4. update voxels object
+    for (int idx = 0; idx < num_files; idx++){
+        std::string text_idx = std::to_string(idx);
+        fs::path filename = std::string(3 - text_idx.length(), '0').append(text_idx) + "." + ext;
+        fs::path full_path = voxels_folder / filename;
+        cv::Mat3b img = cv::imread(full_path.string(), cv::IMREAD_ANYCOLOR | cv::IMREAD_ANYDEPTH);
+        if (img.empty()) {
+            std::cout << "Could not read the image.\n";
+            return -1;
+        }
+        int NX, NY;
+        NX = img.size().width;
+        NY = img.size().height;
+        for (int i = 0; i < NX; i++){
+            for (int j = 0; j < NY; j++){
+                int value = img(i, j)[0];
+                voxels[{i, j, idx}] = value;
+            }
+        }
+    }
+    return 0;
+}
+
 int main(int argc, char* argv[]){
     fs::path mesh_folder_path;
-    int phase;
+    int phase, num_files;
+    bool boundary_layer;
     po::options_description desc("Allowed options");
     desc.add_options()
     ("help", "Creates tetrahedral and triangle mesh in xdmf format from input voxels")
     ("mesh_folder_path,MESH_FOLDER_PATH", po::value<fs::path>(&mesh_folder_path)->required(),  "mesh folder path")
+    ("num_files,NUM_FILES", po::value<int>(&num_files)->required(),  "number of image files")
     ("phase,PHASE", po::value<int>(&phase)->required(),  "phase to reconstruct volume for")
-    ("boundary_layer", po::value<bool>()->default_value(false), "whether or not to add half pixel boundary layer");
+    ("boundary_layer", po::value<bool>(&boundary_layer)->default_value(false), "whether or not to add half pixel boundary layer");
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
     po::notify(vm);
@@ -216,9 +248,6 @@ int main(int argc, char* argv[]){
         std::cout << desc << "\n";
         return 0;
     }
-    mesh_folder_path = vm["mesh_folder_path"].as<fs::path>();
-    bool boundary_layer = vm["boundary_layer"].as<bool>();
-    phase = vm["phase"].as<int>();
 
     if (!boundary_layer){
         std::cout << "No boundary layer is written\n";
@@ -227,6 +256,8 @@ int main(int argc, char* argv[]){
     int Nx = 2, Ny = 2, Nz = 2;
     std::map<std::vector<int>, int> voxels;
     std::map<std::vector<int>, int> points;
+
+    read_input_voxels(mesh_folder_path, num_files, voxels, "tif");
 
     voxels[{0, 0, 0}] = 1;
     voxels[{1, 0, 0}] = 1;
