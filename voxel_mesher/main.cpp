@@ -180,6 +180,26 @@ std::vector<std::vector<int>> remap_tetrahedron_faces(std::vector<std::vector<in
 
 }
 
+void write_tetrahedral_xdmf(int points_count, int tets_count)
+{
+    FILE *xdmf = 0;
+    xdmf = fopen("tetr.xdmf", "w");
+    fprintf(xdmf, "<Xdmf Version=\"3.0\">");
+    fprintf(xdmf, "<Domain>");
+    fprintf(xdmf, "<Grid Name=\"Grid\">");
+    fprintf(xdmf, "<Geometry GeometryType=\"XYZ\">");
+    fprintf(xdmf, "<DataItem DataType=\"Float\" Dimensions=\"%d 3\" Format=\"HDF\" Precision=\"8\">tetr.h5:/data0</DataItem>", points_count);
+    fprintf(xdmf, "</Geometry>");
+    fprintf(xdmf, "<Topology TopologyType=\"Tetrahedron\" NumberOfElements=\"%d\" NodesPerElement=\"4\">", tets_count);
+    fprintf(xdmf, "<DataItem DataType=\"Int\" Dimensions=\"%d 4\" Format=\"HDF\" Precision=\"8\">tetr.h5:/data1</DataItem>", tets_count);
+    fprintf(xdmf, "</Topology>");
+    fprintf(xdmf, "<Attribute Name=\"name_to_read\" AttributeType=\"Scalar\" Center=\"Cell\"><DataItem DataType=\"Int\" Dimensions=\"%d\" Format=\"HDF\" Precision=\"8\">tetr.h5:/data2</DataItem>", tets_count);
+    fprintf(xdmf, "</Attribute>");
+    fprintf(xdmf, "</Grid>");
+    fprintf(xdmf, "</Domain>");
+    fprintf(xdmf, "</Xdmf>");
+    fclose(xdmf);
+}
 
 int main(int argc, char* argv[]){
     fs::path mesh_folder_path;
@@ -308,11 +328,11 @@ int main(int argc, char* argv[]){
             flattened.push_back(elem);
 
     // 4. Obtain the array
-    auto data = flattened.data();
+    auto data_0 = flattened.data();
 
     hid_t   file_id, dataset_id, dataspace_id; /* identifiers */
     hsize_t dims[2];
-    herr_t  status;
+    // herr_t  status;
 
     dims[0] = num_points;
     dims[1] = 3;
@@ -320,13 +340,49 @@ int main(int argc, char* argv[]){
     file_id = H5Fcreate(TETR_FILE, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     dataspace_id = H5Screate_simple(2, dims, NULL);
     dataset_id = H5Dcreate(file_id, "/data0", H5T_NATIVE_INT, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    status = H5Dwrite(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data);
-    status = H5Dclose(dataset_id);
-    status = H5Sclose(dataspace_id);
-    status = H5Fclose(file_id);
-    if (status != 0){
-        return status;
+    H5Dwrite(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_0);
+    H5Dclose(dataset_id);
+    H5Sclose(dataspace_id);
+
+    // tetrahedrons data
+    total_size = 0;
+    for (auto& vec : tetrahedrons) total_size += vec.size();
+
+    // 2. Create a vector to hold the data.
+    std::vector<int> flattened_1;
+    flattened_1.reserve(total_size);
+
+    // 3. Fill it
+    for (auto& vec : tetrahedrons)
+        for (auto& elem : vec)
+            flattened_1.push_back(elem);
+
+    // 4. Obtain the array
+    auto data_1 = flattened_1.data();
+
+    dims[0] = n_tets;
+    dims[1] = 4;
+    dataspace_id = H5Screate_simple(2, dims, NULL);
+    dataset_id = H5Dcreate(file_id, "/data1", H5T_NATIVE_INT, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_1);
+    H5Dclose(dataset_id);
+    H5Sclose(dataspace_id);
+
+    // Physical markers
+    std::vector<int> markers;
+    for (int idx = 0; idx < n_tets; idx++){
+        markers.push_back(1);
     }
+    dims[0] = n_tets;
+    dims[1] = 1;
+    dataspace_id = H5Screate_simple(1, dims, NULL);
+    dataset_id = H5Dcreate(file_id, "/data2", H5T_NATIVE_INT, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, markers.data());
+    H5Dclose(dataset_id);
+    H5Sclose(dataspace_id);
+
+    H5Fclose(file_id);
+    write_tetrahedral_xdmf(num_points, n_tets);
     std::cout << "tetr.h5 file written to " << mesh_folder_path << "\n";
     std::cout << "tria.h5 file written to " << mesh_folder_path << "\n";
     std::cout << "Finished processing voxels to tetrahedral and triangle mesh!" << "\n";
