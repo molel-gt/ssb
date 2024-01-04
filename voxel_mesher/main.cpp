@@ -1,11 +1,15 @@
 #include <algorithm> 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
+// #include <H5Cpp.h>
 #include <hdf5.h>
 #include <iostream>
 #include <map>
 #include <ranges>
 #include <vector>
+
+#define TETR_FILE "tetr.h5"
+#define TRIA_FILE "tria.h5"
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
@@ -247,6 +251,8 @@ int main(int argc, char* argv[]){
     std::map<int, std::vector<int>> points_inverse;
     std::vector<int> key;
     std::map<int, int> points_id_remapping;
+    std::map<int, std::vector<int>> points_remapped;
+
     for (int i = 0; i < Nx; i++){
         for (int j = 0; j < Ny; j++){
             for (int k = 0; k < Nz; k++){
@@ -264,7 +270,8 @@ int main(int argc, char* argv[]){
         std::vector<int> tet_points = tetrahedrons[idx];
         for (auto tet_point: tet_points){
             if (!points_id_remapping.contains(tet_point)){
-                points_id_remapping[tet_point] = num_points++;
+                points_id_remapping[tet_point] = num_points;
+                points_remapped[num_points] = points_inverse[tet_point];
             }
         }
     }
@@ -272,7 +279,41 @@ int main(int argc, char* argv[]){
         tetrahedrons[idx] = remap_tetrahedrons(tetrahedrons[idx], points_id_remapping);
         tetrahedrons_faces[idx] = remap_tetrahedron_faces(tetrahedrons_faces[idx], points_id_remapping);
     }
-    std::cout << tetrahedrons_faces[0].size()  << "," << tetrahedrons[0].size() << "," << num_points << ","  << points.size() << "\n";
+
+    // write hdf5 file
+    std::vector<std::vector<int>> final_points;
+    for (int idx = 0; idx < num_points; idx++){
+        final_points[idx] = points_remapped[idx];
+    }
+
+    hid_t   file_id, dataset_id, dataspace_id; /* identifiers */
+    hsize_t dims[3];
+    herr_t  status;
+
+    /* Create a new file using default properties. */
+    file_id = H5Fcreate(TETR_FILE, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    /* Create the data space for the dataset. */
+    dims[0] = num_points - 1;
+    dims[1] = 3;
+
+    dataspace_id = H5Screate_simple(3, dims, NULL);
+    std::cout << "Debug print\n";
+
+    /* Create the dataset. */
+    dataset_id = H5Dcreate(file_id, "/data0", H5T_STD_I32BE, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    std::cout << "Debug print\n"; 
+
+    status = H5Dwrite(dataset_id, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, final_points.data());
+
+    /* End access to the dataset and release resources used by it. */
+    status = H5Dclose(dataset_id);
+
+    /* Terminate access to the data space. */
+    status = H5Sclose(dataspace_id);
+
+    /* Close the file. */
+    status = H5Fclose(file_id);
+    std::cout << status << "\n";
 
     return 0;
 }
