@@ -14,20 +14,24 @@ set(BOOST_REQUIRED_COMPONENTS
     program_options
 )
 find_package(Boost COMPONENTS ${BOOST_REQUIRED_COMPONENTS} REQUIRED)
-find_package(HDF5 COMPONENTS C HL NO_MODULE REQUIRED shared)
+
+set(HDF5_PREFER_PARALLEL TRUE)
+set(HDF5_FIND_DEBUG TRUE)
+find_package(HDF5 REQUIRED COMPONENTS C)
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 add_executable(
   ${PROJECT_NAME} main.cpp
 )
-
+target_include_directories(${PROJECT_NAME} PRIVATE include)
 target_link_libraries(${PROJECT_NAME} PUBLIC  
     Boost::filesystem
     Boost::program_options
+    hdf5::hdf5
 )
-target_include_directories(${PROJECT_NAME} PRIVATE include)
-target_link_libraries(${PROJECT_NAME} ${Hdf5_LIBRARIES})
+
+# target_link_libraries(${PROJECT_NAME} ${HDF5_C_LIBRARIES})
 
 # Do not throw error for 'multi-line comments' (these are typical in rst which
 # includes LaTeX)
