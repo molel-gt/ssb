@@ -180,6 +180,7 @@ std::vector<std::vector<int>> remap_tetrahedron_faces(std::vector<std::vector<in
 
 }
 
+
 int main(int argc, char* argv[]){
     fs::path mesh_folder_path;
     int phase;
@@ -268,7 +269,7 @@ int main(int argc, char* argv[]){
     }
     // remap points
     int num_points = 0;
-    int n_tets = tetrahedrons.size();// / tetrahedrons[0].size();
+    int n_tets = tetrahedrons.size();
 
     for (int idx = 0; idx < n_tets; idx++){
         std::vector<int> tet_points = tetrahedrons[idx];
@@ -294,6 +295,21 @@ int main(int argc, char* argv[]){
         final_points.push_back(points_remapped[idx]);
     }
 
+    int total_size = 0;
+    for (auto& vec : final_points) total_size += vec.size();
+
+    // 2. Create a vector to hold the data.
+    std::vector<int> flattened;
+    flattened.reserve(total_size);
+
+    // 3. Fill it
+    for (auto& vec : final_points)
+        for (auto& elem : vec)
+            flattened.push_back(elem);
+
+    // 4. Obtain the array
+    auto data = flattened.data();
+
     hid_t   file_id, dataset_id, dataspace_id; /* identifiers */
     hsize_t dims[2];
     herr_t  status;
@@ -303,8 +319,8 @@ int main(int argc, char* argv[]){
 
     file_id = H5Fcreate(TETR_FILE, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     dataspace_id = H5Screate_simple(2, dims, NULL);
-    dataset_id = H5Dcreate(file_id, "/data0", H5T_STD_I32BE, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    status = H5Dwrite(dataset_id, H5T_NATIVE_FLOAT, H5S_ALL, H5S_ALL, H5P_DEFAULT, final_points.data());
+    dataset_id = H5Dcreate(file_id, "/data0", H5T_NATIVE_INT, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    status = H5Dwrite(dataset_id, H5T_NATIVE_INT, H5S_ALL, H5S_ALL, H5P_DEFAULT, data);
     status = H5Dclose(dataset_id);
     status = H5Sclose(dataspace_id);
     status = H5Fclose(file_id);
