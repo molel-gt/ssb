@@ -236,7 +236,7 @@ std::vector<int> read_input_voxels(fs::path voxels_folder, int num_files, std::m
         std::string text_idx = std::to_string(idx);
         fs::path filename = std::string(3 - text_idx.length(), '0').append(text_idx) + "." + ext;
         fs::path full_path = voxels_folder / filename;
-        cv::Mat img = cv::imread(full_path.string(), cv::IMREAD_COLOR);//cv::IMREAD_ANYCOLOR | cv::IMREAD_ANYDEPTH);
+        cv::Mat img = cv::imread(full_path.string(), cv::IMREAD_COLOR);
         if (img.empty()) {
             std::cout << "Could not read the image.\n";
             std::vector<int> error = {-1, -1, -1};
