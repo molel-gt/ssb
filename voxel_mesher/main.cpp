@@ -180,10 +180,10 @@ std::vector<int> remap_tetrahedrons(const std::vector<int>& tet, const std::vect
 
 std::vector<std::vector<int>> remap_tetrahedron_faces(const std::vector<std::vector<int>>& tet_faces, const std::vector<int>& remap_dict){
     return {
-        {remap_dict[tet_faces[0][0]], remap_dict[tet_faces[0][1]], remap_dict[tet_faces[0][2]], remap_dict[tet_faces[0][3]]},
-        {remap_dict[tet_faces[1][0]], remap_dict[tet_faces[1][1]], remap_dict[tet_faces[1][2]], remap_dict[tet_faces[1][3]]},
-        {remap_dict[tet_faces[2][0]], remap_dict[tet_faces[2][1]], remap_dict[tet_faces[2][2]], remap_dict[tet_faces[2][3]]},
-        {remap_dict[tet_faces[3][0]], remap_dict[tet_faces[3][1]], remap_dict[tet_faces[3][2]], remap_dict[tet_faces[3][3]]},
+        {remap_dict[tet_faces[0][0]], remap_dict[tet_faces[0][1]], remap_dict[tet_faces[0][2]]},
+        {remap_dict[tet_faces[1][0]], remap_dict[tet_faces[1][1]], remap_dict[tet_faces[1][2]]},
+        {remap_dict[tet_faces[2][0]], remap_dict[tet_faces[2][1]], remap_dict[tet_faces[2][2]]},
+        {remap_dict[tet_faces[3][0]], remap_dict[tet_faces[3][1]], remap_dict[tet_faces[3][2]]},
     };
 
 }
@@ -285,6 +285,16 @@ std::vector<int> make_cube_points(const std::map<std::vector<int>, int>& points,
 
 }
 
+bool is_boundary_facet(std::vector<int> facet, std::map<std::vector<int>, int>& points, std::map<int, std::vector<int>>& points_inverse){
+    int num_boundary = 0;
+    for (auto& node : facet){
+        std::vector<int> coord = points_inverse.at(node);
+        if (is_boundary_point(points, coord)) num_boundary++;
+    }
+
+    return num_boundary == 3;
+}
+
 int main(int argc, char* argv[]){
     fs::path mesh_folder_path;
     int phase, num_files;
@@ -313,16 +323,7 @@ int main(int argc, char* argv[]){
     std::map<std::vector<int>, int> points;
 
     std::vector<int> voxel_stats = read_input_voxels(mesh_folder_path, num_files, voxels, phase, "tif");
-    // voxels[{0, 0, 0}] = 1;
-    // voxels[{1, 0, 0}] = 1;
-    // voxels[{1, 1, 0}] = 1;
-    // voxels[{0, 1, 0}] = 0;
-    // voxels[{0, 0, 1}] = 1;
-    // voxels[{1, 0, 1}] = 1;
-    // voxels[{1, 1, 1}] = 1;
-    // voxels[{0, 1, 1}] = 1;
 
-    //std::vector<int> voxel_stats = {2, 2, 7};
     Nx = voxel_stats[0];
     Ny = voxel_stats[1];
     n_points = voxel_stats[2];
@@ -398,12 +399,13 @@ int main(int argc, char* argv[]){
         std::vector<std::vector<int>> local_faces = remap_tetrahedron_faces(tetrahedrons_faces[idx], points_id_remapping);
         #pragma omp critical
         for (int idx = 0; idx < 4; idx++){
-            new_tetrahedrons_faces.push_back(local_faces[idx]);
+            if (is_boundary_facet(local_faces[idx], points, points_inverse)) new_tetrahedrons_faces.push_back(local_faces[idx]);
         }
     }
 
     // free up memory
-    tetrahedrons.clear();
+    tetrahedrons.clear(); tetrahedrons.shrink_to_fit();
+    tetrahedrons_faces.clear(); tetrahedrons_faces.shrink_to_fit();
 
     int n_facets = new_tetrahedrons_faces.size();
 
