@@ -140,7 +140,7 @@ std::vector<std::vector<int>> get_tetrahedron_faces(const std::vector<int>& loca
 
 std::map<std::vector<int>, int> build_points_from_voxels(std::map<std::vector<int>, int> voxels, int phase, int Nx, int Ny, int Nz){
     std::map<std::vector<int>, int> output_points;
-    int num_points = 1;
+    int num_points = 0;
     for (int i = 0; i < Nx; i++){
         for (int j = 0; j < Ny; j++){
             for (int k = 0; k < Nz; k++){
@@ -334,7 +334,7 @@ int main(int argc, char* argv[]){
     std::vector<std::vector<int>> new_tetrahedrons_faces;
 
     std::cout << "Generating tetrahedrons\n";
-    #pragma omp parallel for collapse(2)
+    #pragma omp parallel for collapse(3)
     for (int i = 0; i < Nx; i++){
         for (int j = 0; j < Ny; j++){
             for (int k = 0; k < Nz; k++){
