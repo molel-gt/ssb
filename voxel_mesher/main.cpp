@@ -310,17 +310,17 @@ int main(int argc, char* argv[]){
     std::map<std::vector<int>, int> voxels;
     std::map<std::vector<int>, int> points;
 
-    std::vector<int> voxel_stats;// = read_input_voxels(mesh_folder_path, num_files, voxels, phase, "tif");
-    voxels[{0, 0, 0}] = 1;
-    voxels[{1, 0, 0}] = 1;
-    voxels[{1, 1, 0}] = 1;
-    voxels[{0, 1, 0}] = 0;
-    voxels[{0, 0, 1}] = 1;
-    voxels[{1, 0, 1}] = 1;
-    voxels[{1, 1, 1}] = 1;
-    voxels[{0, 1, 1}] = 1;
+    std::vector<int> voxel_stats = read_input_voxels(mesh_folder_path, num_files, voxels, phase, "tif");
+    // voxels[{0, 0, 0}] = 1;
+    // voxels[{1, 0, 0}] = 1;
+    // voxels[{1, 1, 0}] = 1;
+    // voxels[{0, 1, 0}] = 0;
+    // voxels[{0, 0, 1}] = 1;
+    // voxels[{1, 0, 1}] = 1;
+    // voxels[{1, 1, 1}] = 1;
+    // voxels[{0, 1, 1}] = 1;
 
-    voxel_stats = {2, 2, 7};
+    //std::vector<int> voxel_stats = {2, 2, 7};
     Nx = voxel_stats[0];
     Ny = voxel_stats[1];
     n_points = voxel_stats[2];
@@ -334,11 +334,12 @@ int main(int argc, char* argv[]){
     std::vector<std::vector<int>> new_tetrahedrons_faces;
 
     std::cout << "Generating tetrahedrons\n";
-
+    #pragma omp parallel for collapse(2)
     for (int i = 0; i < Nx; i++){
         for (int j = 0; j < Ny; j++){
             for (int k = 0; k < Nz; k++){
                 std::vector<int> cube_points = make_cube_points(points, {i, j, k});
+                #pragma omp critical
                 for (int idx = 0; idx < 5; idx++){
                     std::vector<int> tet = get_tetrahedron(cube_points, idx);
                     if (std::find(tet.begin(), tet.end(), INVALID) == tet.end()){
@@ -388,9 +389,12 @@ int main(int argc, char* argv[]){
 
     std::cout << "Finished remapping points to account for orphaned points\n";
 
+    #pragma omp parallel for
     for (int idx = 0; idx < n_tets; idx++){
+        #pragma omp critical
         new_tetrahedrons.push_back(remap_tetrahedrons(tetrahedrons[idx], points_id_remapping));
         std::vector<std::vector<int>> local_faces = remap_tetrahedron_faces(tetrahedrons_faces[idx], points_id_remapping);
+        #pragma omp critical
         for (int idx = 0; idx < 4; idx++){
             new_tetrahedrons_faces.push_back(local_faces[idx]);
         }
@@ -495,7 +499,6 @@ int main(int argc, char* argv[]){
     for (int idx1 = 0; idx1 < n_facets; idx1++){
         for (int idx2 = 0; idx2 < 3; idx2++){
             flattened_tria.push_back(new_tetrahedrons_faces[idx1][idx2]);
-            // std::cout << new_tetrahedrons_faces[idx1][idx2] << "\n";
         }
     }
 
