@@ -236,19 +236,21 @@ std::vector<int> read_input_voxels(fs::path voxels_folder, int num_files, std::m
         std::string text_idx = std::to_string(idx);
         fs::path filename = std::string(3 - text_idx.length(), '0').append(text_idx) + "." + ext;
         fs::path full_path = voxels_folder / filename;
-        cv::Mat3b img = cv::imread(full_path.string(), cv::IMREAD_ANYCOLOR | cv::IMREAD_ANYDEPTH);
+        cv::Mat img = cv::imread(full_path.string(), cv::IMREAD_COLOR);//cv::IMREAD_ANYCOLOR | cv::IMREAD_ANYDEPTH);
         if (img.empty()) {
             std::cout << "Could not read the image.\n";
             std::vector<int> error = {-1, -1, -1};
             return error;
         }
-        NX = img.size().width;
-        NY = img.size().height;
+        NX = img.cols;
+        NY = img.rows;
+        std::cout << "File: " << idx << ", Rows: " << NY << ", Columns: " << NX << "\n";
         for (int i = 0; i < NX; i++){
             for (int j = 0; j < NY; j++){
-                int value = img(i, j)[0];
-                if (value == phase){
-                    voxels[{i, j, idx}] = value;
+                cv::Vec3b value = img.at<cv::Vec3b>(j, i);
+                int check_value = int(value[0]);
+                if (check_value == phase){
+                    voxels[{i, j, idx}] = check_value;
                     n_points++;
                 }
             }
