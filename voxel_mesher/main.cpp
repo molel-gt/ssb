@@ -406,7 +406,7 @@ int main(int argc, char* argv[]){
     int n_facets = new_tetrahedrons_faces.size();
 
     // write hdf5 file
-    std::cout << "Number of of valid points = " << num_points << " and number of facets = "<< n_facets << "\n";
+    std::cout << "Number of of valid points = " << num_points << ", number of facets = "<< n_facets << " and number of tetrahedrons = " << n_tets << "\n";
 
     int total_size = 0;
     for (auto& vec : points_remapped) total_size += vec.size();
@@ -446,9 +446,14 @@ int main(int argc, char* argv[]){
     flattened_tetr.reserve(total_size);
 
     // 3. Fill it
-    for (auto& vec : new_tetrahedrons)
-        for (auto& elem : vec)
-            flattened_tetr.push_back(elem);
+    // for (auto& vec : new_tetrahedrons)
+    //     for (auto& elem : vec)
+    //         flattened_tetr.push_back(elem);
+    for (int idx1 = 0; idx1 < n_tets; idx1++){
+        for (int idx2 = 0; idx2 < 4; idx2++){
+            flattened_tetr.push_back(new_tetrahedrons[idx1][idx2]);
+        }
+    }
 
     // 4. Obtain the array
     auto data_tetr = flattened_tetr.data();
