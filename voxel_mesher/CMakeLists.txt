@@ -25,6 +25,9 @@ find_package(HDF5 REQUIRED COMPONENTS C)
 find_package(OpenCV COMPONENTS ${OPENCV_REQUIRED_COMPONENTS} REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
+find_package(MPI REQUIRED)
+find_package(OpenMP REQUIRED)
+
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 add_executable(
@@ -38,6 +41,8 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     ${OpenCV_LIBS}
     opencv_core
     opencv_imgcodecs
+    mpi
+    OpenMP::OpenMP_CXX
 )
 
 # Do not throw error for 'multi-line comments' (these are typical in rst which

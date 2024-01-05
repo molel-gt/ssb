@@ -4,8 +4,10 @@
 #include <hdf5.h>
 #include <iostream>
 #include <map>
-#include <opencv2/imgcodecs.hpp>
+#include <mpi.h>
+#include <omp.h>
 #include <opencv2/core.hpp>
+#include <opencv2/imgcodecs.hpp>
 #include <opencv2/opencv.hpp>
 #include <ranges>
 #include <vector>
