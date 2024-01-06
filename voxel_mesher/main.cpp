@@ -21,6 +21,7 @@ namespace fs = boost::filesystem;
 
 bool is_boundary_point(std::map<std::vector<int>, int> all_points, std::vector<int> check_point){
     int num_neighbors = 0;
+    int num_neighbors_diag = 0;
     int i, j, k;
     i = check_point[0];
     j = check_point[1];
@@ -34,12 +35,34 @@ bool is_boundary_point(std::map<std::vector<int>, int> all_points, std::vector<i
         {i, j - 1, k},
         {i, j, k - 1},
     };
+    std::vector<std::vector<int>> neighbor_points_diag = {
+        {i, j + 1, k + 1},
+        {i, j - 1, k - 1},
+        {i, j - 1, k + 1},
+        {i, j + 1, k - 1},
+
+        {i + 1, j, k + 1},
+        {i - 1, j, k - 1},
+        {i - 1, j, k + 1},
+        {i + 1, j, k - 1},
+
+        {i + 1, j + 1, k},
+        {i - 1, j - 1, k},
+        {i - 1, j + 1, k},
+        {i + 1, j - 1, k},
+    };
+
     for (int idx = 0; idx < 6; idx++){
         if (all_points.count(neighbor_points[idx]) > 0){
             num_neighbors++;
         }
     }
-    return num_neighbors != 6;
+    for (int idx = 0; idx < 12; idx++){
+        if (all_points.count(neighbor_points_diag[idx]) > 0){
+            num_neighbors_diag++;
+        }
+    }
+    return num_neighbors != 6 || num_neighbors_diag != 12;
 }
 
 std::vector<int> get_tetrahedron(const std::vector<int>& cube_points, int tet_number){
@@ -322,7 +345,15 @@ int main(int argc, char* argv[]){
     std::map<std::vector<int>, int> voxels;
     std::map<std::vector<int>, int> points;
 
-    std::vector<int> voxel_stats = read_input_voxels(mesh_folder_path, num_files, voxels, phase, "tif");
+    std::vector<int> voxel_stats = {2, 2, 7};//read_input_voxels(mesh_folder_path, num_files, voxels, phase, "tif"); // {2, 2, 7};//
+    voxels[{0, 0, 0}] = 1;
+    voxels[{1, 0, 0}] = 1;
+    voxels[{0, 1, 0}] = 1;
+    voxels[{1, 1, 0}] = 0;
+    voxels[{0, 0, 1}] = 1;
+    voxels[{1, 0, 1}] = 1;
+    voxels[{0, 1, 1}] = 1;
+    voxels[{1, 1, 1}] = 1;
 
     Nx = voxel_stats[0];
     Ny = voxel_stats[1];
