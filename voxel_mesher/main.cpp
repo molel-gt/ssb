@@ -171,7 +171,7 @@ std::vector<std::vector<int>> get_tetrahedron_faces(const std::vector<int>& loca
 
 std::map<std::vector<int>, int> build_points_from_voxels(std::map<std::vector<int>, int> voxels, int phase, int Nx, int Ny, int Nz){
     std::map<std::vector<int>, int> output_points;
-    int num_points = 0;
+    int num_points = 1;
     for (int i = 0; i < Nx; i++){
         for (int j = 0; j < Ny; j++){
             for (int k = 0; k < Nz; k++){
@@ -224,8 +224,8 @@ bool is_valid_half_cube(std::vector<std::vector<int>> hcube, std::vector<int> vo
     return true;
 }
 
-std::vector<std::vector<int>> make_half_cubes_and_update_points(const std::vector<int> coord, std::map<std::vector<int>, int>& points, std::vector<int> voxel_shape){
-    std::vector<std::vector<std::vector<int>>> half_cubes;
+std::vector<CubeType> make_half_cubes_and_update_points(const std::vector<int> coord, std::map<std::vector<int>, int>& points, std::vector<int> voxel_shape){
+    std::vector<CubeType> half_cubes;
     for (int slice = 0; slice < 2; slice++){
         for (int quadrant = 0; quadrant < 4; quadrant++){
             int x, y, z;
@@ -310,18 +310,9 @@ std::vector<std::vector<int>> make_half_cubes_and_update_points(const std::vecto
             }
         }
     }
-    #pragma omp critical
+    // #pragma omp critical
     add_boundary_points(half_cubes, points);
-    std::vector<std::vector<int>> hcubes;
-    #pragma omp critical
-    for (auto& vec : half_cubes){
-        std::vector<int> hcube;
-        for (auto& coord : vec){
-            hcube.push_back(points.at(coord));
-        }
-        hcubes.push_back(hcube);
-    }
-    return hcubes;
+    return half_cubes;
 }
 
 std::vector<int> remap_tetrahedrons(const std::vector<int>& tet, const std::vector<int>& remap_dict){
@@ -611,7 +602,15 @@ int main(int argc, char* argv[]){
     std::map<std::vector<int>, int> voxels;
     std::map<std::vector<int>, int> points;
 
-    std::vector<int> voxel_stats = read_input_voxels(mesh_folder_path, num_files, voxels, phase, "tif");
+    std::vector<int> voxel_stats = {3, 3, 30};//read_input_voxels(mesh_folder_path, num_files, voxels, phase, "tif");
+    voxels[{0, 0, 0}] = 1;
+    voxels[{2, 0, 0}] = 1;
+    voxels[{0, 2, 0}] = 1;
+    voxels[{2, 2, 0}] = 0;
+    voxels[{0, 0, 2}] = 1;
+    voxels[{2, 0, 2}] = 1;
+    voxels[{0, 2, 2}] = 1;
+    voxels[{2, 2, 2}] = 1;
 
     Nx = voxel_stats[0];
     Ny = voxel_stats[1];
@@ -619,172 +618,155 @@ int main(int argc, char* argv[]){
     std::cout << "Read " << n_points << " coordinates from voxels of phase " << phase << "\n";
 
     points = build_points_from_voxels(voxels, phase, Nx, Ny, Nz);
-    Nx = 2 * Nx; Ny = 2 * Ny; Nz = 2 * Nz;
-    // build tetrahedrons and faces
-    std::vector<std::vector<int>> tetrahedrons, new_tetrahedrons;
-    std::vector<std::vector<std::vector<int>>> tetrahedrons_faces;
-    std::vector<std::vector<int>> new_tetrahedrons_faces;
+    // Nx = 2 * Nx; Ny = 2 * Ny; Nz = 2 * Nz;
 
+    /*
+        Generate tetrahedrons and facets
+    */
     std::cout << "Generating tetrahedrons\n";
-    #pragma omp parallel for collapse(3)
+    std::vector<int> tetrahedrons;
+    std::vector<int> external_facets;
+    std::vector<CoordType> points_mapping;
+    int n_tets, n_facets; n_points = 0;
+
+    // #pragma omp parallel for collapse(3)
     for (int i = 0; i < Nx - 1; i++){
         for (int j = 0; j < Ny - 1; j++){
             for (int k = 0; k < Nz - 1; k++){
-                // #pragma omp critical
                 if (!(i & 1) && !(j & 1) && !(k & 1)){
-                    std::vector<int> cube_points = make_cube_points(points, {i, j, k});
-                    // #pragma omp critical
-                    if (std::find(cube_points.begin(), cube_points.end(), INVALID) == cube_points.end())
+                    CubeType cube_points = make_cube({i, j, k});
+                    bool is_valid_cube = true;
+                    for (int idx = 0; idx < 8; idx++) {
+                        if (!points.contains(cube_points[idx])) {
+                            is_valid_cube = false;
+                        }
+                        else {
+                            std::cout << points.at(cube_points[idx]) << "\n";
+                        }
+                    }
+                    if (is_valid_cube)
                     {
+                        std::cout << "Valid full\n";
                         for (int idx = 0; idx < 5; idx++){
-                            std::vector<int> tet = get_tetrahedron(cube_points, idx);
-                            #pragma omp critical
-                            tetrahedrons.push_back(tet);
-                            std::vector<std::vector<int>> tet_faces = get_tetrahedron_faces(cube_points, idx);
-                            #pragma omp critical
-                            tetrahedrons_faces.push_back(tet_faces);
+                            Tetrahedron tet(cube_points, points, idx);
+                            std::vector<FacetType> tet_facets = tet.get_boundary_facets();
+                            std::vector<CoordType> tet_points = tet.get_points();
+                            for (auto& coord : tet_points){
+                                auto it = std::find(points_mapping.begin(), points_mapping.end(), coord);
+                                if (it != points_mapping.end()){
+                                    int pos = std::distance(points_mapping.begin(), it);
+                                    tetrahedrons.push_back(pos);
+                                }
+                                else {
+                                    points_mapping.push_back(coord);
+                                    tetrahedrons.push_back(n_points);
+                                    n_points++;
+                                }
+                            }
+                            n_tets++;
+
+                            // facets
+                            for (auto& face : tet_facets){
+                                for (auto& coord : face){
+                                    auto it = std::find(points_mapping.begin(), points_mapping.end(), coord);
+                                    if (it != points_mapping.end()){
+                                        int pos = std::distance(points_mapping.begin(), it);
+                                        external_facets.push_back(pos);
+                                    }
+                                    else {
+                                        throw std::out_of_range("Invalid coord in facet");
+                                    }
+                                }
+                                n_facets++;
+                            }
+
                         }
                     }
                     else
                     {
-                        std::vector<std::vector<int>> half_cubes = make_half_cubes_and_update_points({i, j, k}, points, {Nx, Ny, Nz});
+                        std::cout << "Check invalids\n";
+                        std::vector<CubeType> half_cubes = make_half_cubes_and_update_points({i, j, k}, points, {Nx, Ny, Nz});
                         int n_hcubes = half_cubes.size();
                         for (int hcube_idx = 0; hcube_idx < n_hcubes; hcube_idx++){
-                            std::vector<int> hcube = half_cubes[hcube_idx];
+                            CubeType hcube = half_cubes[hcube_idx];
                             for (int idx = 0; idx < 5; idx++){
-                                std::vector<int> tet = get_tetrahedron(hcube, idx);
-                                #pragma omp critical
-                                tetrahedrons.push_back(tet);
-                                std::vector<std::vector<int>> tet_faces = get_tetrahedron_faces(hcube, idx);
-                                #pragma omp critical
-                                tetrahedrons_faces.push_back(tet_faces);
+                                Tetrahedron tet(hcube, points, idx);
+                                std::vector<FacetType> tet_facets = tet.get_boundary_facets();
+                                std::vector<CoordType> tet_points = tet.get_points();
+                                for (auto& coord : tet_points){
+                                    auto it = std::find(points_mapping.begin(), points_mapping.end(), coord);
+                                    if (it != points_mapping.end()){
+                                        int pos = std::distance(points_mapping.begin(), it);
+                                        tetrahedrons.push_back(pos);
+                                    }
+                                    else {
+                                        points_mapping.push_back(coord);
+                                        tetrahedrons.push_back(n_points);
+                                        n_points++;
+                                    }
+                                }
+                                n_tets++;
+
+                                // facets
+                                for (auto& face : tet_facets){
+                                    for (auto& coord : face){
+                                        auto it = std::find(points_mapping.begin(), points_mapping.end(), coord);
+                                        if (it != points_mapping.end()){
+                                            int pos = std::distance(points_mapping.begin(), it);
+                                            external_facets.push_back(pos);
+                                        }
+                                        else {
+                                            throw std::out_of_range("Invalid coord in facet");
+                                        }
+                                    }
+                                    n_facets++;
+                                }
                             }
                         }
+                        // }
                     }
                 }
             }
             }
         }
 
-    std::cout << "Generated " << tetrahedrons.size() << " tetrahedrons\n";
-
-    // points with <key,value> inverted to <value,key>
-    std::map<int, std::vector<int>> points_inverse;
-    std::vector<int> key;
-    std::vector<int> points_id_remapping; for (int idx = 0; idx < n_points; idx++) points_id_remapping.push_back(INVALID);
-    std::vector<std::vector<int>> points_remapped;
-
-    for (int i = 0; i < Nx; i++){
-        for (int j = 0; j < Ny; j++){
-            for (int k = 0; k < Nz; k++){
-                key = {i, j, k};
-                invert_point(points, points_inverse, key);
-            }
-        }
-    }
-    std::cout << "Generated inverted points\n";
-
-    // free up some memory
-    points.clear(); voxels.clear();
-
-    // remap points
-    int num_points = 0;
-    int n_tets = tetrahedrons.size();
-
-    #pragma omp parallel for
-    for (int idx = 0; idx < n_tets; idx++){
-        std::vector<int> tet_points = tetrahedrons[idx];
-        for (int& tet_point: tet_points){
-            #pragma omp critical
-            if (points_id_remapping[tet_point] == INVALID){
-                points_id_remapping[tet_point] = num_points;
-                points_remapped.push_back(points_inverse[tet_point]);
-                num_points ++;
-            }
-        }
-    }
-
-    std::cout << "Finished remapping points to account for orphaned points. " << "Total number of points: " << num_points <<"\n";
-
-    #pragma omp parallel for
-    for (int idx = 0; idx < n_tets; idx++){
-        {
-            #pragma omp critical
-            {
-                new_tetrahedrons.push_back(remap_tetrahedrons(tetrahedrons[idx], points_id_remapping));
-                // std::vector<std::vector<int>> local_faces = remap_tetrahedron_faces(tetrahedrons_faces[idx], points_id_remapping);
-                // for (int idx2 = 0; idx2 < 4; idx2++){
-                    // #pragma omp critical
-                //     std::cout << idx << "This point\n";
-                //     if (is_boundary_facet(local_faces[idx2], points, points_inverse)) new_tetrahedrons_faces.push_back(local_faces[idx2]);
-                // }
-        }
-        }
-    }
-
-    std::cout << "Finished remapping entities.\n";
-
-    // free up memory
-    tetrahedrons.clear(); tetrahedrons.shrink_to_fit();
-    tetrahedrons_faces.clear(); tetrahedrons_faces.shrink_to_fit();
-
-    int n_facets = new_tetrahedrons_faces.size();
+    std::cout << "Number of of valid points = " << n_points << ", number of facets = " << n_facets << " and number of tetrahedrons = " << n_tets << "\n";
 
     // write hdf5 file
-    std::cout << "Number of of valid points = " << num_points << ", number of facets = " << n_facets << " and number of tetrahedrons = " << n_tets << "\n";
-
-    int total_size = 0;
-    for (auto& vec : points_remapped) total_size += vec.size();
+    int points_size = n_points * 3 * sizeof(int);
 
     // 2. Create a vector to hold the data.
     std::vector<int> flattened;
-    flattened.reserve(total_size);
+    flattened.reserve(points_size);
 
     // 3. Fill it
-    for (auto& vec : points_remapped)
+    for (auto& vec : points_mapping)
         for (auto& elem : vec)
             flattened.push_back(elem);
 
     // 4. Obtain the array
-    auto data_0 = flattened.data();
+    auto points_output = flattened.data();
 
     hid_t   file_id, dataset_id, dataspace_id; /* identifiers */
     hsize_t dims[2];
     // herr_t  status;
 
-    dims[0] = num_points;
+    dims[0] = n_points;
     dims[1] = 3;
 
     file_id = H5Fcreate(TETR_FILE, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     dataspace_id = H5Screate_simple(2, dims, NULL);
     dataset_id = H5Dcreate(file_id, "/data0", H5T_NATIVE_INT32, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_0);
+    H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, points_output);
     H5Dclose(dataset_id);
     H5Sclose(dataspace_id);
 
     // tetrahedrons data
-    total_size = 0;
-    for (auto& vec : new_tetrahedrons) total_size += vec.size();
-
-    // 2. Create a vector to hold the data.
-    std::vector<int> flattened_tetr;
-    flattened_tetr.reserve(total_size);
-
-    // 3. Fill it
-    for (int idx1 = 0; idx1 < n_tets; idx1++){
-        for (int idx2 = 0; idx2 < 4; idx2++){
-            flattened_tetr.push_back(new_tetrahedrons[idx1][idx2]);
-        }
-    }
-
-    // 4. Obtain the array
-    auto data_tetr = flattened_tetr.data();
-
     dims[0] = n_tets;
     dims[1] = 4;
     dataspace_id = H5Screate_simple(2, dims, NULL);
     dataset_id = H5Dcreate(file_id, "/data1", H5T_NATIVE_INT32, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_tetr);
+    H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, tetrahedrons.data());
     H5Dclose(dataset_id);
     H5Sclose(dataspace_id);
 
@@ -802,41 +784,23 @@ int main(int argc, char* argv[]){
     H5Sclose(dataspace_id);
 
     H5Fclose(file_id);
-    write_tetrahedral_xdmf(num_points, n_tets);
+    write_tetrahedral_xdmf(n_points, n_tets);
     std::cout << "tetr.h5 file written to " << mesh_folder_path << "\n";
 
-    // write triangle mesh
-    dims[0] = num_points;
+    /* write triangle mesh */
+    dims[0] = n_points;
     dims[1] = 3;
     file_id = H5Fcreate(TRIA_FILE, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     dataspace_id = H5Screate_simple(2, dims, NULL);
     dataset_id = H5Dcreate(file_id, "/data0", H5T_NATIVE_INT32, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_0);
+    H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, points_output);
     H5Dclose(dataset_id);
-
-    // triangles data
-    total_size = 0;
-    for (auto& vec : new_tetrahedrons_faces) total_size += vec.size();
-
-    // 2. Create a vector to hold the data.
-    std::vector<int> flattened_tria;
-    flattened_tria.reserve(total_size);
-
-    // 3. Fill it
-    for (int idx1 = 0; idx1 < n_facets; idx1++){
-        for (int idx2 = 0; idx2 < 3; idx2++){
-            flattened_tria.push_back(new_tetrahedrons_faces[idx1][idx2]);
-        }
-    }
-
-    // 4. Obtain the array
-    auto data_tria = flattened_tria.data();
 
     dims[0] = n_facets;
     dims[1] = 3;
     dataspace_id = H5Screate_simple(2, dims, NULL);
     dataset_id = H5Dcreate(file_id, "/data1", H5T_NATIVE_INT32, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, data_tria);
+    H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, external_facets.data());
     H5Dclose(dataset_id);
     H5Sclose(dataspace_id);
 
@@ -854,7 +818,7 @@ int main(int argc, char* argv[]){
     H5Sclose(dataspace_id);
 
     H5Fclose(file_id);
-    write_triangle_xdmf(num_points, n_facets);
+    write_triangle_xdmf(n_points, n_facets);
 
     std::cout << "tria.h5 file written to " << mesh_folder_path << "\n";
     std::cout << "Finished processing voxels to tetrahedral and triangle mesh!" << "\n";
