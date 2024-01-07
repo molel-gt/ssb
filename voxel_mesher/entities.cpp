@@ -125,7 +125,7 @@ std::vector<FacetType> Tetrahedron::get_boundary_facets() {
     return _bfacets;
 }
 
-bool is_boundary_point(const std::map<std::vector<int>, int>& all_points, std::vector<int> check_point){
+bool Tetrahedron::is_boundary_point(const std::map<std::vector<int>, int>& all_points, std::vector<int> check_point){
     int num_neighbors = 0;
     int num_neighbors_diag = 0;
     int i, j, k;

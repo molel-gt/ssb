@@ -1,3 +1,5 @@
+#include <map>
+#include <ranges>
 #include <vector>
 
 typedef std::vector<int> CoordType;
@@ -16,7 +18,7 @@ class Tetrahedron {
     std::vector<std::vector<int>> facets;
     std::vector<int> boundary_facets;
     std::vector<int> cube_id2point_id;
-    bool is_boundary_point(const std::map<std::vector<int>&, int>, std::vector<int>);
+    bool is_boundary_point(const std::map<std::vector<int>, int>&, std::vector<int>);
 public:
     Tetrahedron(const CubeType&, const std::map<CoordType, int>&, const int);
     std::vector<FacetType> get_facets();
