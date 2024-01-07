@@ -1,7 +1,7 @@
 #include <algorithm> 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
-// #include <distance>
+#include "entities.h"
 #include <hdf5.h>
 #include <iostream>
 #include <initializer_list>
@@ -22,151 +22,46 @@
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
 
-typedef std::vector<int> CoordType;
-typedef std::vector<std::vector<int>> CubeType;
-typedef std::vector<std::vector<int>> FacetType;
-typedef std::vector<std::vector<int>> TetrahedronType;
-
-bool is_boundary_point(std::map<std::vector<int>, int> all_points, std::vector<int> check_point){
-    int num_neighbors = 0;
-    int num_neighbors_diag = 0;
-    int i, j, k;
-    i = check_point[0];
-    j = check_point[1];
-    k = check_point[2];
-
-    std::vector<std::vector<int>> neighbor_points = {
-        {i + 1, j, k},
-        {i, j + 1, k},
-        {i, j, k + 1},
-        {i - 1, j, k},
-        {i, j - 1, k},
-        {i, j, k - 1},
-    };
-    std::vector<std::vector<int>> neighbor_points_diag = {
-        {i, j + 1, k + 1},
-        {i, j - 1, k - 1},
-        {i, j - 1, k + 1},
-        {i, j + 1, k - 1},
-
-        {i + 1, j, k + 1},
-        {i - 1, j, k - 1},
-        {i - 1, j, k + 1},
-        {i + 1, j, k - 1},
-
-        {i + 1, j + 1, k},
-        {i - 1, j - 1, k},
-        {i - 1, j + 1, k},
-        {i + 1, j - 1, k},
-    };
-
-    for (int idx = 0; idx < 6; idx++){
-        if (all_points.count(neighbor_points[idx]) > 0){
-            num_neighbors++;
-        }
-    }
-    for (int idx = 0; idx < 12; idx++){
-        if (all_points.count(neighbor_points_diag[idx]) > 0){
-            num_neighbors_diag++;
-        }
-    }
-    return num_neighbors != 6 || num_neighbors_diag != 12;
+void write_tetrahedral_xdmf(int points_count, int tets_count)
+{
+    FILE *xdmf = 0;
+    xdmf = fopen("tetr.xdmf", "w");
+    fprintf(xdmf, "<Xdmf Version=\"3.0\">");
+    fprintf(xdmf, "<Domain>");
+    fprintf(xdmf, "<Grid Name=\"Grid\">");
+    fprintf(xdmf, "<Geometry GeometryType=\"XYZ\">");
+    fprintf(xdmf, "<DataItem DataType=\"Float\" Dimensions=\"%d 3\" Format=\"HDF\" Precision=\"8\">tetr.h5:/data0</DataItem>", points_count);
+    fprintf(xdmf, "</Geometry>");
+    fprintf(xdmf, "<Topology TopologyType=\"Tetrahedron\" NumberOfElements=\"%d\" NodesPerElement=\"4\">", tets_count);
+    fprintf(xdmf, "<DataItem DataType=\"Int\" Dimensions=\"%d 4\" Format=\"HDF\" Precision=\"8\">tetr.h5:/data1</DataItem>", tets_count);
+    fprintf(xdmf, "</Topology>");
+    fprintf(xdmf, "<Attribute Name=\"name_to_read\" AttributeType=\"Scalar\" Center=\"Cell\"><DataItem DataType=\"Int\" Dimensions=\"%d\" Format=\"HDF\" Precision=\"8\">tetr.h5:/data2</DataItem>", tets_count);
+    fprintf(xdmf, "</Attribute>");
+    fprintf(xdmf, "</Grid>");
+    fprintf(xdmf, "</Domain>");
+    fprintf(xdmf, "</Xdmf>");
+    fclose(xdmf);
 }
 
-std::vector<int> get_tetrahedron(const std::vector<int>& cube_points, int tet_number){
-    std::vector<int> tet;
-    switch(tet_number){
-        case 0:
-        {
-            tet = {cube_points[0], cube_points[1], cube_points[3], cube_points[4]};
-            break;
-        }
-        case 1:
-        {
-            tet = {cube_points[1], cube_points[2], cube_points[3], cube_points[6]};
-            break;
-        }
-        case 2:
-        {
-            tet = {cube_points[4], cube_points[5], cube_points[6], cube_points[1]};
-            break;
-        }
-        case 3:
-        {
-            tet = {cube_points[4], cube_points[7], cube_points[6], cube_points[3]};
-            break;
-        }
-        case 4:
-        {
-            tet = {cube_points[4], cube_points[6], cube_points[1], cube_points[3]};
-            break;
-        }
-        default:
-        {
-            tet = {INVALID, INVALID, INVALID, INVALID};
-            break;
-        }
-    }
-
-    std::sort(tet.begin(), tet.end());
-    return tet;
-}
-
-std::vector<std::vector<int>> get_tetrahedron_faces(const std::vector<int>& local_cube_points, const int tet_number){
-    std::vector<std::vector<int>> local_tet_faces;
-    switch (tet_number){
-        case 0:
-        {
-            local_tet_faces = {
-                {local_cube_points[0], local_cube_points[1], local_cube_points[4]},
-                {local_cube_points[0], local_cube_points[4], local_cube_points[3]},
-                {local_cube_points[1], local_cube_points[0], local_cube_points[3]},
-                {local_cube_points[4], local_cube_points[1], local_cube_points[3]},
-            };
-            break;
-        }
-        case 1:
-        {
-            local_tet_faces = {
-                {local_cube_points[1], local_cube_points[2], local_cube_points[6]},
-                {local_cube_points[6], local_cube_points[2], local_cube_points[3]},
-                {local_cube_points[1], local_cube_points[2], local_cube_points[3]},
-                {local_cube_points[1], local_cube_points[6], local_cube_points[3]},
-            };
-            break;
-        }
-        case 2:
-        {
-            local_tet_faces = {
-                {local_cube_points[1], local_cube_points[5], local_cube_points[4]},
-                {local_cube_points[1], local_cube_points[6], local_cube_points[5]},
-                {local_cube_points[4], local_cube_points[5], local_cube_points[6]},
-                {local_cube_points[4], local_cube_points[6], local_cube_points[1]},
-            };
-            break;
-        }
-        case 3:
-        {
-            local_tet_faces = {
-                {local_cube_points[4], local_cube_points[7], local_cube_points[3]},
-                {local_cube_points[3], local_cube_points[7], local_cube_points[6]},
-                {local_cube_points[4], local_cube_points[7], local_cube_points[6]},
-                {local_cube_points[4], local_cube_points[6], local_cube_points[3]},
-            };
-            break;
-        }
-        case 4:
-        {
-            local_tet_faces = {
-                {local_cube_points[4], local_cube_points[3], local_cube_points[1]},
-                {local_cube_points[1], local_cube_points[3], local_cube_points[6]},
-                {local_cube_points[4], local_cube_points[1], local_cube_points[6]},
-                {local_cube_points[4], local_cube_points[3], local_cube_points[6]},
-            };
-            break;
-        }
-    }
-    return local_tet_faces;
+void write_triangle_xdmf(int points_count, int facets_count)
+{
+    FILE *xdmf = 0;
+    xdmf = fopen("tria.xdmf", "w");
+    fprintf(xdmf, "<Xdmf Version=\"3.0\">");
+    fprintf(xdmf, "<Domain>");
+    fprintf(xdmf, "<Grid Name=\"Grid\">");
+    fprintf(xdmf, "<Geometry GeometryType=\"XYZ\">");
+    fprintf(xdmf, "<DataItem DataType=\"Float\" Dimensions=\"%d 3\" Format=\"HDF\" Precision=\"8\">tria.h5:/data0</DataItem>", points_count);
+    fprintf(xdmf, "</Geometry>");
+    fprintf(xdmf, "<Topology TopologyType=\"Triangle\" NumberOfElements=\"%d\" NodesPerElement=\"3\">", facets_count);
+    fprintf(xdmf, "<DataItem DataType=\"Int\" Dimensions=\"%d 3\" Format=\"HDF\" Precision=\"8\">tria.h5:/data1</DataItem>", facets_count);
+    fprintf(xdmf, "</Topology>");
+    fprintf(xdmf, "<Attribute Name=\"name_to_read\" AttributeType=\"Scalar\" Center=\"Cell\"><DataItem DataType=\"Int\" Dimensions=\"%d\" Format=\"HDF\" Precision=\"8\">tria.h5:/data2</DataItem>", facets_count);
+    fprintf(xdmf, "</Attribute>");
+    fprintf(xdmf, "</Grid>");
+    fprintf(xdmf, "</Domain>");
+    fprintf(xdmf, "</Xdmf>");
+    fclose(xdmf);
 }
 
 std::map<std::vector<int>, int> build_points_from_voxels(std::map<std::vector<int>, int> voxels, int phase, int Nx, int Ny, int Nz){
@@ -315,62 +210,6 @@ std::vector<CubeType> make_half_cubes_and_update_points(const std::vector<int> c
     return half_cubes;
 }
 
-std::vector<int> remap_tetrahedrons(const std::vector<int>& tet, const std::vector<int>& remap_dict){
-    return {remap_dict[tet[0]], remap_dict[tet[1]], remap_dict[tet[2]], remap_dict[tet[3]]};
-}
-
-std::vector<std::vector<int>> remap_tetrahedron_faces(const std::vector<std::vector<int>>& tet_faces, const std::vector<int>& remap_dict){
-    return {
-        {remap_dict[tet_faces[0][0]], remap_dict[tet_faces[0][1]], remap_dict[tet_faces[0][2]]},
-        {remap_dict[tet_faces[1][0]], remap_dict[tet_faces[1][1]], remap_dict[tet_faces[1][2]]},
-        {remap_dict[tet_faces[2][0]], remap_dict[tet_faces[2][1]], remap_dict[tet_faces[2][2]]},
-        {remap_dict[tet_faces[3][0]], remap_dict[tet_faces[3][1]], remap_dict[tet_faces[3][2]]},
-    };
-
-}
-
-void write_tetrahedral_xdmf(int points_count, int tets_count)
-{
-    FILE *xdmf = 0;
-    xdmf = fopen("tetr.xdmf", "w");
-    fprintf(xdmf, "<Xdmf Version=\"3.0\">");
-    fprintf(xdmf, "<Domain>");
-    fprintf(xdmf, "<Grid Name=\"Grid\">");
-    fprintf(xdmf, "<Geometry GeometryType=\"XYZ\">");
-    fprintf(xdmf, "<DataItem DataType=\"Float\" Dimensions=\"%d 3\" Format=\"HDF\" Precision=\"8\">tetr.h5:/data0</DataItem>", points_count);
-    fprintf(xdmf, "</Geometry>");
-    fprintf(xdmf, "<Topology TopologyType=\"Tetrahedron\" NumberOfElements=\"%d\" NodesPerElement=\"4\">", tets_count);
-    fprintf(xdmf, "<DataItem DataType=\"Int\" Dimensions=\"%d 4\" Format=\"HDF\" Precision=\"8\">tetr.h5:/data1</DataItem>", tets_count);
-    fprintf(xdmf, "</Topology>");
-    fprintf(xdmf, "<Attribute Name=\"name_to_read\" AttributeType=\"Scalar\" Center=\"Cell\"><DataItem DataType=\"Int\" Dimensions=\"%d\" Format=\"HDF\" Precision=\"8\">tetr.h5:/data2</DataItem>", tets_count);
-    fprintf(xdmf, "</Attribute>");
-    fprintf(xdmf, "</Grid>");
-    fprintf(xdmf, "</Domain>");
-    fprintf(xdmf, "</Xdmf>");
-    fclose(xdmf);
-}
-
-void write_triangle_xdmf(int points_count, int facets_count)
-{
-    FILE *xdmf = 0;
-    xdmf = fopen("tria.xdmf", "w");
-    fprintf(xdmf, "<Xdmf Version=\"3.0\">");
-    fprintf(xdmf, "<Domain>");
-    fprintf(xdmf, "<Grid Name=\"Grid\">");
-    fprintf(xdmf, "<Geometry GeometryType=\"XYZ\">");
-    fprintf(xdmf, "<DataItem DataType=\"Float\" Dimensions=\"%d 3\" Format=\"HDF\" Precision=\"8\">tria.h5:/data0</DataItem>", points_count);
-    fprintf(xdmf, "</Geometry>");
-    fprintf(xdmf, "<Topology TopologyType=\"Triangle\" NumberOfElements=\"%d\" NodesPerElement=\"3\">", facets_count);
-    fprintf(xdmf, "<DataItem DataType=\"Int\" Dimensions=\"%d 3\" Format=\"HDF\" Precision=\"8\">tria.h5:/data1</DataItem>", facets_count);
-    fprintf(xdmf, "</Topology>");
-    fprintf(xdmf, "<Attribute Name=\"name_to_read\" AttributeType=\"Scalar\" Center=\"Cell\"><DataItem DataType=\"Int\" Dimensions=\"%d\" Format=\"HDF\" Precision=\"8\">tria.h5:/data2</DataItem>", facets_count);
-    fprintf(xdmf, "</Attribute>");
-    fprintf(xdmf, "</Grid>");
-    fprintf(xdmf, "</Domain>");
-    fprintf(xdmf, "</Xdmf>");
-    fclose(xdmf);
-}
-
 std::vector<int> read_input_voxels(fs::path voxels_folder, int num_files, std::map<std::vector<int>, int>& voxels, int phase, std::string ext){
     int NX, NY, n_points = 0;
     for (int idx = 0; idx < num_files; idx++){
@@ -400,183 +239,6 @@ std::vector<int> read_input_voxels(fs::path voxels_folder, int num_files, std::m
 
     std::vector<int> stats = {NX, NY, n_points};
     return stats;
-}
-
-void invert_point(std::map<std::vector<int>, int>& points, std::map<int, std::vector<int>>& points_inverse, const std::vector<int> coord){
-    if (points.contains(coord)){
-        points_inverse[points.at(coord)] = coord;
-    }
-
-}
-
-std::vector<int> make_cube_points(const std::map<std::vector<int>, int>& points, const std::vector<int> coord){
-    std::vector<int> cube_points;
-
-    std::vector<std::vector<int>> cube = make_cube(coord);
-    for (int idx = 0; idx < 8; idx++){
-        std::vector<int> key = {cube[idx][0], cube[idx][1], cube[idx][2]};
-        if (points.contains(key)){
-            cube_points.push_back(points.at(key));
-        } else {
-            cube_points.push_back(INVALID);
-        }
-    }
-
-    return cube_points;
-
-}
-
-bool is_boundary_facet(std::vector<int> facet, std::map<std::vector<int>, int>& points, std::map<int, std::vector<int>>& points_inverse){
-    int num_boundary = 0;
-    for (int& node : facet){
-        std::vector<int> coord = points_inverse.at(node);
-        if (is_boundary_point(points, coord)) num_boundary++;
-    }
-
-    return num_boundary == 3;
-}
-
-class Tetrahedron {
-    /*
-    Accepts: 
-        `cube_points`: points ordered as 000,100,110,010,001,101,111,011 using the representative unit cube.
-        `ten_number`: which tetrahedron to extract from the cube
-        `points`: mapping of coordinates of entire domain to integer
-    */
-    std::vector<CoordType> coordinates;
-    std::vector<std::vector<int>> facets;
-    std::vector<int> boundary_facets;
-    std::vector<int> cube_id2point_id;
-public:
-    Tetrahedron(const CubeType&, const std::map<CoordType, int>&, const int);
-    std::vector<FacetType> get_facets();
-    std::vector<FacetType> get_boundary_facets();
-    std::vector<CoordType> get_points();
-};
-
-Tetrahedron::Tetrahedron(const CubeType& cube_points, const std::map<CoordType, int>& points, const int tet_number)
-{
-    // get tetrahedrons
-    switch(tet_number){
-        case 0:
-        {
-            cube_id2point_id = {0, 1, 3, 4};
-            break;
-        }
-        case 1:
-        {
-            cube_id2point_id = {1, 2, 3, 6};
-            break;
-        }
-        case 2:
-        {
-            cube_id2point_id = {4, 5, 6, 1};
-            break;
-        }
-        case 3:
-        {
-            cube_id2point_id = {4, 7, 6, 3};
-            break;
-        }
-        case 4:
-        {
-            cube_id2point_id = {4, 6, 1, 3};
-            break;
-        }
-    }
-    for (int i = 0; i < 4; i++) coordinates.push_back(cube_points[cube_id2point_id[i]]);
-
-    // get facets for tetrahedron
-    std::vector<std::vector<int>> facet_ids;
-    switch (tet_number){
-        case 0:
-        {
-            facet_ids = {
-                {0, 1, 4},
-                {0, 4, 3},
-                {1, 0, 3},
-                {4, 1, 3}
-            };
-            break;
-        }
-        case 1:
-        {
-            facet_ids = {
-                {1, 2, 6},
-                {6, 2, 3},
-                {1, 2, 3},
-                {1, 6, 3}
-            };
-            break;
-        }
-        case 2:
-        {
-            facet_ids = {
-                {1, 5, 4},
-                {1, 6, 5},
-                {4, 5, 6},
-                {4, 6, 1}
-            };
-            break;
-        }
-        case 3:
-        {
-            facet_ids = {
-                {4, 7, 3},
-                {3, 7, 6},
-                {4, 7, 6},
-                {4, 6, 3}
-            };
-            break;
-        }
-        case 4:
-        {
-            facet_ids = {
-                {4, 3, 1},
-                {1, 3, 6},
-                {4, 1, 6},
-                {4, 5, 6}
-            };
-            break;
-        }
-    }
-    for (int f_id = 0; f_id < 4; f_id++){
-        std::vector<int> _local_facet;
-        for (int idx = 0; idx < 3; idx++) {
-            auto it = std::find(cube_id2point_id.begin(), cube_id2point_id.end(), facet_ids[f_id][idx]);
-            int pos = std::distance(cube_id2point_id.begin(), it);
-            _local_facet.push_back(pos);
-        }
-        facets.push_back(_local_facet);
-    }
-
-    // generate ids of boundary facets
-    for (int i = 0; i < 4; i++){
-        FacetType facet = {coordinates[facets[i][0]], coordinates[facets[i][1]], coordinates[facets[i][2]]};
-        int num_boundary = 0;
-        for (auto& coord : facet){
-            if (is_boundary_point(points, coord)) num_boundary++;
-    }
-    if (num_boundary == 3) boundary_facets.push_back(i);
-    }
-}
-
-std::vector<CoordType> Tetrahedron::get_points() { return coordinates; }
-std::vector<FacetType> Tetrahedron::get_facets() {
-    return {
-        {coordinates[facets[0][0]], coordinates[facets[0][1]], coordinates[facets[0][2]]},
-        {coordinates[facets[1][0]], coordinates[facets[1][1]], coordinates[facets[1][2]]},
-        {coordinates[facets[2][0]], coordinates[facets[2][1]], coordinates[facets[2][2]]},
-        {coordinates[facets[3][0]], coordinates[facets[3][1]], coordinates[facets[3][2]]}
-    };
-}
-
-std::vector<FacetType> Tetrahedron::get_boundary_facets() {
-    std::vector<FacetType> _facets = Tetrahedron::get_facets();
-    std::vector<FacetType> _bfacets;
-    int n_bfacets = Tetrahedron::boundary_facets.size();
-    for (int i = 0; i < n_bfacets; i++) _bfacets.push_back(_facets[i]);
-    return _bfacets;
 }
 
 int main(int argc, char* argv[]){
