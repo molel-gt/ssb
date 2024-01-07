@@ -310,7 +310,7 @@ std::vector<CubeType> make_half_cubes_and_update_points(const std::vector<int> c
             }
         }
     }
-    // #pragma omp critical
+
     add_boundary_points(half_cubes, points);
     return half_cubes;
 }
@@ -604,13 +604,13 @@ int main(int argc, char* argv[]){
 
     std::vector<int> voxel_stats = {3, 3, 30};//read_input_voxels(mesh_folder_path, num_files, voxels, phase, "tif");
     voxels[{0, 0, 0}] = 1;
-    voxels[{2, 0, 0}] = 1;
-    voxels[{0, 2, 0}] = 1;
-    voxels[{2, 2, 0}] = 0;
-    voxels[{0, 0, 2}] = 1;
-    voxels[{2, 0, 2}] = 1;
-    voxels[{0, 2, 2}] = 1;
-    voxels[{2, 2, 2}] = 1;
+    voxels[{1, 0, 0}] = 1;
+    voxels[{0, 1, 0}] = 1;
+    voxels[{1, 1, 0}] = 0;
+    voxels[{0, 0, 1}] = 1;
+    voxels[{1, 0, 1}] = 1;
+    voxels[{0, 1, 1}] = 1;
+    voxels[{1, 1, 1}] = 1;
 
     Nx = voxel_stats[0];
     Ny = voxel_stats[1];
@@ -618,7 +618,7 @@ int main(int argc, char* argv[]){
     std::cout << "Read " << n_points << " coordinates from voxels of phase " << phase << "\n";
 
     points = build_points_from_voxels(voxels, phase, Nx, Ny, Nz);
-    // Nx = 2 * Nx; Ny = 2 * Ny; Nz = 2 * Nz;
+    Nx = 2 * Nx; Ny = 2 * Ny; Nz = 2 * Nz;
 
     /*
         Generate tetrahedrons and facets
@@ -627,7 +627,7 @@ int main(int argc, char* argv[]){
     std::vector<int> tetrahedrons;
     std::vector<int> external_facets;
     std::vector<CoordType> points_mapping;
-    int n_tets, n_facets; n_points = 0;
+    int n_tets = 0; int n_facets = 0; n_points = 0;
 
     // #pragma omp parallel for collapse(3)
     for (int i = 0; i < Nx - 1; i++){
@@ -639,9 +639,6 @@ int main(int argc, char* argv[]){
                     for (int idx = 0; idx < 8; idx++) {
                         if (!points.contains(cube_points[idx])) {
                             is_valid_cube = false;
-                        }
-                        else {
-                            std::cout << points.at(cube_points[idx]) << "\n";
                         }
                     }
                     if (is_valid_cube)
@@ -687,8 +684,8 @@ int main(int argc, char* argv[]){
                         std::cout << "Check invalids\n";
                         std::vector<CubeType> half_cubes = make_half_cubes_and_update_points({i, j, k}, points, {Nx, Ny, Nz});
                         int n_hcubes = half_cubes.size();
-                        for (int hcube_idx = 0; hcube_idx < n_hcubes; hcube_idx++){
-                            CubeType hcube = half_cubes[hcube_idx];
+                        std::cout << "Number of half cubes: " << n_hcubes << "\n";
+                        for (auto& hcube : half_cubes){
                             for (int idx = 0; idx < 5; idx++){
                                 Tetrahedron tet(hcube, points, idx);
                                 std::vector<FacetType> tet_facets = tet.get_boundary_facets();
@@ -711,19 +708,15 @@ int main(int argc, char* argv[]){
                                 for (auto& face : tet_facets){
                                     for (auto& coord : face){
                                         auto it = std::find(points_mapping.begin(), points_mapping.end(), coord);
-                                        if (it != points_mapping.end()){
-                                            int pos = std::distance(points_mapping.begin(), it);
-                                            external_facets.push_back(pos);
-                                        }
-                                        else {
-                                            throw std::out_of_range("Invalid coord in facet");
-                                        }
+                                        if (it == points_mapping.end()) throw std::out_of_range("Invalid coord in facet");
+                                        int pos = std::distance(points_mapping.begin(), it);
+                                        external_facets.push_back(pos);
+                                        std::cout << "Maliza " << pos << " has " << "\n";
                                     }
                                     n_facets++;
                                 }
                             }
                         }
-                        // }
                     }
                 }
             }
