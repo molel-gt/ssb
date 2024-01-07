@@ -31,7 +31,7 @@ find_package(OpenMP REQUIRED)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 add_executable(
-  ${PROJECT_NAME} main.cpp
+  ${PROJECT_NAME} main.cpp entities.cpp
 )
 target_include_directories(${PROJECT_NAME} PRIVATE include)
 target_link_libraries(${PROJECT_NAME} PUBLIC  
