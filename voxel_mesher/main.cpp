@@ -567,14 +567,13 @@ int main(int argc, char* argv[]){
 
     #pragma omp parallel for
     for (int idx = 0; idx < n_tets; idx++){
-        // #pragma omp critical
         {
             #pragma omp critical
             new_tetrahedrons.push_back(remap_tetrahedrons(tetrahedrons[idx], points_id_remapping));
             std::vector<std::vector<int>> local_faces = remap_tetrahedron_faces(tetrahedrons_faces[idx], points_id_remapping);
-            // for (int idx = 0; idx < 4; idx++){
-            //     if (is_boundary_facet(local_faces[idx], points, points_inverse)) new_tetrahedrons_faces.push_back(local_faces[idx]);
-            // }
+            for (int idx = 0; idx < 4; idx++){
+                if (is_boundary_facet(local_faces[idx], points, points_inverse)) new_tetrahedrons_faces.push_back(local_faces[idx]);
+            }
         }
     }
     for (auto& vec : new_tetrahedrons){
