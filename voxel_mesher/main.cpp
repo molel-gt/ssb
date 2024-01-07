@@ -164,7 +164,7 @@ std::vector<std::vector<int>> get_tetrahedron_faces(const std::vector<int>& loca
 
 std::map<std::vector<int>, int> build_points_from_voxels(std::map<std::vector<int>, int> voxels, int phase, int Nx, int Ny, int Nz){
     std::map<std::vector<int>, int> output_points;
-    int num_points = 1;
+    int num_points = 0;
     for (int i = 0; i < Nx; i++){
         for (int j = 0; j < Ny; j++){
             for (int k = 0; k < Nz; k++){
@@ -186,16 +186,15 @@ std::vector<std::vector<int>> make_cube(const std::vector<int>& coord){
     x = coord[0];
     y = coord[1];
     z = coord[2];
-    int step = 2;
     return {
             {x, y, z},
-            {x + step, y, z},
-            {x + step, y + step, z},
-            {x, y + step, z},
-            {x, y, z + step},
-            {x + step, y, z + step},
-            {x + step, y + step, z + step},
-            {x, y + step, z + step}
+            {x + 2, y, z},
+            {x + 2, y + 2, z},
+            {x, y + 2, z},
+            {x, y, z + 2},
+            {x + 2, y, z + 2},
+            {x + 2, y + 2, z + 2},
+            {x, y + 2, z + 2}
         };
 }
 
@@ -431,7 +430,6 @@ std::vector<int> make_cube_points(const std::map<std::vector<int>, int>& points,
 
 bool is_boundary_facet(std::vector<int> facet, std::map<std::vector<int>, int>& points, std::map<int, std::vector<int>>& points_inverse){
     int num_boundary = 0;
-    std::cout << facet[0] << ": " << facet[1] << ": " << facet[2] << ": " << facet[3] << "\n";
     for (int& node : facet){
         std::vector<int> coord = points_inverse.at(node);
         if (is_boundary_point(points, coord)) num_boundary++;
@@ -443,14 +441,12 @@ bool is_boundary_facet(std::vector<int> facet, std::map<std::vector<int>, int>& 
 int main(int argc, char* argv[]){
     fs::path mesh_folder_path;
     int phase, num_files;
-    bool boundary_layer;
     po::options_description desc("Allowed options");
     desc.add_options()
     ("help", "Creates tetrahedral and triangle mesh in xdmf format from input voxels")
     ("mesh_folder_path,MESH_FOLDER_PATH", po::value<fs::path>(&mesh_folder_path)->required(),  "mesh folder path")
     ("num_files,NUM_FILES", po::value<int>(&num_files)->required(),  "number of image files")
-    ("phase,PHASE", po::value<int>(&phase)->required(),  "phase to reconstruct volume for")
-    ("boundary_layer", po::value<bool>(&boundary_layer)->default_value(false), "whether or not to add half pixel boundary layer");
+    ("phase,PHASE", po::value<int>(&phase)->required(),  "phase to reconstruct volume for");
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
     po::notify(vm);
@@ -459,16 +455,13 @@ int main(int argc, char* argv[]){
         return 0;
     }
 
-    if (!boundary_layer){
-        std::cout << "No boundary layer is written\n";
-    }
     omp_set_num_threads(NUM_THREADS);
 
     int Nx, Ny, n_points, Nz = num_files;
     std::map<std::vector<int>, int> voxels;
     std::map<std::vector<int>, int> points;
 
-    std::vector<int> voxel_stats = {3, 3, 16};//read_input_voxels(mesh_folder_path, num_files, voxels, phase, "tif"); // {2, 2, 7};//
+    std::vector<int> voxel_stats = {3, 3, 30};//read_input_voxels(mesh_folder_path, num_files, voxels, phase, "tif"); // {2, 2, 7};//
     voxels[{0, 0, 0}] = 1;
     voxels[{2, 0, 0}] = 1;
     voxels[{0, 2, 0}] = 1;
@@ -491,7 +484,7 @@ int main(int argc, char* argv[]){
     std::vector<std::vector<int>> new_tetrahedrons_faces;
 
     std::cout << "Generating tetrahedrons\n";
-    #pragma omp parallel for collapse(3)
+    // #pragma omp parallel for collapse(3)
     for (int i = 0; i < Nx - 1; i++){
         for (int j = 0; j < Ny - 1; j++){
             for (int k = 0; k < Nz - 1; k++){
@@ -500,6 +493,7 @@ int main(int argc, char* argv[]){
                     if (std::find(cube_points.begin(), cube_points.end(), INVALID) == cube_points.end())
                     {
                         for (int idx = 0; idx < 5; idx++){
+                            // #pragma omp critical
                             std::vector<int> tet = get_tetrahedron(cube_points, idx);
                             tetrahedrons.push_back(tet);
                             std::vector<std::vector<int>> tet_faces = get_tetrahedron_faces(cube_points, idx);
@@ -553,10 +547,9 @@ int main(int argc, char* argv[]){
     for (int idx = 0; idx < n_tets; idx++){
         std::vector<int> tet_points = tetrahedrons[idx];
         for (int& tet_point: tet_points){
-            #pragma omp critical
+            // #pragma omp critical
             if (points_id_remapping[tet_point] == INVALID){
                 points_id_remapping[tet_point] = num_points;
-                std::cout << "Mapping: " << tet_point << " -> " << num_points << "\n";
                 points_remapped.push_back(points_inverse[tet_point]);
                 num_points ++;
             }
@@ -565,19 +558,16 @@ int main(int argc, char* argv[]){
 
     std::cout << "Finished remapping points to account for orphaned points. " << "Total number of points: " << num_points <<"\n";
 
-    #pragma omp parallel for
+    // #pragma omp parallel for
     for (int idx = 0; idx < n_tets; idx++){
         {
-            #pragma omp critical
+            // #pragma omp critical
             new_tetrahedrons.push_back(remap_tetrahedrons(tetrahedrons[idx], points_id_remapping));
             std::vector<std::vector<int>> local_faces = remap_tetrahedron_faces(tetrahedrons_faces[idx], points_id_remapping);
             for (int idx = 0; idx < 4; idx++){
                 if (is_boundary_facet(local_faces[idx], points, points_inverse)) new_tetrahedrons_faces.push_back(local_faces[idx]);
             }
         }
-    }
-    for (auto& vec : new_tetrahedrons){
-        std::cout << vec[0] << "," << vec[1] << "," << vec[2] << "," << vec[3] << "\n";
     }
 
     // free up memory
