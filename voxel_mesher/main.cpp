@@ -388,7 +388,7 @@ std::vector<std::vector<int>> build_external_facets(std::vector<CoordType> cube,
         int num_on_boundary = 0;
         for (auto& vec : facet){
             lfacet.push_back(points.at(cube[vec]));
-            if (is_boundary_point(points, cube[vec])) num_on_boundary ++;
+            if (is_boundary_point(points, cube[vec])) num_on_boundary++;
         }
         if (num_on_boundary == 3) external_facets.push_back(lfacet);
     }
@@ -464,8 +464,8 @@ int main(int argc, char* argv[]){
                     for (int idx = 0; idx < 5; idx++){
                         std::vector<int> tet = build_tetrahedron(cube, idx, points);
                         tetrahedrons_ids.push_back(tet); n_tets++;
-                        std::vector<std::vector<int>> efacet_ids = build_external_facets(cube, idx, points);
-                        for (auto& fct_id : efacet_ids) { external_facets_ids.push_back(fct_id); n_facets++; }
+                        // std::vector<std::vector<int>> efacet_ids = build_external_facets(cube, idx, points);
+                        // for (auto& fct_id : efacet_ids) { external_facets_ids.push_back(fct_id); n_facets++; }
                     }
                 }
                 else
@@ -480,9 +480,10 @@ int main(int argc, char* argv[]){
                         #pragma omp critical
                         for (int idx = 0; idx < 5; idx++){
                             std::vector<int> tet = build_tetrahedron(cube, idx, points);
+                            std::sort(tet.begin(), tet.end());
                             tetrahedrons_ids.push_back(tet); n_tets++;
-                            std::vector<std::vector<int>> lfacet_ids = build_external_facets(cube, idx, points);
-                            for (auto& fct_id : lfacet_ids) { external_facets_ids.push_back(fct_id); n_facets++; }
+                            // std::vector<std::vector<int>> lfacet_ids = build_external_facets(cube, idx, points);
+                            // for (auto& fct_id : lfacet_ids) { external_facets_ids.push_back(fct_id); n_facets++; }
                         }
                     }
                 }
@@ -525,7 +526,7 @@ int main(int argc, char* argv[]){
 
     std::cout << "Finished remapping tetrahedrons\n";
     std::vector<int> tets_flat; tets_flat.reserve(n_tets * 4 * sizeof(int));
-    std::vector<int> efacets_flat; efacets_flat.reserve(n_facets * 4 * sizeof(int));
+    // std::vector<int> efacets_flat; efacets_flat.reserve(n_facets * 4 * sizeof(int));
     std::vector<int> flattened; flattened.reserve(counter * 3 * sizeof(int));
 
     // write hdf5 file
@@ -583,41 +584,41 @@ int main(int argc, char* argv[]){
     write_tetrahedral_xdmf(counter, n_tets);
     std::cout << "tetr.h5 file written to " << mesh_folder_path << "\n";
 
-    /* write triangle mesh */
-    dims[0] = counter;
-    dims[1] = 3;
-    file_id = H5Fcreate(TRIA_FILE, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
-    dataspace_id = H5Screate_simple(2, dims, NULL);
-    dataset_id = H5Dcreate(file_id, "/data0", H5T_NATIVE_INT32, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, points_output);
-    H5Dclose(dataset_id);
+    // /* write triangle mesh */
+    // dims[0] = counter;
+    // dims[1] = 3;
+    // file_id = H5Fcreate(TRIA_FILE, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    // dataspace_id = H5Screate_simple(2, dims, NULL);
+    // dataset_id = H5Dcreate(file_id, "/data0", H5T_NATIVE_INT32, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    // H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, points_output);
+    // H5Dclose(dataset_id);
 
-    std::vector<int> flattened_facets; flattened_facets.reserve(n_facets * 3 * sizeof(int));
-    for (auto& vec : external_facets_ids)
-        for (auto& elem : vec) flattened_facets.push_back(ids_remapping[elem]);
+    // std::vector<int> flattened_facets; flattened_facets.reserve(n_facets * 3 * sizeof(int));
+    // for (auto& vec : external_facets_ids)
+    //     for (auto& elem : vec) flattened_facets.push_back(ids_remapping[elem]);
 
-    dims[0] = n_facets;
-    dims[1] = 3;
-    dataspace_id = H5Screate_simple(2, dims, NULL);
-    dataset_id = H5Dcreate(file_id, "/data1", H5T_NATIVE_INT32, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, flattened_facets.data());
-    H5Dclose(dataset_id);
-    H5Sclose(dataspace_id);
+    // dims[0] = n_facets;
+    // dims[1] = 3;
+    // dataspace_id = H5Screate_simple(2, dims, NULL);
+    // dataset_id = H5Dcreate(file_id, "/data1", H5T_NATIVE_INT32, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    // H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, flattened_facets.data());
+    // H5Dclose(dataset_id);
+    // H5Sclose(dataspace_id);
 
-    // Physical markers
-    std::vector<int64_t> surface_markers;
-    for (int idx = 0; idx < n_facets; idx++) surface_markers.push_back(1);
+    // // Physical markers
+    // std::vector<int64_t> surface_markers;
+    // for (int idx = 0; idx < n_facets; idx++) surface_markers.push_back(1);
 
-    dims[0] = n_facets;
-    dims[1] = 1;
-    dataspace_id = H5Screate_simple(1, dims, NULL);
-    dataset_id = H5Dcreate(file_id, "/data2", H5T_NATIVE_INT64, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    H5Dwrite(dataset_id, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, surface_markers.data());
-    H5Dclose(dataset_id);
-    H5Sclose(dataspace_id);
+    // dims[0] = n_facets;
+    // dims[1] = 1;
+    // dataspace_id = H5Screate_simple(1, dims, NULL);
+    // dataset_id = H5Dcreate(file_id, "/data2", H5T_NATIVE_INT64, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    // H5Dwrite(dataset_id, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, surface_markers.data());
+    // H5Dclose(dataset_id);
+    // H5Sclose(dataspace_id);
 
-    H5Fclose(file_id);
-    write_triangle_xdmf(n_points, n_facets);
+    // H5Fclose(file_id);
+    // write_triangle_xdmf(n_points, n_facets);
 
     std::cout << "tria.h5 file written to " << mesh_folder_path << "\n";
     std::cout << "Finished processing voxels to tetrahedral and triangle mesh!" << "\n";
