@@ -100,9 +100,9 @@ void write_triangle_xdmf(int points_count, int facets_count)
     fprintf(xdmf, "<DataItem DataType=\"Float\" Dimensions=\"%d 3\" Format=\"HDF\" Precision=\"8\">tria.h5:/data0</DataItem>", points_count);
     fprintf(xdmf, "</Geometry>");
     fprintf(xdmf, "<Topology TopologyType=\"Triangle\" NumberOfElements=\"%d\" NodesPerElement=\"3\">", facets_count);
-    fprintf(xdmf, "<DataItem DataType=\"Int\" Dimensions=\"%d 3\" Format=\"HDF\" Precision=\"8\">tria.h5:/data1</DataItem>", facets_count);
+    fprintf(xdmf, "<DataItem DataType=\"Int64\" Dimensions=\"%d 3\" Format=\"HDF\" Precision=\"8\">tria.h5:/data1</DataItem>", facets_count);
     fprintf(xdmf, "</Topology>");
-    fprintf(xdmf, "<Attribute Name=\"name_to_read\" AttributeType=\"Scalar\" Center=\"Cell\"><DataItem DataType=\"Int\" Dimensions=\"%d\" Format=\"HDF\" Precision=\"8\">tria.h5:/data2</DataItem>", facets_count);
+    fprintf(xdmf, "<Attribute Name=\"name_to_read\" AttributeType=\"Scalar\" Center=\"Cell\"><DataItem DataType=\"Int64\" Dimensions=\"%d\" Format=\"HDF\" Precision=\"8\">tria.h5:/data2</DataItem>", facets_count);
     fprintf(xdmf, "</Attribute>");
     fprintf(xdmf, "</Grid>");
     fprintf(xdmf, "</Domain>");
@@ -412,21 +412,21 @@ int main(int argc, char* argv[]){
         return 0;
     }
 
-    omp_set_num_threads(NUM_THREADS);
+    // omp_set_num_threads(NUM_THREADS);
 
     int Nx, Ny, n_points, Nz = num_files;
     std::map<std::vector<int>, int> voxels;
     std::map<std::vector<int>, int> points;
 
     std::vector<int> voxel_stats = read_input_voxels(mesh_folder_path, num_files, voxels, phase, "tif");//{2, 2, 30};//
-    voxels[{0, 0, 0}] = 1;
-    voxels[{1, 0, 0}] = 1;
-    voxels[{0, 1, 0}] = 1;
-    voxels[{1, 1, 0}] = 0;
-    voxels[{0, 0, 1}] = 1;
-    voxels[{1, 0, 1}] = 1;
-    voxels[{0, 1, 1}] = 1;
-    voxels[{1, 1, 1}] = 1;
+    // voxels[{0, 0, 0}] = 1;
+    // voxels[{1, 0, 0}] = 1;
+    // voxels[{0, 1, 0}] = 1;
+    // voxels[{1, 1, 0}] = 0;
+    // voxels[{0, 0, 1}] = 1;
+    // voxels[{1, 0, 1}] = 1;
+    // voxels[{0, 1, 1}] = 1;
+    // voxels[{1, 1, 1}] = 1;
 
     Nx = voxel_stats[0];
     Ny = voxel_stats[1];
@@ -444,10 +444,9 @@ int main(int argc, char* argv[]){
     std::vector<std::vector<int>> external_facets_ids;
     std::vector<CoordType> points_mapping;
     int n_tets = 0;
-    int n_facets = 0;
-    n_points = 0;
+    int64_t n_facets = 0;
 
-    int point_id = 0;
+    int point_id = n_points;
 
     #pragma omp parallel for collapse(3)
     for (int i = 0; i < Nx - 1; i++){
@@ -458,33 +457,34 @@ int main(int argc, char* argv[]){
                 for (int idx = 0; idx < 8; idx++) {
                     if (!points.contains(cube[idx])) { is_valid_cube = false; }
                 }
-                #pragma omp critical
                 if (is_valid_cube)
                 {
+                    #pragma omp critical
                     for (int idx = 0; idx < 5; idx++){
                         std::vector<int> tet = build_tetrahedron(cube, idx, points);
                         tetrahedrons_ids.push_back(tet); n_tets++;
-                        std::vector<std::vector<int>> lfacet_ids = build_external_facets(cube, idx, points);
-                        for (auto& fct_id : lfacet_ids) { external_facets_ids.push_back(fct_id); n_facets++; }
+                        std::vector<std::vector<int>> efacet_ids = build_external_facets(cube, idx, points);
+                        for (auto& fct_id : efacet_ids) { external_facets_ids.push_back(fct_id); n_facets++; }
                     }
                 }
-                else
-                {
-                    std::vector<CubeType> half_cubes = make_half_cubes_and_update_points({2 * i, 2 * j, 2 * k}, points, {2 * Nx, 2 * Ny, 2 * Nz});
-                    for (auto& cube : half_cubes){
-                        for (auto& coord : cube) {
-                            add_point_id_if_missing(points, coord, point_id);
-                        }
-                    }
-                    for (auto& cube : half_cubes) {
-                        for (int idx = 0; idx < 5; idx++){
-                            std::vector<int> tet = build_tetrahedron(cube, idx, points);
-                            tetrahedrons_ids.push_back(tet); n_tets++;
-                            std::vector<std::vector<int>> lfacet_ids = build_external_facets(cube, idx, points);
-                            for (auto& fct_id : lfacet_ids) { external_facets_ids.push_back(fct_id); n_facets++; }
-                        }
-                    }
-                }
+                // else
+                // {
+                //     std::vector<CubeType> half_cubes = make_half_cubes_and_update_points({2 * i, 2 * j, 2 * k}, points, {2 * Nx, 2 * Ny, 2 * Nz});
+                //     for (auto& cube : half_cubes){
+                //         for (auto& coord : cube) {
+                //             add_point_id_if_missing(points, coord, point_id);
+                //         }
+                //     }
+                //     for (auto& cube : half_cubes) {
+                //         #pragma omp critical
+                //         for (int idx = 0; idx < 5; idx++){
+                //             std::vector<int> tet = build_tetrahedron(cube, idx, points);
+                //             tetrahedrons_ids.push_back(tet); n_tets++;
+                //             std::vector<std::vector<int>> lfacet_ids = build_external_facets(cube, idx, points);
+                //             for (auto& fct_id : lfacet_ids) { external_facets_ids.push_back(fct_id); n_facets++; }
+                //         }
+                //     }
+                // }
         }
             }
         }
@@ -493,38 +493,46 @@ int main(int argc, char* argv[]){
 
     int counter = 0;
     std::vector<int> ids_remapping;
-    for (int idx = 0; idx < point_id; idx++) ids_remapping.push_back(INVALID);
+    ids_remapping.reserve(point_id * sizeof(int));
+    for (int idx = 0; idx < point_id; idx++) {
+        #pragma omp critical
+        ids_remapping.push_back(INVALID);
+    }
+
     std::map<int, CoordType> points_inverse;
     for (auto& kv : points){
+        #pragma omp critical
         points_inverse[kv.second] = kv.first;
     }
 
+    std::cout << "Finished generating ids for remapping\n";
+
     for (auto& tet : tetrahedrons_ids){
         for (auto& coord_id : tet){
-            CoordType coord = points_inverse[coord_id];
             if (ids_remapping[coord_id] == INVALID) {
-                ids_remapping[coord_id] = counter; counter++;
+                #pragma omp critical
+                {
+                    ids_remapping[coord_id] = counter;
+                    counter++;
+                }
+                CoordType coord = points_inverse[coord_id];
+                #pragma omp critical
                 points_mapping.push_back(coord);
             }
         }
     }
 
+    std::cout << "Finished remapping tetrahedrons\n";
     std::vector<int> tets_flat; tets_flat.reserve(n_tets * 4 * sizeof(int));
     std::vector<int> efacets_flat; efacets_flat.reserve(n_facets * 4 * sizeof(int));
+    std::vector<int> flattened; flattened.reserve(counter * 3 * sizeof(int));
 
     // write hdf5 file
-    int points_size = counter * 3 * sizeof(int);
 
-    // 2. Create a vector to hold the data.
-    std::vector<int> flattened;
-    flattened.reserve(points_size);
-
-    // 3. Fill it
+    // Coordinates
     for (auto& vec : points_mapping)
-        for (auto& elem : vec)
-            flattened.push_back(elem);
-
-    // 4. Obtain the array
+        #pragma omp critical
+        for (auto& elem : vec) flattened.push_back(elem);
     auto points_output = flattened.data();
 
     hid_t   file_id, dataset_id, dataspace_id; /* identifiers */
@@ -544,14 +552,11 @@ int main(int argc, char* argv[]){
     // tetrahedrons data
     int tets_size = n_tets * 4 * sizeof(int);
 
-    // 2. Create a vector to hold the data.
-    std::vector<int> flattened_tets;
-    flattened_tets.reserve(tets_size);
+    // Create a vector to hold the data.
+    std::vector<int> flattened_tets; flattened_tets.reserve(tets_size);
 
-    // 3. Fill it
     for (auto& vec : tetrahedrons_ids)
-        for (auto& elem : vec)
-            flattened_tets.push_back(ids_remapping[elem]);
+        for (auto& elem : vec) flattened_tets.push_back(ids_remapping[elem]);
 
     dims[0] = n_tets;
     dims[1] = 4;
@@ -563,9 +568,8 @@ int main(int argc, char* argv[]){
 
     // Physical markers
     std::vector<int> markers;
-    for (int idx = 0; idx < n_tets; idx++){
-        markers.push_back(1);
-    }
+    for (int idx = 0; idx < n_tets; idx++) markers.push_back(1);
+
     dims[0] = n_tets;
     dims[1] = 1;
     dataspace_id = H5Screate_simple(1, dims, NULL);
@@ -587,30 +591,27 @@ int main(int argc, char* argv[]){
     H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, points_output);
     H5Dclose(dataset_id);
 
-    std::vector<int> flattened_facets;
-    flattened_facets.reserve(n_facets * 3 * sizeof(int));
+    std::vector<int> flattened_facets; flattened_facets.reserve(n_facets * 3 * sizeof(int));
     for (auto& vec : external_facets_ids)
-        for (auto& elem : vec)
-            flattened_facets.push_back(ids_remapping[elem]);
+        for (auto& elem : vec) flattened_facets.push_back(ids_remapping[elem]);
 
     dims[0] = n_facets;
     dims[1] = 3;
     dataspace_id = H5Screate_simple(2, dims, NULL);
-    dataset_id = H5Dcreate(file_id, "/data1", H5T_NATIVE_INT32, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, flattened_facets.data());
+    dataset_id = H5Dcreate(file_id, "/data1", H5T_NATIVE_INT64, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dataset_id, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, flattened_facets.data());
     H5Dclose(dataset_id);
     H5Sclose(dataspace_id);
 
     // Physical markers
     std::vector<int> surface_markers;
-    for (int idx = 0; idx < n_facets; idx++){
-        surface_markers.push_back(1);
-    }
+    for (int idx = 0; idx < n_facets; idx++) surface_markers.push_back(1);
+
     dims[0] = n_facets;
     dims[1] = 1;
     dataspace_id = H5Screate_simple(1, dims, NULL);
-    dataset_id = H5Dcreate(file_id, "/data2", H5T_NATIVE_INT32, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, surface_markers.data());
+    dataset_id = H5Dcreate(file_id, "/data2", H5T_NATIVE_INT64, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dataset_id, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, surface_markers.data());
     H5Dclose(dataset_id);
     H5Sclose(dataspace_id);
 
