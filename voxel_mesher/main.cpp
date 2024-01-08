@@ -100,7 +100,7 @@ void write_triangle_xdmf(int points_count, int facets_count)
     fprintf(xdmf, "<DataItem DataType=\"Float\" Dimensions=\"%d 3\" Format=\"HDF\" Precision=\"8\">tria.h5:/data0</DataItem>", points_count);
     fprintf(xdmf, "</Geometry>");
     fprintf(xdmf, "<Topology TopologyType=\"Triangle\" NumberOfElements=\"%d\" NodesPerElement=\"3\">", facets_count);
-    fprintf(xdmf, "<DataItem DataType=\"Int64\" Dimensions=\"%d 3\" Format=\"HDF\" Precision=\"8\">tria.h5:/data1</DataItem>", facets_count);
+    fprintf(xdmf, "<DataItem DataType=\"Int\" Dimensions=\"%d 3\" Format=\"HDF\" Precision=\"8\">tria.h5:/data1</DataItem>", facets_count);
     fprintf(xdmf, "</Topology>");
     fprintf(xdmf, "<Attribute Name=\"name_to_read\" AttributeType=\"Scalar\" Center=\"Cell\"><DataItem DataType=\"Int64\" Dimensions=\"%d\" Format=\"HDF\" Precision=\"8\">tria.h5:/data2</DataItem>", facets_count);
     fprintf(xdmf, "</Attribute>");
@@ -467,24 +467,24 @@ int main(int argc, char* argv[]){
                         for (auto& fct_id : efacet_ids) { external_facets_ids.push_back(fct_id); n_facets++; }
                     }
                 }
-                // else
-                // {
-                //     std::vector<CubeType> half_cubes = make_half_cubes_and_update_points({2 * i, 2 * j, 2 * k}, points, {2 * Nx, 2 * Ny, 2 * Nz});
-                //     for (auto& cube : half_cubes){
-                //         for (auto& coord : cube) {
-                //             add_point_id_if_missing(points, coord, point_id);
-                //         }
-                //     }
-                //     for (auto& cube : half_cubes) {
-                //         #pragma omp critical
-                //         for (int idx = 0; idx < 5; idx++){
-                //             std::vector<int> tet = build_tetrahedron(cube, idx, points);
-                //             tetrahedrons_ids.push_back(tet); n_tets++;
-                //             std::vector<std::vector<int>> lfacet_ids = build_external_facets(cube, idx, points);
-                //             for (auto& fct_id : lfacet_ids) { external_facets_ids.push_back(fct_id); n_facets++; }
-                //         }
-                //     }
-                // }
+                else
+                {
+                    std::vector<CubeType> half_cubes = make_half_cubes_and_update_points({2 * i, 2 * j, 2 * k}, points, {2 * Nx, 2 * Ny, 2 * Nz});
+                    for (auto& cube : half_cubes){
+                        for (auto& coord : cube) {
+                            add_point_id_if_missing(points, coord, point_id);
+                        }
+                    }
+                    for (auto& cube : half_cubes) {
+                        #pragma omp critical
+                        for (int idx = 0; idx < 5; idx++){
+                            std::vector<int> tet = build_tetrahedron(cube, idx, points);
+                            tetrahedrons_ids.push_back(tet); n_tets++;
+                            std::vector<std::vector<int>> lfacet_ids = build_external_facets(cube, idx, points);
+                            for (auto& fct_id : lfacet_ids) { external_facets_ids.push_back(fct_id); n_facets++; }
+                        }
+                    }
+                }
         }
             }
         }
@@ -598,13 +598,13 @@ int main(int argc, char* argv[]){
     dims[0] = n_facets;
     dims[1] = 3;
     dataspace_id = H5Screate_simple(2, dims, NULL);
-    dataset_id = H5Dcreate(file_id, "/data1", H5T_NATIVE_INT64, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
-    H5Dwrite(dataset_id, H5T_NATIVE_INT64, H5S_ALL, H5S_ALL, H5P_DEFAULT, flattened_facets.data());
+    dataset_id = H5Dcreate(file_id, "/data1", H5T_NATIVE_INT32, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
+    H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, flattened_facets.data());
     H5Dclose(dataset_id);
     H5Sclose(dataspace_id);
 
     // Physical markers
-    std::vector<int> surface_markers;
+    std::vector<int64_t> surface_markers;
     for (int idx = 0; idx < n_facets; idx++) surface_markers.push_back(1);
 
     dims[0] = n_facets;
