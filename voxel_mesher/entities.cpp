@@ -30,7 +30,9 @@ Tetrahedron::Tetrahedron(const CubeType& cube_points, const std::map<CoordType, 
             break;
         }
     }
-    for (int i = 0; i < 4; i++) coordinates.push_back(cube_points[cube_id2point_id[i]]);
+    std::vector<CoordType> coords;
+    for (int i = 0; i < 4; i++) coords.push_back(cube_points[cube_id2point_id[i]]);
+    coordinates = coords;
 
     // get facets for tetrahedron
     std::vector<std::vector<int>> facet_ids;
@@ -86,15 +88,16 @@ Tetrahedron::Tetrahedron(const CubeType& cube_points, const std::map<CoordType, 
             break;
         }
     }
-    for (int f_id = 0; f_id < 4; f_id++){
-        std::vector<int> _local_facet;
-        for (int idx = 0; idx < 3; idx++) {
-            auto it = std::find(cube_id2point_id.begin(), cube_id2point_id.end(), facet_ids[f_id][idx]);
-            int pos = std::distance(cube_id2point_id.begin(), it);
-            _local_facet.push_back(pos);
-        }
-        facets.push_back(_local_facet);
-    }
+
+    // for (int f_id = 0; f_id < 4; f_id++){
+    //     std::vector<int> _local_facet;
+    //     for (int idx = 0; idx < 3; idx++) {
+    //         auto it = std::find(cube_id2point_id.begin(), cube_id2point_id.end(), facet_ids[f_id][idx]);
+    //         int pos = std::distance(cube_id2point_id.begin(), it);
+    //         _local_facet.push_back(pos);
+    //     }
+    //     facets.push_back(_local_facet);
+    // }
 
     // generate ids of boundary facets
     for (int i = 0; i < 4; i++){
@@ -109,12 +112,12 @@ Tetrahedron::Tetrahedron(const CubeType& cube_points, const std::map<CoordType, 
 
 std::vector<CoordType> Tetrahedron::get_points() { return coordinates; }
 std::vector<FacetType> Tetrahedron::get_facets() {
-    return {
+    std::vector<FacetType> tfacets = {
         {coordinates[facets[0][0]], coordinates[facets[0][1]], coordinates[facets[0][2]]},
         {coordinates[facets[1][0]], coordinates[facets[1][1]], coordinates[facets[1][2]]},
         {coordinates[facets[2][0]], coordinates[facets[2][1]], coordinates[facets[2][2]]},
-        {coordinates[facets[3][0]], coordinates[facets[3][1]], coordinates[facets[3][2]]}
-    };
+        {coordinates[facets[3][0]], coordinates[facets[3][1]], coordinates[facets[3][2]]}};
+    return tfacets;
 }
 
 std::vector<FacetType> Tetrahedron::get_boundary_facets() {
@@ -170,3 +173,17 @@ bool Tetrahedron::is_boundary_point(const std::map<std::vector<int>, int>& all_p
     }
     return num_neighbors != 6 || num_neighbors_diag != 12;
 }
+
+// std::vector<std::vector<int>> Tetrahedron::get_boundary_facets_ids(std::vector<int> point_ids){}
+//     std::vector<std::vector<int>> _local_bfacets;
+//     std::vector<std::vector<int>> boundary_facet_ids;
+//     for (auto& vec : Tetrahedron::boundary_facets){
+//         _local_bfacets.push_back(Tetrahedron::facets[vec]);
+//     }
+
+//     for (auto& vec : _local_bfacets){
+//         std::vector<int> _lf_ids;
+//         for (auto& elem : vec) _lf_ids.push_back(point_ids[])
+//     }
+
+// }
