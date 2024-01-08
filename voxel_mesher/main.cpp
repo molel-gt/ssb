@@ -412,13 +412,14 @@ int main(int argc, char* argv[]){
         return 0;
     }
 
-    // omp_set_num_threads(NUM_THREADS);
+    omp_set_num_threads(NUM_THREADS);
 
     int Nx, Ny, n_points, Nz = num_files;
     std::map<std::vector<int>, int> voxels;
     std::map<std::vector<int>, int> points;
 
-    std::vector<int> voxel_stats = read_input_voxels(mesh_folder_path, num_files, voxels, phase, "tif");//{2, 2, 30};//
+    std::vector<int> voxel_stats = read_input_voxels(mesh_folder_path, num_files, voxels, phase, "tif");
+    // std::vector<int> voxel_stats = {2, 2, 30};
     // voxels[{0, 0, 0}] = 1;
     // voxels[{1, 0, 0}] = 1;
     // voxels[{0, 1, 0}] = 1;
