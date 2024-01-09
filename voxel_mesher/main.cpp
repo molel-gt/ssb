@@ -13,6 +13,7 @@
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/opencv.hpp>
 #include <ranges>
+#include "utils.h"
 #include <vector>
 
 #define TETR_H5_FILE "tetr.h5"
@@ -24,6 +25,8 @@
 
 namespace po = boost::program_options;
 namespace fs = boost::filesystem;
+
+
 
 bool is_boundary_point(const std::map<std::vector<int>, int>& all_points, std::vector<int> check_point){
     int num_neighbors = 0;
@@ -259,35 +262,31 @@ std::vector<CubeType> make_half_cubes_and_update_points(const std::vector<int> c
     return half_cubes;
 }
 
-std::vector<int> read_input_voxels(std::filesystem::path voxels_folder, int num_files, std::map<std::vector<int>, int>& voxels, int phase, std::string ext){
-    int NX, NY, n_points = 0;
-    for (int idx = 0; idx < num_files; idx++){
+int read_input_voxels(std::filesystem::path voxels_folder, int NX, int NY, int NZ, std::map<std::vector<int>, int>& voxels, int phase, std::string ext){
+    int n_points = 0;
+    for (int idx = 0; idx < NZ; idx++){
         std::string text_idx = std::to_string(idx);
         std::filesystem::path filename(std::string(3 - text_idx.length(), '0').append(text_idx) + "." + ext);
         std::filesystem::path full_path = voxels_folder / filename;
         cv::Mat img = cv::imread(full_path, cv::IMREAD_COLOR);
         if (img.empty()) {
             std::cout << "Could not read the image.\n";
-            std::vector<int> error = {-1, -1, -1};
-            return error;
+            return INVALID;
         }
-        NX = img.cols;
-        NY = img.rows;
         std::cout << "File: " << idx << ", Rows: " << NY << ", Columns: " << NX << "\n";
         for (int i = 0; i < NX; i++){
             for (int j = 0; j < NY; j++){
                 cv::Vec3b value = img.at<cv::Vec3b>(j, i);
                 int check_value = int(value[0]);
                 if (check_value == phase){
-                    voxels[{i, j, idx}] = check_value;
+                    voxels[{i, j, idx}] = n_points;
                     n_points++;
                 }
             }
         }
     }
 
-    std::vector<int> stats = {NX, NY, n_points};
-    return stats;
+    return n_points;
 }
 
 void add_point_id_if_missing(std::map<std::vector<int>, int>& points, std::vector<int> coord, int& point_id){
@@ -400,12 +399,14 @@ std::vector<std::vector<int>> build_external_facets(std::vector<CoordType> cube,
 
 int main(int argc, char* argv[]){
     std::filesystem::path mesh_folder_path;
-    int phase, num_files;
+    int phase, LX, LY, LZ;
     po::options_description desc("Allowed options");
     desc.add_options()
     ("help", "Creates tetrahedral and triangle mesh in xdmf format from input voxels")
     ("mesh_folder_path,MESH_FOLDER_PATH", po::value<std::filesystem::path>(&mesh_folder_path)->required(),  "mesh folder path")
-    ("num_files,NUM_FILES", po::value<int>(&num_files)->required(),  "number of image files")
+    ("LX", po::value<int>(&LX)->required(),  "length along X in pixel units")
+    ("LY", po::value<int>(&LY)->required(),  "length along Y in pixel units")
+    ("LZ", po::value<int>(&LZ)->required(),  "length along Z in pixel units, number of image files is LZ + 1")
     ("phase,PHASE", po::value<int>(&phase)->required(),  "phase to reconstruct volume for");
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -417,8 +418,10 @@ int main(int argc, char* argv[]){
 
     omp_set_num_threads(NUM_THREADS);
 
-    int Nx, Ny, n_points, Nz = num_files;
-    std::map<std::vector<int>, int> voxels;
+    int NX = LX + 1;
+    int NY = LY + 1;
+    int NZ = LZ + 1;
+
     std::map<std::vector<int>, int> points;
     std::filesystem::path tria_h5_file_name(TRIA_H5_FILE); std::filesystem::path tria_xdmf_file_name(TRIA_XDMF_FILE);
     std::filesystem::path tetr_h5_file_name(TETR_H5_FILE); std::filesystem::path tetr_xdmf_file_name(TETR_XDMF_FILE);
@@ -433,8 +436,7 @@ int main(int argc, char* argv[]){
     // std::string _tria_h5_file_path = tria_xdmf_file_path.string(); _tria_h5_file_path.replace('.xdmf", '.h5');
     // const char* tria_h5_file_path = _tria_h5_file_path.c_str();
 
-    std::vector<int> voxel_stats = read_input_voxels(mesh_folder_path, num_files, voxels, phase, "tif");
-    // std::vector<int> voxel_stats = {2, 2, 30};
+    int n_points = read_input_voxels(mesh_folder_path, NX, NY, NZ, points, phase, "tif");
     // voxels[{0, 0, 0}] = 1;
     // voxels[{1, 0, 0}] = 1;
     // voxels[{0, 1, 0}] = 1;
@@ -444,12 +446,9 @@ int main(int argc, char* argv[]){
     // voxels[{0, 1, 1}] = 1;
     // voxels[{1, 1, 1}] = 1;
 
-    Nx = voxel_stats[0];
-    Ny = voxel_stats[1];
-    n_points = voxel_stats[2];
     std::cout << "Read " << n_points << " coordinates from voxels of phase " << phase << "\n";
 
-    points = build_points_from_voxels(voxels, phase, Nx, Ny, Nz);
+    // points = build_points_from_voxels(voxels, phase, NY, NY, NZ);
 
     /*
         Generate tetrahedrons and facets
@@ -466,9 +465,9 @@ int main(int argc, char* argv[]){
     int point_id = n_points;
 
     #pragma omp parallel for collapse(3)
-    for (int i = 0; i < Nx - 1; i++){
-        for (int j = 0; j < Ny - 1; j++){
-            for (int k = 0; k < Nz - 1; k++){
+    for (int i = 0; i < NX; i++){
+        for (int j = 0; j < NY; j++){
+            for (int k = 0; k < NZ; k++){
                 CubeType cube = make_cube({2 * i, 2 * j, 2 * k});
                 bool is_valid_cube = true;
                 for (int idx = 0; idx < 8; idx++) {
@@ -486,7 +485,7 @@ int main(int argc, char* argv[]){
                 }
                 else
                 {
-                    std::vector<CubeType> half_cubes = make_half_cubes_and_update_points({2 * i, 2 * j, 2 * k}, points, {2 * Nx, 2 * Ny, 2 * Nz});
+                    std::vector<CubeType> half_cubes = make_half_cubes_and_update_points({2 * i, 2 * j, 2 * k}, points, {2 * NX, 2 * NY, 2 * NZ});
                     for (auto& cube : half_cubes){
                         #pragma omp critical
                         for (auto& coord : cube) {
