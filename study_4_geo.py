@@ -60,7 +60,7 @@ if __name__ == '__main__':
     _ = subprocess.check_call(f'sed -i "/Ly\ = */c\Ly = {Ly};" {mesh_dir}/contact-loss.geo', shell=True)
     _ = subprocess.check_call(f'sed -i "/Lz\ = */c\Lz = {Lz};" {mesh_dir}/contact-loss.geo', shell=True)
     _ = subprocess.check_call(f'sed -i "/Lz\ = */c\Lz = {Lz};" {mesh_dir}/contact-loss.geo', shell=True)
-    _ = subprocess.check_call(f'sed -i "/max_resolution\ = */c\max_resolution = {max_resolution};" {mesh_dir}/contact-loss.geo', shell=True)
+    _ = subprocess.check_call(f'sed -i "/resolution\ = */c\resolution = {max_resolution};" {mesh_dir}/contact-loss.geo', shell=True)
     res = subprocess.check_call(f"gmsh -3 {mesh_dir}/contact-loss.geo -o {tetr_mshfile}", shell=True)
 
     tet_msh = meshio.read(tetr_mshfile)
