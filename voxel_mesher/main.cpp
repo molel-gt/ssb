@@ -2,6 +2,7 @@
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include "entities.h"
+#include <filesystem>
 #include <hdf5.h>
 #include <iostream>
 #include <initializer_list>
@@ -14,8 +15,10 @@
 #include <ranges>
 #include <vector>
 
-#define TETR_FILE "tetr.h5"
-#define TRIA_FILE "tria.h5"
+#define TETR_H5_FILE "tetr.h5"
+#define TETR_XDMF_FILE "tetr.xdmf"
+#define TRIA_H5_FILE "tria.h5"
+#define TRIA_XDMF_FILE "tria.xdmf"
 #define INVALID -1
 #define NUM_THREADS 8
 
@@ -68,10 +71,10 @@ bool is_boundary_point(const std::map<std::vector<int>, int>& all_points, std::v
     return num_neighbors != 6 || num_neighbors_diag != 12;
 }
 
-void write_tetrahedral_xdmf(int points_count, int tets_count)
+void write_tetrahedral_xdmf(int points_count, int tets_count, const char* tetr_xdmf_file_path)
 {
     FILE *xdmf = 0;
-    xdmf = fopen("tetr.xdmf", "w");
+    xdmf = fopen(tetr_xdmf_file_path, "w");
     fprintf(xdmf, "<Xdmf Version=\"3.0\">");
     fprintf(xdmf, "<Domain>");
     fprintf(xdmf, "<Grid Name=\"Grid\">");
@@ -79,7 +82,7 @@ void write_tetrahedral_xdmf(int points_count, int tets_count)
     fprintf(xdmf, "<DataItem DataType=\"Float\" Dimensions=\"%d 3\" Format=\"HDF\" Precision=\"8\">tetr.h5:/data0</DataItem>", points_count);
     fprintf(xdmf, "</Geometry>");
     fprintf(xdmf, "<Topology TopologyType=\"Tetrahedron\" NumberOfElements=\"%d\" NodesPerElement=\"4\">", tets_count);
-    fprintf(xdmf, "<DataItem DataType=\"Int\" Dimensions=\"%d 4\" Format=\"HDF\" Precision=\"8\">tetr.h5:/data1</DataItem>", tets_count);
+    fprintf(xdmf, "<DataItem DataType=\"Int\" Dimensions=\"%d 4\" Format=\"HDF\" Precision=\"8\">%s:/data1</DataItem>", tets_count, TETR_H5_FILE);
     fprintf(xdmf, "</Topology>");
     fprintf(xdmf, "<Attribute Name=\"name_to_read\" AttributeType=\"Scalar\" Center=\"Cell\"><DataItem DataType=\"Int\" Dimensions=\"%d\" Format=\"HDF\" Precision=\"8\">tetr.h5:/data2</DataItem>", tets_count);
     fprintf(xdmf, "</Attribute>");
@@ -89,15 +92,15 @@ void write_tetrahedral_xdmf(int points_count, int tets_count)
     fclose(xdmf);
 }
 
-void write_triangle_xdmf(int points_count, int facets_count)
+void write_triangle_xdmf(int points_count, int facets_count, const char* tria_xdmf_filepath)
 {
     FILE *xdmf = 0;
-    xdmf = fopen("tria.xdmf", "w");
+    xdmf = fopen(tria_xdmf_filepath, "w");
     fprintf(xdmf, "<Xdmf Version=\"3.0\">");
     fprintf(xdmf, "<Domain>");
     fprintf(xdmf, "<Grid Name=\"Grid\">");
     fprintf(xdmf, "<Geometry GeometryType=\"XYZ\">");
-    fprintf(xdmf, "<DataItem DataType=\"Float\" Dimensions=\"%d 3\" Format=\"HDF\" Precision=\"8\">tria.h5:/data0</DataItem>", points_count);
+    fprintf(xdmf, "<DataItem DataType=\"Float\" Dimensions=\"%d 3\" Format=\"HDF\" Precision=\"8\">%s:/data0</DataItem>", points_count, TRIA_H5_FILE);
     fprintf(xdmf, "</Geometry>");
     fprintf(xdmf, "<Topology TopologyType=\"Triangle\" NumberOfElements=\"%d\" NodesPerElement=\"3\">", facets_count);
     fprintf(xdmf, "<DataItem DataType=\"Int\" Dimensions=\"%d 3\" Format=\"HDF\" Precision=\"8\">tria.h5:/data1</DataItem>", facets_count);
@@ -160,7 +163,7 @@ void add_boundary_points(std::vector<std::vector<std::vector<int>>>& hcubes, std
 
 bool is_valid_half_cube(std::vector<std::vector<int>> hcube, std::vector<int> voxel_shape){
     for (auto& coord : hcube){
-        if (coord[0] > voxel_shape[0] - 1 || coord[1] > voxel_shape[1] - 1 || coord[2] > voxel_shape[2] - 1) return false;
+        if (coord[0] >= voxel_shape[0] || coord[1] >= voxel_shape[1] || coord[2] >= voxel_shape[2]) return false;
     }
     return true;
 }
@@ -256,13 +259,13 @@ std::vector<CubeType> make_half_cubes_and_update_points(const std::vector<int> c
     return half_cubes;
 }
 
-std::vector<int> read_input_voxels(fs::path voxels_folder, int num_files, std::map<std::vector<int>, int>& voxels, int phase, std::string ext){
+std::vector<int> read_input_voxels(std::filesystem::path voxels_folder, int num_files, std::map<std::vector<int>, int>& voxels, int phase, std::string ext){
     int NX, NY, n_points = 0;
     for (int idx = 0; idx < num_files; idx++){
         std::string text_idx = std::to_string(idx);
-        fs::path filename = std::string(3 - text_idx.length(), '0').append(text_idx) + "." + ext;
-        fs::path full_path = voxels_folder / filename;
-        cv::Mat img = cv::imread(full_path.string(), cv::IMREAD_COLOR);
+        std::filesystem::path filename(std::string(3 - text_idx.length(), '0').append(text_idx) + "." + ext);
+        std::filesystem::path full_path = voxels_folder / filename;
+        cv::Mat img = cv::imread(full_path, cv::IMREAD_COLOR);
         if (img.empty()) {
             std::cout << "Could not read the image.\n";
             std::vector<int> error = {-1, -1, -1};
@@ -396,12 +399,12 @@ std::vector<std::vector<int>> build_external_facets(std::vector<CoordType> cube,
 }
 
 int main(int argc, char* argv[]){
-    fs::path mesh_folder_path;
+    std::filesystem::path mesh_folder_path;
     int phase, num_files;
     po::options_description desc("Allowed options");
     desc.add_options()
     ("help", "Creates tetrahedral and triangle mesh in xdmf format from input voxels")
-    ("mesh_folder_path,MESH_FOLDER_PATH", po::value<fs::path>(&mesh_folder_path)->required(),  "mesh folder path")
+    ("mesh_folder_path,MESH_FOLDER_PATH", po::value<std::filesystem::path>(&mesh_folder_path)->required(),  "mesh folder path")
     ("num_files,NUM_FILES", po::value<int>(&num_files)->required(),  "number of image files")
     ("phase,PHASE", po::value<int>(&phase)->required(),  "phase to reconstruct volume for");
     po::variables_map vm;
@@ -417,6 +420,18 @@ int main(int argc, char* argv[]){
     int Nx, Ny, n_points, Nz = num_files;
     std::map<std::vector<int>, int> voxels;
     std::map<std::vector<int>, int> points;
+    std::filesystem::path tria_h5_file_name(TRIA_H5_FILE); std::filesystem::path tria_xdmf_file_name(TRIA_XDMF_FILE);
+    std::filesystem::path tetr_h5_file_name(TETR_H5_FILE); std::filesystem::path tetr_xdmf_file_name(TETR_XDMF_FILE);
+    std::filesystem::path _tria_h5_file_path = mesh_folder_path / tria_h5_file_name;
+    std::filesystem::path _tria_xdmf_file_path = mesh_folder_path / tria_xdmf_file_name;
+    std::filesystem::path _tetr_h5_file_path = mesh_folder_path / tetr_h5_file_name;
+    std::filesystem::path _tetr_xdmf_file_path = mesh_folder_path / tetr_xdmf_file_name;
+    const char* tetr_h5_file_path = _tetr_h5_file_path.c_str();
+    const char* tetr_xdmf_file_path = _tetr_xdmf_file_path.c_str();
+    // const char* tria_h5_file_path = _tria_h5_file_path.c_str();
+    // const char* tria_xdmf_file_path = _tria_xdmf_file_path.c_str();
+    // std::string _tria_h5_file_path = tria_xdmf_file_path.string(); _tria_h5_file_path.replace('.xdmf", '.h5');
+    // const char* tria_h5_file_path = _tria_h5_file_path.c_str();
 
     std::vector<int> voxel_stats = read_input_voxels(mesh_folder_path, num_files, voxels, phase, "tif");
     // std::vector<int> voxel_stats = {2, 2, 30};
@@ -446,6 +461,7 @@ int main(int argc, char* argv[]){
     std::vector<CoordType> points_mapping;
     int n_tets = 0;
     int64_t n_facets = 0;
+    std::set<CoordType> master_points;
 
     int point_id = n_points;
 
@@ -472,6 +488,7 @@ int main(int argc, char* argv[]){
                 {
                     std::vector<CubeType> half_cubes = make_half_cubes_and_update_points({2 * i, 2 * j, 2 * k}, points, {2 * Nx, 2 * Ny, 2 * Nz});
                     for (auto& cube : half_cubes){
+                        #pragma omp critical
                         for (auto& coord : cube) {
                             add_point_id_if_missing(points, coord, point_id);
                         }
@@ -544,7 +561,7 @@ int main(int argc, char* argv[]){
     dims[0] = counter;
     dims[1] = 3;
 
-    file_id = H5Fcreate(TETR_FILE, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
+    file_id = H5Fcreate(tetr_h5_file_path, H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
     dataspace_id = H5Screate_simple(2, dims, NULL);
     dataset_id = H5Dcreate(file_id, "/data0", H5T_NATIVE_INT32, dataspace_id, H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
     H5Dwrite(dataset_id, H5T_NATIVE_INT32, H5S_ALL, H5S_ALL, H5P_DEFAULT, points_output);
@@ -581,7 +598,7 @@ int main(int argc, char* argv[]){
     H5Sclose(dataspace_id);
 
     H5Fclose(file_id);
-    write_tetrahedral_xdmf(counter, n_tets);
+    write_tetrahedral_xdmf(counter, n_tets, tetr_xdmf_file_path);
     std::cout << "tetr.h5 file written to " << mesh_folder_path << "\n";
 
     // /* write triangle mesh */
