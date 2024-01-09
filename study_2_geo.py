@@ -324,8 +324,6 @@ if __name__ == '__main__':
     tetr_mesh_scaled.write(f"{outdir}" + 'tetr.xdmf')
     # clean up
     os.remove(mshpath)
-    os.remove(tria_mesh_unscaled)
-    os.remove(tetr_mesh_unscaled)
     geometry_metadata = {
         "max_resolution": args.resolution,
         "dimensions": args.dimensions,
