@@ -18,4 +18,4 @@ mamba activate fea-env
 
 cd $SLURM_SUBMIT_DIR
 
-python3 conductivity.py --dimensions 470-470-$2 --mesh_folder mesh/study_2/test$1/470-470-$2_000-000-000 --scaling VOXEL_SCALING2 --compute_distribution 1
+python3 conductivity.py --name_of_study contact_loss_lma --dimensions 470-470-$2 --mesh_folder output/contact_loss_lma/470-470-$2/$1/0.5 --scaling CONTACT_LOSS_SCALING --compute_distribution True
