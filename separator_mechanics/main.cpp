@@ -9,12 +9,17 @@
 #include <dolfinx/fem/assembler.h>
 #include <dolfinx/fem/petsc.h>
 #include <dolfinx/io/XDMFFile.h>
+#include <dolfinx/io/ADIOS2Writers.h>
 #include <dolfinx/la/Vector.h>
 #include <dolfinx/mesh/Mesh.h>
 #include <dolfinx/mesh/cell_types.h>
 #include <dolfinx/nls/NewtonSolver.h>
 
+#define TRIA_XDMF "tria.xdmf"
+#define TETR_XDMF "tetr.xdmf"
+
 using namespace dolfinx;
+
 using T = PetscScalar;
 using U = typename dolfinx::scalar_value_type_t<T>;
 
@@ -268,9 +273,11 @@ int main(int argc, char* argv[])
     sigma.name = "cauchy_stress";
     sigma.interpolate(sigma_expression);
 
-    // Save solution in VTK format
-    io::VTKFile file_u(domain->comm(), "u.pvd", "w");
-    file_u.write<T>({*u}, 0.0);
+    // VTX format
+    // io::ADIOS2Writers::FidesWriter<T> file_u(domain->comm(), "u.bp", {*u});
+    // file_u.write(0.0);
+    // VTK format
+    io::VTKFile file_u(domain->comm(), "u.pvd", "w"); file_u.write<T>({*u}, 0.0);
 
     // Save Cauchy stress in XDMF format
     io::XDMFFile file_sigma(domain->comm(), "sigma.xdmf", "w");
