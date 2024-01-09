@@ -24,17 +24,14 @@ markers = commons.SurfaceMarkers()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
+    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="conductivity")
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
-    parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1e-3)
-    parser.add_argument("--Wa", help="Wagna number -> charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=np.nan)
-    parser.add_argument("--scale", help="sx,sy,sz", nargs='?', const=1, default=None)
+    parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1e-3)
+    parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=np.inf)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='VOXEL_SCALING', type=str)
     parser.add_argument("--compute_distribution", help="compute current distribution stats", nargs='?', const=1, default=False, type=bool)
-    # parser.add_argument("--compute_grad_distribution", help="compute current distribution stats", nargs='?', const=1,
-                        # default=False, type=bool)
-    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="conductivity")
 
     args = parser.parse_args()
     data_dir = os.path.join(f'{args.mesh_folder}')
@@ -67,7 +64,6 @@ if __name__ == '__main__':
     output_current_path = os.path.join(data_dir, 'current.bp')
     output_potential_path = os.path.join(data_dir, 'potential.bp')
     frequency_path = os.path.join(data_dir, 'frequency.csv')
-    # grad_cd_path = os.path.join(data_dir, 'cdf_grad_cd.csv')
     simulation_metafile = os.path.join(data_dir, 'simulation.json')
 
     left_cc_marker = markers.left_cc
@@ -145,9 +141,6 @@ if __name__ == '__main__':
     with VTXWriter(comm, output_potential_path, [uh], engine="BP4") as vtx:
         vtx.write(0.0)
 
-    # # Update ghost entries and plot
-    uh.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-
     logger.debug("Post-process calculations")
     W = fem.functionspace(domain, ("CG", 1, (3,)))
     current_expr = fem.Expression(-kappa * ufl.grad(uh), W.element.interpolation_points())
@@ -212,26 +205,7 @@ if __name__ == '__main__':
                 writer.writeheader()
                 for row in freq_values:
                     writer.writerow(row)
-        # logger.debug(f"Wrote cdf stats in {stats_path}")
-        # if args.compute_grad_distribution:
-        #     logger.debug(f"Cumulative distribution lines of derivative of current density at terminals")
-        #     grad2 = ufl.sqrt(
-        #         ufl.inner(
-        #             ufl.grad(ufl.inner(current_h, n)),
-        #             ufl.grad(ufl.inner(current_h, n))
-        #         )
-        #     )
-        #     grad_cd_space = [0, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5] + list(np.linspace(1e-5 + 1e-6, 1e-4, num=100)) + [1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7]
-        #     grad_cd_cdf_values = []
-        #     for v in grad_cd_space:
-        #         lpvalue = fem.assemble_scalar(fem.form(check_condition(grad2, v) * ds(markers.left_cc)))
-        #         grad_cd_cdf_values.append({'i [A/m2]': v, "p_left [sq. m]": lpvalue, "p_right [sq. m]": "-"})
-        #     with open(grad_cd_path, 'w') as fp:
-        #         writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left [sq. m]', 'p_right [sq. m]'])
-        #         writer.writeheader()
-        #         for row in grad_cd_cdf_values:
-        #             writer.writerow(row)
-        #     logger.debug(f"Wrote cdf stats in {grad_cd_path}")
+        logger.debug(f"Wrote frequency stats in {frequency_path}")
     if domain.comm.rank == 0:
         i_right_cc = I_right_cc / area_right_cc
         i_left_cc = I_left_cc / area_left_cc
