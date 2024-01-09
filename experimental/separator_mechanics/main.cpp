@@ -1,5 +1,6 @@
 #include "separator_mechanics.h"
 #include <basix/finite-element.h>
+#include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 #include <climits>
 #include <cmath>
@@ -18,6 +19,15 @@ using T = PetscScalar;
 using U = typename dolfinx::scalar_value_type_t<T>;
 
 namespace po = boost::program_options;
+namespace fs = boost::filesystem;
+
+typedef struct {
+  uint8_t left = 1;
+  uint8_t neg_am = 2;
+  uint8_t neg_e_sse = 3;
+  uint8_t pos_e_sse = 4;
+  uint8_t pos_am = 5;
+} Markers;
 
 class HyperElasticProblem
 {
@@ -112,11 +122,13 @@ private:
 
 int main(int argc, char* argv[])
 {
+  fs::path mesh_folder_path;
+  std::string dimensions;
   po::options_description desc("Allowed options");
   desc.add_options()
       ("help", "Simulates mechanics of separator given current distribution")
-      ("mesh_directory", po::value<std::vector<std::string>>(), "path to folder of mesh file")
-      ("dimensions", po::value<std::string>(), "integer representation of Lx-Ly-Lz in the grid")
+      ("mesh_folder_path", po::value<fs::path>(&mesh_folder_path)->required(), "path to folder of mesh file")
+      ("dimensions", po::value<std::string>(&dimensions)->required(), "integer representation of Lx-Ly-Lz in the grid")
   ;
 
   po::variables_map vm;
@@ -137,16 +149,11 @@ int main(int argc, char* argv[])
   std::string thread_name = "RANK " + std::to_string(mpi_rank);
   loguru::set_thread_name(thread_name.c_str());
   {
-    // Inside the ``main`` function, we begin by defining a tetrahedral mesh
-    // of the domain and the function space on this mesh. Here, we choose to
-    // create a unit cube mesh with 25 ( = 24 + 1) vertices in one direction
-    // and 17 ( = 16 + 1) vertices in the other two directions. With this
-    // mesh, we initialize the (finite element) function space defined by the
-    // generated code.
-    //
-    // .. code-block:: cpp
-
     // Create mesh and define function space
+    std::string mesh_directory = vm["mesh_directory"].as<std::string>();
+    io::XDMFFile infile(MPI_COMM_WORLD, mesh_directory + "tetr.xdmf", "r");
+    // fem::CoordinateElement cmap = fem::CoordinateElement(mesh::CellType::tetrahedron, 1);
+    // auto domain = std::make_shared<mesh::Mesh<U>>(infile.read_mesh(cmap, mesh::GhostMode::none, "Grid"));
     auto domain = std::make_shared<mesh::Mesh<U>>(mesh::create_box<U>(
         MPI_COMM_WORLD, {{{0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}}}, {10, 10, 10},
         mesh::CellType::tetrahedron,
