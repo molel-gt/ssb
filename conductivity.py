@@ -66,7 +66,6 @@ if __name__ == '__main__':
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
     output_current_path = os.path.join(data_dir, 'current.bp')
     output_potential_path = os.path.join(data_dir, 'potential.bp')
-    stats_path = os.path.join(data_dir, 'cdf.csv')
     frequency_path = os.path.join(data_dir, 'frequency.csv')
     grad_cd_path = os.path.join(data_dir, 'cdf_grad_cd.csv')
     simulation_metafile = os.path.join(data_dir, 'simulation.json')
@@ -142,11 +141,7 @@ if __name__ == '__main__':
     model = petsc.LinearProblem(a, L, bcs=[left_bc, right_bc], petsc_options=options)
     logger.debug('Solving problem..')
     uh = model.solve()
-    
-    # Save solution in XDMF format
-    # with io.XDMFFile(comm, output_potential_path, "w") as outfile:
-    #     outfile.write_mesh(domain)
-    #     outfile.write_function(uh)
+
     with VTXWriter(comm, output_potential_path, [uh], engine="BP4") as vtx:
         vtx.write(0.0)
 
@@ -154,20 +149,14 @@ if __name__ == '__main__':
     uh.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
     logger.debug("Post-process calculations")
-    grad_u = ufl.grad(uh)
-    # W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
-    # e = element("CG", "tetrahedron", 1, shape=(3,))
     W = fem.functionspace(domain, ("CG", 1, (3,)))
-    current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
+    current_expr = fem.Expression(-kappa * ufl.grad(uh), W.element.interpolation_points())
     current_h = fem.Function(W)
     tol_fun = fem.Function(V)
     tol_fun_left = fem.Function(V)
     tol_fun_right = fem.Function(V)
     current_h.interpolate(current_expr)
 
-    # with io.XDMFFile(comm, output_current_path, "w") as file:
-    #     file.write_mesh(domain)
-    #     file.write_function(current_h)
     with VTXWriter(comm, output_current_path, [current_h], engine="BP4") as vtx:
         vtx.write(0.0)
 
@@ -205,14 +194,6 @@ if __name__ == '__main__':
             tol_fun_right.interpolate(lambda x: vright * (x[0] + EPS) / (x[0] + EPS))
             return ufl.conditional(ufl.ge(values, tol_fun_left), 1, 0) * ufl.conditional(ufl.lt(values, tol_fun_right), 1, 0)
 
-        def check_condition(values, tol):
-            tol_fun.interpolate(lambda x: tol * (x[0] + EPS) / (x[0] + EPS))
-            return ufl.conditional(ufl.le(values, tol_fun), 1, 0)
-
-        for v in cd_space:
-            lpvalue = domain.comm.allreduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.left_cc))), op=MPI.SUM)
-            rpvalue = domain.comm.allreduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.right_cc))), op=MPI.SUM)
-            cdf_values.append({'i [A/m2]': v, "p_left [sq. m]": lpvalue, "p_right [sq. m]": rpvalue})
         for i, vleft in enumerate(list(cd_space)[:-1]):
             vright = cd_space[i+1]
             freql = domain.comm.allreduce(
@@ -226,11 +207,6 @@ if __name__ == '__main__':
             )
             freq_values.append({"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql [sq. m]": freql, "freqr [sq. m]": freqr})
         if domain.comm.rank == 0:
-            with open(stats_path, 'w') as fp:
-                writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
-                writer.writeheader()
-                for row in cdf_values:
-                    writer.writerow(row)
             with open(frequency_path, "w") as fp:
                 writer = csv.DictWriter(fp, fieldnames=["vleft [A/m2]", "vright [A/m2]", "freql [sq. m]", "freqr [sq. m]"])
                 writer.writeheader()

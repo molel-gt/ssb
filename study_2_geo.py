@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import json
 import os
 import subprocess
 import sys
@@ -66,9 +67,10 @@ def mesh_surface(coords, xmax=470, ymax=470):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument('--img_id', help='contact area image index', required=True, type=int)
-    parser.add_argument('--Lz', help='length in z direction', nargs='?', const=1, default=10, type=int)
+    parser.add_argument("--dimensions", help="integer representation of Lx-Ly-Lz of the grid", required=True)
     parser.add_argument('--resolution', help=f'resolution with max resolution of 10x resolution', nargs='?', const=1, default=1, type=float)
-    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?', const=1, default='VOXEL_SCALING2', type=str)
+    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', type=str, required=True)
+    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="contact_loss_lma")
     args = parser.parse_args()
     img_name = f'test{str(int(args.img_id))}'
     img = np.asarray(plt.imread(f'data/current_constriction/{img_name}.tif')[:, :, 0], dtype=np.uint8)
@@ -78,25 +80,21 @@ if __name__ == '__main__':
     img2[:, 0] = 0
     img2[:, -1] = 0
     coords = np.asarray(np.argwhere(img2 == 1), dtype=np.int32)
-    Lx = 470
-    Ly = 470
-    Lz = args.Lz
+    Lx, Ly, Lz = [int(v) for v in args.dimensions.split("-")]
     scaling = configs.get_configs()[args.scaling]
     scale_x = float(scaling['x'])
     scale_y = float(scaling['y'])
     scale_z = float(scaling['z'])
-    outdir = f'mesh/study_2/{img_name}/470-470-{Lz}_000-000-000/'
+    outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), str(args.resolution))
     utils.make_dir_if_missing(outdir)
     mshpath = os.path.join(f"{outdir}", "trial.msh")
-
-    xmax = 470
-    ymax = 470
+    geometry_metafile = os.path.join(outdir, "geometry.json")
     all_points = {}
     corner_points = [
         (0, 0, 0),
-        (xmax, 0, 0),
-        (xmax, ymax, 0),
-        (0, ymax, 0)
+        (Lx, 0, 0),
+        (Lx, Ly, 0),
+        (0, Ly, 0)
     ]
     other_points = []
     count = 0
@@ -299,9 +297,9 @@ if __name__ == '__main__':
 
     gmsh.model.mesh.field.add("Threshold", 2)
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "LcMin", args.resolution)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", 10 * args.resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.01)
+    gmsh.model.mesh.field.setNumber(2, "LcMin", 0.5 * args.resolution)
+    gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 1)
     gmsh.model.mesh.field.setNumber(2, "DistMax", max(1, 0.05 * Lz))
 
     gmsh.model.mesh.field.add("Max", 5)
@@ -324,5 +322,14 @@ if __name__ == '__main__':
     tetr_mesh_unscaled.write(f"{outdir}" + 'tetr.xdmf')
     tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, cell_types.tetra, scale_factor=scale_factor)
     tetr_mesh_scaled.write(f"{outdir}" + 'tetr.xdmf')
+    # clean up
     os.remove(mshpath)
-    # res = subprocess.check_call('mpirun python3 transport.py --grid_extents 470-470-25_000-000-000', shell=True)
+    os.remove(tria_mesh_unscaled)
+    os.remove(tetr_mesh_unscaled)
+    geometry_metadata = {
+        "max_resolution": args.resolution,
+        "dimensions": args.dimensions,
+        "scaling": args.scaling,
+    }
+    with open(geometry_metafile, "w", encoding='utf-8') as f:
+        json.dump(geometry_metadata, f, ensure_ascii=False, indent=4)
