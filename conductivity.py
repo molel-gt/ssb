@@ -67,7 +67,7 @@ if __name__ == '__main__':
     output_current_path = os.path.join(data_dir, 'current.bp')
     output_potential_path = os.path.join(data_dir, 'potential.bp')
     frequency_path = os.path.join(data_dir, 'frequency.csv')
-    grad_cd_path = os.path.join(data_dir, 'cdf_grad_cd.csv')
+    # grad_cd_path = os.path.join(data_dir, 'cdf_grad_cd.csv')
     simulation_metafile = os.path.join(data_dir, 'simulation.json')
 
     left_cc_marker = markers.left_cc
@@ -212,7 +212,7 @@ if __name__ == '__main__':
                 writer.writeheader()
                 for row in freq_values:
                     writer.writerow(row)
-        logger.debug(f"Wrote cdf stats in {stats_path}")
+        # logger.debug(f"Wrote cdf stats in {stats_path}")
         # if args.compute_grad_distribution:
         #     logger.debug(f"Cumulative distribution lines of derivative of current density at terminals")
         #     grad2 = ufl.sqrt(
