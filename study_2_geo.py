@@ -314,14 +314,11 @@ if __name__ == '__main__':
     msh = meshio.read(f"{mshpath}")
 
     tria_mesh_unscaled = geometry.create_mesh(msh, cell_types.triangle)
-    tria_mesh_unscaled.write(f"{outdir}" + 'tria.xdmf')
     tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, cell_types.triangle, scale_factor=scale_factor)
-    tria_mesh_scaled.write(f"{outdir}" + 'tria.xdmf')
-
+    tria_mesh_scaled.write(os.path.join(outdir, 'tria.xdmf'))
     tetr_mesh_unscaled = geometry.create_mesh(msh, cell_types.tetra)
-    tetr_mesh_unscaled.write(f"{outdir}" + 'tetr.xdmf')
     tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, cell_types.tetra, scale_factor=scale_factor)
-    tetr_mesh_scaled.write(f"{outdir}" + 'tetr.xdmf')
+    tetr_mesh_scaled.write(os.path.join(outdir, 'tetr.xdmf'))
     # clean up
     os.remove(mshpath)
     geometry_metadata = {
