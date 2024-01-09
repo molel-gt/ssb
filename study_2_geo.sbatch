@@ -19,4 +19,4 @@ module purge > /dev/null 2>&1
 module load anaconda3 && conda activate fenicsx-env
 cd $SLURM_SUBMIT_DIR
 
-python3 study_2_geo.py --img_id $1 --Lz $2 --resolution $3
+python3 study_2_geo.py  --name_of_study contact_loss_lma --dimensions 470-470-$2 --img_id $1 --resolution $3 --scaling CONTACT_LOSS_SCALING
