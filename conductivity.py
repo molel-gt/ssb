@@ -32,8 +32,8 @@ if __name__ == '__main__':
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='VOXEL_SCALING', type=str)
     parser.add_argument("--compute_distribution", help="compute current distribution stats", nargs='?', const=1, default=False, type=bool)
-    parser.add_argument("--compute_grad_distribution", help="compute current distribution stats", nargs='?', const=1,
-                        default=False, type=bool)
+    # parser.add_argument("--compute_grad_distribution", help="compute current distribution stats", nargs='?', const=1,
+                        # default=False, type=bool)
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="conductivity")
 
     args = parser.parse_args()
@@ -213,25 +213,25 @@ if __name__ == '__main__':
                 for row in freq_values:
                     writer.writerow(row)
         logger.debug(f"Wrote cdf stats in {stats_path}")
-        if args.compute_grad_distribution:
-            logger.debug(f"Cumulative distribution lines of derivative of current density at terminals")
-            grad2 = ufl.sqrt(
-                ufl.inner(
-                    ufl.grad(ufl.inner(current_h, n)),
-                    ufl.grad(ufl.inner(current_h, n))
-                )
-            )
-            grad_cd_space = [0, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5] + list(np.linspace(1e-5 + 1e-6, 1e-4, num=100)) + [1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7]
-            grad_cd_cdf_values = []
-            for v in grad_cd_space:
-                lpvalue = fem.assemble_scalar(fem.form(check_condition(grad2, v) * ds(markers.left_cc)))
-                grad_cd_cdf_values.append({'i [A/m2]': v, "p_left [sq. m]": lpvalue, "p_right [sq. m]": "-"})
-            with open(grad_cd_path, 'w') as fp:
-                writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left [sq. m]', 'p_right [sq. m]'])
-                writer.writeheader()
-                for row in grad_cd_cdf_values:
-                    writer.writerow(row)
-            logger.debug(f"Wrote cdf stats in {grad_cd_path}")
+        # if args.compute_grad_distribution:
+        #     logger.debug(f"Cumulative distribution lines of derivative of current density at terminals")
+        #     grad2 = ufl.sqrt(
+        #         ufl.inner(
+        #             ufl.grad(ufl.inner(current_h, n)),
+        #             ufl.grad(ufl.inner(current_h, n))
+        #         )
+        #     )
+        #     grad_cd_space = [0, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5] + list(np.linspace(1e-5 + 1e-6, 1e-4, num=100)) + [1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7]
+        #     grad_cd_cdf_values = []
+        #     for v in grad_cd_space:
+        #         lpvalue = fem.assemble_scalar(fem.form(check_condition(grad2, v) * ds(markers.left_cc)))
+        #         grad_cd_cdf_values.append({'i [A/m2]': v, "p_left [sq. m]": lpvalue, "p_right [sq. m]": "-"})
+        #     with open(grad_cd_path, 'w') as fp:
+        #         writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left [sq. m]', 'p_right [sq. m]'])
+        #         writer.writeheader()
+        #         for row in grad_cd_cdf_values:
+        #             writer.writerow(row)
+        #     logger.debug(f"Wrote cdf stats in {grad_cd_path}")
     if domain.comm.rank == 0:
         i_right_cc = I_right_cc / area_right_cc
         i_left_cc = I_left_cc / area_left_cc
