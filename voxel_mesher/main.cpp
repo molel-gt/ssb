@@ -398,12 +398,12 @@ std::vector<std::vector<int>> build_external_facets(std::vector<CoordType> cube,
 }
 
 int main(int argc, char* argv[]){
-    std::filesystem::path mesh_folder_path;
+    std::filesystem::path mesh_parent_folder_path, mesh_folder_path;
     int phase, LX, LY, LZ;
     po::options_description desc("Allowed options");
     desc.add_options()
     ("help", "Creates tetrahedral and triangle mesh in xdmf format from input voxels")
-    ("mesh_folder_path,MESH_FOLDER_PATH", po::value<std::filesystem::path>(&mesh_folder_path)->required(),  "mesh folder path")
+    ("mesh_parent_folder_path,MESH_PARENT_FOLDER_PATH", po::value<std::filesystem::path>(&mesh_parent_folder_path)->required(),  "mesh folder path")
     ("LX", po::value<int>(&LX)->required(),  "length along X in pixel units")
     ("LY", po::value<int>(&LY)->required(),  "length along Y in pixel units")
     ("LZ", po::value<int>(&LZ)->required(),  "length along Z in pixel units, number of image files is LZ + 1")
@@ -423,12 +423,15 @@ int main(int argc, char* argv[]){
     int NZ = LZ + 1;
 
     std::map<std::vector<int>, int> points;
+    std::filesystem::path mesh_subfolder_path(std::to_string(LX) + "-" + std::to_string(LY) + "-" + std::to_string(LZ));
+    mesh_folder_path = mesh_parent_folder_path / mesh_subfolder_path; std::filesystem::create_directory(mesh_folder_path);
     std::filesystem::path tria_h5_file_name(TRIA_H5_FILE); std::filesystem::path tria_xdmf_file_name(TRIA_XDMF_FILE);
     std::filesystem::path tetr_h5_file_name(TETR_H5_FILE); std::filesystem::path tetr_xdmf_file_name(TETR_XDMF_FILE);
     std::filesystem::path _tria_h5_file_path = mesh_folder_path / tria_h5_file_name;
     std::filesystem::path _tria_xdmf_file_path = mesh_folder_path / tria_xdmf_file_name;
     std::filesystem::path _tetr_h5_file_path = mesh_folder_path / tetr_h5_file_name;
     std::filesystem::path _tetr_xdmf_file_path = mesh_folder_path / tetr_xdmf_file_name;
+
     const char* tetr_h5_file_path = _tetr_h5_file_path.c_str();
     const char* tetr_xdmf_file_path = _tetr_xdmf_file_path.c_str();
     // const char* tria_h5_file_path = _tria_h5_file_path.c_str();
@@ -436,7 +439,7 @@ int main(int argc, char* argv[]){
     // std::string _tria_h5_file_path = tria_xdmf_file_path.string(); _tria_h5_file_path.replace('.xdmf", '.h5');
     // const char* tria_h5_file_path = _tria_h5_file_path.c_str();
 
-    int n_points = read_input_voxels(mesh_folder_path, NX, NY, NZ, points, phase, "tif");
+    int n_points = read_input_voxels(mesh_parent_folder_path, NX, NY, NZ, points, phase, "tif");
     // voxels[{0, 0, 0}] = 1;
     // voxels[{1, 0, 0}] = 1;
     // voxels[{0, 1, 0}] = 1;
