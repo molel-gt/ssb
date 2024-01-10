@@ -81,7 +81,6 @@ if __name__ == '__main__':
             ft = infile2.read_meshtags(domain, name="Grid")
         left_boundary = ft.find(markers.left_cc)
         right_boundary = ft.find(markers.right_cc)
-        meshtags = mesh.meshtags(domain, 2, ft.indices, ft.values)
     except RuntimeError as e:
         logger.error("Missing xdmf file for triangle mesh!")
         facets = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
@@ -98,7 +97,7 @@ if __name__ == '__main__':
         ft_values = np.asarray([markers.left_cc] * len(l0_indices) + [markers.right_cc] * len(lz_indices) + [markers.insulated] * len(insulator_indices), dtype=np.int32)
         left_boundary = facets_l0
         right_boundary = facets_lz
-        meshtags = mesh.meshtags(domain, domain.topology.dim - 1, ft_indices, ft_values)
+        ft = mesh.meshtags(domain, domain.topology.dim - 1, ft_indices, ft_values)
 
     # Dirichlet BCs
     V = fem.functionspace(domain, ("Lagrange", 2))
@@ -114,7 +113,7 @@ if __name__ == '__main__':
     right_bc = fem.dirichletbc(u1, fem.locate_dofs_topological(V, 2, right_boundary))
     n = ufl.FacetNormal(domain)
     # x = ufl.SpatialCoordinate(domain)
-    ds = ufl.Measure("ds", domain=domain, subdomain_data=meshtags)
+    ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
 
     # Define variational problem
     u = ufl.TrialFunction(V)
