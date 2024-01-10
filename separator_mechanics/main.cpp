@@ -166,6 +166,10 @@ int main(int argc, char* argv[])
     io::XDMFFile infile(MPI_COMM_WORLD, tetr_xdmf_file_path.string().c_str(), "r");
     fem::CoordinateElement<T> cmap = fem::CoordinateElement<T>(mesh::CellType::tetrahedron, 1);
     auto domain = std::make_shared<mesh::Mesh<U>>(infile.read_mesh(cmap, mesh::GhostMode::none, "Grid"));
+    domain->topology()->create_connectivity(domain->topology()->dim(), domain->topology()->dim() - 1);
+
+    // io::XDMFFile infile2(MPI_COMM_WORLD, tria_xdmf_file_path.string().c_str(), "r");
+    // auto meshtags = std::make_shared<mesh::MeshTags<T>>(infile2.read_meshtags(domain, "Grid"));
 
     auto V = std::make_shared<fem::FunctionSpace<U>>(fem::create_functionspace(
         functionspace_form_separator_mechanics_F_form, "u", domain));
