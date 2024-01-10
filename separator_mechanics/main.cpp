@@ -1,3 +1,4 @@
+#include <adios2.h>
 #include "separator_mechanics.h"
 #include <basix/finite-element.h>
 #include <boost/filesystem.hpp>
@@ -16,7 +17,9 @@
 #include <dolfinx/nls/NewtonSolver.h>
 
 #define TRIA_XDMF "tria.xdmf"
+#define TRIA_H5 "tria.h5"
 #define TETR_XDMF "tetr.xdmf"
+#define TETR_H5 "tetr.h5"
 
 using namespace dolfinx;
 
@@ -127,14 +130,15 @@ private:
 
 int main(int argc, char* argv[])
 {
-  fs::path mesh_folder_path;
-  std::string dimensions;
+  std::filesystem::path mesh_folder_path, tetr_xdmf_file_path, tetr_xdmf_file_name(TETR_XDMF), tria_xdmf_file_path(TRIA_XDMF), tria_xdmf_file_name;
+  int LX, LY, LZ;
   po::options_description desc("Allowed options");
   desc.add_options()
       ("help", "Simulates mechanics of separator given current distribution")
-      ("mesh_folder_path", po::value<fs::path>(&mesh_folder_path)->required(), "path to folder of mesh file")
-      ("dimensions", po::value<std::string>(&dimensions)->required(), "integer representation of Lx-Ly-Lz in the grid")
-  ;
+      ("mesh_folder_path", po::value<std::filesystem::path>(&mesh_folder_path)->required(), "path to folder of mesh file")
+      ("LX", po::value<int>(&LX)->required(),  "length along X in pixel units")
+      ("LY", po::value<int>(&LY)->required(),  "length along Y in pixel units")
+      ("LZ", po::value<int>(&LZ)->required(),  "length along Z in pixel units");
 
   po::variables_map vm;
   po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -144,6 +148,10 @@ int main(int argc, char* argv[])
       std::cout << desc << "\n";
       return 1;
   }
+  tetr_xdmf_file_path = mesh_folder_path / tetr_xdmf_file_name;
+  tria_xdmf_file_path = mesh_folder_path / tria_xdmf_file_name;
+
+  std::cout << "Mesh dimensions are " << LX << "x" << LY << "x" << LZ << " and working directory is " << mesh_folder_path << "\n";
 
   init_logging(argc, argv);
   PetscInitialize(&argc, &argv, nullptr, nullptr);
@@ -155,14 +163,13 @@ int main(int argc, char* argv[])
   loguru::set_thread_name(thread_name.c_str());
   {
     // Create mesh and define function space
-    std::string mesh_directory = vm["mesh_directory"].as<std::string>();
-    io::XDMFFile infile(MPI_COMM_WORLD, mesh_directory + "tetr.xdmf", "r");
-    // fem::CoordinateElement cmap = fem::CoordinateElement(mesh::CellType::tetrahedron, 1);
-    // auto domain = std::make_shared<mesh::Mesh<U>>(infile.read_mesh(cmap, mesh::GhostMode::none, "Grid"));
-    auto domain = std::make_shared<mesh::Mesh<U>>(mesh::create_box<U>(
-        MPI_COMM_WORLD, {{{0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}}}, {10, 10, 10},
-        mesh::CellType::tetrahedron,
-        mesh::create_cell_partitioner(mesh::GhostMode::none)));
+    io::XDMFFile infile(MPI_COMM_WORLD, tetr_xdmf_file_path.string().c_str(), "r");
+    fem::CoordinateElement<T> cmap = fem::CoordinateElement<T>(mesh::CellType::tetrahedron, 1);
+    auto domain = std::make_shared<mesh::Mesh<U>>(infile.read_mesh(cmap, mesh::GhostMode::none, "Grid"));
+    // auto domain = std::make_shared<mesh::Mesh<U>>(mesh::create_box<U>(
+    //     MPI_COMM_WORLD, {{{0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}}}, {10, 10, 10},
+    //     mesh::CellType::tetrahedron,
+    //     mesh::create_cell_partitioner(mesh::GhostMode::none)));
 
     auto V = std::make_shared<fem::FunctionSpace<U>>(fem::create_functionspace(
         functionspace_form_separator_mechanics_F_form, "u", domain));
@@ -274,8 +281,10 @@ int main(int argc, char* argv[])
     sigma.interpolate(sigma_expression);
 
     // VTX format
-    // io::ADIOS2Writers::FidesWriter<T> file_u(domain->comm(), "u.bp", {*u});
-    // file_u.write(0.0);
+    #ifdef HAS_ADIOS2
+    io::VTXWriter<T> file_u(domain->comm(), "u.bp", {*u}, "BP4");
+    file_u.write(0.0);
+    #endif
     // VTK format
     io::VTKFile file_u(domain->comm(), "u.pvd", "w"); file_u.write<T>({*u}, 0.0);
 
