@@ -166,10 +166,6 @@ int main(int argc, char* argv[])
     io::XDMFFile infile(MPI_COMM_WORLD, tetr_xdmf_file_path.string().c_str(), "r");
     fem::CoordinateElement<T> cmap = fem::CoordinateElement<T>(mesh::CellType::tetrahedron, 1);
     auto domain = std::make_shared<mesh::Mesh<U>>(infile.read_mesh(cmap, mesh::GhostMode::none, "Grid"));
-    // auto domain = std::make_shared<mesh::Mesh<U>>(mesh::create_box<U>(
-    //     MPI_COMM_WORLD, {{{0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}}}, {10, 10, 10},
-    //     mesh::CellType::tetrahedron,
-    //     mesh::create_cell_partitioner(mesh::GhostMode::none)));
 
     auto V = std::make_shared<fem::FunctionSpace<U>>(fem::create_functionspace(
         functionspace_form_separator_mechanics_F_form, "u", domain));
