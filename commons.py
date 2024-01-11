@@ -53,8 +53,12 @@ class Markers:
         return 10
 
     @property
-    def right(self):
+    def middle(self):
         return 11
+
+    @property
+    def right(self):
+        return 12
 
 
 class Phases:
