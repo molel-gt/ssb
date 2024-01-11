@@ -36,6 +36,8 @@ SIGMA_LITHIUM = 1.1e7  # S.m-1
 # Chen 2020
 KAPPA_ELECTROLYTE = 2.5e1  # S.m-1
 
+encoding = io.XDMFFile.Encoding.HDF5
+
 
 def open_circuit_voltage(sod, L=1, k=2):
     return 2.5 + (1/k) * np.log((L - sod) / sod)
@@ -122,7 +124,7 @@ if __name__ == '__main__':
     cells_negative_cc = ct.find(markers.negative_cc)
     cells_electrolyte = ct.find(markers.electrolyte)
 
-    kappa.x.array[cells_negative_cc] = np.full_like(cells_negative_cc, KAPPA_COPPER, dtype=default_scalar_type)
+    kappa.x.array[cells_negative_cc] = np.full_like(cells_negative_cc, SIGMA_COPPER, dtype=default_scalar_type)
     kappa.x.array[cells_electrolyte] = np.full_like(cells_electrolyte, KAPPA_ELECTROLYTE, dtype=default_scalar_type)
 
     f = fem.Constant(domain, PETSc.ScalarType(0))
@@ -185,7 +187,7 @@ if __name__ == '__main__':
     option_prefix = ksp.getOptionsPrefix()
     opts[f"{option_prefix}ksp_type"] = "preonly"
     opts[f"{option_prefix}pc_type"] = "lu"
-    opts['maximum_iterations'] = 100
+    # opts[f'maximum_iterations'] = 100
     ksp.setFromOptions()
     solver.solve(u)
     u.name = 'potential'
@@ -206,8 +208,9 @@ if __name__ == '__main__':
     with VTXWriter(comm, potential_resultsfile, [u_cg], engine="BP4") as vtx:
         vtx.write(0.0)
 
-    i_sup = fem.assemble_scalar(fem.form(inner(grad(u_cg), n) * ds(markers.left))) / fem.assemble_scalar(fem.form(1 * ds(markers.left)))
-    print(f"Superficial current density at terminal of negative current collector is: {i_sup}")
+    I_sup = fem.assemble_scalar(fem.form(inner(grad(u_cg), n) * ds(markers.left)))
+    area_at_left = fem.assemble_scalar(fem.form(1 * ds(markers.left)))
+    print(f"Current at terminal of negative current collector is: {I_sup} A")
 
     bb_trees = bb_tree(domain, domain.topology.dim)
     tol = 1e-8  # Avoid hitting the outside of the domain
@@ -234,10 +237,10 @@ if __name__ == '__main__':
     points_on_proc = np.array(points_on_proc, dtype=np.float64)
     u_values = u.eval(points_on_proc, cells)
     fig, ax = plt.subplots()
-    ax.plot(points_on_proc[:, :], u_values, "k", linewidth=2)
+    ax.plot(points_on_proc[:, 2], u_values, "k", linewidth=2)
     ax.grid(True)
     ax.set_xlim([0, LZ])
-    ax.set_ylim([0, voltage])
+    ax.set_ylim([0, args.voltage])
     ax.set_ylabel(r'$\phi$ [V]', rotation=0, labelpad=30, fontsize='xx-large')
     ax.set_xlabel('[m]')
     ax.set_title('Potential Across Midline')
@@ -313,7 +316,7 @@ if __name__ == '__main__':
 
     ch = fem.Function(Q)
     ch.name = "concentration"
-    ch.interpolate(lambda x: x[0] - x[0] + c_init)
+    ch.interpolate(lambda x: x[0] - x[0] + C_INIT)
     ch.x.scatter_forward()
 
     c = ufl.TrialFunction(Q)
