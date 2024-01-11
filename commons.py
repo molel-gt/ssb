@@ -10,7 +10,7 @@ class Markers:
 
     @property
     def void(self):
-        return 0
+        return 255
 
     @property
     def negative_cc(self):
