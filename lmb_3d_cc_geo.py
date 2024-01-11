@@ -31,6 +31,9 @@ if __name__ == '__main__':
     L_total = L_sep + L_neg_cc
 
     mesh_folder = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.resolution))
+    output_meshfile = os.path.join(mesh_folder, 'mesh.msh')
+    tetr_meshfile = os.path.join(mesh_folder, "tetr.xdmf")
+    tria_meshfile = os.path.join(mesh_folder, "tria.xdmf")
 
     gmsh.initialize()
     gmsh.model.add('lithium-metal-leb')
