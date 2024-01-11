@@ -80,6 +80,10 @@ class Markers:
     def insulated_positive_acc(self):
         return 17
 
+    @property
+    def insulated_total(self):
+        return 18
+
 
 class Phases:
     def __init__(self, void=0, electrolyte=1, active_material=2):
