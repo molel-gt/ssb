@@ -6,7 +6,7 @@ import gmsh
 import meshio
 import numpy as np
 
-import configs, commons, utils
+import configs, commons, geometry, utils
 
 
 if __name__ == '__main__':
