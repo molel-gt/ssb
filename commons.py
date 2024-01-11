@@ -60,6 +60,26 @@ class Markers:
     def right(self):
         return 12
 
+    @property
+    def insulated_negative_cc(self):
+        return 13
+
+    @property
+    def insulated_negative_am(self):
+        return 14
+
+    @property
+    def insulated_electrolyte(self):
+        return 15
+
+    @property
+    def insulated_positive_am(self):
+        return 16
+
+    @property
+    def insulated_positive_acc(self):
+        return 17
+
 
 class Phases:
     def __init__(self, void=0, electrolyte=1, active_material=2):
