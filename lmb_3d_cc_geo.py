@@ -6,7 +6,7 @@ import gmsh
 import meshio
 import numpy as np
 
-import configs, commons
+import configs, commons, utils
 
 
 if __name__ == '__main__':
@@ -34,6 +34,7 @@ if __name__ == '__main__':
     output_meshfile = os.path.join(mesh_folder, 'mesh.msh')
     tetr_meshfile = os.path.join(mesh_folder, "tetr.xdmf")
     tria_meshfile = os.path.join(mesh_folder, "tria.xdmf")
+    utils.make_dir_if_missing(mesh_folder)
 
     gmsh.initialize()
     gmsh.model.add('lithium-metal-leb')
