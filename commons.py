@@ -3,6 +3,59 @@ from collections import namedtuple
 
 Facet = namedtuple('Facet', 'indices values')
 
+# markers for subdomains and boundaries
+class Markers:
+    def __init__(self):
+        help = "Markers typical of a solid-state battery"
+
+    @property
+    def void(self):
+        return 0
+
+    @property
+    def negative_cc(self):
+        return 1
+
+    @property
+    def negative_am(self):
+        return 2
+
+    @property
+    def electrolyte(self):
+        return 3
+
+    @property
+    def positive_am(self):
+        return 4
+
+    @property
+    def positive_cc(self):
+        return 5
+
+    @property
+    def negative_cc_v_negative_am(self):
+        return 6
+
+    @property
+    def negative_am_v_electrolyte(self):
+        return 7
+
+    @property
+    def electrolyte_v_positive_am(self):
+        return 8
+
+    @property
+    def positive_am_v_positive_cc(self):
+        return 9
+
+    @property
+    def left(self):
+        return 10
+
+    @property
+    def right(self):
+        return 11
+
 
 class Phases:
     def __init__(self, void=0, electrolyte=1, active_material=2):
