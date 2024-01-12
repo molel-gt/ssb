@@ -28,13 +28,14 @@ import commons, configs, geometry, utils
 
 warnings.simplefilter('ignore')
 
-C_INIT = 1000  # mol/m3
+C_INIT = 1000  # [mol/m3]
 C_MAX = C_INIT
+D_BULK = 1e1  # [m2.s-1]
 # https://periodictable.com/Properties/A/ElectricalConductivity.an.html
-SIGMA_COPPER = 5.8e7  # S.m-1
-SIGMA_LITHIUM = 1.1e7  # S.m-1
+SIGMA_COPPER = 5.8e7  # [S.m-1]
+SIGMA_LITHIUM = 1.1e7  # [S.m-1]
 # Chen 2020
-KAPPA_ELECTROLYTE = 2.5e1  # S.m-1
+KAPPA_ELECTROLYTE = 2.5e1  # [S.m-1]
 
 encoding = io.XDMFFile.Encoding.HDF5
 
@@ -185,9 +186,9 @@ if __name__ == '__main__':
     ksp = solver.krylov_solver
     opts = PETSc.Options()
     option_prefix = ksp.getOptionsPrefix()
-    opts[f"{option_prefix}ksp_type"] = "preonly"
-    opts[f"{option_prefix}pc_type"] = "lu"
-    # opts[f'maximum_iterations'] = 100
+    opts[f"{option_prefix}ksp_type"] = "gmres"
+    opts[f"{option_prefix}pc_type"] = "hypre"
+    opts[f'{option_prefix}max_it'] = 100
     ksp.setFromOptions()
     solver.solve(u)
     u.name = 'potential'
@@ -325,8 +326,7 @@ if __name__ == '__main__':
     f = fem.Constant(positive_am_domain, PETSc.ScalarType(0))
     g = fem.Constant(positive_am_domain, PETSc.ScalarType(0))
     g_middle = fem.Constant(positive_am_domain, PETSc.ScalarType(0))
-    D_bulk = 1e-2
-    D = fem.Constant(positive_am_domain, PETSc.ScalarType(D_bulk))
+    D = fem.Constant(positive_am_domain, PETSc.ScalarType(D_BULK))
 
     a = c * δc * dx + dt * inner(D * grad(c), grad(δc)) * dx
     L = (
@@ -345,8 +345,8 @@ if __name__ == '__main__':
 
     solver = PETSc.KSP().create(comm)
     solver.setOperators(A)
-    solver.setType(PETSc.KSP.Type.PREONLY)
-    solver.getPC().setType(PETSc.PC.Type.LU)
+    solver.setType(PETSc.KSP.Type.GMRES)
+    solver.getPC().setType(PETSc.PC.Type.HYPRE)
 
     c_vtx = VTXWriter(comm, concentration_resultsfile, [ch], engine="BP4")
     c_vtx.write(0.0)
@@ -414,7 +414,7 @@ if __name__ == '__main__':
     ax.set_ylim([0, C_MAX])
     ax.set_ylabel(r'$c$ [mol/m$^3$]', rotation=0, labelpad=50, fontsize='xx-large')
     ax.set_xlabel('[m]')
-    ax.set_title(f't = {t:.1e} s, and D = {D_bulk:.1e} ' + r'm$^{2}$s$^{-1}$')
+    ax.set_title(f't = {t:.1e} s, and D = {D_BULK:.1e} ' + r'm$^{2}$s$^{-1}$')
     plt.tight_layout()
-    plt.savefig(os.path.join(mesh_folder, f'concentration-midline-{D_bulk:.2e}.png'), dpi=1500)
+    plt.savefig(os.path.join(mesh_folder, f'concentration-midline-{D_BULK:.2e}.png'), dpi=1500)
     plt.close()

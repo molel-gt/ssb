@@ -39,8 +39,8 @@ if __name__ == '__main__':
     gmsh.initialize()
     gmsh.model.add('lithium-metal-leb')
 
-    # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", micron)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", args.resolution * micron)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.5 * micron)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 2.5 * args.resolution * micron)
 
     neg_cc = gmsh.model.occ.addCylinder(0, 0, 0, 0, 0, L_neg_cc, disk_radius)
     gmsh.model.occ.synchronize()
@@ -81,21 +81,33 @@ if __name__ == '__main__':
         else:
             middle.append(surf[1])
     insulated = insulated_ncc + insulated_sep
-    gmsh.model.addPhysicalGroup(2, left, markers.left)
+    lefttag = gmsh.model.addPhysicalGroup(2, left, markers.left)
     gmsh.model.occ.synchronize()
-    gmsh.model.addPhysicalGroup(2, right, markers.right)
+    righttag = gmsh.model.addPhysicalGroup(2, right, markers.right)
     gmsh.model.occ.synchronize()
-    gmsh.model.addPhysicalGroup(2, middle, markers.middle)
+    middletag = gmsh.model.addPhysicalGroup(2, middle, markers.middle)
     gmsh.model.occ.synchronize()
     gmsh.model.addPhysicalGroup(2, insulated_ncc, markers.insulated_negative_cc)
     gmsh.model.occ.synchronize()
     gmsh.model.addPhysicalGroup(2, insulated_sep, markers.insulated_electrolyte)
     gmsh.model.occ.synchronize()
-    gmsh.model.addPhysicalGroup(2, insulated, markers.insulated_total)
+    insulatedtag = gmsh.model.addPhysicalGroup(2, insulated, markers.insulated_total)
     gmsh.model.occ.synchronize()
 
-    gmsh.model.occ.synchronize()
-    # adaptive refinement
+    # refinement
+    # gmsh.model.mesh.field.add("Distance", 1)
+    # gmsh.model.mesh.field.setNumbers(1, "FacesList", [insulatedtag, lefttag, middletag, righttag])
+
+    # gmsh.model.mesh.field.add("Threshold", 2)
+    # gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    # gmsh.model.mesh.field.setNumber(2, "LcMin", 0.5 * args.resolution * micron)
+    # gmsh.model.mesh.field.setNumber(2, "LcMax", 2.5 * args.resolution * micron)
+    # gmsh.model.mesh.field.setNumber(2, "DistMin", 0.005 * LZ)
+    # gmsh.model.mesh.field.setNumber(2, "DistMax", 0.025 * LZ)
+
+    # gmsh.model.mesh.field.add("Max", 5)
+    # gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    # gmsh.model.mesh.field.setAsBackgroundMesh(5)
     gmsh.model.mesh.generate(3)
     gmsh.write(output_meshfile)
     gmsh.finalize()
