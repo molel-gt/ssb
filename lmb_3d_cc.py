@@ -8,9 +8,6 @@ import gmsh
 import matplotlib.pyplot as plt
 import meshio
 import numpy as np
-import pyvista
-import pyvista as pv
-import pyvistaqt as pvqt
 import ufl
 import warnings
 
