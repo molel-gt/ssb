@@ -39,8 +39,8 @@ if __name__ == '__main__':
     gmsh.initialize()
     gmsh.model.add('lithium-metal-leb')
 
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.5 * micron)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 2.5 * args.resolution * micron)
+    # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.5 * micron)
+    # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 2.5 * args.resolution * micron)
 
     neg_cc = gmsh.model.occ.addCylinder(0, 0, 0, 0, 0, L_neg_cc, disk_radius)
     gmsh.model.occ.synchronize()
@@ -95,19 +95,19 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
 
     # refinement
-    # gmsh.model.mesh.field.add("Distance", 1)
-    # gmsh.model.mesh.field.setNumbers(1, "FacesList", [insulatedtag, lefttag, middletag, righttag])
+    distance = gmsh.model.mesh.field.add("Distance")
+    gmsh.model.mesh.field.setNumbers(distance, "FacesList", [insulatedtag, lefttag, middletag, righttag])
 
-    # gmsh.model.mesh.field.add("Threshold", 2)
-    # gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    # gmsh.model.mesh.field.setNumber(2, "LcMin", 0.5 * args.resolution * micron)
-    # gmsh.model.mesh.field.setNumber(2, "LcMax", 2.5 * args.resolution * micron)
-    # gmsh.model.mesh.field.setNumber(2, "DistMin", 0.005 * LZ)
-    # gmsh.model.mesh.field.setNumber(2, "DistMax", 0.025 * LZ)
+    threshold = gmsh.model.mesh.field.add("Threshold")
+    gmsh.model.mesh.field.setNumber(threshold, "IField", distance)
+    gmsh.model.mesh.field.setNumber(threshold, "LcMin", args.resolution * micron)
+    gmsh.model.mesh.field.setNumber(threshold, "LcMax", 10 * args.resolution * micron)
+    gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0.5 * micron)
+    gmsh.model.mesh.field.setNumber(threshold, "DistMax", 5 * micron)
 
-    # gmsh.model.mesh.field.add("Max", 5)
-    # gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    # gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    max_f = gmsh.model.mesh.field.add("Max")
+    gmsh.model.mesh.field.setNumbers(max_f, "FieldsList", [threshold])
+    gmsh.model.mesh.field.setAsBackgroundMesh(max_f)
     gmsh.model.mesh.generate(3)
     gmsh.write(output_meshfile)
     gmsh.finalize()
