@@ -179,13 +179,13 @@ if __name__ == '__main__':
     problem = petsc.NonlinearProblem(F, u)
     solver = petsc_nls.NewtonSolver(comm, problem)
     solver.convergence_criterion = "residual"
+    solver.maximum_iterations = 100
 
     ksp = solver.krylov_solver
     opts = PETSc.Options()
     option_prefix = ksp.getOptionsPrefix()
     opts[f"{option_prefix}ksp_type"] = "gmres"
     opts[f"{option_prefix}pc_type"] = "hypre"
-    opts[f'{option_prefix}max_it'] = 100
     ksp.setFromOptions()
     solver.solve(u)
     u.name = 'potential'
