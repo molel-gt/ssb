@@ -39,9 +39,6 @@ if __name__ == '__main__':
     gmsh.initialize()
     gmsh.model.add('lithium-metal-leb')
 
-    # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.5 * micron)
-    # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 2.5 * args.resolution * micron)
-
     neg_cc = gmsh.model.occ.addCylinder(0, 0, 0, 0, 0, L_neg_cc, disk_radius)
     gmsh.model.occ.synchronize()
     sep_main = gmsh.model.occ.addCylinder(0, 0, L_neg_cc, 0, 0, L_sep, disk_radius)
