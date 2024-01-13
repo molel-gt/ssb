@@ -291,10 +291,6 @@ if __name__ == '__main__':
     tdim = positive_am_domain.topology.dim
     fdim = tdim - 1
 
-    # Create boundary condition
-    # boundary_facets = sub_meshtag.find(markers.middle)
-    # bc = fem.dirichletbc(PETSc.ScalarType(0), fem.locate_dofs_topological(Q, fdim, boundary_facets), Q)
-
     Q = fem.FunctionSpace(positive_am_domain, ("CG", 1))
     c_n = fem.Function(Q)
     c_n.name = "c_n"
@@ -368,8 +364,6 @@ if __name__ == '__main__':
         # Solve linear problem
         solver.solve(b, ch.vector)
         ch.x.scatter_forward()
-        # c_avg = fem.assemble_scalar(fem.form(ch * dx)) / fem.assemble_scalar(fem.form(1 * dx))
-        # print(f"average concentration: {c_avg}")
 
         # Update solution at previous time step (c_n)
         if np.any(ch.x.array < 0):
