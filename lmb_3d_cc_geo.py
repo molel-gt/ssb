@@ -88,7 +88,7 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
     gmsh.model.addPhysicalGroup(2, insulated_sep, markers.insulated_electrolyte)
     gmsh.model.occ.synchronize()
-    insulatedtag = gmsh.model.addPhysicalGroup(2, insulated, markers.insulated_total)
+    insulatedtag = gmsh.model.addPhysicalGroup(2, insulated, markers.insulated)
     gmsh.model.occ.synchronize()
 
     # refinement
