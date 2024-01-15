@@ -153,7 +153,7 @@ if __name__ == '__main__':
     bcs = [fem.dirichletbc(u_bc, right_dofs, V)]
 
     # body force B and Piola traction vector P
-    B = fem.Constant(domain, default_scalar_type((0, 0, -9.81)))
+    B = fem.Constant(domain, default_scalar_type((0, 0, 0)))
     # T = fem.Constant(domain, default_scalar_type((0, 0, 0)))
 
     Q = fem.functionspace(domain, ("CG", 2, (3,)))
