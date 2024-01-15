@@ -66,6 +66,8 @@ if __name__ == '__main__':
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
     output_current_path = os.path.join(data_dir, 'current.bp')
     output_potential_path = os.path.join(data_dir, 'potential.bp')
+    displacement_path = os.path.join(data_dir, 'displacement.bp')
+    von_mises_path = os.path.join(data_dir, 'von_mises_stress.bp')
     frequency_path = os.path.join(data_dir, 'frequency.csv')
     simulation_metafile = os.path.join(data_dir, 'simulation.json')
 
@@ -121,16 +123,16 @@ if __name__ == '__main__':
     dx = ufl.Measure("dx", domain=domain, metadata=metadata)
 
     # Define variational problem
-    u = ufl.TrialFunction(V)
-    δu = ufl.TestFunction(V)
+    φ = ufl.TrialFunction(V)
+    δφ = ufl.TestFunction(V)
 
     # bulk conductivity [S.m-1]
     kappa = fem.Constant(domain, PETSc.ScalarType(constants.KAPPA0))
     f = fem.Constant(domain, PETSc.ScalarType(0.0))
     g = fem.Constant(domain, PETSc.ScalarType(0.0))
 
-    a = inner(kappa * grad(u), grad(δu)) * dx
-    L = inner(f, δu) * ufl.dx + inner(g, δu) * ds(markers.insulated)
+    a = inner(kappa * grad(φ), grad(δφ)) * dx
+    L = inner(f, δφ) * ufl.dx + inner(g, δφ) * ds(markers.insulated)
 
     options = {
                "ksp_type": "gmres",
@@ -164,7 +166,7 @@ if __name__ == '__main__':
     T = fem.Constant(domain, default_scalar_type((0, 0, 0)))
 
     u = fem.Function(V)
-    v = ufl.TestFunction(V)
+    δu = ufl.TestFunction(V)
 
     # Spatial dimension
     d = len(u)
@@ -194,7 +196,7 @@ if __name__ == '__main__':
     # Hyper-elasticity
     P = ufl.diff(ψ, F)
     # Define form F (we want to find u such that F(u) = 0)
-    F_objective = inner(grad(v), P) * dx - inner(v, B) * dx - inner(v, T) * ds(markers.insulated)
+    F_objective = inner(grad(δu), P) * dx - inner(δu, B) * dx - inner(δu, T) * ds(markers.insulated)
     problem = NonlinearProblem(F_objective, u, bcs)
     solver = NewtonSolver(domain.comm, problem)
 
@@ -202,46 +204,57 @@ if __name__ == '__main__':
     solver.atol = 1e-8
     solver.rtol = 1e-8
     solver.convergence_criterion = "incremental"
+    num_its, converged = solver.solve(u)
+    # write to file
+    dvtx = VTXWriter(comm, displacement_path, [u], engine="BP4")
+    dvtx.write(0.0)
+    dvtx.close()
+
+    # compute von mises stress
+    # vmvtx = VTXWriter(comm, von_mises_path, [σ_vm], engine="BP4")
+    # vmvtx.write(0.0)
+    # vmvtx.close()
 
     # visualization
-    pyvista.start_xvfb()
-    plotter = pyvista.Plotter()
-    plotter.open_gif(os.path.join(args.mesh_folder, "deformation.gif"), fps=3)
+    # pyvista.start_xvfb()
+    # plotter = pyvista.Plotter()
+    # plotter.open_gif(os.path.join(args.mesh_folder, "deformation.gif"), fps=3)
 
-    topology, cells, geometry = plot.vtk_mesh(u.function_space)
-    function_grid = pyvista.UnstructuredGrid(topology, cells, geometry)
+    # topology, cells, geometry = plot.vtk_mesh(u.function_space)
+    # function_grid = pyvista.UnstructuredGrid(topology, cells, geometry)
 
-    values = np.zeros((geometry.shape[0], 3))
-    values[:, :len(u)] = u.x.array.reshape(geometry.shape[0], len(u))
-    function_grid["u"] = values
-    function_grid.set_active_vectors("u")
+    # values = np.zeros((geometry.shape[0], 3))
+    # values[:, :len(u)] = u.x.array.reshape(geometry.shape[0], len(u))
+    # function_grid["u"] = values
+    # function_grid.set_active_vectors("u")
 
-    # Warp mesh by deformation
-    warped = function_grid.warp_by_vector("u", factor=1)
-    warped.set_active_vectors("u")
+    # # Warp mesh by deformation
+    # warped = function_grid.warp_by_vector("u", factor=1)
+    # warped.set_active_vectors("u")
 
-    # Add mesh to plotter and visualize
-    actor = plotter.add_mesh(warped, show_edges=True, lighting=False, clim=[0, 10])
+    # # Add mesh to plotter and visualize
+    # actor = plotter.add_mesh(warped, show_edges=True, lighting=False, clim=[0, 10])
 
-    # Compute magnitude of displacement to visualize in GIF
-    Vs = fem.FunctionSpace(domain, ("Lagrange", 2))
-    magnitude = fem.Function(Vs)
-    us = fem.Expression(ufl.sqrt(sum([u[i] ** 2 for i in range(len(u))])), Vs.element.interpolation_points())
-    magnitude.interpolate(us)
-    warped["mag"] = magnitude.x.array
-    tval0 = -1.5
-    for n in range(1, 10):
-        T.value[2] = n * tval0
-        num_its, converged = solver.solve(u)
-        assert (converged)
-        u.x.scatter_forward()
-        log.info(f"Time step {n}, Number of iterations {num_its}, Load {T.value}")
-        function_grid["u"][:, :len(u)] = u.x.array.reshape(geometry.shape[0], len(u))
-        magnitude.interpolate(us)
-        warped.set_active_scalars("mag")
-        warped_n = function_grid.warp_by_vector(factor=1)
-        plotter.update_coordinates(warped_n.points.copy(), render=False)
-        plotter.update_scalar_bar_range([0, 10])
-        plotter.update_scalars(magnitude.x.array)
-        plotter.write_frame()
-    plotter.close()
+    # # Compute magnitude of displacement to visualize in GIF
+    # Vs = fem.FunctionSpace(domain, ("Lagrange", 2))
+    # magnitude = fem.Function(Vs)
+    # us = fem.Expression(ufl.sqrt(sum([u[i] ** 2 for i in range(len(u))])), Vs.element.interpolation_points())
+    # magnitude.interpolate(us)
+    # warped["mag"] = magnitude.x.array
+    # tval0 = -1.5
+    # for t in range(1, 10):
+    #     T.value[2] = t * tval0
+    #     num_its, converged = solver.solve(u)
+    #     dvtx.write(t)
+    #     assert (converged)
+    #     u.x.scatter_forward()
+    #     log.info(f"Time step {n}, Number of iterations {num_its}, Load {T.value}")
+    #     function_grid["u"][:, :len(u)] = u.x.array.reshape(geometry.shape[0], len(u))
+    #     magnitude.interpolate(us)
+    #     warped.set_active_scalars("mag")
+    #     warped_n = function_grid.warp_by_vector(factor=1)
+    #     plotter.update_coordinates(warped_n.points.copy(), render=False)
+    #     plotter.update_scalar_bar_range([0, 10])
+    #     plotter.update_scalars(magnitude.x.array)
+    #     plotter.write_frame()
+    # plotter.close()
