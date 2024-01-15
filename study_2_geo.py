@@ -280,14 +280,14 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
     print("Generating surface tags..")
     if len(np.unique(img)) == 1 and np.isclose(np.unique(img)[0], 1):
-        lefttag = gmsh.model.addPhysicalGroup(2, [6], markers.left_cc)
-        righttag = gmsh.model.addPhysicalGroup(2, [1], markers.right_cc)
+        lefttag = gmsh.model.addPhysicalGroup(2, [6], markers.left)
+        righttag = gmsh.model.addPhysicalGroup(2, [1], markers.right)
         insulatedtag = gmsh.model.addPhysicalGroup(2, [2, 3, 4, 5], markers.insulated)
         surfaces = list(range(1, 7))
     else:
         left_surfs = [vv[1] for vv in gmsh.model.occ.getEntities(2) if vv[1] >= 7]
-        lefttag = gmsh.model.addPhysicalGroup(2, left_surfs, markers.left_cc)
-        righttag = gmsh.model.addPhysicalGroup(2, [1], markers.right_cc)
+        lefttag = gmsh.model.addPhysicalGroup(2, left_surfs, markers.left)
+        righttag = gmsh.model.addPhysicalGroup(2, [1], markers.right)
         insulatedtag = gmsh.model.addPhysicalGroup(2, [2, 3, 4, 5, 6], markers.insulated)
         surfaces = tuple(left + insulated + right)
 
