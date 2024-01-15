@@ -66,19 +66,19 @@ if __name__ == '__main__':
     frequency_path = os.path.join(data_dir, 'frequency.csv')
     simulation_metafile = os.path.join(data_dir, 'simulation.json')
     log.set_log_level(log.LogLevel.INFO)
-    log.debug("Loading tetrahedra (dim = 3) mesh..")
+    print("Loading tetrahedra (dim = 3) mesh..")
     with io.XDMFFile(comm, tetr_mesh_path, "r") as infile3:
         domain = infile3.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(domain, name="Grid")
     domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
     try:
-        log.debug("Attempting to load xmdf file for triangle mesh")
+        print("Attempting to load xmdf file for triangle mesh")
         with io.XDMFFile(comm, tria_mesh_path, "r") as infile2:
             ft = infile2.read_meshtags(domain, name="Grid")
         left_boundary = ft.find(markers.left)
         right_boundary = ft.find(markers.right)
     except RuntimeError as e:
-        log.error("Missing xdmf file for triangle mesh!")
+        print("Missing xdmf file for triangle mesh!")
         facets = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
                                                marker=lambda x: np.isfinite(x[2]))
         facets_l0 = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
@@ -132,13 +132,13 @@ if __name__ == '__main__':
                }
 
     model = petsc.LinearProblem(a, L, bcs=[left_bc, right_bc], petsc_options=options)
-    log.debug('Solving problem..')
+    print('Solving problem..')
     uh = model.solve()
 
     with VTXWriter(comm, output_potential_path, [uh], engine="BP4") as vtx:
         vtx.write(0.0)
 
-    log.debug("Post-process calculations")
+    print("Post-process calculations")
     W = fem.functionspace(domain, ("CG", 1, (3,)))
     current_expr = fem.Expression(-kappa * grad(uh), W.element.interpolation_points())
     current_h = fem.Function(W)
@@ -245,7 +245,7 @@ if __name__ == '__main__':
     #     dvtx.write(t)
     #     assert (converged)
     #     u.x.scatter_forward()
-    #     log.info(f"Time step {n}, Number of iterations {num_its}, Load {T.value}")
+    #     print(f"Time step {n}, Number of iterations {num_its}, Load {T.value}")
     #     function_grid["u"][:, :len(u)] = u.x.array.reshape(geometry.shape[0], len(u))
     #     magnitude.interpolate(us)
     #     warped.set_active_scalars("mag")
