@@ -45,23 +45,9 @@ if __name__ == '__main__':
     start_time = timeit.default_timer()
 
     scaling = configs.get_configs()[args.scaling]
-    scale_x = float(scaling['x'])
-    scale_y = float(scaling['y'])
-    scale_z = float(scaling['z'])
-    # loglevel = configs.get_configs()['LOGGING']['level']
+    scale = [float(scaling[k]) for k in ['x', 'y', 'z']]
     dimensions = args.dimensions
-    log.set_log_level(log.LogLevel.INFO)
-    # logger = logging.getLogger()
-    # logger.setLevel(loglevel)
-    # formatter = logging.Formatter(f'%(levelname)s:%(asctime)s:{data_dir}:{dimensions}:%(message)s')
-    # fh = logging.FileHandler(os.path.basename(__file__).replace(".py", ".log"))
-    # fh.setFormatter(formatter)
-    # logger.addHandler(fh)
-
-    Lx, Ly, Lz = [float(v) for v in dimensions.split("-")]
-    Lx = Lx * scale_x
-    Ly = Ly * scale_y
-    Lz = Lz * scale_z
+    Lx, Ly, Lz = [float(v) * scale[idx] for (idx, v) in enumerate(dimensions.split("-"))]
     tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
     output_current_path = os.path.join(data_dir, 'current.bp')
@@ -70,11 +56,7 @@ if __name__ == '__main__':
     von_mises_path = os.path.join(data_dir, 'von_mises_stress.bp')
     frequency_path = os.path.join(data_dir, 'frequency.csv')
     simulation_metafile = os.path.join(data_dir, 'simulation.json')
-
-    left_cc_marker = markers.left_cc
-    right_cc_marker = markers.right_cc
-    insulated_marker = markers.insulated
-
+    log.set_log_level(log.LogLevel.INFO)
     log.debug("Loading tetrahedra (dim = 3) mesh..")
     with io.XDMFFile(comm, tetr_mesh_path, "r") as infile3:
         domain = infile3.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
@@ -84,8 +66,8 @@ if __name__ == '__main__':
         log.debug("Attempting to load xmdf file for triangle mesh")
         with io.XDMFFile(comm, tria_mesh_path, "r") as infile2:
             ft = infile2.read_meshtags(domain, name="Grid")
-        left_boundary = ft.find(markers.left_cc)
-        right_boundary = ft.find(markers.right_cc)
+        left_boundary = ft.find(markers.left)
+        right_boundary = ft.find(markers.right)
     except RuntimeError as e:
         log.error("Missing xdmf file for triangle mesh!")
         facets = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
@@ -165,8 +147,9 @@ if __name__ == '__main__':
     B = fem.Constant(domain, default_scalar_type((0, 0, -9.81)))
     T = fem.Constant(domain, default_scalar_type((0, 0, 0)))
 
-    u = fem.Function(V)
-    δu = ufl.TestFunction(V)
+    Q = fem.functionspace(domain, ("Lagrange", 2))
+    u = fem.Function(Q)
+    δu = ufl.TestFunction(Q)
 
     # Spatial dimension
     d = len(u)
