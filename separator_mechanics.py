@@ -23,7 +23,7 @@ from ufl import grad, inner
 
 import commons, configs, constants
 
-markers = commons.SurfaceMarkers()
+markers = commons.Markers()
 
 MW_LI = 6.941e-3  # [kg.mol-1]
 ρ_LI = 5.34e2  # [kg.m-3]
@@ -149,7 +149,7 @@ if __name__ == '__main__':
 
     # right boundary is assumed fixed
     u_bc = np.array((0,) * domain.geometry.dim, dtype=default_scalar_type)
-    right_dofs = fem.locate_dofs_topological(V, meshtags.dim, meshtags.find(markers.right))
+    right_dofs = fem.locate_dofs_topological(V, ft.dim, ft.find(markers.right))
     bcs = [fem.dirichletbc(u_bc, right_dofs, V)]
 
     # body force B and Piola traction vector P
