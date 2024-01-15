@@ -29,10 +29,10 @@ MW_LI = 6.941e-3  # [kg.mol-1]
 ρ_LI = 5.34e2  # [kg.m-3]
 faraday_constant = 96485  # [C.mol-1]
 L0 = 1e-6  # [m3]
+E_LI = 5e9 # [Pa]  Lithium metal Elastic modulus
 
-
-def ε_rate(current_h):
-    return current_h * MW_LI / (ρ_LI * faraday_constant * L0)
+# def stress_expression(current_h, t):
+#     return E_LI * current_h * MW_LI / (ρ_LI * faraday_constant * L0)
 
 
 if __name__ == '__main__':
@@ -154,12 +154,14 @@ if __name__ == '__main__':
 
     # body force B and Piola traction vector P
     B = fem.Constant(domain, default_scalar_type((0, 0, -9.81)))
-    T = fem.Constant(domain, default_scalar_type((0, 0, 0)))
+    # T = fem.Constant(domain, default_scalar_type((0, 0, 0)))
 
-    # stress at left boundary due to lithium growth velocity
-    T.interpolate(lambda x: ε_rate(current_h))
+    Q = fem.functionspace(domain, ("CG", 2, (3,)))
+    # Piola-Kirchhoff stress at left boundary due to lithium growth velocity
+    stress_expr = fem.Expression(E_LI * (-kappa * grad(uh)) * MW_LI / (ρ_LI * faraday_constant * L0), Q.element.interpolation_points())
+    T = fem.Function(Q)
+    T.interpolate(stress_expr)
 
-    Q = fem.functionspace(domain, ("Lagrange", 2))
     u = fem.Function(Q)
     δu = ufl.TestFunction(Q)
 
