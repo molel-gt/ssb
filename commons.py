@@ -81,7 +81,7 @@ class Markers:
         return 17
 
     @property
-    def insulated_total(self):
+    def insulated(self):
         return 18
 
 
