@@ -26,6 +26,10 @@ import commons, configs, constants
 markers = commons.SurfaceMarkers()
 
 
+def strain_rate():
+    return 0
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Coupling of stress and lithium metal/electrolyte active area fraction.')
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="separator_mechanics")
