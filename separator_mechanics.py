@@ -196,7 +196,7 @@ if __name__ == '__main__':
     # Hyper-elasticity
     P = ufl.diff(ψ, F)
     # Define form F (we want to find u such that F(u) = 0)
-    F_objective = inner(grad(δu), P) * dx - inner(δu, B) * dx - inner(δu, T) * ds(markers.insulated)
+    F_objective = inner(grad(δu), P) * dx - inner(δu, B) * dx - inner(δu, T) * ds(markers.left)
     problem = NonlinearProblem(F_objective, u, bcs)
     solver = NewtonSolver(domain.comm, problem)
 
