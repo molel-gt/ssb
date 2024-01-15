@@ -12,8 +12,9 @@ import pyvista
 import ufl
 from basix.ufl import element
 from collections import defaultdict
-from dolfinx import cpp, default_scalar_type, fem, io, log, mesh, nls
+from dolfinx import cpp, default_scalar_type, fem, io, log, mesh, nls, plot
 from dolfinx.fem.petsc import NonlinearProblem
+from dolfinx.geometry import bb_tree, compute_collisions_points, compute_colliding_cells
 from dolfinx.nls.petsc import NewtonSolver
 from dolfinx.fem import petsc
 from dolfinx.io import VTXWriter
@@ -30,9 +31,6 @@ MW_LI = 6.941e-3  # [kg.mol-1]
 faraday_constant = 96485  # [C.mol-1]
 L0 = 1e-6  # [m3]
 E_LI = 5e9 # [Pa]  Lithium metal Elastic modulus
-
-# def stress_expression(current_h, t):
-#     return E_LI * current_h * MW_LI / (ρ_LI * faraday_constant * L0)
 
 
 if __name__ == '__main__':
@@ -56,7 +54,7 @@ if __name__ == '__main__':
     scaling = configs.get_configs()[args.scaling]
     scale = [float(scaling[k]) for k in ['x', 'y', 'z']]
     dimensions = args.dimensions
-    Lx, Ly, Lz = [float(v) * scale[idx] for (idx, v) in enumerate(dimensions.split("-"))]
+    LX, LY, LZ = [float(v) * scale[idx] for (idx, v) in enumerate(dimensions.split("-"))]
     tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
     output_current_path = os.path.join(data_dir, 'current.bp')
@@ -108,7 +106,7 @@ if __name__ == '__main__':
     left_bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 2, left_boundary))
     right_bc = fem.dirichletbc(u1, fem.locate_dofs_topological(V, 2, right_boundary))
     n = ufl.FacetNormal(domain)
-    # x = ufl.SpatialCoordinate(domain)
+    x = ufl.SpatialCoordinate(domain)
     metadata = {"quadrature_degree": 4}
     ds = ufl.Measure("ds", domain=domain, subdomain_data=ft, metadata=metadata)
     dx = ufl.Measure("dx", domain=domain, metadata=metadata)
@@ -146,6 +144,10 @@ if __name__ == '__main__':
     with VTXWriter(comm, output_current_path, [current_h], engine="BP4") as vtx:
         vtx.write(0.0)
 
+    I_left_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.left))), op=MPI.SUM)
+    I_right_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.right))), op=MPI.SUM)
+    print(f"Current at left = {I_left_cc:.2e} [A] and current at right = {I_right_cc:.2e}")
+
     # solution of stress
     print("Solving stress distribution problem")
     Q = fem.functionspace(domain, ("CG", 2, (3,)))
@@ -160,9 +162,9 @@ if __name__ == '__main__':
     # T = fem.Constant(domain, default_scalar_type((0, 0, 0)))
 
     # Piola-Kirchhoff stress at left boundary due to lithium growth velocity
-    stress_expr = fem.Expression(E_LI * (-kappa * grad(uh)) * MW_LI / (ρ_LI * faraday_constant * L0), Q.element.interpolation_points())
+    stress_expr = lambda t: fem.Expression(t * E_LI * (-kappa * grad(uh)) * MW_LI / (ρ_LI * faraday_constant * L0), Q.element.interpolation_points())
     T = fem.Function(Q)
-    T.interpolate(stress_expr)
+    T.interpolate(stress_expr(1))
 
     u = fem.Function(Q)
     δu = ufl.TestFunction(Q)
@@ -207,7 +209,42 @@ if __name__ == '__main__':
     # write to file
     dvtx = VTXWriter(comm, displacement_path, [u], engine="BP4")
     dvtx.write(0.0)
-    dvtx.close()
+
+    # visualization
+    bb_trees = bb_tree(domain, domain.topology.dim)
+    n_points = 10000
+    tol = 1e-12
+    x_viz = y_viz = np.zeros(n_points)
+    z_viz = np.linspace(0 + tol, LZ - tol, n_points)
+
+    points = np.zeros((3, n_points))
+    points[0] = x_viz
+    points[1] = y_viz
+    points[2] = z_viz
+    u_values = []
+    cells = []
+    points_on_proc = []
+    # Find cells whose bounding-box collide with the the points
+    cell_candidates = compute_collisions_points(bb_trees, points.T)
+    # Choose one of the cells that contains the point
+    colliding_cells = compute_colliding_cells(domain, cell_candidates, points.T)
+    for i, point in enumerate(points.T):
+        if len(colliding_cells.links(i)) > 0:
+            points_on_proc.append(point)
+            cells.append(colliding_cells.links(i)[0])
+    points_on_proc = np.array(points_on_proc, dtype=np.float64)
+    u_values = u.eval(points_on_proc, cells)
+    fig, ax = plt.subplots()
+    ax.plot(points_on_proc[:, 2], u_values, "k", linewidth=2)
+    ax.grid(True)
+    ax.set_xlim([0, LZ])
+    # ax.set_ylim([0, C_MAX])
+    ax.set_ylabel(r'$u$ [m]', rotation=0, labelpad=50, fontsize='xx-large')
+    ax.set_xlabel('[m]')
+    # ax.set_title(f't = {t:.1e} s, and D = {D_BULK:.1e} ' + r'm$^{2}$s$^{-1}$')
+    plt.tight_layout()
+    plt.savefig(os.path.join(args.mesh_folder, f'displacement.png'), dpi=1500)
+    plt.close()
 
     # compute von mises stress
     # vmvtx = VTXWriter(comm, von_mises_path, [σ_vm], engine="BP4")
@@ -215,45 +252,45 @@ if __name__ == '__main__':
     # vmvtx.close()
 
     # visualization
-    # pyvista.start_xvfb()
-    # plotter = pyvista.Plotter()
-    # plotter.open_gif(os.path.join(args.mesh_folder, "deformation.gif"), fps=3)
+    pyvista.start_xvfb()
+    plotter = pyvista.Plotter()
+    plotter.open_gif(os.path.join(args.mesh_folder, "deformation.gif"), fps=3)
 
-    # topology, cells, geometry = plot.vtk_mesh(u.function_space)
-    # function_grid = pyvista.UnstructuredGrid(topology, cells, geometry)
+    topology, cells, geometry = plot.vtk_mesh(u.function_space)
+    function_grid = pyvista.UnstructuredGrid(topology, cells, geometry)
 
-    # values = np.zeros((geometry.shape[0], 3))
-    # values[:, :len(u)] = u.x.array.reshape(geometry.shape[0], len(u))
-    # function_grid["u"] = values
-    # function_grid.set_active_vectors("u")
+    values = np.zeros((geometry.shape[0], 3))
+    values[:, :len(u)] = u.x.array.reshape(geometry.shape[0], len(u))
+    function_grid["u"] = values
+    function_grid.set_active_vectors("u")
 
-    # # Warp mesh by deformation
-    # warped = function_grid.warp_by_vector("u", factor=1)
-    # warped.set_active_vectors("u")
+    # Warp mesh by deformation
+    warped = function_grid.warp_by_vector("u", factor=1)
+    warped.set_active_vectors("u")
 
-    # # Add mesh to plotter and visualize
-    # actor = plotter.add_mesh(warped, show_edges=True, lighting=False, clim=[0, 10])
+    # Add mesh to plotter and visualize
+    actor = plotter.add_mesh(warped, show_edges=True, lighting=False, clim=[0, 10])
 
-    # # Compute magnitude of displacement to visualize in GIF
-    # Vs = fem.FunctionSpace(domain, ("Lagrange", 2))
-    # magnitude = fem.Function(Vs)
-    # us = fem.Expression(ufl.sqrt(sum([u[i] ** 2 for i in range(len(u))])), Vs.element.interpolation_points())
-    # magnitude.interpolate(us)
+    # Compute magnitude of displacement to visualize in GIF
+    Vs = fem.FunctionSpace(domain, ("Lagrange", 2))
+    magnitude = fem.Function(Vs)
+    us = fem.Expression(ufl.sqrt(sum([u[i] ** 2 for i in range(len(u))])), Vs.element.interpolation_points())
+    magnitude.interpolate(us)
     # warped["mag"] = magnitude.x.array
-    # tval0 = -1.5
-    # for t in range(1, 10):
-    #     T.value[2] = t * tval0
-    #     num_its, converged = solver.solve(u)
-    #     dvtx.write(t)
-    #     assert (converged)
-    #     u.x.scatter_forward()
-    #     print(f"Time step {n}, Number of iterations {num_its}, Load {T.value}")
-    #     function_grid["u"][:, :len(u)] = u.x.array.reshape(geometry.shape[0], len(u))
-    #     magnitude.interpolate(us)
-    #     warped.set_active_scalars("mag")
-    #     warped_n = function_grid.warp_by_vector(factor=1)
-    #     plotter.update_coordinates(warped_n.points.copy(), render=False)
-    #     plotter.update_scalar_bar_range([0, 10])
-    #     plotter.update_scalars(magnitude.x.array)
-    #     plotter.write_frame()
-    # plotter.close()
+    for t in range(2, 10):
+        T.interpolate(stress_expr(t))
+        num_its, converged = solver.solve(u)
+        dvtx.write(t)
+        assert (converged)
+        u.x.scatter_forward()
+        print(f"Time step {n}, Number of iterations {num_its}")
+        function_grid["u"][:, :len(u)] = u.x.array.reshape(geometry.shape[0], len(u))
+        magnitude.interpolate(us)
+        # warped.set_active_scalars("mag")
+        warped_n = function_grid.warp_by_vector(factor=1)
+        plotter.update_coordinates(warped_n.points.copy(), render=False)
+        plotter.update_scalar_bar_range([0, 10])
+        plotter.update_scalars(magnitude.x.array)
+        plotter.write_frame()
+    plotter.close()
+    dvtx.close()
