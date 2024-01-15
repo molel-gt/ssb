@@ -25,9 +25,14 @@ import commons, configs, constants
 
 markers = commons.SurfaceMarkers()
 
+MW_LI = 6.941e-3  # [kg.mol-1]
+ρ_LI = 5.34e2  # [kg.m-3]
+faraday_constant = 96485  # [C.mol-1]
+L0 = 1e-6  # [m3]
 
-def strain_rate():
-    return 0
+
+def ε_rate(current_h):
+    return current_h * MW_LI / (ρ_LI * faraday_constant * L0)
 
 
 if __name__ == '__main__':
@@ -142,7 +147,7 @@ if __name__ == '__main__':
     with VTXWriter(comm, output_current_path, [current_h], engine="BP4") as vtx:
         vtx.write(0.0)
 
-    # solve elasticity problem
+    # right boundary is assumed fixed
     u_bc = np.array((0,) * domain.geometry.dim, dtype=default_scalar_type)
     right_dofs = fem.locate_dofs_topological(V, meshtags.dim, meshtags.find(markers.right))
     bcs = [fem.dirichletbc(u_bc, right_dofs, V)]
@@ -150,6 +155,9 @@ if __name__ == '__main__':
     # body force B and Piola traction vector P
     B = fem.Constant(domain, default_scalar_type((0, 0, -9.81)))
     T = fem.Constant(domain, default_scalar_type((0, 0, 0)))
+
+    # stress at left boundary due to lithium growth velocity
+    T.interpolate(lambda x: ε_rate(current_h))
 
     Q = fem.functionspace(domain, ("Lagrange", 2))
     u = fem.Function(Q)
