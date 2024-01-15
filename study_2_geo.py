@@ -18,7 +18,7 @@ import commons, configs, geometry, grapher, utils
 warnings.simplefilter('ignore')
 
 
-markers = commons.SurfaceMarkers()
+markers = commons.Markers()
 cell_types = commons.CellTypes()
 max_resolution = 2.5
 
