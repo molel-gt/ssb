@@ -159,7 +159,7 @@ if __name__ == '__main__':
     bcs = [fem.dirichletbc(u_bc, right_dofs, V)]
 
     # body force B and Piola traction vector P
-    B = fem.Constant(domain, default_scalar_type((0, 0, 0)))
+    B = fem.Constant(domain, default_scalar_type((0, 0, -9.81)))
     T = fem.Constant(domain, default_scalar_type((0, 0, 0)))
 
     u = fem.Function(V)
@@ -193,8 +193,8 @@ if __name__ == '__main__':
     # Hyper-elasticity
     P = ufl.diff(ψ, F)
     # Define form F (we want to find u such that F(u) = 0)
-    F = inner(grad(v), P) * dx - inner(v, B) * dx - inner(v, T) * ds(markers.insulated)
-    problem = NonlinearProblem(F, u, bcs)
+    F_objective = inner(grad(v), P) * dx - inner(v, B) * dx - inner(v, T) * ds(markers.insulated)
+    problem = NonlinearProblem(F_objective, u, bcs)
     solver = NewtonSolver(domain.comm, problem)
 
     # Set Newton solver options
