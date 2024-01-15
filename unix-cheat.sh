@@ -17,3 +17,10 @@ sudo systemctl restart slurmctld && sudo systemctl restart slurmd && sudo system
 sudo systemctl status slurmctld && sudo systemctl status slurmd
 
 squeue -u molel | grep local | tr -s ' ' | cut -d ' ' -f 2 | xargs scancel
+
+# find simulation files and print relevant lines
+simfiles=$(find output/contact_loss_ref/ -name *.json | grep simulation)
+for f in $simfiles;
+do
+    grep 'Dimensions' $f && grep 'Contact area fraction at left' $f && grep 'Max' $f;
+done
