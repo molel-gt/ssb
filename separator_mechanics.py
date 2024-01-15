@@ -132,13 +132,12 @@ if __name__ == '__main__':
                }
 
     model = petsc.LinearProblem(a, L, bcs=[left_bc, right_bc], petsc_options=options)
-    print('Solving problem..')
+    print('Solving potential problem..')
     uh = model.solve()
 
     with VTXWriter(comm, output_potential_path, [uh], engine="BP4") as vtx:
         vtx.write(0.0)
 
-    print("Post-process calculations")
     W = fem.functionspace(domain, ("CG", 1, (3,)))
     current_expr = fem.Expression(-kappa * grad(uh), W.element.interpolation_points())
     current_h = fem.Function(W)
@@ -148,6 +147,7 @@ if __name__ == '__main__':
         vtx.write(0.0)
 
     # solution of stress
+    print("Solving stress distribution problem")
     Q = fem.functionspace(domain, ("CG", 2, (3,)))
 
     # right boundary is assumed fixed
