@@ -147,16 +147,18 @@ if __name__ == '__main__':
     with VTXWriter(comm, output_current_path, [current_h], engine="BP4") as vtx:
         vtx.write(0.0)
 
+    # solution of stress
+    Q = fem.functionspace(domain, ("CG", 2, (3,)))
+
     # right boundary is assumed fixed
     u_bc = np.array((0,) * domain.geometry.dim, dtype=default_scalar_type)
-    right_dofs = fem.locate_dofs_topological(V, ft.dim, ft.find(markers.right))
-    bcs = [fem.dirichletbc(u_bc, right_dofs, V)]
+    right_dofs = fem.locate_dofs_topological(Q, ft.dim, ft.find(markers.right))
+    bcs = [fem.dirichletbc(u_bc, right_dofs, Q)]
 
     # body force B and Piola traction vector P
     B = fem.Constant(domain, default_scalar_type((0, 0, 0)))
     # T = fem.Constant(domain, default_scalar_type((0, 0, 0)))
 
-    Q = fem.functionspace(domain, ("CG", 2, (3,)))
     # Piola-Kirchhoff stress at left boundary due to lithium growth velocity
     stress_expr = fem.Expression(E_LI * (-kappa * grad(uh)) * MW_LI / (ρ_LI * faraday_constant * L0), Q.element.interpolation_points())
     T = fem.Function(Q)
