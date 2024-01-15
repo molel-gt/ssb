@@ -2,6 +2,28 @@
 import argparse
 import json
 import os
+import timeit
+
+import argparse
+import logging
+import matplotlib.pyplot as plt
+import numpy as np
+import pyvista
+import ufl
+from basix.ufl import element
+from collections import defaultdict
+from dolfinx import cpp, default_scalar_type, fem, io, log, mesh, nls
+from dolfinx.fem.petsc import NonlinearProblem
+from dolfinx.nls.petsc import NewtonSolver
+from dolfinx.fem import petsc
+from dolfinx.io import VTXWriter
+from mpi4py import MPI
+from petsc4py import PETSc
+from ufl import grad, inner
+
+import commons, configs, constants
+
+markers = commons.SurfaceMarkers()
 
 
 if __name__ == '__main__':
@@ -21,13 +43,11 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     rank = comm.rank
     start_time = timeit.default_timer()
-    if args.scale is None:
-        scaling = configs.get_configs()[args.scaling]
-        scale_x = float(scaling['x'])
-        scale_y = float(scaling['y'])
-        scale_z = float(scaling['z'])
-    else:
-        scale_x, scale_y, scale_z = [float(vv) for vv in args.scale.split(',')]
+
+    scaling = configs.get_configs()[args.scaling]
+    scale_x = float(scaling['x'])
+    scale_y = float(scaling['y'])
+    scale_z = float(scaling['z'])
     loglevel = configs.get_configs()['LOGGING']['level']
     dimensions = args.dimensions
     logger = logging.getLogger()
@@ -95,7 +115,9 @@ if __name__ == '__main__':
     right_bc = fem.dirichletbc(u1, fem.locate_dofs_topological(V, 2, right_boundary))
     n = ufl.FacetNormal(domain)
     # x = ufl.SpatialCoordinate(domain)
-    ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
+    metadata = {"quadrature_degree": 4}
+    ds = ufl.Measure("ds", domain=domain, subdomain_data=ft, metadata=metadata)
+    dx = ufl.Measure("dx", domain=domain, metadata=metadata)
 
     # Define variational problem
     u = ufl.TrialFunction(V)
@@ -106,8 +128,8 @@ if __name__ == '__main__':
     f = fem.Constant(domain, PETSc.ScalarType(0.0))
     g = fem.Constant(domain, PETSc.ScalarType(0.0))
 
-    a = ufl.inner(kappa * ufl.grad(u), ufl.grad(δu)) * ufl.dx
-    L = ufl.inner(f, δu) * ufl.dx + ufl.inner(g, δu) * ds(markers.insulated)
+    a = inner(kappa * grad(u), grad(δu)) * dx
+    L = inner(f, δu) * ufl.dx + inner(g, δu) * ds(markers.insulated)
 
     options = {
                "ksp_type": "gmres",
@@ -124,9 +146,103 @@ if __name__ == '__main__':
 
     logger.debug("Post-process calculations")
     W = fem.functionspace(domain, ("CG", 1, (3,)))
-    current_expr = fem.Expression(-kappa * ufl.grad(uh), W.element.interpolation_points())
+    current_expr = fem.Expression(-kappa * grad(uh), W.element.interpolation_points())
     current_h = fem.Function(W)
     current_h.interpolate(current_expr)
 
     with VTXWriter(comm, output_current_path, [current_h], engine="BP4") as vtx:
         vtx.write(0.0)
+
+    # solve elasticity problem
+    u_bc = np.array((0,) * domain.geometry.dim, dtype=default_scalar_type)
+    right_dofs = fem.locate_dofs_topological(V, meshtags.dim, meshtags.find(markers.right))
+    bcs = [fem.dirichletbc(u_bc, right_dofs, V)]
+
+    # body force B and Piola traction vector P
+    B = fem.Constant(domain, default_scalar_type((0, 0, 0)))
+    T = fem.Constant(domain, default_scalar_type((0, 0, 0)))
+
+    u = fem.Function(V)
+    v = ufl.TestFunction(V)
+
+    # Spatial dimension
+    d = len(u)
+
+    # Identity tensor
+    I = ufl.variable(ufl.Identity(d))
+
+    # Deformation gradient
+    F = ufl.variable(I + ufl.grad(u))
+
+    # Right Cauchy-Green tensor
+    C = ufl.variable(F.T * F)
+
+    # Invariants of deformation tensors
+    Ic = ufl.variable(ufl.tr(C))
+    J = ufl.variable(ufl.det(F))
+
+    # Mechanical properties
+    # Elasticity parameters
+    E = default_scalar_type(1.0e4)
+    ν = default_scalar_type(0.3)
+    μ = fem.Constant(domain, E / (2 * (1 + ν)))
+    λ = fem.Constant(domain, E * ν / ((1 + ν) * (1 - 2 * ν)))
+    # Stored strain energy density (compressible neo-Hookean model)
+    ψ = (μ / 2) * (Ic - 3) - μ * ufl.ln(J) + (λ / 2) * (ufl.ln(J))**2
+    # Stress
+    # Hyper-elasticity
+    P = ufl.diff(ψ, F)
+    # Define form F (we want to find u such that F(u) = 0)
+    F = inner(grad(v), P) * dx - inner(v, B) * dx - inner(v, T) * ds(markers.insulated)
+    problem = NonlinearProblem(F, u, bcs)
+    solver = NewtonSolver(domain.comm, problem)
+
+    # Set Newton solver options
+    solver.atol = 1e-8
+    solver.rtol = 1e-8
+    solver.convergence_criterion = "incremental"
+
+    # visualization
+    pyvista.start_xvfb()
+    plotter = pyvista.Plotter()
+    plotter.open_gif(os.path.join(args.mesh_folder, "deformation.gif"), fps=3)
+
+    topology, cells, geometry = plot.vtk_mesh(u.function_space)
+    function_grid = pyvista.UnstructuredGrid(topology, cells, geometry)
+
+    values = np.zeros((geometry.shape[0], 3))
+    values[:, :len(u)] = u.x.array.reshape(geometry.shape[0], len(u))
+    function_grid["u"] = values
+    function_grid.set_active_vectors("u")
+
+    # Warp mesh by deformation
+    warped = function_grid.warp_by_vector("u", factor=1)
+    warped.set_active_vectors("u")
+
+    # Add mesh to plotter and visualize
+    actor = plotter.add_mesh(warped, show_edges=True, lighting=False, clim=[0, 10])
+
+    # Compute magnitude of displacement to visualize in GIF
+    Vs = fem.FunctionSpace(domain, ("Lagrange", 2))
+    magnitude = fem.Function(Vs)
+    us = fem.Expression(ufl.sqrt(sum([u[i] ** 2 for i in range(len(u))])), Vs.element.interpolation_points())
+    magnitude.interpolate(us)
+    warped["mag"] = magnitude.x.array
+
+    log.set_log_level(log.LogLevel.INFO)
+    tval0 = -1.5
+    for n in range(1, 10):
+        T.value[2] = n * tval0
+        num_its, converged = solver.solve(u)
+        assert (converged)
+        u.x.scatter_forward()
+        print(f"Time step {n}, Number of iterations {num_its}, Load {T.value}")
+        function_grid["u"][:, :len(u)] = u.x.array.reshape(geometry.shape[0], len(u))
+        magnitude.interpolate(us)
+        warped.set_active_scalars("mag")
+        warped_n = function_grid.warp_by_vector(factor=1)
+        plotter.update_coordinates(warped_n.points.copy(), render=False)
+        plotter.update_scalar_bar_range([0, 10])
+        plotter.update_scalars(magnitude.x.array)
+        plotter.write_frame()
+    plotter.close()
