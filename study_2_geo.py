@@ -110,6 +110,12 @@ if __name__ == '__main__':
 
     gmsh.initialize()
     gmsh.option.setNumber('General.Verbosity', 1)
+    gmsh.option.setNumber('Mesh.MeshSizeMin', 0.5 * args.resolution)
+    gmsh.option.setNumber('Mesh.MeshSizeMax', args.resolution)
+    gmsh.option.setNumber('Mesh.MeshSizeFactor', 1)
+    # gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
+    # gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
+    # gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
     gmsh.model.add('area')
     z0_points = [
         (0, 0, 0),
@@ -272,7 +278,7 @@ if __name__ == '__main__':
 
     gmsh.model.occ.healShapes()
     gmsh.model.occ.synchronize()
-
+    print("Generating surface tags..")
     if len(np.unique(img)) == 1 and np.isclose(np.unique(img)[0], 1):
         lefttag = gmsh.model.addPhysicalGroup(2, [6], markers.left_cc)
         righttag = gmsh.model.addPhysicalGroup(2, [1], markers.right_cc)
@@ -292,20 +298,20 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
 
     # refinement
-    gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "FacesList", [insulatedtag, lefttag, righttag])
+    # gmsh.model.mesh.field.add("Distance", 1)
+    # gmsh.model.mesh.field.setNumbers(1, "FacesList", [insulatedtag, lefttag, righttag])
 
-    gmsh.model.mesh.field.add("Threshold", 2)
-    gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "LcMin", 0.5 * args.resolution)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 1)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", max(1, 0.05 * Lz))
+    # gmsh.model.mesh.field.add("Threshold", 2)
+    # gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    # gmsh.model.mesh.field.setNumber(2, "LcMin", 0.5 * args.resolution)
+    # gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution)
+    # gmsh.model.mesh.field.setNumber(2, "DistMin", 1)
+    # gmsh.model.mesh.field.setNumber(2, "DistMax", max(1, 0.05 * Lz))
 
-    gmsh.model.mesh.field.add("Max", 5)
-    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    gmsh.model.mesh.field.setAsBackgroundMesh(5)
-
+    # gmsh.model.mesh.field.add("Max", 5)
+    # gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    # gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    print("Generating mesh..")
     gmsh.model.mesh.generate(3)
     gmsh.write(f"{mshpath}")
     gmsh.finalize()
@@ -319,6 +325,7 @@ if __name__ == '__main__':
     tetr_mesh_unscaled = geometry.create_mesh(msh, cell_types.tetra)
     tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, cell_types.tetra, scale_factor=scale_factor)
     tetr_mesh_scaled.write(os.path.join(outdir, 'tetr.xdmf'))
+    print("Cleaning up.")
     # clean up
     os.remove(mshpath)
     geometry_metadata = {
