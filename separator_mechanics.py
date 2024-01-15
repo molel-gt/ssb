@@ -48,14 +48,15 @@ if __name__ == '__main__':
     scale_x = float(scaling['x'])
     scale_y = float(scaling['y'])
     scale_z = float(scaling['z'])
-    loglevel = configs.get_configs()['LOGGING']['level']
+    # loglevel = configs.get_configs()['LOGGING']['level']
     dimensions = args.dimensions
-    logger = logging.getLogger()
-    logger.setLevel(loglevel)
-    formatter = logging.Formatter(f'%(levelname)s:%(asctime)s:{data_dir}:{dimensions}:%(message)s')
-    fh = logging.FileHandler(os.path.basename(__file__).replace(".py", ".log"))
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
+    log.set_log_level(log.LogLevel.INFO)
+    # logger = logging.getLogger()
+    # logger.setLevel(loglevel)
+    # formatter = logging.Formatter(f'%(levelname)s:%(asctime)s:{data_dir}:{dimensions}:%(message)s')
+    # fh = logging.FileHandler(os.path.basename(__file__).replace(".py", ".log"))
+    # fh.setFormatter(formatter)
+    # logger.addHandler(fh)
 
     Lx, Ly, Lz = [float(v) for v in dimensions.split("-")]
     Lx = Lx * scale_x
@@ -72,19 +73,19 @@ if __name__ == '__main__':
     right_cc_marker = markers.right_cc
     insulated_marker = markers.insulated
 
-    logger.debug("Loading tetrahedra (dim = 3) mesh..")
+    log.debug("Loading tetrahedra (dim = 3) mesh..")
     with io.XDMFFile(comm, tetr_mesh_path, "r") as infile3:
         domain = infile3.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(domain, name="Grid")
     domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
     try:
-        logger.debug("Attempting to load xmdf file for triangle mesh")
+        log.debug("Attempting to load xmdf file for triangle mesh")
         with io.XDMFFile(comm, tria_mesh_path, "r") as infile2:
             ft = infile2.read_meshtags(domain, name="Grid")
         left_boundary = ft.find(markers.left_cc)
         right_boundary = ft.find(markers.right_cc)
     except RuntimeError as e:
-        logger.error("Missing xdmf file for triangle mesh!")
+        log.error("Missing xdmf file for triangle mesh!")
         facets = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
                                                marker=lambda x: np.isfinite(x[2]))
         facets_l0 = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
@@ -138,13 +139,13 @@ if __name__ == '__main__':
                }
 
     model = petsc.LinearProblem(a, L, bcs=[left_bc, right_bc], petsc_options=options)
-    logger.debug('Solving problem..')
+    log.debug('Solving problem..')
     uh = model.solve()
 
     with VTXWriter(comm, output_potential_path, [uh], engine="BP4") as vtx:
         vtx.write(0.0)
 
-    logger.debug("Post-process calculations")
+    log.debug("Post-process calculations")
     W = fem.functionspace(domain, ("CG", 1, (3,)))
     current_expr = fem.Expression(-kappa * grad(uh), W.element.interpolation_points())
     current_h = fem.Function(W)
@@ -228,15 +229,13 @@ if __name__ == '__main__':
     us = fem.Expression(ufl.sqrt(sum([u[i] ** 2 for i in range(len(u))])), Vs.element.interpolation_points())
     magnitude.interpolate(us)
     warped["mag"] = magnitude.x.array
-
-    log.set_log_level(log.LogLevel.INFO)
     tval0 = -1.5
     for n in range(1, 10):
         T.value[2] = n * tval0
         num_its, converged = solver.solve(u)
         assert (converged)
         u.x.scatter_forward()
-        print(f"Time step {n}, Number of iterations {num_its}, Load {T.value}")
+        log.info(f"Time step {n}, Number of iterations {num_its}, Load {T.value}")
         function_grid["u"][:, :len(u)] = u.x.array.reshape(geometry.shape[0], len(u))
         magnitude.interpolate(us)
         warped.set_active_scalars("mag")
