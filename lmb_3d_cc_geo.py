@@ -97,8 +97,8 @@ if __name__ == '__main__':
 
     threshold = gmsh.model.mesh.field.add("Threshold")
     gmsh.model.mesh.field.setNumber(threshold, "IField", distance)
-    gmsh.model.mesh.field.setNumber(threshold, "LcMin", args.resolution * micron)
-    gmsh.model.mesh.field.setNumber(threshold, "LcMax", 10 * args.resolution * micron)
+    gmsh.model.mesh.field.setNumber(threshold, "LcMin", (1/5) * args.resolution * micron)
+    gmsh.model.mesh.field.setNumber(threshold, "LcMax", args.resolution * micron)
     gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0.5 * micron)
     gmsh.model.mesh.field.setNumber(threshold, "DistMax", 5 * micron)
 
