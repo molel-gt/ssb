@@ -11,7 +11,8 @@ import ufl
 
 from basix.ufl import element
 from collections import defaultdict
-from dolfinx import cpp, fem, io, mesh
+
+from dolfinx import cpp, default_scalar_type, fem, io, mesh
 from dolfinx.fem import petsc
 from dolfinx.io import VTXWriter
 from mpi4py import MPI
