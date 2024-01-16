@@ -109,13 +109,8 @@ if __name__ == '__main__':
     graph.get_graph_pieces()
 
     gmsh.initialize()
-    # gmsh.option.setNumber('General.Verbosity', 1)
-    # gmsh.option.setNumber('Mesh.MeshSizeMin', 0.5 * args.resolution)
-    # gmsh.option.setNumber('Mesh.MeshSizeMax', args.resolution)
-    # gmsh.option.setNumber('Mesh.MeshSizeFactor', 1)
-    # gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
-    # gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
-    # gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
+    gmsh.option.setNumber('Mesh.MeshSizeMin', (1/5) * args.resolution)
+    gmsh.option.setNumber('Mesh.MeshSizeMax', args.resolution)
     gmsh.model.add('area')
     z0_points = [
         (0, 0, 0),
