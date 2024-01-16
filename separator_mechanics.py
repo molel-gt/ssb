@@ -264,7 +264,7 @@ if __name__ == '__main__':
     ax.set_xlim([0, LY*1e6])
     ax.set_ylabel(r'$u$ [$\mu$m]', rotation=0, labelpad=50, fontsize='xx-large')
     ax.set_xlabel(r'Y [$\mu$m]')
-    ax.set_title(f'(x, z) = ({0.5*LX*1e6:.1f}, {0.1*LZ*1e6:.1f})' + r' $\u$m L$_z$' + f' = {LZ*1e6:.1f}' + r' $\mu$m')
+    ax.set_title(f'(x, z) = ({0.5*LX*1e6:.1f}, {0.1*LZ*1e6:.1f})' + r' $\mu$m L$_z$' + f' = {LZ*1e6:.1f}' + r' $\mu$m')
     plt.tight_layout()
     plt.savefig(os.path.join(args.mesh_folder, f'displacement-y.png'), dpi=1500)
     plt.close()
