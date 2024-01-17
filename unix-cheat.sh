@@ -24,3 +24,6 @@ for f in $simfiles;
 do
     grep 'Dimensions' $f && grep 'Contact area fraction at left' $f && grep 'Max' $f;
 done
+
+# convert .ipynb to .py
+jupyter nbconvert --to=python chapter-1-notebook.ipynb
