@@ -42,6 +42,9 @@ encoding = io.XDMFFile.Encoding.HDF5
 
 
 def u_ocp(sod):
+    if sod < 0 or sod > 1:
+        raise ValueError("Invalid input value for state of discharge")
+
     return (1 / 1.75) * (np.arctanh(-sod * 2.0 + 1) + 4.5)
 
 
@@ -123,10 +126,10 @@ if __name__ == '__main__':
 
     # subdomain conductivity values
     kappa = fem.Function(V)
-    cells_negative_cc = ct.find(markers.negative_cc)
+    cells_positive_am = ct.find(markers.positive_am)
     cells_electrolyte = ct.find(markers.electrolyte)
 
-    kappa.x.array[cells_negative_cc] = np.full_like(cells_negative_cc, SIGMA_COPPER, dtype=default_scalar_type)
+    kappa.x.array[cells_positive_am] = np.full_like(cells_positive_am, SIGMA_NMC622, dtype=default_scalar_type)
     kappa.x.array[cells_electrolyte] = np.full_like(cells_electrolyte, KAPPA_ELECTROLYTE, dtype=default_scalar_type)
 
     f = fem.Constant(domain, PETSc.ScalarType(0))
@@ -156,14 +159,14 @@ if __name__ == '__main__':
     F += alpha / h * δu * u * ds(markers.left) + alpha / h * δu * u * ds(markers.right)
 
     # Internal boundary
-    F += - dot(avg(grad(δu)), (R * T / i0 / faraday_const) * grad(u)('-') + U_ocv) * dS(markers.middle)
-    F += (alpha / h_avg) * dot(jump(δu, n), (R * T / i0 / faraday_const) * grad(u)('-') + U_ocv) * dS(markers.middle)
+    F += - dot(avg(grad(δu)), (R * T / i0 / faraday_const) * grad(u)('-') + U_ocv) * dS(markers.electrolyte_v_positive_am)
+    F += (alpha / h_avg) * dot(jump(δu, n), (R * T / i0 / faraday_const) * grad(u)('-') + U_ocv) * dS(markers.electrolyte_v_positive_am)
 
     # Symmetry
-    F += - dot(avg(grad(δu)), jump(u, n)) * dS(markers.middle)
+    F += - dot(avg(grad(δu)), jump(u, n)) * dS(markers.electrolyte_v_positive_am)
 
     # Coercivity
-    F += alpha / h_avg * dot(jump(δu, n), jump(u, n)) * dS(markers.middle)
+    F += alpha / h_avg * dot(jump(δu, n), jump(u, n)) * dS(markers.electrolyte_v_positive_am)
 
     # Nitsche Dirichlet BC terms on left and right boundaries
     F += - dot(u * n, grad(δu)) * ds(markers.left)
@@ -172,8 +175,8 @@ if __name__ == '__main__':
     F += u_right * dot(n, grad(δu)) * ds(markers.right) - (alpha / h) * u_right * δu * ds(markers.right)
 
     # Nitsche Neumann BC terms on insulated boundary
-    F += -(h / alpha) * dot(g * n, grad(δu)) * ds(markers.insulated_negative_cc)
-    F += -g * δu * ds(markers.insulated_negative_cc)
+    F += -(h / alpha) * dot(g * n, grad(δu)) * ds(markers.insulated_positive_am)
+    F += -g * δu * ds(markers.insulated_positive_am)
     F += -(h / alpha) * dot(g * n, grad(δu)) * ds(markers.insulated_electrolyte)
     F += -g * δu * ds(markers.insulated_electrolyte)
 
@@ -322,7 +325,6 @@ if __name__ == '__main__':
 
     f = fem.Constant(positive_am_domain, PETSc.ScalarType(0))
     g = fem.Constant(positive_am_domain, PETSc.ScalarType(0))
-    g_middle = fem.Constant(positive_am_domain, PETSc.ScalarType(0))
     D = fem.Constant(positive_am_domain, PETSc.ScalarType(D_BULK))
 
     a = c * δc * dx + dt * inner(D * grad(c), grad(δc)) * dx
@@ -330,7 +332,7 @@ if __name__ == '__main__':
         (c_n + dt * f) * δc * dx 
         + dt * inner(g, δc) * ds(markers.insulated_electrolyte) 
         + dt * inner(g, δc) * ds(markers.right)
-        + dt * inner(grad(potential) / 96485, n) * δc * ds(markers.middle)
+        + dt * inner(grad(potential) / 96485, n) * δc * ds(markers.electrolyte_v_positive_am)
     )
 
     bilinear_form = fem.form(a)
