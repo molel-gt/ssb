@@ -40,6 +40,9 @@ KAPPA_ELECTROLYTE = 2.5e1  # [S.m-1]
 
 encoding = io.XDMFFile.Encoding.HDF5
 
+V_LO = 2.5  # lower cut-off voltage
+V_HI = 4.25  # upper cut-off voltage
+
 
 def u_ocp(sod):
     if sod < 0 or sod > 1:
