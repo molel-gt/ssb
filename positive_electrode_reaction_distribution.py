@@ -41,8 +41,8 @@ KAPPA_ELECTROLYTE = 2.5e1  # [S.m-1]
 encoding = io.XDMFFile.Encoding.HDF5
 
 
-def open_circuit_voltage(sod, L=1, k=2):
-    return 2.5 + (1/k) * np.log((L - sod) / sod)
+def u_ocp(sod):
+    return (1 / 1.75) * (np.arctanh(-sod * 2.0 + 1) + 4.5)
 
 
 if __name__ == '__main__':
@@ -146,7 +146,7 @@ if __name__ == '__main__':
     with u_right.vector.localForm() as u1_loc:
         u1_loc.set(args.voltage)
 
-    U_ocv = ufl.as_vector((open_circuit_voltage(args.sod), 0, 0))
+    U_ocv = ufl.as_vector((u_ocp(args.sod), 0, 0))
 
     F = dot(grad(u), grad(δu)) * dx - dot(δu * n, grad(u)) * ds
 
