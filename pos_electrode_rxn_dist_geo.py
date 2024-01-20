@@ -177,6 +177,21 @@ if __name__ == '__main__':
     electrolyte_v_positive_am = gmsh.model.addPhysicalGroup(2, interface, markers.electrolyte_v_positive_am)
     gmsh.model.setPhysicalName(2, electrolyte_v_positive_am, "electrolyte_positive_am_interface")
     gmsh.model.occ.synchronize()
+
+    # refinement
+    distance = gmsh.model.mesh.field.add("Distance")
+    gmsh.model.mesh.field.setNumbers(distance, "FacesList", [left, insulated, electrolyte_v_positive_am, right])
+
+    threshold = gmsh.model.mesh.field.add("Threshold")
+    gmsh.model.mesh.field.setNumber(threshold, "IField", distance)
+    gmsh.model.mesh.field.setNumber(threshold, "LcMin", (1/5) * args.resolution)
+    gmsh.model.mesh.field.setNumber(threshold, "LcMax", args.resolution)
+    gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0.5)
+    gmsh.model.mesh.field.setNumber(threshold, "DistMax", 5)
+
+    max_f = gmsh.model.mesh.field.add("Max")
+    gmsh.model.mesh.field.setNumbers(max_f, "FieldsList", [threshold])
+    gmsh.model.mesh.field.setAsBackgroundMesh(max_f)
     gmsh.model.mesh.generate(3)
     gmsh.write(msh_path)
     gmsh.finalize()
