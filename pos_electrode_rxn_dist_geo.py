@@ -12,10 +12,7 @@ import pandas as pd
 import commons, configs, geometry, utils
 
 markers = commons.Markers()
-phases = commons.Phases()
 CELL_TYPES = commons.CellTypes()
-
-start_zpos = 50
 
 
 if __name__ == '__main__':
@@ -35,7 +32,7 @@ if __name__ == '__main__':
     scaling = configs.get_configs()[args.scaling]
     scale_factor = [float(scaling[k]) for k in ['x', 'y', 'z']]
     LX, LY, LZ = [int(v) for v in args.dimensions.split("-")]
-    outdir = f"output/{args.name_of_study}/{args.dimensions}/{args.L_SEP}/{args.active_area_frac}{args.am_vol_frac}/{args.R_PARTICLE}/{args.resolution}"
+    outdir = f"output/{args.name_of_study}/{args.dimensions}/{args.L_SEP}/{args.active_area_frac}/{args.am_vol_frac}/{args.R_PARTICLE}/{args.resolution}"
     utils.make_dir_if_missing(outdir)
     msh_path = os.path.join(outdir, 'laminate.msh')
     tetr_path = os.path.join(outdir, 'tetr.xdmf')
@@ -52,25 +49,25 @@ if __name__ == '__main__':
     gmsh.initialize()
     gmsh.model.add('laminate')
     gmsh.option.setNumber('General.Verbosity', 1)
-    box_se = gmsh.model.occ.addCylinder(R, R, 0, 0, 0, args.L_SEP, 235)
+    box_se = gmsh.model.occ.addCylinder(R, R, 0, 0, 0, args.L_SEP + Lcat - Rp, R)
     gmsh.model.occ.synchronize()
-    box_am = gmsh.model.occ.addCylinder(R, R, args.L_SEP, 0, 0, Lcat, 235)
+    box_am = gmsh.model.occ.addCylinder(R, R, args.L_SEP + Lcat - Rp, 0, 0, Rp, R)
     gmsh.model.occ.synchronize()
     cylinders = []
     spheres = []
 
     for idx in range(df.shape[0]):
         x, y, _ = df.loc[idx, :]
-        if ((235 - abs(x)) ** 2 + (235 - abs(y)) ** 2) ** 0.5 >= 235:
+        if ((R - x) ** 2 + (R - y) ** 2) ** 0.5 >= 225:
             continue
         cyl = gmsh.model.occ.addCylinder(x, y, args.L_SEP, 0, 0, Lcat - Rp, Rp)
         gmsh.model.occ.synchronize()
         cylinders.append(cyl)
         gmsh.model.occ.synchronize()
 
-    se_phase = gmsh.model.occ.fuse([(3, box_se)], [(3, c) for c in cylinders], removeTool=False)
+    se_phase = gmsh.model.occ.cut([(3, box_se)], [(3, c) for c in cylinders], removeTool=False)
     gmsh.model.occ.synchronize()
-    union = gmsh.model.occ.cut([(3, box_am)], [(3, c) for c in cylinders])
+    union = gmsh.model.occ.fuse([(3, box_am)], [(3, c) for c in cylinders])
     gmsh.model.occ.synchronize()
 
     vols = gmsh.model.occ.getEntities(3)
@@ -95,21 +92,13 @@ if __name__ == '__main__':
             right.append(surf[1])
         elif np.isclose(com[2], 0):
             left.append(surf[1])
-        elif np.isclose(com[2], 0.5 * args.L_SEP):
-            if np.isclose(com[0], 235) or np.isclose(com[1], 235):
+        elif np.isclose(com[0], 235) and np.isclose(com[1], 235) and np.isclose(com[2], 0.5 * (LZ - Rp)):
                 insulated_se.append(surf[1])
-            else:
-                interface.append(surf[1])
-        elif np.isclose(com[2], args.L_SEP + 0.5 * (Lcat - Rp)):
-            if np.isclose(com[0], 235) or np.isclose(com[1], 235):
-                print("here")
+        elif np.isclose(com[0], 235, atol=1) and np.isclose(com[1], 235, atol=2) and np.isclose(com[2], args.L_SEP + Lcat - 0.5 * Rp, atol=0.1):
                 insulated_am.append(surf[1])
-            else:
-                interface.append(surf[1])
         else:
-            print(com)
             interface.append(surf[1])
-
+    insulated = insulated_se + insulated_am
     left = gmsh.model.addPhysicalGroup(2, left, markers.left)
     gmsh.model.setPhysicalName(2, left, "left")
     right = gmsh.model.addPhysicalGroup(2, right, markers.right)
