@@ -162,7 +162,8 @@ if __name__ == '__main__':
 
     left_inactive = gmsh.model.occ.cut([(2, k) for k in left], [(2, kk) for kk in left_active], removeTool=False, removeObject=False)
     gmsh.model.occ.synchronize()
-    insulated = insulated_se + insulated_am + [left_inactive[0][0][1]]
+    insulated_se += [left_inactive[0][0][1]]
+    insulated = insulated_se + insulated_am
     left = gmsh.model.addPhysicalGroup(2, left_active, markers.left)
     gmsh.model.setPhysicalName(2, left, "left")
     right = gmsh.model.addPhysicalGroup(2, right, markers.right)
