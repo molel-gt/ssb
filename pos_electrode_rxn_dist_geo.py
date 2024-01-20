@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # coding: utf-8
-
+import argparse
 import os
 
 import gmsh
@@ -9,7 +9,7 @@ import meshio
 import numpy as np
 import pandas as pd
 
-import commons, geometry, utils
+import commons, configs, geometry, utils
 
 markers = commons.Markers()
 phases = commons.Phases()
@@ -33,9 +33,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     scaling = configs.get_configs()[args.scaling]
-    scale_factor = [scaling[k] for k in ['x', 'y', 'z']]
+    scale_factor = [float(scaling[k]) for k in ['x', 'y', 'z']]
     LX, LY, LZ = [int(v) for v in args.dimensions.split("-")]
-    outdir = f"output/{args.name_of_study}/{args.dimensions}/{args.L_SEP}/{args.active_area_frac}{args.am_vol_frac}/{args.R_PARTICLE}"
+    outdir = f"output/{args.name_of_study}/{args.dimensions}/{args.L_SEP}/{args.active_area_frac}{args.am_vol_frac}/{args.R_PARTICLE}/{args.resolution}"
     utils.make_dir_if_missing(outdir)
     msh_path = os.path.join(outdir, 'laminate.msh')
     tetr_path = os.path.join(outdir, 'tetr.xdmf')
@@ -88,6 +88,7 @@ if __name__ == '__main__':
     insulated_se = []
     insulated_am = []
     interface = []
+
     for surf in gmsh.model.occ.getEntities(2):
         com = gmsh.model.occ.getCenterOfMass(surf[0], surf[1])
         if np.isclose(com[2], args.L_SEP + Lcat):
