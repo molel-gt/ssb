@@ -68,7 +68,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     markers = commons.Markers()
-    comm = MPI.COMM_WORLD
     scaling = configs.get_configs()[args.scaling]
     scale = [float(scaling[val]) for val in ['x', 'y', 'z']]
     LX, LY, LZ = [int(val) * scale[idx] for (idx, val) in enumerate(args.dimensions.split("-"))]
@@ -87,7 +86,9 @@ if __name__ == '__main__':
     # line plots
     n_points = 10000
 
+    comm = MPI.COMM_WORLD
     # Load mesh files
+    print("Loading dim 3 mesh files..")
     with io.XDMFFile(comm, tetr_meshfile, "r") as infile3:
         domain = infile3.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
         ct = infile3.read_meshtags(domain, name="Grid")
@@ -99,7 +100,8 @@ if __name__ == '__main__':
     num_facets = ft_imap.size_local + ft_imap.num_ghosts
     indices = np.arange(0, num_facets)
     values = np.zeros(indices.shape, dtype=np.intc)  # all facets are tagged with zero
-    
+
+    print("Loading dim 2 mesh tags..")
     with io.XDMFFile(comm, tria_meshfile, "r") as infile2:
         ft = infile2.read_meshtags(domain, name="Grid")
 
@@ -197,6 +199,7 @@ if __name__ == '__main__':
     opts[f"{option_prefix}ksp_type"] = "gmres"
     opts[f"{option_prefix}pc_type"] = "hypre"
     ksp.setFromOptions()
+    print("Solving potential problem..")
     solver.solve(u)
     u.name = 'potential'
 
@@ -256,6 +259,7 @@ if __name__ == '__main__':
     plt.savefig(os.path.join(mesh_folder, "potential-midline.png"), dpi=1500)
 
     ##### Concentration Problem
+    print("Solving concentration problem..")
     full_mesh, cell_tags, facet_tags = dolfinx.io.gmshio.read_from_msh(output_meshfile, comm, 0)
 
     # Create submesh for pe
