@@ -21,7 +21,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Current Distribution')
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="reaction_distribution")
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
-    parser.add_argument("--resolution", help="maximum resolution in microns", nargs='?', const=1, default=1, type=int)
+    parser.add_argument("--resolution", help="maximum resolution", nargs='?', const=1, default=1, type=float)
     parser.add_argument("--L_SEP", help="integer representation of separator thickness", nargs='?', const=1, default=25, type=int)
     parser.add_argument("--R_PARTICLE", help="integer representation of AM particle radius", nargs='?', const=1, default=6, type=int)
     parser.add_argument("--am_vol_frac", help="volume fraction of active material phase", nargs='?', const=1, default=0.5, type=float)
@@ -48,6 +48,9 @@ if __name__ == '__main__':
     gmsh.initialize()
     gmsh.model.add('laminate')
     gmsh.option.setNumber('General.Verbosity', 1)
+    gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 1)
+
+    # main section
     box_se = gmsh.model.occ.addCylinder(R, R, 0, 0, 0, args.L_SEP + Lcat - Rp, R)
     gmsh.model.occ.synchronize()
     box_am = gmsh.model.occ.addCylinder(R, R, args.L_SEP + Lcat - Rp, 0, 0, Rp, R)
@@ -64,6 +67,7 @@ if __name__ == '__main__':
         cylinders.append(cyl)
         gmsh.model.occ.synchronize()
 
+    # 3D mesh
     se_phase = gmsh.model.occ.cut([(3, box_se)], [(3, c) for c in cylinders], removeTool=False)
     gmsh.model.occ.synchronize()
     union = gmsh.model.occ.fuse([(3, box_am)], [(3, c) for c in cylinders])
@@ -84,20 +88,23 @@ if __name__ == '__main__':
     insulated_se = []
     insulated_am = []
     interface = []
+    main_left = []
 
     for surf in gmsh.model.occ.getEntities(2):
         com = gmsh.model.occ.getCenterOfMass(surf[0], surf[1])
         if np.isclose(com[2], args.L_SEP + Lcat):
             right.append(surf[1])
         elif np.isclose(com[2], 0):
-            left.append(surf[1])
+            if np.isclose(com[0], R) and np.isclose(com[1], R):
+                left.append(surf[1])
         elif np.isclose(com[0], 235) and np.isclose(com[1], 235) and np.isclose(com[2], 0.5 * (LZ - Rp)):
                 insulated_se.append(surf[1])
         elif np.isclose(com[0], 235, atol=1) and np.isclose(com[1], 235, atol=2) and np.isclose(com[2], args.L_SEP + Lcat - 0.5 * Rp, atol=0.1):
                 insulated_am.append(surf[1])
         else:
             interface.append(surf[1])
-    # generate active labeled surface
+
+    # # generate active labeled surface
     # left_active = []
     # img = np.asarray(plt.imread(f'data/current_constriction/test{args.img_id}.tif')[:, :, 0], dtype=np.uint8)
     # img2 = img.copy()
@@ -121,6 +128,7 @@ if __name__ == '__main__':
     # graph.build_graph()
     # graph.get_graph_pieces()
 
+    # gmsh_points = []
     # for p in graph.pieces:
     #     if len(p) < 4:
     #         continue
@@ -147,6 +155,7 @@ if __name__ == '__main__':
     #             idx
     #         )
     #     gmsh.model.occ.synchronize()
+    #     gmsh_points += hull_points
     #     hull_lines = []
     #     for i in range(-1, len(hull_points) - 1):
     #         idx = gmsh.model.occ.addLine(hull_points[i], hull_points[i + 1])
@@ -156,37 +165,40 @@ if __name__ == '__main__':
 
     #     gmsh.model.occ.synchronize()
     #     idx = gmsh.model.occ.addCurveLoop(hull_lines)
+    #     gmsh.model.occ.synchronize()
     #     idx2 = gmsh.model.occ.addPlaneSurface((idx, ))
     #     left_active.append(idx2)
     #     gmsh.model.occ.synchronize()
 
-    # left_inactive = gmsh.model.occ.cut([(2, k) for k in left], [(2, kk) for kk in left_active], removeTool=False, removeObject=False)
+    # left_inactive = gmsh.model.occ.cut([(2, k) for k in left], [(2, kk) for kk in left_active])#, removeTool=False, removeObject=False)
     # gmsh.model.occ.synchronize()
-    # insulated_se += [left_inactive[0][0][1]]
-    insulated = insulated_se + insulated_am
-    left = gmsh.model.addPhysicalGroup(2, left, markers.left)
-    gmsh.model.setPhysicalName(2, left, "left")
-    right = gmsh.model.addPhysicalGroup(2, right, markers.right)
-    gmsh.model.setPhysicalName(2, right, "right")
-    insulated_se = gmsh.model.addPhysicalGroup(2, insulated_se, markers.insulated_electrolyte)
-    gmsh.model.setPhysicalName(2, insulated_se, "insulated_electrolyte")
-    insulated_am = gmsh.model.addPhysicalGroup(2, insulated_am, markers.insulated_positive_am)
-    gmsh.model.setPhysicalName(2, insulated_am, "insulated_am")
-    insulated = gmsh.model.addPhysicalGroup(2, insulated, markers.insulated)
-    gmsh.model.setPhysicalName(2, insulated, "insulated")
-    electrolyte_v_positive_am = gmsh.model.addPhysicalGroup(2, interface, markers.electrolyte_v_positive_am)
-    gmsh.model.setPhysicalName(2, electrolyte_v_positive_am, "electrolyte_positive_am_interface")
+    left_inactive = []
+    left_tag = gmsh.model.addPhysicalGroup(2, left, markers.left)
+    gmsh.model.setPhysicalName(2, left_tag, "left")
     gmsh.model.occ.synchronize()
+    right_tag = gmsh.model.addPhysicalGroup(2, right, markers.right)
+    gmsh.model.setPhysicalName(2, right_tag, "right")
+    electrolyte_v_positive_am_tag = gmsh.model.addPhysicalGroup(2, interface, markers.electrolyte_v_positive_am)
+    gmsh.model.setPhysicalName(2, electrolyte_v_positive_am_tag, "electrolyte_positive_am_interface")
+    gmsh.model.occ.synchronize()
+    insulated_am_tag = gmsh.model.addPhysicalGroup(2, insulated_am, markers.insulated_positive_am)
+    gmsh.model.setPhysicalName(2, insulated_am_tag, "insulated_am")
+    insulated_se += left_inactive
+    insulated = insulated_se + insulated_am
+    insulated_se_tag = gmsh.model.addPhysicalGroup(2, insulated_se, markers.insulated_electrolyte)
+    gmsh.model.setPhysicalName(2, insulated_se_tag, "insulated_electrolyte")
+    insulated_tag = gmsh.model.addPhysicalGroup(2, insulated, markers.insulated)
+    gmsh.model.setPhysicalName(2, insulated_tag, "insulated")
 
     # refinement
     print("Performing local refinement..")
     distance = gmsh.model.mesh.field.add("Distance")
-    gmsh.model.mesh.field.setNumbers(distance, "FacesList", [left, insulated, electrolyte_v_positive_am, right])
+    gmsh.model.mesh.field.setNumbers(distance, "FacesList", [left_tag, insulated_tag, electrolyte_v_positive_am_tag, right_tag])
 
     threshold = gmsh.model.mesh.field.add("Threshold")
     gmsh.model.mesh.field.setNumber(threshold, "IField", distance)
     gmsh.model.mesh.field.setNumber(threshold, "LcMin", args.resolution)
-    gmsh.model.mesh.field.setNumber(threshold, "LcMax", 5 * args.resolution)
+    gmsh.model.mesh.field.setNumber(threshold, "LcMax", 10 * args.resolution)
     gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0.5)
     gmsh.model.mesh.field.setNumber(threshold, "DistMax", 5)
 
