@@ -179,19 +179,21 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
 
     # refinement
+    print("Performing local refinement..")
     distance = gmsh.model.mesh.field.add("Distance")
     gmsh.model.mesh.field.setNumbers(distance, "FacesList", [left, insulated, electrolyte_v_positive_am, right])
 
     threshold = gmsh.model.mesh.field.add("Threshold")
     gmsh.model.mesh.field.setNumber(threshold, "IField", distance)
-    gmsh.model.mesh.field.setNumber(threshold, "LcMin", (1/5) * args.resolution)
-    gmsh.model.mesh.field.setNumber(threshold, "LcMax", args.resolution)
+    gmsh.model.mesh.field.setNumber(threshold, "LcMin", args.resolution)
+    gmsh.model.mesh.field.setNumber(threshold, "LcMax", 5 * args.resolution)
     gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0.5)
     gmsh.model.mesh.field.setNumber(threshold, "DistMax", 5)
 
     max_f = gmsh.model.mesh.field.add("Max")
     gmsh.model.mesh.field.setNumbers(max_f, "FieldsList", [threshold])
     gmsh.model.mesh.field.setAsBackgroundMesh(max_f)
+    print("Generating mesh..")
     gmsh.model.mesh.generate(3)
     gmsh.write(msh_path)
     gmsh.finalize()
