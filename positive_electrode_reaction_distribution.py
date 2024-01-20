@@ -52,7 +52,7 @@ def u_ocp(sod):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Current Distribution')
+    parser = argparse.ArgumentParser(description='Reaction Distribution')
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="reaction_distribution")
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
