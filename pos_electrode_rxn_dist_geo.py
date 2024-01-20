@@ -3,13 +3,15 @@
 import argparse
 import os
 
+import alphashape
 import gmsh
 import matplotlib.pyplot as plt
 import meshio
 import numpy as np
 import pandas as pd
+import scipy
 
-import commons, configs, geometry, utils
+import commons, configs, geometry, grapher, utils
 
 markers = commons.Markers()
 CELL_TYPES = commons.CellTypes()
@@ -24,6 +26,7 @@ if __name__ == '__main__':
     parser.add_argument("--R_PARTICLE", help="integer representation of AM particle radius", nargs='?', const=1, default=6, type=int)
     parser.add_argument("--am_vol_frac", help="volume fraction of active material phase", nargs='?', const=1, default=0.5, type=float)
     parser.add_argument("--void_vol_frac", help="volume fraction of void phase", nargs='?', const=1, default=0, type=float)
+    parser.add_argument("--img_id", help="image id to identify contact map", nargs='?', const=1, default=11, type=int)
     parser.add_argument("--active_area_frac", help="active area fraction at neg electrode-SE interface", nargs='?', const=1, default=0.4, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='CONTACT_LOSS_SCALING', type=str)
@@ -32,7 +35,7 @@ if __name__ == '__main__':
     scaling = configs.get_configs()[args.scaling]
     scale_factor = [float(scaling[k]) for k in ['x', 'y', 'z']]
     LX, LY, LZ = [int(v) for v in args.dimensions.split("-")]
-    outdir = f"output/{args.name_of_study}/{args.dimensions}/{args.L_SEP}/{args.active_area_frac}/{args.am_vol_frac}/{args.R_PARTICLE}/{args.resolution}"
+    outdir = f"output/{args.name_of_study}/{args.dimensions}/{args.L_SEP}/{args.active_area_frac}/{args.am_vol_frac}/{args.R_PARTICLE}/{args.img_id}/{args.resolution}"
     utils.make_dir_if_missing(outdir)
     msh_path = os.path.join(outdir, 'laminate.msh')
     tetr_path = os.path.join(outdir, 'tetr.xdmf')
@@ -42,10 +45,6 @@ if __name__ == '__main__':
 
     Lcat = LZ - args.L_SEP
     df = 470 * pd.read_csv('data/laminate.csv')
-
-    # img_id = 11
-    # image = plt.imread(f'data/current_constriction/test{img_id}.tif')
-
     gmsh.initialize()
     gmsh.model.add('laminate')
     gmsh.option.setNumber('General.Verbosity', 1)
@@ -98,8 +97,73 @@ if __name__ == '__main__':
                 insulated_am.append(surf[1])
         else:
             interface.append(surf[1])
-    insulated = insulated_se + insulated_am
-    left = gmsh.model.addPhysicalGroup(2, left, markers.left)
+    # generate active labeled surface
+    left_active = []
+    img = np.asarray(plt.imread(f'data/current_constriction/test{args.img_id}.tif')[:, :, 0], dtype=np.uint8)
+    img2 = img.copy()
+    img2[0, :] = 0
+    img2[-1, :] = 0
+    img2[:, 0] = 0
+    img2[:, -1] = 0
+    all_points = {}
+    coords = np.asarray(np.argwhere(img2 == 1), dtype=np.int32)
+    count = 0
+    for row in coords:
+        # circular contact area map
+        if ((row[0] - 235) ** 2 + (row[1] - 235) ** 2) ** 0.5 >= 235:
+            continue
+        all_points[(row[0], row[1])] = count
+        count += 1
+    gmsh_points = []
+    points_view = {int(v): (int(k[0]), int(k[1])) for k, v in all_points.items()}
+
+    graph = grapher.PixelGraph(points=points_view)
+    graph.build_graph()
+    graph.get_graph_pieces()
+
+    for p in graph.pieces:
+        if len(p) < 4:
+            continue
+        arr = []
+        for c in p:
+            arr.append(points_view[c])
+        hull = []
+        try:
+            alpha_shape = alphashape.alphashape(arr, 0.25)
+            exterior = alpha_shape.exterior
+            for c in exterior.coords:
+                hull.append((c[0], c[1]))
+        except scipy.spatial._qhull.QhullError as e:
+            print(len(p), e)
+            continue
+        except AttributeError as e2:
+            print(e2)
+
+        hull_arr = np.asarray(hull)
+        hull_points = []
+        for pp in hull[:-1]:
+            idx = gmsh.model.occ.addPoint(int(pp[0]), int(pp[1]), 0)
+            hull_points.append(
+                idx
+            )
+        gmsh.model.occ.synchronize()
+        hull_lines = []
+        for i in range(-1, len(hull_points) - 1):
+            idx = gmsh.model.occ.addLine(hull_points[i], hull_points[i + 1])
+            hull_lines.append(
+                idx
+            )
+
+        gmsh.model.occ.synchronize()
+        idx = gmsh.model.occ.addCurveLoop(hull_lines)
+        idx2 = gmsh.model.occ.addPlaneSurface((idx, ))
+        left_active.append(idx2)
+        gmsh.model.occ.synchronize()
+
+    left_inactive = gmsh.model.occ.cut([(2, k) for k in left], [(2, kk) for kk in left_active], removeTool=False, removeObject=False)
+    gmsh.model.occ.synchronize()
+    insulated = insulated_se + insulated_am + [left_inactive[0][0][1]]
+    left = gmsh.model.addPhysicalGroup(2, left_active, markers.left)
     gmsh.model.setPhysicalName(2, left, "left")
     right = gmsh.model.addPhysicalGroup(2, right, markers.right)
     gmsh.model.setPhysicalName(2, right, "right")
