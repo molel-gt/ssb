@@ -53,9 +53,6 @@ int main(int argc, char *argv[])
     }
  
     gsInfo << "Patches: " << mp.nPatches() << ", degree: " << dbasis.minCwiseDegree() << "\n";
-#ifdef _OPENMP
-    gsInfo << "Available threads: " << omp_get_max_threads() << "\n";
-#endif
  
     gsExprAssembler<> A(1,1);
     A.setOptions(Aopt);
@@ -83,7 +80,6 @@ int main(int argc, char *argv[])
     // Recover manufactured solution
     auto u_ex = ev.getVariable(ms, G);
  
-    // Solution vector and solution variable
     gsMatrix<> solVector;
     solution u_sol = A.getSolution(u, solVector);
  
@@ -91,27 +87,25 @@ int main(int argc, char *argv[])
     gsSparseSolver<>::CGDiagonal solver;
  
     gsVector<> l2err(numRefine+1), h1err(numRefine+1);
-    gsInfo << "(dot1=assembled, dot2=solved, dot3=got_error)\n"
-        "\nDoFs: ";
+
     double setup_time(0), ma_time(0), slv_time(0), err_time(0);
     gsStopwatch timer;
     for (int r = 0; r <= numRefine; ++r)
     {
-        gsInfo << "\nDebug print\n";
         dbasis.uniformRefine();
-        gsInfo << "\nDebug print\n";
+        gsInfo << "Debug print\n";
  
        // u.setup(bc, dirichlet::interpolation, 0);
         u.setup(bc, dirichlet::l2Projection, 0);
-        gsInfo << "\nDebug print\n";
+        gsInfo << "Debug print\n";
  
         // Initialize the system
         A.initSystem();
         setup_time += timer.stop();
-        gsInfo << "\nDebug print\n";
+        gsInfo << "Debug print\n";
  
         gsInfo << A.numDofs() << std::flush;
-        gsInfo << "\nDebug print\n";
+        gsInfo << "Debug print\n";
  
         timer.restart();
         A.assemble(
