@@ -22,34 +22,29 @@ int main(int argc, char *argv[])
  
  
     gsFileData<> fd(fn);
-    gsInfo << "Loaded file "<< fd.lastPath() <<"\n";
+    gsInfo << "Loaded file "<< fd.lastPath() << "\n";
  
     gsMultiPatch<> mp;
-    fd.getId(0, mp); // id=0: Multipatch domain
+    fd.getId(0, mp);
  
     gsFunctionExpr<> f;
-    fd.getId(1, f); // id=1: source function
-    gsInfo<<"Source function "<< f << "\n";
+    fd.getId(1, f);
+    gsInfo << "Source function "<< f << "\n";
  
     gsBoundaryConditions<> bc;
-    fd.getId(2, bc); // id=2: boundary conditions
+    fd.getId(2, bc);
     bc.setGeoMap(mp);
-    gsInfo<<"Boundary conditions:\n"<< bc <<"\n";
+    gsInfo << "Boundary conditions:\n" << bc << "\n";
  
     gsFunctionExpr<> ms;
-    fd.getId(3, ms); // id=3: reference solution
+    fd.getId(3, ms);
  
     gsOptionList Aopt;
-    fd.getId(4, Aopt); // id=4: assembler options
+    fd.getId(4, Aopt);
  
  
-    gsMultiBasis<> dbasis(mp, true);//true: poly-splines (not NURBS)
- 
-    // Elevate and p-refine the basis to order p + numElevate
-    // where p is the highest degree in the bases
+    gsMultiBasis<> dbasis(mp, true);  // true: poly-splines (not NURBS)
     dbasis.setDegree( dbasis.maxCwiseDegree() + numElevate);
- 
-    // h-refine each basis
     if (last)
     {
         for (int r =0; r < numRefine; ++r)
@@ -57,15 +52,15 @@ int main(int argc, char *argv[])
         numRefine = 0;
     }
  
-    gsInfo << "Patches: "<< mp.nPatches() <<", degree: "<< dbasis.minCwiseDegree() <<"\n";
+    gsInfo << "Patches: " << mp.nPatches() << ", degree: " << dbasis.minCwiseDegree() << "\n";
 #ifdef _OPENMP
-    gsInfo<< "Available threads: "<< omp_get_max_threads() <<"\n";
+    gsInfo << "Available threads: " << omp_get_max_threads() << "\n";
 #endif
  
     gsExprAssembler<> A(1,1);
     A.setOptions(Aopt);
  
-    gsInfo<<"Active options:\n"<< A.options() <<"\n";
+    gsInfo << "Active options:\n" << A.options() << "\n";
  
     typedef gsExprAssembler<>::geometryMap geometryMap;
     typedef gsExprAssembler<>::variable    variable;
@@ -96,48 +91,47 @@ int main(int argc, char *argv[])
     gsSparseSolver<>::CGDiagonal solver;
  
     gsVector<> l2err(numRefine+1), h1err(numRefine+1);
-    gsInfo<< "(dot1=assembled, dot2=solved, dot3=got_error)\n"
+    gsInfo << "(dot1=assembled, dot2=solved, dot3=got_error)\n"
         "\nDoFs: ";
     double setup_time(0), ma_time(0), slv_time(0), err_time(0);
     gsStopwatch timer;
-    for (int r=0; r<=numRefine; ++r)
+    for (int r = 0; r <= numRefine; ++r)
     {
+        gsInfo << "\nDebug print\n";
         dbasis.uniformRefine();
+        gsInfo << "\nDebug print\n";
  
-//        u.setup(bc, dirichlet::interpolation, 0);
+       // u.setup(bc, dirichlet::interpolation, 0);
         u.setup(bc, dirichlet::l2Projection, 0);
+        gsInfo << "\nDebug print\n";
  
         // Initialize the system
         A.initSystem();
         setup_time += timer.stop();
+        gsInfo << "\nDebug print\n";
  
-        gsInfo<< A.numDofs() <<std::flush;
+        gsInfo << A.numDofs() << std::flush;
+        gsInfo << "\nDebug print\n";
  
         timer.restart();
-        // Compute the system matrix and right-hand side
         A.assemble(
-            igrad(u, G) * igrad(u, G).tr() * meas(G) //matrix
-            ,
-            u * ff * meas(G) //rhs vector
+            igrad(u, G) * igrad(u, G).tr() * meas(G),
+            u * ff * meas(G)
             );
  
-        // Compute the Neumann terms defined on physical space
         auto g_N = A.getBdrFunction(G);
         A.assembleBdr(bc.get("Neumann"), u * g_N.tr() * nv(G) );
  
         ma_time += timer.stop();
  
-        // gsDebugVar(A.matrix().toDense());
-        // gsDebugVar(A.rhs().transpose()   );
- 
-        gsInfo<< "." <<std::flush;// Assemblying done
+        gsInfo << "." << std::flush;
  
         timer.restart();
         solver.compute( A.matrix() );
         solVector = solver.solve(A.rhs());
         slv_time += timer.stop();
  
-        gsInfo<< "." <<std::flush; // Linear solving done
+        gsInfo << "." << std::flush; // Linear solving done
  
         // omp_set_dynamic(0);     // Explicitly disable dynamic teams
         // omp_set_num_threads(1); // Use these threads for later parallel regions
@@ -148,36 +142,36 @@ int main(int argc, char *argv[])
         h1err[r]= l2err[r] +
             math::sqrt(ev.integral( ( igrad(u_ex) - igrad(u_sol,G) ).sqNorm() * meas(G) ));
         err_time += timer.stop();
-        gsInfo<< ". " <<std::flush; // Error computations done
+        gsInfo << ". " << std::flush;
  
-    } //for loop
+    }
  
  
     timer.stop();
-    gsInfo<<"\n\nTotal time: "<< setup_time+ma_time+slv_time+err_time <<"\n";
-    gsInfo<<"     Setup: "<< setup_time <<"\n";
-    gsInfo<<"  Assembly: "<< ma_time    <<"\n";
-    gsInfo<<"   Solving: "<< slv_time   <<"\n";
-    gsInfo<<"     Norms: "<< err_time   <<"\n";
+    gsInfo << "\n\nTotal time: " << setup_time + ma_time + slv_time + err_time << "\n";
+    gsInfo << "     Setup: " << setup_time << "\n";
+    gsInfo << "  Assembly: " << ma_time    << "\n";
+    gsInfo << "   Solving: " << slv_time   << "\n";
+    gsInfo << "     Norms: " << err_time   << "\n";
  
-    gsInfo<< "\nL2 error: "<<std::scientific<<std::setprecision(3)<<l2err.transpose()<<"\n";
-    gsInfo<< "H1 error: "<<std::scientific<<h1err.transpose()<<"\n";
+    gsInfo << "\nL2 error: " << std::scientific << std::setprecision(3) << l2err.transpose() << "\n";
+    gsInfo << "H1 error: " << std::scientific << h1err.transpose() << "\n";
  
     if (!last && numRefine>0)
     {
-        gsInfo<< "\nEoC (L2): " << std::fixed<<std::setprecision(2)
+        gsInfo << "\nEoC (L2): " << std::fixed << std::setprecision(2)
               <<  ( l2err.head(numRefine).array()  /
                    l2err.tail(numRefine).array() ).log().transpose() / std::log(2.0)
-                   <<"\n";
+                   << "\n";
  
-        gsInfo<<   "EoC (H1): "<< std::fixed<<std::setprecision(2)
+        gsInfo <<   "EoC (H1): " << std::fixed << std::setprecision(2)
               <<( h1err.head(numRefine).array() /
-                  h1err.tail(numRefine).array() ).log().transpose() / std::log(2.0) <<"\n";
+                  h1err.tail(numRefine).array() ).log().transpose() / std::log(2.0) << "\n";
     }
  
     if (plot)
     {
-        gsInfo<<"Plotting in Paraview...\n";
+        gsInfo << "Plotting in Paraview...\n";
  
         gsParaviewCollection collection("ParaviewOutput/solution", &ev);
         collection.options().setSwitch("plotElements", true);
