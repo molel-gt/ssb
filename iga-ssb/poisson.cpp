@@ -11,9 +11,9 @@ int main(int argc, char *argv[])
     std::string fn("pde/poisson2d_bvp.xml");
  
     gsCmdLine cmd("Tutorial on solving a Poisson problem.");
-    cmd.addInt( "e", "degreeElevation",
+    cmd.addInt("e", "degreeElevation",
                 "Number of degree elevation steps to perform before solving (0: equalize degree in all directions)", numElevate );
-    cmd.addInt( "r", "uniformRefine", "Number of Uniform h-refinement loops",  numRefine );
+    cmd.addInt("r", "uniformRefine", "Number of Uniform h-refinement loops",  numRefine );
     cmd.addString( "f", "file", "Input XML file", fn );
     cmd.addSwitch("last", "Solve solely for the last level of h-refinement", last);
     cmd.addSwitch("plot", "Create a ParaView visualization file with the solution", plot);
@@ -93,7 +93,6 @@ int main(int argc, char *argv[])
     for (int r = 0; r <= numRefine; ++r)
     {
         dbasis.uniformRefine();
-        gsInfo << "Debug print\n";
  
        // u.setup(bc, dirichlet::interpolation, 0);
         u.setup(bc, dirichlet::l2Projection, 0);
@@ -102,10 +101,8 @@ int main(int argc, char *argv[])
         // Initialize the system
         A.initSystem();
         setup_time += timer.stop();
-        gsInfo << "Debug print\n";
  
         gsInfo << A.numDofs() << std::flush;
-        gsInfo << "Debug print\n";
  
         timer.restart();
         A.assemble(
@@ -125,10 +122,7 @@ int main(int argc, char *argv[])
         solVector = solver.solve(A.rhs());
         slv_time += timer.stop();
  
-        gsInfo << "." << std::flush; // Linear solving done
- 
-        // omp_set_dynamic(0);     // Explicitly disable dynamic teams
-        // omp_set_num_threads(1); // Use these threads for later parallel regions
+        gsInfo << "." << std::flush;
  
         timer.restart();
         l2err[r]= math::sqrt( ev.integral( (u_ex - u_sol).sqNorm() * meas(G) ) );
