@@ -72,14 +72,6 @@ if __name__ == '__main__':
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', type=str, required=True)
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="contact_loss_lma")
     args = parser.parse_args()
-    img_name = f'test{str(int(args.img_id))}'
-    img = np.asarray(plt.imread(f'data/current_constriction/{img_name}.tif')[:, :, 0], dtype=np.uint8)
-    img2 = img.copy()
-    img2[0, :] = 0
-    img2[-1, :] = 0
-    img2[:, 0] = 0
-    img2[:, -1] = 0
-    coords = np.asarray(np.argwhere(img2 == 1), dtype=np.int32)
     Lx, Ly, Lz = [int(v) for v in args.dimensions.split("-")]
     scaling = configs.get_configs()[args.scaling]
     scale_x = float(scaling['x'])
@@ -89,24 +81,12 @@ if __name__ == '__main__':
     utils.make_dir_if_missing(outdir)
     mshpath = os.path.join(f"{outdir}", "trial.msh")
     geometry_metafile = os.path.join(outdir, "geometry.json")
-    all_points = {}
     corner_points = [
         (0, 0, 0),
         (Lx, 0, 0),
         (Lx, Ly, 0),
         (0, Ly, 0)
     ]
-    other_points = []
-    count = 0
-    for row in coords:
-        all_points[(row[0], row[1])] = count
-        count += 1
-    gmsh_points = []
-    points_view = {int(v): (int(k[0]), int(k[1])) for k, v in all_points.items()}
-
-    graph = grapher.PixelGraph(points=points_view)
-    graph.build_graph()
-    graph.get_graph_pieces()
 
     gmsh.initialize()
     gmsh.option.setNumber('Mesh.MeshSizeMin', (1/5) * args.resolution)
@@ -214,26 +194,17 @@ if __name__ == '__main__':
     side_loops = []
     insulated = []
     right = []
+    left_active = []
     left = []
     process_count = 0
-    for p in graph.pieces:
-        if len(p) < 4:
-            continue
-        arr = []
-        for c in p:
-            arr.append(points_view[c])
-        hull = []
-        try:
-            alpha_shape = alphashape.alphashape(arr, 0.25)
-            exterior = alpha_shape.exterior
-            for c in exterior.coords:
-                hull.append((c[0], c[1]))
-        except scipy.spatial._qhull.QhullError as e:
-            print(len(p), e)
-            continue
-        except AttributeError as e2:
-            print(e2)
-
+    img = np.asarray(plt.imread(f'data/current_constriction/test{str(int(args.img_id))}.tif')[:, :, 0], dtype=np.uint8)
+    image = img.copy()
+    image[0, :] = 0
+    image[-1, :] = 0
+    image[:, 0] = 0
+    image[:, -1] = 0
+    boundary_pieces, count, points, points_view = geometry.get_phase_boundary_pieces(image)
+    for hull in boundary_pieces:
         hull_arr = np.asarray(hull)
         hull_points = []
         for pp in hull[:-1]:
