@@ -58,8 +58,7 @@ public:
     BSpline(int index, int degree, std::vector<int>& knots){
         i = index;
         p = degree;
-        std::copy(knots.begin(), knots.end(), Ξ)´
-        // Ξ = knot;
+        std::copy(knots.begin(), knots.end(), Ξ);
     };
     ~BSpline(){};
     int degree(){ return p; };
