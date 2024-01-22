@@ -104,76 +104,49 @@ if __name__ == '__main__':
         else:
             interface.append(surf[1])
 
-    # # generate active labeled surface
-    # left_active = []
-    # img = np.asarray(plt.imread(f'data/current_constriction/test{args.img_id}.tif')[:, :, 0], dtype=np.uint8)
-    # img2 = img.copy()
-    # img2[0, :] = 0
-    # img2[-1, :] = 0
-    # img2[:, 0] = 0
-    # img2[:, -1] = 0
-    # all_points = {}
-    # coords = np.asarray(np.argwhere(img2 == 1), dtype=np.int32)
-    # count = 0
-    # for row in coords:
-    #     # circular contact area map
-    #     if ((row[0] - 235) ** 2 + (row[1] - 235) ** 2) ** 0.5 >= 235:
-    #         continue
-    #     all_points[(row[0], row[1])] = count
-    #     count += 1
-    # gmsh_points = []
-    # points_view = {int(v): (int(k[0]), int(k[1])) for k, v in all_points.items()}
+    # generate active labeled surface
+    left_active = []
+    img = np.asarray(plt.imread(f'data/current_constriction/test{args.img_id}.tif')[:, :, 0], dtype=np.uint8)
+    image = img.copy()
+    image[0, :] = 0
+    image[-1, :] = 0
+    image[:, 0] = 0
+    image[:, -1] = 0
+    for i in range(470):
+        for j in range(470):
+            if ((i - 235) ** 2 + (j - 235) ** 2) ** 0.5 > 235:
+                image[i, j] = 0
+    gmsh_points = []
+    boundary_pieces, count, all_points, points_view = geometry.get_phase_boundary_pieces(image)
+    for hull in boundary_pieces:
+        hull_arr = np.asarray(hull)
+        hull_points = []
+        for pp in hull[:-1]:
+            idx = gmsh.model.occ.addPoint(int(pp[0]), int(pp[1]), 0)
+            hull_points.append(
+                idx
+            )
+        gmsh.model.occ.synchronize()
+        gmsh_points += hull_points
+        hull_lines = []
+        for i in range(-1, len(hull_points) - 1):
+            idx = gmsh.model.occ.addLine(hull_points[i], hull_points[i + 1])
+            hull_lines.append(
+                idx
+            )
 
-    # graph = grapher.PixelGraph(points=points_view)
-    # graph.build_graph()
-    # graph.get_graph_pieces()
+        gmsh.model.occ.synchronize()
+        idx = gmsh.model.occ.addCurveLoop(hull_lines)
+        gmsh.model.occ.synchronize()
+        idx2 = gmsh.model.occ.addPlaneSurface((idx, ))
+        left_active.append(idx2)
+        gmsh.model.occ.synchronize()
 
-    # gmsh_points = []
-    # for p in graph.pieces:
-    #     if len(p) < 4:
-    #         continue
-    #     arr = []
-    #     for c in p:
-    #         arr.append(points_view[c])
-    #     hull = []
-    #     try:
-    #         alpha_shape = alphashape.alphashape(arr, 0.25)
-    #         exterior = alpha_shape.exterior
-    #         for c in exterior.coords:
-    #             hull.append((c[0], c[1]))
-    #     except scipy.spatial._qhull.QhullError as e:
-    #         print(len(p), e)
-    #         continue
-    #     except AttributeError as e2:
-    #         print(e2)
-
-    #     hull_arr = np.asarray(hull)
-    #     hull_points = []
-    #     for pp in hull[:-1]:
-    #         idx = gmsh.model.occ.addPoint(int(pp[0]), int(pp[1]), 0)
-    #         hull_points.append(
-    #             idx
-    #         )
-    #     gmsh.model.occ.synchronize()
-    #     gmsh_points += hull_points
-    #     hull_lines = []
-    #     for i in range(-1, len(hull_points) - 1):
-    #         idx = gmsh.model.occ.addLine(hull_points[i], hull_points[i + 1])
-    #         hull_lines.append(
-    #             idx
-    #         )
-
-    #     gmsh.model.occ.synchronize()
-    #     idx = gmsh.model.occ.addCurveLoop(hull_lines)
-    #     gmsh.model.occ.synchronize()
-    #     idx2 = gmsh.model.occ.addPlaneSurface((idx, ))
-    #     left_active.append(idx2)
-    #     gmsh.model.occ.synchronize()
-
-    # left_inactive = gmsh.model.occ.cut([(2, k) for k in left], [(2, kk) for kk in left_active])#, removeTool=False, removeObject=False)
-    # gmsh.model.occ.synchronize()
-    left_inactive = []
-    left_tag = gmsh.model.addPhysicalGroup(2, left, markers.left)
+    left_inactive = gmsh.model.occ.cut([(2, k) for k in left], [(2, kk) for kk in left_active], removeTool=False, removeObject=False)
+    print(left_inactive[0])
+    gmsh.model.occ.synchronize()
+    left_inactive = [v[1] for v in left_inactive[0]]
+    left_tag = gmsh.model.addPhysicalGroup(2, left_active, markers.left)
     gmsh.model.setPhysicalName(2, left_tag, "left")
     gmsh.model.occ.synchronize()
     right_tag = gmsh.model.addPhysicalGroup(2, right, markers.right)
