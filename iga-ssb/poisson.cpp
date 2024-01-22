@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
     bool last = false;
     std::string fn("pde/poisson2d_bvp.xml");
  
-    gsCmdLine cmd("Tutorial on solving a Poisson problem.");
+    gsCmdLine cmd("Solving a Poisson problem.");
     cmd.addInt("e", "degreeElevation",
                 "Number of degree elevation steps to perform before solving (0: equalize degree in all directions)", numElevate );
     cmd.addInt("r", "uniformRefine", "Number of Uniform h-refinement loops",  numRefine );
@@ -41,7 +41,8 @@ int main(int argc, char *argv[])
  
     gsOptionList Aopt;
     fd.getId(4, Aopt);
- 
+
+    gsFunctionExpr<>  g("0", 0);
  
     gsMultiBasis<> dbasis(mp, true);  // true: poly-splines (not NURBS)
     dbasis.setDegree( dbasis.maxCwiseDegree() + numElevate);
@@ -94,9 +95,9 @@ int main(int argc, char *argv[])
     {
         dbasis.uniformRefine();
  
-       // u.setup(bc, dirichlet::interpolation, 0);
-        u.setup(bc, dirichlet::l2Projection, 0);
-        gsInfo << "Debug print\n";
+        u.setup(bc, dirichlet::homogeneous, 0);
+        // u.setup(bc, dirichlet::interpolation, 0);
+        // u.setup(bc, dirichlet::l2Projection, 0);
  
         // Initialize the system
         A.initSystem();
