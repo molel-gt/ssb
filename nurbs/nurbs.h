@@ -2,6 +2,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#define TOL 1e-12
 
 int factorial(int n){
     if (n <= 1) return 1;
@@ -34,16 +35,16 @@ double elevate(BernsteinPolynomial b, int t){
     return (1 + i) / (1 + p) * B(i + 1, p + 1) + (1 + p - i) / (1 + p) * B(i, p + 1);
 }
 
-double derivative(BernsteinPolynomial b, int m, float t=0, tol=1e-8){
+double derivative(BernsteinPolynomial b, int m, float t=0){
     int i = b.index();
     int p = b.degree();
 
     if (m == 1) {
-        if (std::abs(t - i/p) < tol) return 0; // unimodal
+        if (std::abs(t - i/p) < TOL) return 0; // unimodal
         return p * (B(i - 1, p - 1) - B(i, p - 1));
     }
     if ((m <= i - 1) && (t < tol)) return 0;
-    if ((m <= p - i - 1) && (1 - t < tol)) return 0;
+    if ((m <= p - i - 1) && (1 - t < TOL)) return 0;
 
     return p * ( derivative(B(i - 1, p - 1), m - 1) - derivative(B(i, p - 1), m - 1))
 }
@@ -70,11 +71,18 @@ public:
             return 0;
         }
         else {
-            return (t - Ξ[i]) / (Ξ[i + p] - Ξ[i]) * BSpline(i, p - 1, Ξ) + (Ξ[i + p + 1] - t) / (Ξ[i + p + 1] - Ξ[i + 1]) * BSpline(i + 1, p - 1, Ξ)
+            return ω(i, t) * BSpline(i, p - 1, Ξ) + (1 - ω(i + 1, t)) * BSpline(i + 1, p - 1, Ξ)
         }
     };
 private:
     int p;
     int i;
     std::vector<int> Ξ;
+    double ω(int x, double t){
+        double top, bottom;
+        top = t - Ξ[x];
+        bottom = Ξ[x + p] - Ξ[x];
+        if (std::abs(std::abs(bottom) - TOL) <= 0) return 0;
+        return top / bottom;
+    }
 };
