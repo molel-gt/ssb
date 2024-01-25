@@ -59,8 +59,8 @@ if __name__ == '__main__':
     line_meshfile = os.path.join(workdir, "line.xdmf")
     gmsh.initialize()
     gmsh.model.add('full-cell')
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.1 * micron)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1 * micron)
+    # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.1 * micron)
+    # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1 * micron)
     for item in [0, LNCC, LNAM, LSSE, LPAM, LPCC]:
         gmsh_points.append(gmsh.model.occ.addPoint(thickness + item, 0, 0))
         gmsh.model.occ.synchronize()
