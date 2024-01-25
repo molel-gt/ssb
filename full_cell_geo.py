@@ -23,7 +23,6 @@ LNAM = 50e-6
 LSSE = 25e-6
 LPAM = 50e-6
 LPCC = 20e-6
-WIDT = 1000e-6 
 
 
 if __name__ == '__main__':
@@ -31,14 +30,8 @@ if __name__ == '__main__':
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="full_cell")
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
     parser.add_argument("--resolution", help="maximum resolution", nargs='?', const=1, default=1, type=float)
-    parser.add_argument("--L_SEP", help="integer representation of separator thickness", nargs='?', const=1, default=25, type=int)
-    parser.add_argument("--R_PARTICLE", help="integer representation of AM particle radius", nargs='?', const=1, default=6, type=int)
-    parser.add_argument("--am_vol_frac", help="volume fraction of active material phase", nargs='?', const=1, default=0.5, type=float)
-    parser.add_argument("--void_vol_frac", help="volume fraction of void phase", nargs='?', const=1, default=0, type=float)
-    parser.add_argument("--img_id", help="image id to identify contact map", nargs='?', const=1, default=11, type=int)
-    parser.add_argument("--active_area_frac", help="active area fraction at neg electrode-SE interface", nargs='?', const=1, default=0.4, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
-                        const=1, default='MICRON_SCALING', type=str)
+                        const=1, default='MICRON_TO_METER', type=str)
 
     args = parser.parse_args()
     scaling = configs.get_configs()[args.scaling]
@@ -58,7 +51,7 @@ if __name__ == '__main__':
     (0, 1)
     ]
     lines = []
-    workdir = "output/full_cell"
+    workdir = f"output/{args.name_of_study}/{args.dimensions}/{args.resolution}"
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(workdir, 'mesh.msh')
     tetr_meshfile = os.path.join(workdir, "tetr.xdmf")
@@ -66,12 +59,12 @@ if __name__ == '__main__':
     line_meshfile = os.path.join(workdir, "line.xdmf")
     gmsh.initialize()
     gmsh.model.add('full-cell')
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.1*micron)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1*micron)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.1 * micron)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1 * micron)
     for item in [0, LNCC, LNAM, LSSE, LPAM, LPCC]:
         gmsh_points.append(gmsh.model.occ.addPoint(thickness + item, 0, 0))
         gmsh.model.occ.synchronize()
-        gmsh_points.append(gmsh.model.occ.addPoint(thickness + item, WIDT, 0))
+        gmsh_points.append(gmsh.model.occ.addPoint(thickness + item, LY * micron, 0))
         gmsh.model.occ.synchronize()
         thickness += item
     gmsh.model.occ.synchronize()
