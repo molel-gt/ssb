@@ -57,7 +57,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     markers = commons.Markers()
-    sod = 0.75
+    sod = 0.075
     scaling = configs.get_configs()[args.scaling]
     scale = [float(scaling[val]) for val in ['x', 'y', 'z']]
     LX, LY, LZ = [int(val) * scale[idx] for (idx, val) in enumerate(args.dimensions.split("-"))]
@@ -109,8 +109,8 @@ if __name__ == '__main__':
     n = ufl.FacetNormal(domain)
     x = ufl.SpatialCoordinate(domain)
 
-    alpha = 10
-    gamma = 100
+    α = 10/100
+    γ = 10*100
 
     h = ufl.CellDiameter(domain)
     h_avg = avg(h)
@@ -119,7 +119,7 @@ if __name__ == '__main__':
 
     f = fem.Constant(domain, PETSc.ScalarType(0))
     g = fem.Constant(domain, PETSc.ScalarType(0))
-    voltage = 1000e-3
+    voltage = 1.0
     u_left = fem.Function(V)
     with u_left.vector.localForm() as u0_loc:
         u0_loc.set(0)
@@ -127,7 +127,6 @@ if __name__ == '__main__':
     with u_right.vector.localForm() as u1_loc:
         u1_loc.set(voltage)
 
-    i0 = fem.Constant(domain, PETSc.ScalarType(1e2))
     i0_neg = fem.Constant(domain, PETSc.ScalarType(1e2))
     i0_pos = fem.Constant(domain, PETSc.ScalarType(1e2))
     faraday_const = fem.Constant(domain, PETSc.ScalarType(96485))
@@ -137,61 +136,61 @@ if __name__ == '__main__':
     U_neg = ufl.as_vector((u_ocp_neg(sod), 0, 0))
     U_pos = ufl.as_vector((u_ocp_pos(sod), 0, 0))
 
-    kappa = fem.Function(V)
+    κ = fem.Function(V)
     Ω_neg_cc_cells = domaintags.find(markers.negative_cc)
     Ω_neg_am_cells = domaintags.find(markers.negative_am)
     Ω_se_cells = domaintags.find(markers.electrolyte)
     Ω_pos_am_cells = domaintags.find(markers.positive_am)
     Ω_pos_cc_cells = domaintags.find(markers.positive_cc)
-    kappa.x.array[Ω_neg_cc_cells] = np.full_like(Ω_neg_cc_cells, 10, dtype=default_scalar_type)
-    kappa.x.array[Ω_neg_am_cells] = np.full_like(Ω_neg_am_cells, 1, dtype=default_scalar_type)
-    kappa.x.array[Ω_se_cells] = np.full_like(Ω_se_cells, 0.1, dtype=default_scalar_type)
-    kappa.x.array[Ω_pos_am_cells] = np.full_like(Ω_pos_am_cells, 1, dtype=default_scalar_type)
-    kappa.x.array[Ω_pos_cc_cells] = np.full_like(Ω_pos_cc_cells, 10, dtype=default_scalar_type)
+    κ.x.array[Ω_neg_cc_cells] = np.full_like(Ω_neg_cc_cells, 1, dtype=default_scalar_type)
+    κ.x.array[Ω_neg_am_cells] = np.full_like(Ω_neg_am_cells, 1, dtype=default_scalar_type)
+    κ.x.array[Ω_se_cells] = np.full_like(Ω_se_cells, 1, dtype=default_scalar_type)
+    κ.x.array[Ω_pos_am_cells] = np.full_like(Ω_pos_am_cells, 1, dtype=default_scalar_type)
+    κ.x.array[Ω_pos_cc_cells] = np.full_like(Ω_pos_cc_cells, 1, dtype=default_scalar_type)
 
     # formulation
-    F = dot(kappa * grad(u), grad(v)) * dx - dot(v * n, kappa * grad(u)) * ds
+    F = dot(grad(u), grad(v)) * dx - dot(v * n, grad(u)) * ds
 
     # Add DG/IP terms
     F += -dot(avg(grad(v)), jump(u, n)) * dS(0) - dot(jump(v, n), avg(grad(u))) * dS(0)
-    F += (gamma / h_avg) * dot(jump(v, n), jump(u, n)) * dS(0)
-    F += alpha / h * v * u * (
+    F += (γ / h_avg) * dot(jump(v, n), jump(u, n)) * dS(0)
+    F += (α / h) * v * u * (
         ds(markers.negative_am_v_electrolyte)
         + ds(markers.positive_am_v_positive_cc)
     )
 
     # negative am - electrolyte boundary
-    F += - dot(avg(grad(v)), (R * T / i0_neg / faraday_const) * (kappa * grad(u))('-') + U_neg) * dS(markers.negative_am_v_electrolyte)
-    F += (alpha / h_avg) * dot(jump(v, n), (R * T / i0_neg / faraday_const) * (kappa * grad(u))('-') + U_neg) * dS(markers.negative_am_v_electrolyte)
+    F += - dot(avg(grad(v)), (R * T / i0_neg / faraday_const) * (grad(u))('-') + U_neg) * dS(markers.negative_am_v_electrolyte)
+    F += (α / h_avg) * dot(jump(v, n), (R * T / i0_neg / faraday_const) * (grad(u))('-') + U_neg) * dS(markers.negative_am_v_electrolyte)
 
     # electrolyte - positive am boundary
-    F += - dot(avg(grad(v)), (R * T / i0_pos / faraday_const) * (kappa * grad(u))('-') + U_pos) * dS(markers.electrolyte_v_positive_am)
-    F += (alpha / h_avg) * dot(jump(v, n), (R * T / i0_pos / faraday_const) * (kappa * grad(u))('-') + U_neg) * dS(markers.electrolyte_v_positive_am)
+    F += - dot(avg(grad(v)), (R * T / i0_pos / faraday_const) * (grad(u))('-') + U_pos) * dS(markers.electrolyte_v_positive_am)
+    F += (α / h_avg) * dot(jump(v, n), (R * T / i0_pos / faraday_const) * (grad(u))('-') + U_neg) * dS(markers.electrolyte_v_positive_am)
 
     # Symmetry
-    F += - dot(avg(kappa * grad(v)), jump(u, n)) * dS(markers.negative_am_v_electrolyte)
-    F += - dot(avg(kappa * grad(v)), jump(u, n)) * dS(markers.electrolyte_v_positive_am)
+    F += - dot(avg(grad(v)), jump(u, n)) * dS(markers.negative_am_v_electrolyte)
+    F += - dot(avg(grad(v)), jump(u, n)) * dS(markers.electrolyte_v_positive_am)
 
     # Coercivity
-    F += alpha / h_avg * dot(jump(v, n), jump(u, n)) * dS(markers.negative_am_v_electrolyte)
-    F += alpha / h_avg * dot(jump(v, n), jump(u, n)) * dS(markers.electrolyte_v_positive_am)
+    F += (α / h_avg) * dot(jump(v, n), jump(u, n)) * dS(markers.negative_am_v_electrolyte)
+    F += (α / h_avg) * dot(jump(v, n), jump(u, n)) * dS(markers.electrolyte_v_positive_am)
 
     # Nitsche Dirichlet BC terms on left and right boundaries
-    F += - dot(u * n, kappa * grad(v)) * ds(markers.left)
-    F += u_left * dot(n, kappa * grad(v)) * ds(markers.left) - (alpha / h) * u_left * v * ds(markers.left)
-    F += - dot(u * n, kappa * grad(v)) * ds(markers.right)
-    F += u_right * dot(n, kappa * grad(v)) * ds(markers.right) - (alpha / h) * u_right * v * ds(markers.right)
+    F += - dot(u * n, grad(v)) * ds(markers.left)
+    F += u_left * dot(n, grad(v)) * ds(markers.left) - (α / h) * u_left * v * ds(markers.left)
+    F += - dot(u * n, grad(v)) * ds(markers.right)
+    F += u_right * dot(n, grad(v)) * ds(markers.right) - (α / h) * u_right * v * ds(markers.right)
 
     # Nitsche Neumann BC terms on insulated boundary
-    F += -(h / alpha) * dot(g * n, grad(v)) * ds(markers.insulated_negative_cc)
+    F += -(h / α) * dot(g * n, grad(v)) * ds(markers.insulated_negative_cc)
     F += -g * v * ds(markers.insulated_negative_cc)
-    F += -(h / alpha) * dot(g * n, grad(v)) * ds(markers.insulated_negative_am)
+    F += -(h / α) * dot(g * n, grad(v)) * ds(markers.insulated_negative_am)
     F += -g * v * ds(markers.insulated_negative_am)
-    F += -(h / alpha) * dot(g * n, grad(v)) * ds(markers.insulated_electrolyte)
+    F += -(h / α) * dot(g * n, grad(v)) * ds(markers.insulated_electrolyte)
     F += -g * v * ds(markers.insulated_electrolyte)
-    F += -(h / alpha) * dot(g * n, grad(v)) * ds(markers.insulated_positive_am)
+    F += -(h / α) * dot(g * n, grad(v)) * ds(markers.insulated_positive_am)
     F += -g * v * ds(markers.insulated_positive_am)
-    F += -(h / alpha) * dot(g * n, grad(v)) * ds(markers.insulated_positive_cc)
+    F += -(h / α) * dot(g * n, grad(v)) * ds(markers.insulated_positive_cc)
     F += -g * v * ds(markers.insulated_positive_cc)
 
     # Source term
@@ -224,7 +223,7 @@ if __name__ == '__main__':
         vtx.write(0.0)
 
     W = fem.VectorFunctionSpace(domain, ("DG", 0))
-    current_expr = fem.Expression(-grad(u), W.element.interpolation_points())
+    current_expr = fem.Expression(-κ * grad(u), W.element.interpolation_points())
     current_h = fem.Function(W)
     current_h.name = 'current_density'
     current_h.interpolate(current_expr)
@@ -266,38 +265,36 @@ if __name__ == '__main__':
     fig, ax = plt.subplots()
     ax.plot((1/micron) * points_on_proc[:, 0], u_values, "k", linewidth=2)
     ax.grid(True)
-    # ax.set_xlim([0e-6, 16e-6])
-    ax.set_ylim([0, voltage])
     ax.set_ylabel(r'$\phi$ [V]', rotation=0, labelpad=30, fontsize='xx-large')
     ax.set_xlabel(r'[$\mu$m]')
     ax.set_title('Potential Across Midline')
     plt.tight_layout()
     plt.show()
 
-    bb_trees = bb_tree(domain, domain.topology.dim)
-    points = np.zeros((3, n_points))
-    points[0] = x
-    points[1] = y
-    u_values = []
-    cells = []
-    points_on_proc = []
-    # Find cells whose bounding-box collide with the the points
-    cell_candidates = compute_collisions_points(bb_trees, points.T)
-    # Choose one of the cells that contains the point
-    colliding_cells = compute_colliding_cells(domain, cell_candidates, points.T)
-    for i, point in enumerate(points.T):
-        if len(colliding_cells.links(i)) > 0:
-            points_on_proc.append(point)
-            cells.append(colliding_cells.links(i)[0])
-    points_on_proc = np.array(points_on_proc, dtype=np.float64)
-    current_values = current_h.eval(points_on_proc, cells)
-    fig, ax = plt.subplots()
-    ax.plot((1/micron) * points_on_proc[:, 0], np.linalg.norm(current_values, axis=1), "k", linewidth=2)
-    ax.grid(True)
-    # ax.set_xlim([50e-6, 200e-6])
-    # ax.set_ylim([0, 0.1])
-    ax.set_ylabel(r'$i$ [A/m$^2$]', rotation=0, labelpad=40, fontsize='xx-large')
-    ax.set_xlabel(r'[$\mu$m]')
-    ax.set_title('Current Density Across Midline')
-    plt.tight_layout()
-    plt.show()
+    # bb_trees = bb_tree(domain, domain.topology.dim)
+    # points = np.zeros((3, n_points))
+    # points[0] = x
+    # points[1] = y
+    # u_values = []
+    # cells = []
+    # points_on_proc = []
+    # # Find cells whose bounding-box collide with the the points
+    # cell_candidates = compute_collisions_points(bb_trees, points.T)
+    # # Choose one of the cells that contains the point
+    # colliding_cells = compute_colliding_cells(domain, cell_candidates, points.T)
+    # for i, point in enumerate(points.T):
+    #     if len(colliding_cells.links(i)) > 0:
+    #         points_on_proc.append(point)
+    #         cells.append(colliding_cells.links(i)[0])
+    # points_on_proc = np.array(points_on_proc, dtype=np.float64)
+    # current_values = current_h.eval(points_on_proc, cells)
+    # fig, ax = plt.subplots()
+    # ax.plot((1/micron) * points_on_proc[:, 0], np.linalg.norm(current_values, axis=1), "k", linewidth=2)
+    # ax.grid(True)
+    # # ax.set_xlim([50e-6, 200e-6])
+    # # ax.set_ylim([0, 0.1])
+    # ax.set_ylabel(r'$i$ [A/m$^2$]', rotation=0, labelpad=40, fontsize='xx-large')
+    # ax.set_xlabel(r'[$\mu$m]')
+    # ax.set_title('Current Density Across Midline')
+    # plt.tight_layout()
+    # plt.show()
