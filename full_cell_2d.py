@@ -28,17 +28,20 @@ import commons, configs, geometry, utils
 warnings.simplefilter('ignore')
 
 
-def u_ocp_neg(sod):
-    return 0
+def u_ocp_neg(soc):
+    return 0.1
 
 
-# def u_ocp_pos(sod):
-#     if sod < 0 or sod > 1:
-#         raise ValueError("Invalid input value for state of discharge")
+def u_ocp_pos(soc):
+    if soc < 0 or soc > 1:
+        raise ValueError("Invalid input value for state of discharge")
 
-#     return (1 / 1.75) * (np.arctanh(-sod * 2.0 + 1) + 4.5)
-def u_ocp_pos(sod, L=1, k=2):
-    return 2.5 + (1/k) * np.log((L - sod) / sod)
+    # return (1 / 1.75) * (np.arctanh(-soc * 2.0 + 1) + 4.5)
+    return 0.4
+
+
+# def u_ocp_pos(sod, L=1, k=2):
+#     return 2.5 + (1/k) * np.log((L - sod) / sod)
 
 
 if __name__ == '__main__':
@@ -58,7 +61,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     markers = commons.Markers()
-    sod = 0.975
+    soc = 0.5
     scaling = configs.get_configs()[args.scaling]
     scale = [float(scaling[val]) for val in ['x', 'y', 'z']]
     LX, LY, LZ = [int(val) * scale[idx] for (idx, val) in enumerate(args.dimensions.split("-"))]
@@ -133,9 +136,9 @@ if __name__ == '__main__':
     faraday_const = fem.Constant(domain, PETSc.ScalarType(96485))
     R = fem.Constant(domain, PETSc.ScalarType(8.3145))
     T = fem.Constant(domain, PETSc.ScalarType(298))
-    U = ufl.as_vector((u_ocp_pos(sod), 0, 0))
-    U_neg = ufl.as_vector((u_ocp_neg(sod), 0, 0))
-    U_pos = ufl.as_vector((u_ocp_pos(sod), 0, 0))
+    U = ufl.as_vector((u_ocp_pos(soc), 0, 0))
+    U_neg = ufl.as_vector((u_ocp_neg(soc), 0, 0))
+    U_pos = ufl.as_vector((u_ocp_pos(soc), 0, 0))
 
     # κ = fem.Function(V)
     # Ω_neg_cc_cells = domaintags.find(markers.negative_cc)
@@ -159,11 +162,11 @@ if __name__ == '__main__':
 
     # negative am - electrolyte boundary
     F += - dot(avg(grad(v)), (R * T / i0_neg / faraday_const) * (grad(u))('-') + U_neg) * dS(markers.negative_am_v_electrolyte)
-    F += (α / h_avg) * dot(jump(v, n), (R * T / i0_neg / faraday_const) * (grad(u))('-') + U_neg) * dS(markers.negative_am_v_electrolyte)
+    F += + (α / h_avg) * dot(jump(v, n), (R * T / i0_neg / faraday_const) * (grad(u))('-') + U_neg) * dS(markers.negative_am_v_electrolyte)
 
     # electrolyte - positive am boundary
     F += - dot(avg(grad(v)), (R * T / i0_pos / faraday_const) * (grad(u))('-') + U_pos) * dS(markers.electrolyte_v_positive_am)
-    F += (α / h_avg) * dot(jump(v, n), (R * T / i0_pos / faraday_const) * (grad(u))('-') + U_pos) * dS(markers.electrolyte_v_positive_am)
+    F += + (α / h_avg) * dot(jump(v, n), (R * T / i0_pos / faraday_const) * (grad(u))('-') + U_pos) * dS(markers.electrolyte_v_positive_am)
 
     # Symmetry
     F += - dot(avg(grad(v)), jump(u, n)) * dS(markers.negative_am_v_electrolyte)
@@ -254,10 +257,18 @@ if __name__ == '__main__':
     u_values = u.eval(points_on_proc, cells)
     fig, ax = plt.subplots()
     ax.plot((1/micron) * points_on_proc[:, 0], u_values, "k", linewidth=2)
-    ax.grid(True)
+    # ax.grid(True)
+    ax.set_xlim([0, 165])
     ax.set_ylabel(r'$\phi$ [V]', rotation=0, labelpad=30, fontsize='xx-large')
     ax.set_xlabel(r'[$\mu$m]')
     ax.set_title('Potential Across Midline')
+    ax.axvline(x=20, linestyle='--', linewidth=0.5)
+    ax.axvline(x=70, linestyle='--', linewidth=0.5)
+    ax.axvline(x=95, linestyle='--', linewidth=0.5)
+    ax.axvline(x=145, linestyle='--', linewidth=0.5)
+    ax.axvline(x=165, linestyle='--', linewidth=0.5)
+    ax.minorticks_on()
+    ax.tick_params(which="both", left=True, right=True, bottom=True, top=True, labelleft=True, labelright=False, labelbottom=True, labeltop=False)
     plt.tight_layout()
     plt.show()
 
