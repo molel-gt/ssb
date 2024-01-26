@@ -114,7 +114,7 @@ if __name__ == '__main__':
     x = ufl.SpatialCoordinate(domain)
 
     α = 10
-    γ = 100
+    γ = 10
 
     h = ufl.CellDiameter(domain)
     h_avg = avg(h)
@@ -140,17 +140,17 @@ if __name__ == '__main__':
     U_neg = ufl.as_vector((u_ocp_neg(soc), 0, 0))
     U_pos = ufl.as_vector((u_ocp_pos(soc), 0, 0))
 
-    # κ = fem.Function(V)
-    # Ω_neg_cc_cells = domaintags.find(markers.negative_cc)
-    # Ω_neg_am_cells = domaintags.find(markers.negative_am)
-    # Ω_se_cells = domaintags.find(markers.electrolyte)
-    # Ω_pos_am_cells = domaintags.find(markers.positive_am)
-    # Ω_pos_cc_cells = domaintags.find(markers.positive_cc)
-    # κ.x.array[Ω_neg_cc_cells] = np.full_like(Ω_neg_cc_cells, 1, dtype=default_scalar_type)
-    # κ.x.array[Ω_neg_am_cells] = np.full_like(Ω_neg_am_cells, 1, dtype=default_scalar_type)
-    # κ.x.array[Ω_se_cells] = np.full_like(Ω_se_cells, 1, dtype=default_scalar_type)
-    # κ.x.array[Ω_pos_am_cells] = np.full_like(Ω_pos_am_cells, 1, dtype=default_scalar_type)
-    # κ.x.array[Ω_pos_cc_cells] = np.full_like(Ω_pos_cc_cells, 1, dtype=default_scalar_type)
+    κ = fem.Function(V)
+    Ω_neg_cc_cells = domaintags.find(markers.negative_cc)
+    Ω_neg_am_cells = domaintags.find(markers.negative_am)
+    Ω_se_cells = domaintags.find(markers.electrolyte)
+    Ω_pos_am_cells = domaintags.find(markers.positive_am)
+    Ω_pos_cc_cells = domaintags.find(markers.positive_cc)
+    κ.x.array[Ω_neg_cc_cells] = np.full_like(Ω_neg_cc_cells, 10, dtype=default_scalar_type)
+    κ.x.array[Ω_neg_am_cells] = np.full_like(Ω_neg_am_cells, 1, dtype=default_scalar_type)
+    κ.x.array[Ω_se_cells] = np.full_like(Ω_se_cells, 0.1, dtype=default_scalar_type)
+    κ.x.array[Ω_pos_am_cells] = np.full_like(Ω_pos_am_cells, 1, dtype=default_scalar_type)
+    κ.x.array[Ω_pos_cc_cells] = np.full_like(Ω_pos_cc_cells, 10, dtype=default_scalar_type)
 
     # formulation
     F = dot(grad(u), grad(v)) * dx - dot(v * n, grad(u)) * ds
@@ -187,7 +187,10 @@ if __name__ == '__main__':
     F += -g * v * ds(markers.insulated)
 
     # Source term
-    F += -f * v * dx 
+    F += -f * v * dx
+
+    # conductivity change
+    # F += jump(κ * grad(u), n) * ds(markers.negative_cc_v_negative_am)
 
     problem = petsc.NonlinearProblem(F, u)
     solver = petsc_nls.NewtonSolver(comm, problem)
@@ -259,6 +262,7 @@ if __name__ == '__main__':
     ax.plot((1/micron) * points_on_proc[:, 0], u_values, "k", linewidth=2)
     # ax.grid(True)
     ax.set_xlim([0, 165])
+    ax.set_ylim([0, 1])
     ax.set_ylabel(r'$\phi$ [V]', rotation=0, labelpad=30, fontsize='xx-large')
     ax.set_xlabel(r'[$\mu$m]')
     ax.set_title('Potential Across Midline')
