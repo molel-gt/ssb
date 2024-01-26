@@ -32,12 +32,13 @@ def u_ocp_neg(sod):
     return 0
 
 
-def u_ocp_pos(sod):
-    if sod < 0 or sod > 1:
-        raise ValueError("Invalid input value for state of discharge")
+# def u_ocp_pos(sod):
+#     if sod < 0 or sod > 1:
+#         raise ValueError("Invalid input value for state of discharge")
 
-    return (1 / 1.75) * (np.arctanh(-sod * 2.0 + 1) + 4.5)
-
+#     return (1 / 1.75) * (np.arctanh(-sod * 2.0 + 1) + 4.5)
+def u_ocp_pos(sod, L=1, k=2):
+    return 2.5 + (1/k) * np.log((L - sod) / sod)
 
 
 if __name__ == '__main__':
@@ -57,7 +58,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     markers = commons.Markers()
-    sod = 0.075
+    sod = 0.975
     scaling = configs.get_configs()[args.scaling]
     scale = [float(scaling[val]) for val in ['x', 'y', 'z']]
     LX, LY, LZ = [int(val) * scale[idx] for (idx, val) in enumerate(args.dimensions.split("-"))]
@@ -109,8 +110,8 @@ if __name__ == '__main__':
     n = ufl.FacetNormal(domain)
     x = ufl.SpatialCoordinate(domain)
 
-    α = 10/100
-    γ = 10*100
+    α = 10
+    γ = 100
 
     h = ufl.CellDiameter(domain)
     h_avg = avg(h)
@@ -119,7 +120,7 @@ if __name__ == '__main__':
 
     f = fem.Constant(domain, PETSc.ScalarType(0))
     g = fem.Constant(domain, PETSc.ScalarType(0))
-    voltage = 1.0
+    voltage = 1000e-3
     u_left = fem.Function(V)
     with u_left.vector.localForm() as u0_loc:
         u0_loc.set(0)
@@ -136,17 +137,17 @@ if __name__ == '__main__':
     U_neg = ufl.as_vector((u_ocp_neg(sod), 0, 0))
     U_pos = ufl.as_vector((u_ocp_pos(sod), 0, 0))
 
-    κ = fem.Function(V)
-    Ω_neg_cc_cells = domaintags.find(markers.negative_cc)
-    Ω_neg_am_cells = domaintags.find(markers.negative_am)
-    Ω_se_cells = domaintags.find(markers.electrolyte)
-    Ω_pos_am_cells = domaintags.find(markers.positive_am)
-    Ω_pos_cc_cells = domaintags.find(markers.positive_cc)
-    κ.x.array[Ω_neg_cc_cells] = np.full_like(Ω_neg_cc_cells, 1, dtype=default_scalar_type)
-    κ.x.array[Ω_neg_am_cells] = np.full_like(Ω_neg_am_cells, 1, dtype=default_scalar_type)
-    κ.x.array[Ω_se_cells] = np.full_like(Ω_se_cells, 1, dtype=default_scalar_type)
-    κ.x.array[Ω_pos_am_cells] = np.full_like(Ω_pos_am_cells, 1, dtype=default_scalar_type)
-    κ.x.array[Ω_pos_cc_cells] = np.full_like(Ω_pos_cc_cells, 1, dtype=default_scalar_type)
+    # κ = fem.Function(V)
+    # Ω_neg_cc_cells = domaintags.find(markers.negative_cc)
+    # Ω_neg_am_cells = domaintags.find(markers.negative_am)
+    # Ω_se_cells = domaintags.find(markers.electrolyte)
+    # Ω_pos_am_cells = domaintags.find(markers.positive_am)
+    # Ω_pos_cc_cells = domaintags.find(markers.positive_cc)
+    # κ.x.array[Ω_neg_cc_cells] = np.full_like(Ω_neg_cc_cells, 1, dtype=default_scalar_type)
+    # κ.x.array[Ω_neg_am_cells] = np.full_like(Ω_neg_am_cells, 1, dtype=default_scalar_type)
+    # κ.x.array[Ω_se_cells] = np.full_like(Ω_se_cells, 1, dtype=default_scalar_type)
+    # κ.x.array[Ω_pos_am_cells] = np.full_like(Ω_pos_am_cells, 1, dtype=default_scalar_type)
+    # κ.x.array[Ω_pos_cc_cells] = np.full_like(Ω_pos_cc_cells, 1, dtype=default_scalar_type)
 
     # formulation
     F = dot(grad(u), grad(v)) * dx - dot(v * n, grad(u)) * ds
@@ -154,10 +155,7 @@ if __name__ == '__main__':
     # Add DG/IP terms
     F += -dot(avg(grad(v)), jump(u, n)) * dS(0) - dot(jump(v, n), avg(grad(u))) * dS(0)
     F += (γ / h_avg) * dot(jump(v, n), jump(u, n)) * dS(0)
-    F += (α / h) * v * u * (
-        ds(markers.negative_am_v_electrolyte)
-        + ds(markers.positive_am_v_positive_cc)
-    )
+    F += α / h * v * u * ds(markers.left) + α / h * v * u * ds(markers.right)
 
     # negative am - electrolyte boundary
     F += - dot(avg(grad(v)), (R * T / i0_neg / faraday_const) * (grad(u))('-') + U_neg) * dS(markers.negative_am_v_electrolyte)
@@ -165,7 +163,7 @@ if __name__ == '__main__':
 
     # electrolyte - positive am boundary
     F += - dot(avg(grad(v)), (R * T / i0_pos / faraday_const) * (grad(u))('-') + U_pos) * dS(markers.electrolyte_v_positive_am)
-    F += (α / h_avg) * dot(jump(v, n), (R * T / i0_pos / faraday_const) * (grad(u))('-') + U_neg) * dS(markers.electrolyte_v_positive_am)
+    F += (α / h_avg) * dot(jump(v, n), (R * T / i0_pos / faraday_const) * (grad(u))('-') + U_pos) * dS(markers.electrolyte_v_positive_am)
 
     # Symmetry
     F += - dot(avg(grad(v)), jump(u, n)) * dS(markers.negative_am_v_electrolyte)
@@ -182,16 +180,8 @@ if __name__ == '__main__':
     F += u_right * dot(n, grad(v)) * ds(markers.right) - (α / h) * u_right * v * ds(markers.right)
 
     # Nitsche Neumann BC terms on insulated boundary
-    F += -(h / α) * dot(g * n, grad(v)) * ds(markers.insulated_negative_cc)
-    F += -g * v * ds(markers.insulated_negative_cc)
-    F += -(h / α) * dot(g * n, grad(v)) * ds(markers.insulated_negative_am)
-    F += -g * v * ds(markers.insulated_negative_am)
-    F += -(h / α) * dot(g * n, grad(v)) * ds(markers.insulated_electrolyte)
-    F += -g * v * ds(markers.insulated_electrolyte)
-    F += -(h / α) * dot(g * n, grad(v)) * ds(markers.insulated_positive_am)
-    F += -g * v * ds(markers.insulated_positive_am)
-    F += -(h / α) * dot(g * n, grad(v)) * ds(markers.insulated_positive_cc)
-    F += -g * v * ds(markers.insulated_positive_cc)
+    F += -(h / α) * dot(g * n, grad(v)) * ds(markers.insulated)
+    F += -g * v * ds(markers.insulated)
 
     # Source term
     F += -f * v * dx 
@@ -223,7 +213,7 @@ if __name__ == '__main__':
         vtx.write(0.0)
 
     W = fem.VectorFunctionSpace(domain, ("DG", 0))
-    current_expr = fem.Expression(-κ * grad(u), W.element.interpolation_points())
+    current_expr = fem.Expression(-grad(u), W.element.interpolation_points())
     current_h = fem.Function(W)
     current_h.name = 'current_density'
     current_h.interpolate(current_expr)

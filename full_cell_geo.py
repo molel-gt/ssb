@@ -60,10 +60,10 @@ if __name__ == '__main__':
     gmsh.initialize()
     gmsh.model.add('full-cell')
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.1 * micron)
-    # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1 * micron)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1 * micron)
     for item in [0, LNCC, LNAM, LSSE, LPAM, LPCC]:
         gmsh_points.append(gmsh.model.occ.addPoint(thickness + item, 0, 0))
-        gmsh.model.occ.synchronize()
+        # gmsh.model.occ.synchronize()
         gmsh_points.append(gmsh.model.occ.addPoint(thickness + item, LY * micron, 0))
         gmsh.model.occ.synchronize()
         thickness += item
@@ -125,14 +125,14 @@ if __name__ == '__main__':
     gmsh.model.setPhysicalName(1, insulated_pos_am, "insulated_positive_am")
     insulated_pos_cc = gmsh.model.addPhysicalGroup(1, [lines[14], lines[15]], markers.insulated_positive_cc)
     gmsh.model.setPhysicalName(1, insulated_pos_cc, "insulated_positive_cc")
-    neg_cc_v_neg_am = gmsh.model.addPhysicalGroup(1, [lines[1]], markers.negative_cc_v_negative_am)
-    gmsh.model.setPhysicalName(1, neg_cc_v_neg_am, "negative_cc_v_negative_am")
+    # neg_cc_v_neg_am = gmsh.model.addPhysicalGroup(1, [lines[1]], markers.negative_cc_v_negative_am)
+    # gmsh.model.setPhysicalName(1, neg_cc_v_neg_am, "negative_cc_v_negative_am")
     neg_am_v_electrolyte = gmsh.model.addPhysicalGroup(1, [lines[4]], markers.negative_am_v_electrolyte)
     gmsh.model.setPhysicalName(1, neg_am_v_electrolyte, "negative_am_v_electrolyte")
     elec_v_pos_am = gmsh.model.addPhysicalGroup(1, [lines[7]], markers.electrolyte_v_positive_am)
     gmsh.model.setPhysicalName(1, elec_v_pos_am, "electrolyte_v_positive_am")
-    pos_am_v_pos_cc = gmsh.model.addPhysicalGroup(1, [lines[10]], markers.positive_am_v_positive_cc)
-    gmsh.model.setPhysicalName(1, insulated_pos_cc, "positive_am_v_positive_am")
+    # pos_am_v_pos_cc = gmsh.model.addPhysicalGroup(1, [lines[10]], markers.positive_am_v_positive_cc)
+    # gmsh.model.setPhysicalName(1, insulated_pos_cc, "positive_am_v_positive_am")
     insulated = gmsh.model.addPhysicalGroup(1, [lines[idx] for idx in [2, 3, 5, 6, 8, 9, 11, 12, 14, 15]], markers.insulated)
     gmsh.model.setPhysicalName(1, insulated, "insulated")
     right = gmsh.model.addPhysicalGroup(1, [lines[13]], markers.right)
@@ -140,21 +140,21 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
 
     # adaptive refinement
-    if adaptive_refine:
-        gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "EdgesList", [lines[idx] for idx in [6]])
+    # if adaptive_refine:
+    #     gmsh.model.mesh.field.add("Distance", 1)
+    #     gmsh.model.mesh.field.setNumbers(1, "EdgesList", [lines[idx] for idx in [6]])
         
-        gmsh.model.mesh.field.add("Threshold", 2)
-        gmsh.model.mesh.field.setNumber(2, "IField", 1)
-        gmsh.model.mesh.field.setNumber(2, "LcMin", 0.1 * micron)
-        gmsh.model.mesh.field.setNumber(2, "LcMax", 1 * micron)
-        gmsh.model.mesh.field.setNumber(2, "DistMin", 1 * micron)
-        gmsh.model.mesh.field.setNumber(2, "DistMax", 5 * micron)
+    #     gmsh.model.mesh.field.add("Threshold", 2)
+    #     gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    #     gmsh.model.mesh.field.setNumber(2, "LcMin", 0.1 * micron)
+    #     gmsh.model.mesh.field.setNumber(2, "LcMax", 1 * micron)
+    #     gmsh.model.mesh.field.setNumber(2, "DistMin", 1 * micron)
+    #     gmsh.model.mesh.field.setNumber(2, "DistMax", 5 * micron)
         
-        gmsh.model.mesh.field.add("Max", 5)
-        gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-        gmsh.model.mesh.field.setAsBackgroundMesh(5)
-    gmsh.model.occ.synchronize()
+    #     gmsh.model.mesh.field.add("Max", 5)
+    #     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    #     gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    # gmsh.model.occ.synchronize()
 
     gmsh.model.mesh.generate(2)
     gmsh.write(output_meshfile)
@@ -166,8 +166,8 @@ if __name__ == '__main__':
     line_mesh = geometry.create_mesh(mesh_2d, "line")
     meshio.write(line_meshfile, line_mesh)
 
-    # tria_mesh_scaled = geometry.scale_mesh(tria_mesh, "triangle", scale_factor=[10e-6, 50e-6, 0])
+    # tria_mesh_scaled = geometry.scale_mesh(tria_mesh, "triangle", scale_factor=[1e-6, 1, 1])
     # tria_mesh_scaled.write(tria_meshfile)
 
-    # line_mesh_scaled = geometry.scale_mesh(line_mesh, "line", scale_factor=[10e-6, 50e-6, 0])
+    # line_mesh_scaled = geometry.scale_mesh(line_mesh, "line", scale_factor=[1e-6, 1, 1])
     # line_mesh_scaled.write(line_meshfile)
