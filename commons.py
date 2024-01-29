@@ -77,7 +77,7 @@ class Markers:
         return 16
 
     @property
-    def insulated_positive_acc(self):
+    def insulated_positive_cc(self):
         return 17
 
     @property
