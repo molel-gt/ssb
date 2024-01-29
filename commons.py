@@ -3,6 +3,26 @@ from collections import namedtuple
 
 Facet = namedtuple('Facet', 'indices values')
 
+# studies
+STUDIES = (
+           'contact_loss_lma',
+           'contact_loss_ref',
+           'full_cell_2d',
+           'lmb_3d_cc',
+           'reaction_distribution',
+           'separator_mechanics',
+           )
+
+class Study(str):
+    def __init__(self, name):
+        if name not in STUDIES:
+            raise ValueError(f"{name} not in STUDIES\n")
+        self._name = name
+
+    @property
+    def name(self):
+        return self._name
+
 # markers for subdomains and boundaries
 class Markers:
     def __init__(self):
