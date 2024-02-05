@@ -22,6 +22,10 @@ import commons, configs, constants
 
 markers = commons.SurfaceMarkers()
 
+faraday_constant = 96485  # [C/mol]
+R = 8.314  # [J/K/mol]
+T = 298  # [K]
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
@@ -29,9 +33,9 @@ if __name__ == '__main__':
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1e-3)
-    parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=np.inf)
+    parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e-12)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
-                        const=1, default='VOXEL_SCALING', type=str)
+                        const=1, default='CONTACT_LOSS_SCALING', type=str)
     parser.add_argument("--compute_distribution", help="compute current distribution stats", nargs='?', const=1, default=False, type=bool)
 
     args = parser.parse_args()
@@ -106,14 +110,9 @@ if __name__ == '__main__':
     with u0.vector.localForm() as u0_loc:
         u0_loc.set(voltage)
 
-    u1 = fem.Function(V)
-    with u1.vector.localForm() as u1_loc:
-        u1_loc.set(0.0)
-
-    left_bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 2, left_boundary))
+    i_exchange = constants.KAPPA0 * R * T / (Lz * args.Wa * faraday_constant)
     right_bc = fem.dirichletbc(u1, fem.locate_dofs_topological(V, 2, right_boundary))
     n = ufl.FacetNormal(domain)
-    # x = ufl.SpatialCoordinate(domain)
     ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
 
     # Define variational problem
@@ -126,7 +125,7 @@ if __name__ == '__main__':
     g = fem.Constant(domain, PETSc.ScalarType(0.0))
 
     a = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
-    L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated)
+    L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated) + ufl.inner(i_exchange * faraday_constant * (u - 0) / (R * T), v) * ds(markers.left_cc)
 
     options = {
                "ksp_type": "gmres",
@@ -161,6 +160,7 @@ if __name__ == '__main__':
     I_right_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc))), op=MPI.SUM)
     I_insulated = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds)), op=MPI.SUM)
     volume = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ufl.dx(domain))), op=MPI.SUM)
+    A0 = Lx * Ly
 
     if args.compute_distribution:
         logger.debug("Cumulative distribution lines of current density at terminals")
@@ -198,10 +198,10 @@ if __name__ == '__main__':
                     markers.right_cc))),
                 op=MPI.SUM
             )
-            freq_values.append({"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql [sq. m]": freql, "freqr [sq. m]": freqr})
+            freq_values.append({"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql": freql / A0, "freqr": freqr / A0})
         if domain.comm.rank == 0:
             with open(frequency_path, "w") as fp:
-                writer = csv.DictWriter(fp, fieldnames=["vleft [A/m2]", "vright [A/m2]", "freql [sq. m]", "freqr [sq. m]"])
+                writer = csv.DictWriter(fp, fieldnames=["vleft [A/m2]", "vright [A/m2]", "freql", "freqr"])
                 writer.writeheader()
                 for row in freq_values:
                     writer.writerow(row)
