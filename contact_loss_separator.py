@@ -108,7 +108,7 @@ if __name__ == '__main__':
         u0_loc.set(voltage)
 
     i_exchange = constants.KAPPA0 * R * T / (Lz * args.Wa * faraday_constant)
-    right_bc = fem.dirichletbc(u1, fem.locate_dofs_topological(V, 2, right_boundary))
+    right_bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 2, right_boundary))
     n = ufl.FacetNormal(domain)
     ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
 
