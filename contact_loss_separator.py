@@ -125,7 +125,7 @@ if __name__ == '__main__':
     g = fem.Constant(domain, PETSc.ScalarType(0.0))
 
     a = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
-    L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated) + ufl.inner(i_exchange * faraday_constant * (u - 0) / (R * T), v) * ds(markers.left_cc)
+    L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated) + ufl.inner(i_exchange * faraday_constant * (u - 0) / (constants.KAPA0 * R * T), v) * ds(markers.left_cc)
 
     options = {
                "ksp_type": "gmres",
