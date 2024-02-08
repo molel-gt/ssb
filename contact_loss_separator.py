@@ -44,13 +44,7 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     rank = comm.rank
     start_time = timeit.default_timer()
-    if args.scale is None:
-        scaling = configs.get_configs()[args.scaling]
-        scale_x = float(scaling['x'])
-        scale_y = float(scaling['y'])
-        scale_z = float(scaling['z'])
-    else:
-        scale_x, scale_y, scale_z = [float(vv) for vv in args.scale.split(',')]
+    scale_x, scale_y, scale_z = [float(vv) for vv in args.scale.split(',')]
     loglevel = configs.get_configs()['LOGGING']['level']
     dimensions = args.dimensions
     logger = logging.getLogger()
