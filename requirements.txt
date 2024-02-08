@@ -1,6 +1,6 @@
 alphashape
-argparse
-gmsh==4.8.4
+fenics-dolfinx
+gmsh
 h5py
 hdbscan
 igraph
@@ -22,7 +22,4 @@ scipy
 scikit-image
 scikit-learn
 tetgen
-trame-vtk
-trame-vuetify
-trame-plotly
 vtk
