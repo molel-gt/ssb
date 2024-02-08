@@ -130,7 +130,7 @@ if __name__ == '__main__':
                "ksp_rtol": 1.0e-12
                }
 
-    model = petsc.LinearProblem(a, L, bcs=[left_bc, right_bc], petsc_options=options)
+    model = petsc.LinearProblem(a, L, bcs=[right_bc], petsc_options=options)
     logger.debug('Solving problem..')
     uh = model.solve()
 
