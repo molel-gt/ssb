@@ -19,7 +19,7 @@ from dolfinx.nls import petsc as petsc_nls
 from mpi4py import MPI
 from petsc4py import PETSc
 
-import commons, configs, constants
+import commons, configs, constants, utils
 
 markers = commons.SurfaceMarkers()
 
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     parser.add_argument("--compute_distribution", help="compute current distribution stats", nargs='?', const=1, default=False, type=bool)
 
     args = parser.parse_args()
-    data_dir = os.path.join(f'{args.mesh_folder}', f"{args.Wa}")
+    data_dir = os.path.join(f'{args.mesh_folder}')
     voltage = args.voltage
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -62,12 +62,14 @@ if __name__ == '__main__':
     Lx = Lx * scale_x
     Ly = Ly * scale_y
     Lz = Lz * scale_z
+    results_dir = os.path.join(data_dir, f"{args.Wa}")
+    utils.make_dir_if_missing(results_dir)
     tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
-    output_current_path = os.path.join(data_dir, 'current.bp')
-    output_potential_path = os.path.join(data_dir, 'potential.bp')
-    frequency_path = os.path.join(data_dir, 'frequency.csv')
-    simulation_metafile = os.path.join(data_dir, 'simulation.json')
+    output_current_path = os.path.join(results_dir, 'current.bp')
+    output_potential_path = os.path.join(results_dir, 'potential.bp')
+    frequency_path = os.path.join(results_dir, 'frequency.csv')
+    simulation_metafile = os.path.join(results_dir, 'simulation.json')
 
     left_cc_marker = markers.left_cc
     right_cc_marker = markers.right_cc
