@@ -15,6 +15,7 @@ from collections import defaultdict
 from dolfinx import cpp, default_scalar_type, fem, io, mesh
 from dolfinx.fem import petsc
 from dolfinx.io import VTXWriter
+from dolfinx.nls import petsc as petsc_nls
 from mpi4py import MPI
 from petsc4py import PETSc
 
@@ -33,7 +34,7 @@ if __name__ == '__main__':
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1e-3)
-    parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=0, type=float)
+    parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e-15, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='CONTACT_LOSS_SCALING', type=str)
     parser.add_argument("--compute_distribution", help="compute current distribution stats", nargs='?', const=1, default=False, type=bool)
@@ -113,7 +114,7 @@ if __name__ == '__main__':
     ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
 
     # Define variational problem
-    u = ufl.TrialFunction(V)
+    u = fem.Function(V)
     v = ufl.TestFunction(V)
 
     # bulk conductivity [S.m-1]
@@ -121,25 +122,29 @@ if __name__ == '__main__':
     f = fem.Constant(domain, PETSc.ScalarType(0.0))
     g = fem.Constant(domain, PETSc.ScalarType(0.0))
 
-    a = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
-    L = ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated) + ufl.inner(i_exchange * faraday_constant * (u - 0) / (constants.KAPPA0 * R * T), v) * ds(markers.left_cc)
-
-    options = {
-               "ksp_type": "gmres",
-               "pc_type": "hypre",
-               "ksp_rtol": 1.0e-12
-               }
-
-    model = petsc.LinearProblem(a, L, bcs=[right_bc], petsc_options=options)
+    F = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
+    F -= ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated) + ufl.inner(i_exchange * faraday_constant * (u - 0) / (constants.KAPPA0 * R * T), v) * ds(markers.left_cc)
     logger.debug('Solving problem..')
-    uh = model.solve()
+    problem = petsc.NonlinearProblem(F, u, bcs=[right_bc])
+    solver = petsc_nls.NewtonSolver(comm, problem)
+    solver.convergence_criterion = "residual"
 
-    with VTXWriter(comm, output_potential_path, [uh], engine="BP4") as vtx:
+    ksp = solver.krylov_solver
+    opts = PETSc.Options()
+    option_prefix = ksp.getOptionsPrefix()
+    opts[f"{option_prefix}ksp_type"] = "preonly"
+    opts[f"{option_prefix}pc_type"] = "lu"
+    opts['maximum_iterations'] = 100
+    ksp.setFromOptions()
+    solver.solve(u)
+    u.name = 'potential'
+
+    with VTXWriter(comm, output_potential_path, [u], engine="BP4") as vtx:
         vtx.write(0.0)
 
     logger.debug("Post-process calculations")
     W = fem.functionspace(domain, ("CG", 1, (3,)))
-    current_expr = fem.Expression(-kappa * ufl.grad(uh), W.element.interpolation_points())
+    current_expr = fem.Expression(-kappa * ufl.grad(u), W.element.interpolation_points())
     current_h = fem.Function(W)
     tol_fun = fem.Function(V)
     tol_fun_left = fem.Function(V)
