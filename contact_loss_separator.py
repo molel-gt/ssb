@@ -40,7 +40,7 @@ if __name__ == '__main__':
     parser.add_argument("--compute_distribution", help="compute current distribution stats", nargs='?', const=1, default=False, type=bool)
 
     args = parser.parse_args()
-    data_dir = os.path.join(f'{args.mesh_folder}', args.Wa)
+    data_dir = os.path.join(f'{args.mesh_folder}', f"{args.Wa}")
     voltage = args.voltage
     comm = MPI.COMM_WORLD
     rank = comm.rank
