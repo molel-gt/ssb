@@ -130,17 +130,19 @@ if __name__ == '__main__':
     problem = petsc.NonlinearProblem(F, u, bcs=[right_bc])
     solver = petsc_nls.NewtonSolver(comm, problem)
     solver.convergence_criterion = "residual"
+    solver.maximum_iterations = 100
 
     ksp = solver.krylov_solver
     opts = PETSc.Options()
     option_prefix = ksp.getOptionsPrefix()
-    # print(opts[f'{option_prefix}ksp_max_it'])
-    print(opts[f'{option_prefix}ksp_maximum_iterations'])
     opts[f"{option_prefix}ksp_type"] = "preonly"
     opts[f"{option_prefix}pc_type"] = "lu"
-    opts['ksp_max_it'] = 100
     ksp.setFromOptions()
-    solver.solve(u)
+    n, converged = solver.solve(u)
+    if not converged:
+        logger.debug(f"Solver did not converge in {n} iterations")
+    else:
+        logger.info(f"Converged in {n} iterations")
     u.name = 'potential'
 
     with VTXWriter(comm, output_potential_path, [u], engine="BP4") as vtx:
