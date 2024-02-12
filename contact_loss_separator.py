@@ -134,8 +134,7 @@ if __name__ == '__main__':
     ksp = solver.krylov_solver
     opts = PETSc.Options()
     option_prefix = ksp.getOptionsPrefix()
-    print(option_prefix)
-    print(opts.getAll)
+    print(opts[f'{option_prefix}ksp_max_it'],  opts['ksp_max_it'])
     opts[f"{option_prefix}ksp_type"] = "preonly"
     opts[f"{option_prefix}pc_type"] = "lu"
     opts[f'{option_prefix}ksp_max_it'] = 100
