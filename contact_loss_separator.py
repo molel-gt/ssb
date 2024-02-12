@@ -137,7 +137,7 @@ if __name__ == '__main__':
     print(opts[f'{option_prefix}ksp_max_it'],  opts['ksp_max_it'])
     opts[f"{option_prefix}ksp_type"] = "preonly"
     opts[f"{option_prefix}pc_type"] = "lu"
-    opts[f'{option_prefix}ksp_max_it'] = 100
+    opts['ksp_max_it'] = 100
     ksp.setFromOptions()
     solver.solve(u)
     u.name = 'potential'
