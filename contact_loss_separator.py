@@ -135,7 +135,7 @@ if __name__ == '__main__':
     opts = PETSc.Options()
     option_prefix = ksp.getOptionsPrefix()
     print(option_prefix)
-    print(opts.keys())
+    print(opts.getAll)
     opts[f"{option_prefix}ksp_type"] = "preonly"
     opts[f"{option_prefix}pc_type"] = "lu"
     opts[f'{option_prefix}ksp_max_it'] = 100
