@@ -104,6 +104,10 @@ class Markers:
     def insulated(self):
         return 18
 
+    @property
+    def external(self):
+        return 111
+
 
 class Phases:
     def __init__(self, void=0, electrolyte=1, active_material=2):
