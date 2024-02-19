@@ -1,7 +1,5 @@
 alphashape
-fenics-dolfinx
-gmsh
-h5py
+igraph
 hdbscan
 igraph
 ipympl
@@ -9,14 +7,12 @@ jax
 jupyter
 matplotlib
 meshio
-nb_conda_kernels
-networkx
 numpy
 openpyxl
 pandas
 pybamm
-python-gmsh
 pythreejs
+python-gmsh
 pyvista
 scipy
 scikit-image
