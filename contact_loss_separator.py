@@ -170,6 +170,9 @@ if __name__ == '__main__':
     volume = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ufl.dx(domain))), op=MPI.SUM)
     A0 = Lx * Ly
 
+    var_left = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_left_cc) * (ufl.inner(current_h, n) - i_left_cc) ** 2 * ds(markers.left_cc))))
+    var_right = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_right_cc) * (ufl.inner(current_h, n) - i_right_cc) ** 2 * ds(markers.right_cc))))
+
     if args.compute_distribution:
         logger.debug("Cumulative distribution lines of current density at terminals")
         cd_lims = defaultdict(lambda : [0, 25])
@@ -232,6 +235,8 @@ if __name__ == '__main__':
             "Insulated area [sq. m]": f"{insulated_area:.4e}",
             "Average current density at active area of left electrode [A.m-2]": f"{np.abs(i_left_cc):.4e}",
             "Average current density at active area of right electrode [A.m-2]": f"{np.abs(i_right_cc):.4e}",
+            "STDEV current density left electrode [A/m2]": f"{np.sqrt(var_left):.4e}",
+            "STDEV current density right electrode [A/m2]": f"{np.sqrt(var_right):.4e}",
             "Average current density at insulated area [A.m-2]": f"{i_insulated:.4e}",
             "Current at active area of left electrode [A]": f"{np.abs(I_left_cc):.4e}",
             "Current at active area of right electrode [A]": f"{np.abs(I_right_cc):.4e}",
