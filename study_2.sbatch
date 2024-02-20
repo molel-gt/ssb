@@ -11,15 +11,11 @@
 #SBATCH --mail-user=emolel3@gatech.edu
 
 module purge > /dev/null 2>&1
-. /storage/coda1/p-tf74/0/shared/leshinka/spack/share/spack/setup-env.sh
-spack env activate fenicsx-env
-module load pace-slurm
-module load gcc-compatibility/10.3.0
-module load intel/20.0.4
-module load openmpi/4.1.4
 
-export PATH=$PATH:/storage/coda1/p-tf74/0/shared/emolel3
-#module load anaconda3 && conda activate fenicsx-env
+source $HOME/.bashrc
+
+mamba activate fea-env
+
 cd $SLURM_SUBMIT_DIR
 
-python3 conductivity.py --grid_extents 470-470-"$(($2 + 1))"_000-000-000 --root_folder mesh/study_2/test$1/470-470-$2_000-000-000 --scaling VOXEL_SCALING2 --compute_distribution 1
+python3 conductivity.py --name_of_study contact_loss_lma --dimensions 470-470-$2 --mesh_folder output/contact_loss_lma/470-470-$2/$1/0.5 --scaling CONTACT_LOSS_SCALING --compute_distribution True

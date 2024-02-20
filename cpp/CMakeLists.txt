@@ -12,6 +12,13 @@ if (NOT TARGET dolfinx)
   find_package(DOLFINX REQUIRED)
 endif()
 
+find_package(PkgConfig)
+
+# PETSc
+if (PKG_CONFIG_FOUND)
+    pkg_check_modules(PETSC PETSc)
+endif()
+
 # Add target to compile UFL files
 if (PETSC_SCALAR_COMPLEX EQUAL 1)
   set(SCALAR_TYPE "--scalar_type=double _Complex")

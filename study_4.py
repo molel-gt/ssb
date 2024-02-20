@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import os
-import pickle
+import json
 import timeit
 
 import argparse
@@ -14,7 +14,7 @@ from dolfinx import cpp, fem, io, mesh, nls, plot
 from mpi4py import MPI
 from petsc4py import PETSc
 
-import commons, constants, configs
+import commons, constants, configs, study_4_utils
 
 
 markers = commons.SurfaceMarkers()
@@ -31,20 +31,24 @@ i_sup = 1e-1  # [A/m^2]
 phi_m = 0  # [V]
 U_therm = 0  # [V]
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='run simulation..')
-    parser.add_argument('--grid_extents', help='Nx-Ny-Nz that bounds the grid', required=True)
+    parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
     parser.add_argument("--voltage", nargs='?', const=1, default=1)
     parser.add_argument("--eps", help='fraction of area at left current collector that is in contact',
                         nargs='?', const=1, default=0.05, type=np.double)
+    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
+                        const=1, default='STUDY4_VOXEL_SCALING', type=str)
+    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="study_4")
+    parser.add_argument("--max_resolution", help="maximum resolution", nargs='?', const=1, default=1)
 
     args = parser.parse_args()
-    data_dir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], 'study_4', args.grid_extents, str(args.eps))
+
     voltage = args.voltage
-    scaling = configs.get_configs()['VOXEL_SCALING']
-    scale_x = 10e-6  # float(scaling['x'])
-    scale_y = 10e-6  # float(scaling['y'])
-    scale_z = 10e-6  # float(scaling['z'])
+    scaling = [float(configs.get_configs()[args.scaling][k]) for k in ['x', 'y', 'z']]
+    max_resolution = args.max_resolution
+    data_dir = study_4_utils.meshfile_subfolder_path(eps=args.eps, name_of_study=args.name_of_study, dimensions=args.dimensions, max_resolution=args.max_resolution)
     loglevel = configs.get_configs()['LOGGING']['level']
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -55,16 +59,14 @@ if __name__ == '__main__':
     logging.basicConfig(format=FORMAT)
     logger = logging.getLogger(f'{data_dir}')
     logger.setLevel(loglevel)
-    Lx, Ly, Lz = [float(v) - 1 for v in args.grid_extents.split("-")]
-    Lx = Lx * scale_x
-    Ly = Ly * scale_y
-    Lz = Lz * scale_z
+    Lx, Ly, Lz = [int(v) * scaling[idx] for idx, v in enumerate(args.dimensions.split("-"))]
     xsection_area = Lx * Ly
     Wa = KAPPA * R * T / (Lz * faraday_const * i0)
     tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
     output_current_path = os.path.join(data_dir, f'current.xdmf')
     output_potential_path = os.path.join(data_dir, 'potential.xdmf')
+    simulation_metafile = os.path.join(data_dir, "simulation.json")
 
     left_cc_marker = markers.left_cc
     right_cc_marker = markers.right_cc
@@ -156,16 +158,41 @@ if __name__ == '__main__':
     insulated_area = fem.assemble_scalar(fem.form(1 * ds(markers.insulated)))
     area_left_cc = fem.assemble_scalar(fem.form(1 * ds(markers.left_cc)))
     area_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
-    I_left_cc = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc)))
+    I_left_cc = abs(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc))))
     i_left_cc = I_left_cc / area_left_cc
-    I_right_cc = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc)))
+    I_right_cc = abs(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc))))
     i_right_cc = I_right_cc / area_right_cc
     I_insulated = fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.insulated)))
     i_insulated = I_insulated / insulated_area
     volume = fem.assemble_scalar(fem.form(1 * ufl.dx(domain)))
     avg_solution_trace_norm = i_insulated
-    error = 100 * 2 * np.abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
-    kappa_eff = Lz * abs(I_left_cc) / (voltage * xsection_area)
+
+    error = max([I_left_cc, I_right_cc]) / min([I_left_cc, I_right_cc])
+    kappa_eff = Lz * I_left_cc / (voltage * xsection_area)
+    volume_fraction = volume / (xsection_area * Lz)
+    simulation_metadata = {
+        "Wagner number": Wa,
+        "Contact area fraction at left electrode": args.eps,
+        "Contact area at left electrode [sq. m]": area_left_cc,
+        "Contact area at right electrode [sq. m]": area_right_cc,
+        "Average current density at active area of left electrode": i_left_cc,
+        "Average current density at active area of right electrode": i_right_cc,
+        "Dimensions": args.dimensions,
+        "Scaling for dimensions x,y,z to meters": args.scaling,
+        "Bulk conductivity [S.m-1]": KAPPA,
+        "Effective conductivity [S.m-1]": kappa_eff,
+        "Current density at insulated area": i_insulated,
+        "Area-averaged Homogeneous Neumann BC trace": avg_solution_trace_norm,
+        "Max electrode current over min electrode current (error)": error,
+        "Simulation time (seconds)": f"{int(timeit.default_timer() - start_time):3.5f}",
+        "Voltage": args.voltage,
+        "Insulated area [sq. m]": insulated_area,
+        "Electrolyte volume fraction": volume_fraction,
+        "Electrolyte volume [cu. m]": volume,
+    }
+    if rank == 0:
+        with open(simulation_metafile, "w", encoding='utf-8') as f:
+            json.dump(simulation_metadata, f, ensure_ascii=False, indent=4)
     logger.info("**************************RESULTS-SUMMARY******************************************")
     logger.info(f"Wa                                              : {Wa}")
     logger.info(f"Contact Area @ left cc [sq. m]                 : {area_left_cc:.4e}")
@@ -175,12 +202,12 @@ if __name__ == '__main__':
     logger.info(f"Insulated Area [sq. m]                         : {insulated_area:.4e}")
     logger.info("Total Area [sq. m]                             : {:.4e}".format(area_left_cc + area_right_cc + insulated_area))
     logger.info(f"Electrolyte Volume [cu. m]                     : {volume:.4e}")
-    logger.info("Electrolyte Volume Fraction                     : {:.2%}".format(volume / (xsection_area * Lz)))
+    logger.info("Electrolyte Volume Fraction                     : {:.2%}".format(volume_fraction))
     logger.info("Bulk conductivity [S.m-1]                       : {:.4e}".format(KAPPA))
     logger.info(f"Effective conductivity [S.m-1]                  : {kappa_eff:.4e}")
     logger.info(f"Current density @ insulated                     : {i_insulated:.2e}")
     logger.info(f"Area-averaged Homogeneous Neumann BC trace      : {avg_solution_trace_norm:.2e}")
-    logger.info(f"Error                                            : {error:.2f}%")
+    logger.info(f"Error                                            : {error:.2f}")
     logger.info(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
     logger.info(f"Voltage                                         : {args.voltage}")
     logger.info("*************************END-OF-SUMMARY*******************************************")

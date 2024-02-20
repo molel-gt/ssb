@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import json
 import os
 import subprocess
 import sys
@@ -17,7 +18,7 @@ import commons, configs, geometry, grapher, utils
 warnings.simplefilter('ignore')
 
 
-markers = commons.SurfaceMarkers()
+markers = commons.Markers()
 cell_types = commons.CellTypes()
 max_resolution = 2.5
 
@@ -66,52 +67,30 @@ def mesh_surface(coords, xmax=470, ymax=470):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument('--img_id', help='contact area image index', required=True, type=int)
-    parser.add_argument('--Lz', help='length in z direction', nargs='?', const=1, default=10, type=int)
+    parser.add_argument("--dimensions", help="integer representation of Lx-Ly-Lz of the grid", required=True)
     parser.add_argument('--resolution', help=f'resolution with max resolution of 10x resolution', nargs='?', const=1, default=1, type=float)
-    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?', const=1, default='VOXEL_SCALING2', type=str)
+    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', type=str, required=True)
+    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="contact_loss_lma")
     args = parser.parse_args()
-    img_name = f'test{str(int(args.img_id))}'
-    img = np.asarray(plt.imread(f'data/current_constriction/{img_name}.tif')[:, :, 0], dtype=np.uint8)
-    img2 = img.copy()
-    img2[0, :] = 0
-    img2[-1, :] = 0
-    img2[:, 0] = 0
-    img2[:, -1] = 0
-    coords = np.asarray(np.argwhere(img2 == 1), dtype=np.int32)
-    Lx = 470
-    Ly = 470
-    Lz = args.Lz
+    Lx, Ly, Lz = [int(v) for v in args.dimensions.split("-")]
     scaling = configs.get_configs()[args.scaling]
     scale_x = float(scaling['x'])
     scale_y = float(scaling['y'])
     scale_z = float(scaling['z'])
-    outdir = f'mesh/study_2/{img_name}/470-470-{Lz}_000-000-000/'
+    outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), str(args.resolution))
     utils.make_dir_if_missing(outdir)
     mshpath = os.path.join(f"{outdir}", "trial.msh")
-
-    xmax = 470
-    ymax = 470
-    all_points = {}
+    geometry_metafile = os.path.join(outdir, "geometry.json")
     corner_points = [
         (0, 0, 0),
-        (xmax, 0, 0),
-        (xmax, ymax, 0),
-        (0, ymax, 0)
+        (Lx, 0, 0),
+        (Lx, Ly, 0),
+        (0, Ly, 0)
     ]
-    other_points = []
-    count = 0
-    for row in coords:
-        all_points[(row[0], row[1])] = count
-        count += 1
-    gmsh_points = []
-    points_view = {int(v): (int(k[0]), int(k[1])) for k, v in all_points.items()}
-
-    graph = grapher.PixelGraph(points=points_view)
-    graph.build_graph()
-    graph.get_graph_pieces()
 
     gmsh.initialize()
-    gmsh.option.setNumber('General.Verbosity', 1)
+    gmsh.option.setNumber('Mesh.MeshSizeMin', (1/5) * args.resolution)
+    gmsh.option.setNumber('Mesh.MeshSizeMax', args.resolution)
     gmsh.model.add('area')
     z0_points = [
         (0, 0, 0),
@@ -215,26 +194,17 @@ if __name__ == '__main__':
     side_loops = []
     insulated = []
     right = []
+    left_active = []
     left = []
     process_count = 0
-    for p in graph.pieces:
-        if len(p) < 4:
-            continue
-        arr = []
-        for c in p:
-            arr.append(points_view[c])
-        hull = []
-        try:
-            alpha_shape = alphashape.alphashape(arr, 0.25)
-            exterior = alpha_shape.exterior
-            for c in exterior.coords:
-                hull.append((c[0], c[1]))
-        except scipy.spatial._qhull.QhullError as e:
-            print(len(p), e)
-            continue
-        except AttributeError as e2:
-            print(e2)
-
+    img = np.asarray(plt.imread(f'data/current_constriction/test{str(int(args.img_id))}.tif')[:, :, 0], dtype=np.uint8)
+    image = img.copy()
+    image[0, :] = 0
+    image[-1, :] = 0
+    image[:, 0] = 0
+    image[:, -1] = 0
+    boundary_pieces, count, points, points_view = geometry.get_phase_boundary_pieces(image)
+    for hull in boundary_pieces:
         hull_arr = np.asarray(hull)
         hull_points = []
         for pp in hull[:-1]:
@@ -274,16 +244,16 @@ if __name__ == '__main__':
 
     gmsh.model.occ.healShapes()
     gmsh.model.occ.synchronize()
-
+    print("Generating surface tags..")
     if len(np.unique(img)) == 1 and np.isclose(np.unique(img)[0], 1):
-        lefttag = gmsh.model.addPhysicalGroup(2, [6], markers.left_cc)
-        righttag = gmsh.model.addPhysicalGroup(2, [1], markers.right_cc)
+        lefttag = gmsh.model.addPhysicalGroup(2, [6], markers.left)
+        righttag = gmsh.model.addPhysicalGroup(2, [1], markers.right)
         insulatedtag = gmsh.model.addPhysicalGroup(2, [2, 3, 4, 5], markers.insulated)
         surfaces = list(range(1, 7))
     else:
         left_surfs = [vv[1] for vv in gmsh.model.occ.getEntities(2) if vv[1] >= 7]
-        lefttag = gmsh.model.addPhysicalGroup(2, left_surfs, markers.left_cc)
-        righttag = gmsh.model.addPhysicalGroup(2, [1], markers.right_cc)
+        lefttag = gmsh.model.addPhysicalGroup(2, left_surfs, markers.left)
+        righttag = gmsh.model.addPhysicalGroup(2, [1], markers.right)
         insulatedtag = gmsh.model.addPhysicalGroup(2, [2, 3, 4, 5, 6], markers.insulated)
         surfaces = tuple(left + insulated + right)
 
@@ -299,15 +269,15 @@ if __name__ == '__main__':
 
     gmsh.model.mesh.field.add("Threshold", 2)
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "LcMin", args.resolution)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", 10 * args.resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.01)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", max(1, 0.05 * Lz))
+    gmsh.model.mesh.field.setNumber(2, "LcMin", 0.5 * args.resolution)
+    gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 5e-5 * Lz)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 1)
 
     gmsh.model.mesh.field.add("Max", 5)
     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
     gmsh.model.mesh.field.setAsBackgroundMesh(5)
-
+    print("Generating mesh..")
     gmsh.model.mesh.generate(3)
     gmsh.write(f"{mshpath}")
     gmsh.finalize()
@@ -316,13 +286,18 @@ if __name__ == '__main__':
     msh = meshio.read(f"{mshpath}")
 
     tria_mesh_unscaled = geometry.create_mesh(msh, cell_types.triangle)
-    tria_mesh_unscaled.write(f"{outdir}" + 'tria.xdmf')
     tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, cell_types.triangle, scale_factor=scale_factor)
-    tria_mesh_scaled.write(f"{outdir}" + 'tria.xdmf')
-
+    tria_mesh_scaled.write(os.path.join(outdir, 'tria.xdmf'))
     tetr_mesh_unscaled = geometry.create_mesh(msh, cell_types.tetra)
-    tetr_mesh_unscaled.write(f"{outdir}" + 'tetr.xdmf')
     tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, cell_types.tetra, scale_factor=scale_factor)
-    tetr_mesh_scaled.write(f"{outdir}" + 'tetr.xdmf')
+    tetr_mesh_scaled.write(os.path.join(outdir, 'tetr.xdmf'))
+    print("Cleaning up.")
+    # clean up
     os.remove(mshpath)
-    # res = subprocess.check_call('mpirun python3 transport.py --grid_extents 470-470-25_000-000-000', shell=True)
+    geometry_metadata = {
+        "max_resolution": args.resolution,
+        "dimensions": args.dimensions,
+        "scaling": args.scaling,
+    }
+    with open(geometry_metafile, "w", encoding='utf-8') as f:
+        json.dump(geometry_metadata, f, ensure_ascii=False, indent=4)

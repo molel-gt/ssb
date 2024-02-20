@@ -2,18 +2,60 @@
 
 import copy
 
+import alphashape
+
 import meshio
 import networkx as nx
 import numpy as np
+import scipy
 import vtk
 
-import commons, constants
+import commons, constants, grapher
 
 
 phases = commons.Phases()
 surface_tags = commons.SurfaceMarkers()
 upper_threshold = 0.95
 lower_threshold = 0.05
+
+
+def get_phase_boundary_pieces(voxels):
+    """
+    Voxels is 2D array of 1s and 0s
+    """
+    phase_boundary = []
+    all_points = {}
+    coords = np.asarray(np.argwhere(voxels == 1), dtype=np.int32)
+    count = 0
+    for row in coords:
+        all_points[(row[0], row[1])] = count
+        count += 1
+    points_view = {int(v): (int(k[0]), int(k[1])) for k, v in all_points.items()}
+
+    graph = grapher.PixelGraph(points=points_view)
+    graph.build_graph()
+    graph.get_graph_pieces()
+    for p in graph.pieces:
+        if len(p) < 4:
+            continue
+        arr = []
+        for c in p:
+            arr.append(points_view[c])
+        hull = []
+        try:
+            alpha_shape = alphashape.alphashape(arr, 0.25)
+            exterior = alpha_shape.exterior
+            for c in exterior.coords:
+                hull.append((c[0], c[1]))
+        except scipy.spatial._qhull.QhullError as e:
+            print(len(p), e)
+            continue
+        except AttributeError as e2:
+            print(e2)
+
+        phase_boundary.append(hull)
+
+    return phase_boundary, count, all_points, points_view
 
 
 def create_mesh(mesh, cell_type, prune_z=False):

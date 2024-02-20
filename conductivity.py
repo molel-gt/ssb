@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import csv
+import json
 import os
 import timeit
 
@@ -8,8 +9,12 @@ import logging
 import numpy as np
 import ufl
 
+from basix.ufl import element
 from collections import defaultdict
-from dolfinx import cpp, fem, io, mesh
+
+from dolfinx import cpp, default_scalar_type, fem, io, mesh
+from dolfinx.fem import petsc
+from dolfinx.io import VTXWriter
 from mpi4py import MPI
 from petsc4py import PETSc
 
@@ -20,17 +25,17 @@ markers = commons.SurfaceMarkers()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
-    parser.add_argument('--grid_extents', help='Nx-Ny-Nz_Ox-Oy-Oz size_location', required=True)
-    parser.add_argument('--root_folder', help='parent folder containing mesh folder', required=True)
-    parser.add_argument("--voltage", help="applied voltage", nargs='?', const=1, default=1e-3)
-    parser.add_argument("--scale", help="sx,sy,sz", nargs='?', const=1, default=None)
+    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="conductivity")
+    parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
+    parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
+    parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1e-3)
+    parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=np.inf)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='VOXEL_SCALING', type=str)
     parser.add_argument("--compute_distribution", help="compute current distribution stats", nargs='?', const=1, default=False, type=bool)
-    parser.add_argument("--compute_grad_distribution", help="compute current distribution stats", nargs='?', const=1,
-                        default=False, type=bool)
+
     args = parser.parse_args()
-    data_dir = os.path.join(f'{args.root_folder}')
+    data_dir = os.path.join(f'{args.mesh_folder}')
     voltage = args.voltage
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -43,25 +48,24 @@ if __name__ == '__main__':
     else:
         scale_x, scale_y, scale_z = [float(vv) for vv in args.scale.split(',')]
     loglevel = configs.get_configs()['LOGGING']['level']
-    grid_extents = args.grid_extents
+    dimensions = args.dimensions
     logger = logging.getLogger()
     logger.setLevel(loglevel)
-    formatter = logging.Formatter(f'%(levelname)s:%(asctime)s:{data_dir}:{grid_extents}:%(message)s')
+    formatter = logging.Formatter(f'%(levelname)s:%(asctime)s:{data_dir}:{dimensions}:%(message)s')
     fh = logging.FileHandler(os.path.basename(__file__).replace(".py", ".log"))
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 
-    Lx, Ly, Lz = [float(v) - 1 for v in grid_extents.split("_")[0].split("-")]
+    Lx, Ly, Lz = [float(v) for v in dimensions.split("-")]
     Lx = Lx * scale_x
     Ly = Ly * scale_y
     Lz = Lz * scale_z
     tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
     tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
-    output_current_path = os.path.join(data_dir, 'current.xdmf')
-    output_potential_path = os.path.join(data_dir, 'potential.xdmf')
-    stats_path = os.path.join(data_dir, 'cdf.csv')
+    output_current_path = os.path.join(data_dir, 'current.bp')
+    output_potential_path = os.path.join(data_dir, 'potential.bp')
     frequency_path = os.path.join(data_dir, 'frequency.csv')
-    grad_cd_path = os.path.join(data_dir, 'cdf_grad_cd.csv')
+    simulation_metafile = os.path.join(data_dir, 'simulation.json')
 
     left_cc_marker = markers.left_cc
     right_cc_marker = markers.right_cc
@@ -78,7 +82,6 @@ if __name__ == '__main__':
             ft = infile2.read_meshtags(domain, name="Grid")
         left_boundary = ft.find(markers.left_cc)
         right_boundary = ft.find(markers.right_cc)
-        meshtags = mesh.meshtags(domain, 2, ft.indices, ft.values)
     except RuntimeError as e:
         logger.error("Missing xdmf file for triangle mesh!")
         facets = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
@@ -95,10 +98,10 @@ if __name__ == '__main__':
         ft_values = np.asarray([markers.left_cc] * len(l0_indices) + [markers.right_cc] * len(lz_indices) + [markers.insulated] * len(insulator_indices), dtype=np.int32)
         left_boundary = facets_l0
         right_boundary = facets_lz
-        meshtags = mesh.meshtags(domain, domain.topology.dim - 1, ft_indices, ft_values)
+        ft = mesh.meshtags(domain, domain.topology.dim - 1, ft_indices, ft_values)
 
     # Dirichlet BCs
-    V = fem.FunctionSpace(domain, ("Lagrange", 2))
+    V = fem.functionspace(domain, ("Lagrange", 2))
     u0 = fem.Function(V)
     with u0.vector.localForm() as u0_loc:
         u0_loc.set(voltage)
@@ -111,7 +114,7 @@ if __name__ == '__main__':
     right_bc = fem.dirichletbc(u1, fem.locate_dofs_topological(V, 2, right_boundary))
     n = ufl.FacetNormal(domain)
     # x = ufl.SpatialCoordinate(domain)
-    ds = ufl.Measure("ds", domain=domain, subdomain_data=meshtags)
+    ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
 
     # Define variational problem
     u = ufl.TrialFunction(V)
@@ -131,62 +134,50 @@ if __name__ == '__main__':
                "ksp_rtol": 1.0e-12
                }
 
-    model = fem.petsc.LinearProblem(a, L, bcs=[left_bc, right_bc], petsc_options=options)
+    model = petsc.LinearProblem(a, L, bcs=[left_bc, right_bc], petsc_options=options)
     logger.debug('Solving problem..')
     uh = model.solve()
-    
-    # Save solution in XDMF format
-    with io.XDMFFile(comm, output_potential_path, "w") as outfile:
-        outfile.write_mesh(domain)
-        outfile.write_function(uh)
 
-    # # Update ghost entries and plot
-    uh.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    with VTXWriter(comm, output_potential_path, [uh], engine="BP4") as vtx:
+        vtx.write(0.0)
 
     logger.debug("Post-process calculations")
-    grad_u = ufl.grad(uh)
-    W = fem.VectorFunctionSpace(domain, ("Lagrange", 1))
-    current_expr = fem.Expression(-kappa * grad_u, W.element.interpolation_points())
+    W = fem.functionspace(domain, ("CG", 1, (3,)))
+    current_expr = fem.Expression(-kappa * ufl.grad(uh), W.element.interpolation_points())
     current_h = fem.Function(W)
     tol_fun = fem.Function(V)
     tol_fun_left = fem.Function(V)
     tol_fun_right = fem.Function(V)
     current_h.interpolate(current_expr)
 
-    with io.XDMFFile(comm, output_current_path, "w") as file:
-        file.write_mesh(domain)
-        file.write_function(current_h)
+    with VTXWriter(comm, output_current_path, [current_h], engine="BP4") as vtx:
+        vtx.write(0.0)
 
     logger.debug("Post-process Results Summary")
-    insulated_area = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.insulated))), op=MPI.SUM, root=0)
-    area_left_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.left_cc))), op=MPI.SUM, root=0)
-    area_right_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ds(markers.right_cc))), op=MPI.SUM, root=0)
-    I_left_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc))), op=MPI.SUM, root=0)
-    i_left_cc = I_left_cc / area_left_cc
-    I_right_cc = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc))), op=MPI.SUM, root=0)
-    i_right_cc = I_right_cc / area_right_cc
-    I_insulated = domain.comm.reduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds)), op=MPI.SUM, root=0)
-    i_insulated = I_insulated / insulated_area
-    volume = domain.comm.reduce(fem.assemble_scalar(fem.form(1 * ufl.dx(domain))), op=MPI.SUM, root=0)
-    total_area = area_left_cc + area_right_cc + insulated_area
-    error = 100 * 2 * abs(abs(I_left_cc) - abs(I_right_cc)) / (abs(I_left_cc) + abs(I_right_cc))
+    insulated_area = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.insulated))), op=MPI.SUM)
+    area_left_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.left_cc))), op=MPI.SUM)
+    area_right_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.right_cc))), op=MPI.SUM)
+    I_left_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc))), op=MPI.SUM)
+    I_right_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc))), op=MPI.SUM)
+    I_insulated = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds)), op=MPI.SUM)
+    volume = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ufl.dx(domain))), op=MPI.SUM)
+
     if args.compute_distribution:
         logger.debug("Cumulative distribution lines of current density at terminals")
-        cd_lims = defaultdict(lambda : [0, 100])
+        cd_lims = defaultdict(lambda : [0, 25])
         cd_lims.update(
             {
-                1: [55, 60],
+                1: [0, 60],
                 5: [0, 25],
+                15: [0, 25],
+                30: [0, 25],
                 50: [0, 25],
                 100: [0, 25],
                 200: [0, 25],
             }
         )
-        min_cd, max_cd = cd_lims[int(int(grid_extents.split("_")[0].split("-")[-1]) - 1)]
-        if np.isclose(int(int(grid_extents.split("_")[0].split("-")[-1]) - 1), 1):
-            cd_space = np.hstack((np.linspace(0, min_cd, num=1000), np.linspace(min_cd, max_cd, num=1000)))
-        else:
-            cd_space = np.linspace(min_cd, max_cd, num=1000)
+        min_cd, max_cd = cd_lims[int(dimensions.split("-")[-1])]
+        cd_space = np.linspace(min_cd, max_cd, num=10000)
         cdf_values = []
         freq_values = []
         EPS = 1e-30
@@ -196,81 +187,58 @@ if __name__ == '__main__':
             tol_fun_right.interpolate(lambda x: vright * (x[0] + EPS) / (x[0] + EPS))
             return ufl.conditional(ufl.ge(values, tol_fun_left), 1, 0) * ufl.conditional(ufl.lt(values, tol_fun_right), 1, 0)
 
-        def check_condition(values, tol):
-            tol_fun.interpolate(lambda x: tol * (x[0] + EPS) / (x[0] + EPS))
-            return ufl.conditional(ufl.le(values, tol_fun), 1, 0)
-
-        for v in cd_space:
-            lpvalue = domain.comm.reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.left_cc))) / area_left_cc, op=MPI.SUM, root=0)
-            rpvalue = domain.comm.reduce(fem.assemble_scalar(fem.form(check_condition(np.abs(ufl.inner(current_h, n)), v) * ds(markers.right_cc))) / area_right_cc, op=MPI.SUM, root=0)
-            cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": rpvalue})
         for i, vleft in enumerate(list(cd_space)[:-1]):
             vright = cd_space[i+1]
-            freql = domain.comm.reduce(
-                fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(markers.left_cc))) / area_left_cc,
-                op=MPI.SUM,
-                root=0
+            freql = domain.comm.allreduce(
+                fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(markers.left_cc))),
+                op=MPI.SUM
             )
-            freqr = domain.comm.reduce(
+            freqr = domain.comm.allreduce(
                 fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(
-                    markers.right_cc))) / area_right_cc,
-                op=MPI.SUM,
-                root=0
+                    markers.right_cc))),
+                op=MPI.SUM
             )
-            freq_values.append({"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql": freql, "freqr": freqr})
+            freq_values.append({"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql [sq. m]": freql, "freqr [sq. m]": freqr})
         if domain.comm.rank == 0:
-            with open(stats_path, 'w') as fp:
-                writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
-                writer.writeheader()
-                for row in cdf_values:
-                    writer.writerow(row)
             with open(frequency_path, "w") as fp:
-                writer = csv.DictWriter(fp, fieldnames=["vleft [A/m2]", "vright [A/m2]", "freql", "freqr"])
+                writer = csv.DictWriter(fp, fieldnames=["vleft [A/m2]", "vright [A/m2]", "freql [sq. m]", "freqr [sq. m]"])
                 writer.writeheader()
                 for row in freq_values:
                     writer.writerow(row)
-        logger.debug(f"Wrote cdf stats in {stats_path}")
-        if args.compute_grad_distribution:
-            logger.debug(f"Cumulative distribution lines of derivative of current density at terminals")
-            grad2 = ufl.sqrt(
-                ufl.inner(
-                    ufl.grad(ufl.inner(current_h, n)),
-                    ufl.grad(ufl.inner(current_h, n))
-                )
-            )
-            # mean_left = fem.assemble_scalar(fem.form(grad2 * ds(markers.left_cc))) / area_left_cc
-            # sd_left = (fem.assemble_scalar(fem.form((grad2 - mean_left) ** 2 * ds(markers.left_cc))) / area_left_cc) ** 0.5
-            # mean_right = fem.assemble_scalar(fem.form(grad2 * ds(markers.right_cc))) / area_right_cc
-            # sd_right = (fem.assemble_scalar(fem.form((grad2 - mean_right) ** 2 * ds(markers.right_cc))) / area_right_cc) ** 0.5
-            # grad_cd_min, grad_cd_max = [0, int(mean_left + 3 * sd_left)]
-            grad_cd_space = [0, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-5] + list(np.linspace(1e-5 + 1e-6, 1e-4, num=100)) + [1e-4, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7]
-            grad_cd_cdf_values = []
-            for v in grad_cd_space:
-                lpvalue = fem.assemble_scalar(fem.form(check_condition(grad2, v) * ds(markers.left_cc))) / area_left_cc
-                grad_cd_cdf_values.append({'i [A/m2]': v, "p_left": lpvalue, "p_right": "-"})
-            with open(grad_cd_path, 'w') as fp:
-                writer = csv.DictWriter(fp, fieldnames=['i [A/m2]', 'p_left', 'p_right'])
-                writer.writeheader()
-                for row in grad_cd_cdf_values:
-                    writer.writerow(row)
-            logger.debug(f"Wrote cdf stats in {grad_cd_path}")
+        logger.debug(f"Wrote frequency stats in {frequency_path}")
     if domain.comm.rank == 0:
-        logger.info("**************************RESULTS-SUMMARY******************************************")
-        logger.info(f"Contact Area @ left cc [sq. um]                 : {area_left_cc*1e12:.4e}")
-        logger.info(f"Contact Area @ right cc [sq. um]                : {area_right_cc*1e12:.4e}")
-        logger.info(f"Insulated Area [sq. um]                         : {insulated_area*1e12:.4e}")
-        logger.info(f"Total Area [sq. um]                             : {total_area*1e12:.4e}")
-        logger.info(f"Current density @ left cc [A/m2]                : {i_left_cc:.4e}")
-        logger.info(f"Current density @ right cc [A/m2]               : {i_right_cc:.4e}")
-        logger.info(f"Current @ left cc [A]                           : {I_left_cc:.4e}")
-        logger.info(f"Current @ right cc [A]                          : {I_right_cc:.4e}")
-        logger.info(f"Insulated Current [A]                           : {I_insulated:.2e}")
-        logger.info(f"Electrolyte Volume [cu. um]                     : {volume*1e18:.4e}")
-        logger.info("Electrolyte Volume Fraction                     : {:.2%}".format(volume / (Lx * Ly * Lz)))
-        logger.info(f"Bulk conductivity [S.m-1]                       : {constants.KAPPA0:.4e}")
-        logger.info("Effective conductivity [S.m-1]                  : {:.4e}".format(Lz * abs(I_left_cc) / (voltage * (Lx * Ly))))
-        logger.info(f"Conductor Length, L_z [um]                      : {Lz * 1e6:.1e}")
-        logger.info(f"Deviation in current at two current collectors  : {error:.2f}%")
-        logger.info(f"Voltage                                         : {args.voltage}")
+        i_right_cc = I_right_cc / area_right_cc
+        i_left_cc = I_left_cc / area_left_cc
+        i_insulated = I_insulated / insulated_area
+        volume_fraction = volume / (Lx * Ly * Lz)
+        total_area = area_left_cc + area_right_cc + insulated_area
+        error = max([np.abs(I_left_cc), np.abs(I_right_cc)]) / min([np.abs(I_left_cc), np.abs(I_right_cc)])
+        kappa_eff = Lz * abs(I_left_cc) / (voltage * (Lx * Ly))
+
+        simulation_metadata = {
+            "Wagner number": args.Wa,
+            "Contact area fraction at left electrode": f"{area_left_cc / (Lx * Ly):.4f}",
+            "Contact area fraction at right electrode": f"{area_right_cc / (Lx * Ly):.4f}",
+            "Contact area at left electrode [sq. m]": f"{area_left_cc:.4e}",
+            "Contact area at right electrode [sq. m]": f"{area_right_cc:.4e}",
+            "Insulated area [sq. m]": f"{insulated_area:.4e}",
+            "Average current density at active area of left electrode [A.m-2]": f"{np.abs(i_left_cc):.4e}",
+            "Average current density at active area of right electrode [A.m-2]": f"{np.abs(i_right_cc):.4e}",
+            "Average current density at insulated area [A.m-2]": f"{i_insulated:.4e}",
+            "Current at active area of left electrode [A]": f"{np.abs(I_left_cc):.4e}",
+            "Current at active area of right electrode [A]": f"{np.abs(I_right_cc):.4e}",
+            "Current at insulated area [A]": f"{np.abs(I_insulated):.4e}",
+            "Dimensions Lx-Ly-Lz (unscaled)": args.dimensions,
+            "Scaling for dimensions x,y,z to meters": args.scaling,
+            "Bulk conductivity [S.m-1]": constants.KAPPA0,
+            "Effective conductivity [S.m-1]": f"{kappa_eff:.4f}",
+            "Max electrode current over min electrode current (error)": error,
+            "Simulation time (seconds)": f"{int(timeit.default_timer() - start_time):,}",
+            "Voltage drop [V]": args.voltage,
+            "Electrolyte volume fraction": f"{volume_fraction:.4f}",
+            "Electrolyte volume [cu. m]": f"{volume:.4e}",
+        }
+        with open(simulation_metafile, "w", encoding='utf-8') as f:
+            json.dump(simulation_metadata, f, ensure_ascii=False, indent=4)
+
         logger.info(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
-        logger.info("*************************END-OF-SUMMARY*******************************************")
