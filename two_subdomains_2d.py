@@ -102,7 +102,7 @@ if adaptive_refine:
     gmsh.model.mesh.field.add("Threshold", 2)
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
     gmsh.model.mesh.field.setNumber(2, "LcMin", 0.1 * micron)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", 0.5 * micron)
+    gmsh.model.mesh.field.setNumber(2, "LcMax", 0.25 * micron)
     gmsh.model.mesh.field.setNumber(2, "DistMin", 0.1 * micron)
     gmsh.model.mesh.field.setNumber(2, "DistMax", 1 * micron)
     
