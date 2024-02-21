@@ -48,7 +48,11 @@ line_meshfile = os.path.join(workdir, "line.xdmf")
 gmsh.initialize()
 gmsh.model.add('full-cell')
 # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.1 * micron)
-gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.5 * micron)
+# gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.25 * micron)
+
+gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
+gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
+gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
 for idx, p in enumerate(points):
     gpoints.append(
         gmsh.model.occ.addPoint(*p)
@@ -91,22 +95,21 @@ gmsh.model.addPhysicalGroup(2, [se_phase], markers.electrolyte)
 gmsh.model.addPhysicalGroup(2, [pe_phase], markers.positive_am)
 gmsh.model.occ.synchronize()
 
-# if adaptive_refine:
-#     gmsh.model.mesh.field.add("Distance", 1)
-#     gmsh.model.mesh.field.setNumbers(1, "EdgesList", [lines[idx] for idx in [-1, -2, 0, 1, 2, 3, 4, 5, 6]])
+if adaptive_refine:
+    gmsh.model.mesh.field.add("Distance", 1)
+    gmsh.model.mesh.field.setNumbers(1, "EdgesList", [lines[idx] for idx in [-1, -2, 0, 1, 2, 3, 4, 5, 6]])
     
-#     gmsh.model.mesh.field.add("Threshold", 2)
-#     gmsh.model.mesh.field.setNumber(2, "IField", 1)
-#     gmsh.model.mesh.field.setNumber(2, "LcMin", 0.1 * micron)
-#     gmsh.model.mesh.field.setNumber(2, "LcMax", 1 * micron)
-#     gmsh.model.mesh.field.setNumber(2, "DistMin", 0.1 * micron)
-#     gmsh.model.mesh.field.setNumber(2, "DistMax", 1 * micron)
+    gmsh.model.mesh.field.add("Threshold", 2)
+    gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    gmsh.model.mesh.field.setNumber(2, "LcMin", 0.1 * micron)
+    gmsh.model.mesh.field.setNumber(2, "LcMax", 0.5 * micron)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.1 * micron)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 1 * micron)
     
-#     gmsh.model.mesh.field.add("Max", 5)
-#     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-#     gmsh.model.mesh.field.setAsBackgroundMesh(5)
-# gmsh.model.occ.synchronize()
-
+    gmsh.model.mesh.field.add("Max", 5)
+    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    gmsh.model.mesh.field.setAsBackgroundMesh(5)
+gmsh.model.occ.synchronize()
 
 gmsh.model.mesh.generate(2)
 gmsh.write(output_meshfile)
