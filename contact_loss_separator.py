@@ -34,7 +34,7 @@ if __name__ == '__main__':
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1e-3)
-    parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e-15, type=float)
+    parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=np.nan, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='CONTACT_LOSS_SCALING', type=str)
     parser.add_argument("--compute_distribution", help="compute current distribution stats", nargs='?', const=1, default=False, type=bool)
@@ -187,7 +187,12 @@ if __name__ == '__main__':
                 200: [0, 25],
             }
         )
-        min_cd, max_cd = cd_lims[int(dimensions.split("-")[-1])]
+
+        if np.isnan(args.Wa):
+            min_cd, max_cd = cd_lims[int(dimensions.split("-")[-1])]
+        else:
+            min_cd = 0
+            max_cd = min(abs(i_left_cc) * 5, cd_lims[int(dimensions.split("-")[-1])][-1])
         cd_space = np.linspace(min_cd, max_cd, num=10000)
         cdf_values = []
         freq_values = []
