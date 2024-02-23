@@ -89,8 +89,9 @@ if __name__ == '__main__':
     ]
 
     gmsh.initialize()
-    gmsh.option.setNumber('Mesh.MeshSizeMin', (1/5) * args.resolution)
-    gmsh.option.setNumber('Mesh.MeshSizeMax', args.resolution)
+    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
+    gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
+    gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
     gmsh.model.add('area')
     z0_points = [
         (0, 0, 0),
