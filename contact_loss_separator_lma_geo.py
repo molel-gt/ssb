@@ -88,8 +88,13 @@ if __name__ == '__main__':
         (0, Ly, 0)
     ]
 
+    min_resolution = (1/5) * args.resolution
+    min_dist = 5e-5 * Lz
+
     gmsh.initialize()
     gmsh.model.add('area')
+    gmsh.option.setNumber('Mesh.MeshSizeMin', min_resolution)
+    gmsh.option.setNumber('Mesh.MeshSizeMax', args.resolution)
     gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
@@ -270,9 +275,9 @@ if __name__ == '__main__':
 
     gmsh.model.mesh.field.add("Threshold", 2)
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "LcMin", 0.5 * args.resolution)
+    gmsh.model.mesh.field.setNumber(2, "LcMin", min_resolution)
     gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.1)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", min_dist)
     gmsh.model.mesh.field.setNumber(2, "DistMax", 1)
 
     gmsh.model.mesh.field.add("Max", 5)
