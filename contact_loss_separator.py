@@ -230,6 +230,7 @@ if __name__ == '__main__':
         total_area = area_left_cc + area_right_cc + insulated_area
         error = max([np.abs(I_left_cc), np.abs(I_right_cc)]) / min([np.abs(I_left_cc), np.abs(I_right_cc)])
         kappa_eff = abs(I_left_cc) / A0 * Lz / voltage
+        logger.debug("Finished generating summary.")
 
         simulation_metadata = {
             "Wagner number": args.Wa,
