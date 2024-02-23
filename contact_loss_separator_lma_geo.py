@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+import timeit
 
 import alphashape
 import argparse
@@ -72,6 +73,7 @@ if __name__ == '__main__':
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', type=str, required=True)
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="contact_loss_lma")
     args = parser.parse_args()
+    start_time = timeit.default_timer()
     Lx, Ly, Lz = [int(v) for v in args.dimensions.split("-")]
     scaling = configs.get_configs()[args.scaling]
     scale_x = float(scaling['x'])
@@ -307,3 +309,4 @@ if __name__ == '__main__':
     }
     with open(geometry_metafile, "w", encoding='utf-8') as f:
         json.dump(geometry_metadata, f, ensure_ascii=False, indent=4)
+    print(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
