@@ -89,10 +89,10 @@ if __name__ == '__main__':
     ]
 
     gmsh.initialize()
+    gmsh.model.add('area')
     gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
-    gmsh.model.add('area')
     z0_points = [
         (0, 0, 0),
         (Lx, 0, 0),
@@ -272,7 +272,7 @@ if __name__ == '__main__':
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
     gmsh.model.mesh.field.setNumber(2, "LcMin", 0.5 * args.resolution)
     gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 5e-5 * Lz)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.1)
     gmsh.model.mesh.field.setNumber(2, "DistMax", 1)
 
     gmsh.model.mesh.field.add("Max", 5)
