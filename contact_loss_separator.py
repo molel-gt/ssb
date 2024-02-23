@@ -254,6 +254,7 @@ if __name__ == '__main__':
             "Voltage drop [V]": args.voltage,
             "Electrolyte volume fraction": f"{volume_fraction:.4f}",
             "Electrolyte volume [cu. m]": f"{volume:.4e}",
+            "Total resistance [Ω.cm2]": args.voltage / (I_right_cc / (A0 * 1e4)),
         }
         with open(simulation_metafile, "w", encoding='utf-8') as f:
             json.dump(simulation_metadata, f, ensure_ascii=False, indent=4)
