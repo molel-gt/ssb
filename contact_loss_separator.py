@@ -189,7 +189,7 @@ if __name__ == '__main__':
             min_cd, max_cd = cd_lims[int(dimensions.split("-")[-1])]
         else:
             min_cd = 0
-            max_cd = min(abs(I_left_cc/area_left_cc) * 5, cd_lims[int(dimensions.split("-")[-1])][-1])
+            max_cd = min(abs(I_left_cc/A0) * 5, cd_lims[int(dimensions.split("-")[-1])][-1])
         cd_space = np.linspace(min_cd, max_cd, num=10000)
         cdf_values = []
         freq_values = []
