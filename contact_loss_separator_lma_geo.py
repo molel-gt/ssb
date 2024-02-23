@@ -99,7 +99,7 @@ if __name__ == '__main__':
     gmsh.option.setNumber('Mesh.MeshSizeMax', args.resolution)
     gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
-    gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
+    # gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
     z0_points = [
         (0, 0, 0),
         (Lx, 0, 0),
