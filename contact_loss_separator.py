@@ -37,7 +37,7 @@ if __name__ == '__main__':
     parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=np.nan, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='CONTACT_LOSS_SCALING', type=str)
-    parser.add_argument("--compute_distribution", help="compute current distribution stats", action=argparse.BooleanOptionalAction)
+    parser.add_argument("--compute_distribution", help="compute current distribution stats", default=True, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
     data_dir = os.path.join(f'{args.mesh_folder}')
