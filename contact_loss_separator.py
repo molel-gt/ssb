@@ -220,6 +220,7 @@ if __name__ == '__main__':
                     writer.writerow(row)
         logger.debug(f"Wrote frequency stats in {frequency_path}")
     if domain.comm.rank == 0:
+        logger.debug("Generating summary information..")
         i_right_cc = I_right_cc / area_right_cc
         i_left_cc = I_left_cc / area_left_cc
         i_insulated = I_insulated / insulated_area
