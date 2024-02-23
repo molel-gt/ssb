@@ -220,11 +220,11 @@ if __name__ == '__main__':
                     writer.writerow(row)
         logger.debug(f"Wrote frequency stats in {frequency_path}")
     if domain.comm.rank == 0:
-        var_left = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_left_cc) * (ufl.inner(current_h, n) - i_left_cc) ** 2 * ds(markers.left_cc))))
-        var_right = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_right_cc) * (ufl.inner(current_h, n) - i_right_cc) ** 2 * ds(markers.right_cc))))
         i_right_cc = I_right_cc / area_right_cc
         i_left_cc = I_left_cc / area_left_cc
         i_insulated = I_insulated / insulated_area
+        var_left = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_left_cc) * (ufl.inner(current_h, n) - i_left_cc) ** 2 * ds(markers.left_cc))))
+        var_right = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_right_cc) * (ufl.inner(current_h, n) - i_right_cc) ** 2 * ds(markers.right_cc))))
         volume_fraction = volume / (Lx * Ly * Lz)
         total_area = area_left_cc + area_right_cc + insulated_area
         error = max([np.abs(I_left_cc), np.abs(I_right_cc)]) / min([np.abs(I_left_cc), np.abs(I_right_cc)])
