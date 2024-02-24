@@ -5,11 +5,14 @@ igraph
 ipympl
 jax
 jupyter
+libptscotch
+libscotch
 matplotlib
 meshio
 numpy
 openpyxl
 pandas
+ptscotch
 pybamm
 pythreejs
 python-gmsh
@@ -17,5 +20,6 @@ pyvista
 scipy
 scikit-image
 scikit-learn
+scotch
 tetgen
 vtk
