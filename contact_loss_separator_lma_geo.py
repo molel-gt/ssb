@@ -299,9 +299,6 @@ if __name__ == '__main__':
     tetr_mesh_unscaled = geometry.create_mesh(msh, cell_types.tetra)
     tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, cell_types.tetra, scale_factor=scale_factor)
     tetr_mesh_scaled.write(os.path.join(outdir, 'tetr.xdmf'))
-    print("Cleaning up.")
-    # clean up
-    os.remove(mshpath)
     geometry_metadata = {
         "max_resolution": args.resolution,
         "dimensions": args.dimensions,
