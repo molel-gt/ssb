@@ -130,13 +130,13 @@ if __name__ == '__main__':
     problem = petsc.NonlinearProblem(F, u, bcs=[right_bc])
     solver = petsc_nls.NewtonSolver(comm, problem)
     solver.convergence_criterion = "residual"
-    solver.maximum_iterations = 100
+    solver.maximum_iterations = 10
 
     ksp = solver.krylov_solver
     opts = PETSc.Options()
     option_prefix = ksp.getOptionsPrefix()
     opts[f"{option_prefix}ksp_type"] = "gmres"
-    opts[f"{option_prefix}pc_type"] = "hypre"
+    opts[f"{option_prefix}pc_type"] = "lu"
     ksp.setFromOptions()
     n_iters, converged = solver.solve(u)
     if not converged:
