@@ -21,7 +21,7 @@ from petsc4py import PETSc
 
 import commons, configs, constants, utils
 
-markers = commons.SurfaceMarkers()
+markers = commons.Markers()
 
 faraday_constant = 96485  # [C/mol]
 R = 8.314  # [J/K/mol]
@@ -71,8 +71,8 @@ if __name__ == '__main__':
     frequency_path = os.path.join(results_dir, 'frequency.csv')
     simulation_metafile = os.path.join(results_dir, 'simulation.json')
 
-    left_cc_marker = markers.left_cc
-    right_cc_marker = markers.right_cc
+    left_cc_marker = markers.left
+    right_cc_marker = markers.right
     insulated_marker = markers.insulated
 
     logger.debug("Loading tetrahedra (dim = 3) mesh..")
@@ -84,8 +84,8 @@ if __name__ == '__main__':
         logger.debug("Attempting to load xmdf file for triangle mesh")
         with io.XDMFFile(comm, tria_mesh_path, "r") as infile2:
             ft = infile2.read_meshtags(domain, name="Grid")
-        left_boundary = ft.find(markers.left_cc)
-        right_boundary = ft.find(markers.right_cc)
+        left_boundary = ft.find(markers.left)
+        right_boundary = ft.find(markers.right)
     except RuntimeError as e:
         logger.error("Missing xdmf file for triangle mesh!")
         facets = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
@@ -99,7 +99,7 @@ if __name__ == '__main__':
         lz_indices = set(tuple([val for val in facets_lz]))
         insulator_indices = all_indices.difference(l0_indices | lz_indices)
         ft_indices = np.asarray(list(l0_indices) + list(lz_indices) + list(insulator_indices), dtype=np.int32)
-        ft_values = np.asarray([markers.left_cc] * len(l0_indices) + [markers.right_cc] * len(lz_indices) + [markers.insulated] * len(insulator_indices), dtype=np.int32)
+        ft_values = np.asarray([markers.left] * len(l0_indices) + [markers.right] * len(lz_indices) + [markers.insulated] * len(insulator_indices), dtype=np.int32)
         left_boundary = facets_l0
         right_boundary = facets_lz
         ft = mesh.meshtags(domain, domain.topology.dim - 1, ft_indices, ft_values)
@@ -125,7 +125,7 @@ if __name__ == '__main__':
     g = fem.Constant(domain, PETSc.ScalarType(0.0))
 
     F = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
-    F -= ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated) + ufl.inner(i_exchange * faraday_constant * (u - 0) / (constants.KAPPA0 * R * T), v) * ds(markers.left_cc)
+    F -= ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated) + ufl.inner(i_exchange * faraday_constant * (u - 0) / (constants.KAPPA0 * R * T), v) * ds(markers.left)
     logger.debug('Solving problem..')
     problem = petsc.NonlinearProblem(F, u, bcs=[right_bc])
     solver = petsc_nls.NewtonSolver(comm, problem)
@@ -162,10 +162,10 @@ if __name__ == '__main__':
 
     logger.debug("Post-process Results Summary")
     insulated_area = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.insulated))), op=MPI.SUM)
-    area_left_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.left_cc))), op=MPI.SUM)
-    area_right_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.right_cc))), op=MPI.SUM)
-    I_left_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left_cc))), op=MPI.SUM)
-    I_right_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right_cc))), op=MPI.SUM)
+    area_left_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.left))), op=MPI.SUM)
+    area_right_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.right))), op=MPI.SUM)
+    I_left_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left))), op=MPI.SUM)
+    I_right_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right))), op=MPI.SUM)
     I_insulated = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds)), op=MPI.SUM)
     volume = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ufl.dx(domain))), op=MPI.SUM)
     A0 = Lx * Ly
@@ -203,12 +203,12 @@ if __name__ == '__main__':
         for i, vleft in enumerate(list(cd_space)[:-1]):
             vright = cd_space[i+1]
             freql = domain.comm.allreduce(
-                fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(markers.left_cc))),
+                fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(markers.left))),
                 op=MPI.SUM
             )
             freqr = domain.comm.allreduce(
                 fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(
-                    markers.right_cc))),
+                    markers.right))),
                 op=MPI.SUM
             )
             freq_values.append({"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql": freql / A0, "freqr": freqr / A0})
@@ -224,8 +224,8 @@ if __name__ == '__main__':
         i_right_cc = I_right_cc / area_right_cc
         i_left_cc = I_left_cc / area_left_cc
         i_insulated = I_insulated / insulated_area
-        var_left = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_left_cc) * (ufl.inner(current_h, n) - i_left_cc) ** 2 * ds(markers.left_cc))))
-        var_right = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_right_cc) * (ufl.inner(current_h, n) - i_right_cc) ** 2 * ds(markers.right_cc))))
+        var_left = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_left_cc) * (ufl.inner(current_h, n) - i_left_cc) ** 2 * ds(markers.left))))
+        var_right = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_right_cc) * (ufl.inner(current_h, n) - i_right_cc) ** 2 * ds(markers.right))))
         volume_fraction = volume / (Lx * Ly * Lz)
         total_area = area_left_cc + area_right_cc + insulated_area
         error = max([np.abs(I_left_cc), np.abs(I_right_cc)]) / min([np.abs(I_left_cc), np.abs(I_right_cc)])
