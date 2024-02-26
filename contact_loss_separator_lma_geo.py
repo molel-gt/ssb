@@ -69,7 +69,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument('--img_id', help='contact area image index', required=True, type=int)
     parser.add_argument("--dimensions", help="integer representation of Lx-Ly-Lz of the grid", required=True)
-    parser.add_argument('--resolution', help=f'resolution with max resolution of 10x resolution', nargs='?', const=1, default=1, type=float)
+    parser.add_argument('--resolution', help=f'max resolution resolution', nargs='?', const=1, default=1, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', type=str, required=True)
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="contact_loss_lma")
     args = parser.parse_args()
@@ -95,11 +95,11 @@ if __name__ == '__main__':
 
     gmsh.initialize()
     gmsh.model.add('area')
-    gmsh.option.setNumber('Mesh.MeshSizeMin', min_resolution)
-    gmsh.option.setNumber('Mesh.MeshSizeMax', args.resolution)
-    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
-    gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
-    gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
+    # gmsh.option.setNumber('Mesh.MeshSizeMin', min_resolution)
+    # gmsh.option.setNumber('Mesh.MeshSizeMax', args.resolution)
+    # gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
+    # gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
+    # gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
     z0_points = [
         (0, 0, 0),
         (Lx, 0, 0),
@@ -279,7 +279,7 @@ if __name__ == '__main__':
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
     gmsh.model.mesh.field.setNumber(2, "LcMin", 0.5 * args.resolution)
     gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", min_dist)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.1)
     gmsh.model.mesh.field.setNumber(2, "DistMax", 1)
 
     gmsh.model.mesh.field.add("Max", 5)
