@@ -77,7 +77,6 @@ if __name__ == '__main__':
     insulated_marker = markers.insulated
 
     logger.debug("Loading mesh..")
-
     partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
     domain, ct, ft = gmshio.read_from_msh(output_meshfile_path, comm, partitioner=partitioner)
     tdim = domain.topology.dim
@@ -88,40 +87,11 @@ if __name__ == '__main__':
     # indices = np.arange(0, num_facets)
     # values = np.zeros(indices.shape, dtype=np.intc)  # all facets are tagged with zero
     # values[ft.indices] = ft.values
-    # meshtags = mesh.meshtags(domain, fdim, indices, values)
-    # domaintags = mesh.meshtags(domain, domain.topology.dim, ct.indices, ct.values)
+    # ft = mesh.meshtags(domain, fdim, indices, values)
+    # ct = mesh.meshtags(domain, domain.topology.dim, ct.indices, ct.values)
     left_boundary = ft.find(markers.left)
     right_boundary = ft.find(markers.right)
     logger.debug("done\n")
-
-    # logger.debug("Loading tetrahedra (dim = 3) mesh..")
-    # with io.XDMFFile(comm, tetr_mesh_path, "r") as infile3:
-    #     domain = infile3.read_mesh(cpp.mesh.GhostMode.none, 'Grid')
-    #     ct = infile3.read_meshtags(domain, name="Grid")
-    # domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
-    # try:
-    #     logger.debug("Attempting to load xmdf file for triangle mesh")
-    #     with io.XDMFFile(comm, tria_mesh_path, "r") as infile2:
-    #         ft = infile2.read_meshtags(domain, name="Grid")
-    #     left_boundary = ft.find(markers.left)
-    #     right_boundary = ft.find(markers.right)
-    # except RuntimeError as e:
-    #     logger.error("Missing xdmf file for triangle mesh!")
-    #     facets = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
-    #                                            marker=lambda x: np.isfinite(x[2]))
-    #     facets_l0 = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
-    #                                            marker=lambda x: np.isclose(x[2], 0))
-    #     facets_lz = mesh.locate_entities_boundary(domain, dim=domain.topology.dim - 1,
-    #                                            marker=lambda x: np.isclose(x[2], Lz))
-    #     all_indices = set(tuple([val for val in facets]))
-    #     l0_indices = set(tuple([val for val in facets_l0]))
-    #     lz_indices = set(tuple([val for val in facets_lz]))
-    #     insulator_indices = all_indices.difference(l0_indices | lz_indices)
-    #     ft_indices = np.asarray(list(l0_indices) + list(lz_indices) + list(insulator_indices), dtype=np.int32)
-    #     ft_values = np.asarray([markers.left] * len(l0_indices) + [markers.right] * len(lz_indices) + [markers.insulated] * len(insulator_indices), dtype=np.int32)
-    #     left_boundary = facets_l0
-    #     right_boundary = facets_lz
-    #     ft = mesh.meshtags(domain, domain.topology.dim - 1, ft_indices, ft_values)
 
     # Dirichlet BCs
     V = fem.functionspace(domain, ("Lagrange", 2))
