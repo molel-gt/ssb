@@ -51,7 +51,7 @@ lines = []
 gmsh.initialize()
 gmsh.model.add('lithium-metal')
 # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.25*micron)
-gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.05 * micron)
+gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.025 * micron)
 
 for idx, p in enumerate(points):
     gpoints.append(
