@@ -57,6 +57,7 @@ if __name__ == '__main__':
     fh = logging.FileHandler(os.path.basename(__file__).replace(".py", ".log"))
     fh.setFormatter(formatter)
     logger.addHandler(fh)
+    logger.debug(args.mesh_folder)
 
     Lx, Ly, Lz = [float(v) for v in dimensions.split("-")]
     Lx = Lx * scale_x
