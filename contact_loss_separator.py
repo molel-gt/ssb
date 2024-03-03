@@ -133,7 +133,7 @@ if __name__ == '__main__':
     opts = PETSc.Options()
     option_prefix = ksp.getOptionsPrefix()
     opts[f"{option_prefix}ksp_type"] = "gmres"
-    opts[f"{option_prefix}pc_type"] = "lu"
+    opts[f"{option_prefix}pc_type"] = "hypre"
     ksp.setFromOptions()
     n_iters, converged = solver.solve(u)
     if not converged:
