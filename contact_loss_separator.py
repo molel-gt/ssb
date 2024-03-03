@@ -126,6 +126,8 @@ if __name__ == '__main__':
     solver = petsc_nls.NewtonSolver(comm, problem)
     solver.convergence_criterion = "residual"
     solver.maximum_iterations = 10
+    solver.atol = 1e-15
+    solver.rtol = 1e-14
 
     ksp = solver.krylov_solver
     opts = PETSc.Options()
