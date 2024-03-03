@@ -176,66 +176,6 @@ if __name__ == '__main__':
     error = max([np.abs(I_left_cc), np.abs(I_right_cc)]) / min([np.abs(I_left_cc), np.abs(I_right_cc)])
     kappa_eff = abs(I_left_cc) / A0 * Lz / voltage
 
-    # n_points = 250000
-    # tol = 1e-12
-    # bb_trees = bb_tree(domain, domain.topology.dim)
-    # x_coords = np.linspace(tol, Lx - tol, n_points)
-    # y_coords = np.linspace(tol, Ly - tol, n_points)
-    # z_coords_1 = np.zeros(n_points)  # left boundary
-    # z_coords_2 = np.ones(n_points) * Lz  # right boundary
-    # # left boundary
-    # points1 = np.zeros((3, n_points))
-    # points1[0] = x_coords
-    # points1[1] = y_coords
-    # points1[2] = z_coords_1
-    # u_values1 = []
-    # cells1 = []
-    # points_on_proc1 = []
-    # # Find cells whose bounding-box collide with the the points
-    # cell_candidates1 = compute_collisions_points(bb_trees, points1.T)
-    # # Choose one of the cells that contains the point
-    # colliding_cells1 = compute_colliding_cells(domain, cell_candidates1, points1.T)
-    # for i, point in enumerate(points1.T):
-    #     if len(colliding_cells1.links(i)) > 0:
-    #         points_on_proc1.append(point)
-    #         cells1.append(colliding_cells1.links(i)[0])
-    # points_on_proc1 = np.array(points_on_proc1, dtype=np.float64)
-    # u_values1 = np.linalg.norm(current_h.eval(points_on_proc1, cells1), axis=1).reshape(-1, 1)
-    # values_left = np.hstack((points_on_proc1, u_values1))
-    # dbfile_left = open(left_values_path, 'ab')
-    # pickle.dump(values_left, dbfile_left)
-    # dbfile_left.close()
-    # countsl, binsl = np.histogram(u_values1)
-    # plt.hist(binsl[:-1], binsl, weights=countsl, density=True)
-    # plt.show()
-
-    # # right boundary
-    # points2 = np.zeros((3, n_points))
-    # points2[0] = x_coords
-    # points2[1] = y_coords
-    # points2[2] = z_coords_2
-    # u_values2 = []
-    # cells2 = []
-    # points_on_proc2 = []
-
-    # # Find cells whose bounding-box collide with the the points
-    # cell_candidates2 = compute_collisions_points(bb_trees, points2.T)
-    # # Choose one of the cells that contains the point
-    # colliding_cells2 = compute_colliding_cells(domain, cell_candidates2, points2.T)
-    # for i, point in enumerate(points2.T):
-    #     if len(colliding_cells2.links(i)) > 0:
-    #         points_on_proc2.append(point)
-    #         cells2.append(colliding_cells2.links(i)[0])
-    # points_on_proc2 = np.array(points_on_proc2, dtype=np.float64)
-    # u_values2 = np.linalg.norm(current_h.eval(points_on_proc2, cells2), axis=1).reshape(-1, 1)
-    # values_right = np.hstack((points_on_proc2, u_values2))
-    # dbfile_right = open(right_values_path, 'ab')
-    # pickle.dump(values_right, dbfile_right)
-    # dbfile_right.close()
-    # countsr, binsr = np.histogram(u_values2)
-    # plt.hist(binsr[:-1], binsr, weights=countsr, density=True)
-    # plt.show()
-
     if args.compute_distribution:
         logger.debug("Cumulative distribution lines of current density at terminals")
         cd_lims = defaultdict(lambda : [0, 25])
