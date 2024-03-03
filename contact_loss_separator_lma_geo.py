@@ -295,15 +295,15 @@ if __name__ == '__main__':
     gmsh.write(f"{mshpath}")
     gmsh.finalize()
     # write to file
-    scale_factor = [scale_x, scale_y, scale_z]
-    msh = meshio.read(f"{mshpath}")
+    # scale_factor = [scale_x, scale_y, scale_z]
+    # msh = meshio.read(f"{mshpath}")
 
-    tria_mesh_unscaled = geometry.create_mesh(msh, cell_types.triangle)
-    tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, cell_types.triangle, scale_factor=scale_factor)
-    tria_mesh_scaled.write(os.path.join(outdir, 'tria.xdmf'))
-    tetr_mesh_unscaled = geometry.create_mesh(msh, cell_types.tetra)
-    tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, cell_types.tetra, scale_factor=scale_factor)
-    tetr_mesh_scaled.write(os.path.join(outdir, 'tetr.xdmf'))
+    # tria_mesh_unscaled = geometry.create_mesh(msh, cell_types.triangle)
+    # tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, cell_types.triangle, scale_factor=scale_factor)
+    # tria_mesh_scaled.write(os.path.join(outdir, 'tria.xdmf'))
+    # tetr_mesh_unscaled = geometry.create_mesh(msh, cell_types.tetra)
+    # tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, cell_types.tetra, scale_factor=scale_factor)
+    # tetr_mesh_scaled.write(os.path.join(outdir, 'tetr.xdmf'))
     geometry_metadata = {
         "max_resolution": args.resolution,
         "dimensions": args.dimensions,
