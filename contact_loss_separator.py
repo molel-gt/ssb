@@ -182,7 +182,7 @@ if __name__ == '__main__':
     # Find cells whose bounding-box collide with the the points
     cell_candidates1 = compute_collisions_points(bb_trees, points1.T)
     # Choose one of the cells that contains the point
-    colliding_cells1 = compute_colliding_cells(domain, cell_candidates, points1.T)
+    colliding_cells1 = compute_colliding_cells(domain, cell_candidates1, points1.T)
     for i, point in enumerate(points1.T):
         if len(colliding_cells1.links(i)) > 0:
             points_on_proc1.append(point)
@@ -206,7 +206,7 @@ if __name__ == '__main__':
     # Find cells whose bounding-box collide with the the points
     cell_candidates2 = compute_collisions_points(bb_trees, points2.T)
     # Choose one of the cells that contains the point
-    colliding_cells2 = compute_colliding_cells(domain, cell_candidates, points2.T)
+    colliding_cells2 = compute_colliding_cells(domain, cell_candidates2, points2.T)
     for i, point in enumerate(points2.T):
         if len(colliding_cells2.links(i)) > 0:
             points_on_proc2.append(point)
