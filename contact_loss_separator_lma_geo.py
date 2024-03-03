@@ -79,6 +79,9 @@ if __name__ == '__main__':
     scale_x = float(scaling['x'])
     scale_y = float(scaling['y'])
     scale_z = float(scaling['z'])
+    Lx = Lx * scale_x
+    Ly = Ly * scale_y
+    Lz = Lz * scale_z
     outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), str(args.resolution))
     utils.make_dir_if_missing(outdir)
     mshpath = os.path.join(f"{outdir}", "trial.msh")
@@ -90,7 +93,7 @@ if __name__ == '__main__':
         (0, Ly, 0)
     ]
 
-    min_resolution = (1/5) * args.resolution
+    min_resolution = (1/5) * args.resolution * scale_x
     min_dist = 5e-5 * Lz
 
     gmsh.initialize()
@@ -216,7 +219,7 @@ if __name__ == '__main__':
         hull_arr = np.asarray(hull)
         hull_points = []
         for pp in hull[:-1]:
-            idx = gmsh.model.occ.addPoint(int(pp[0]), int(pp[1]), 0)
+            idx = gmsh.model.occ.addPoint(int(pp[0]) * scale_x, int(pp[1]) * scale_y, 0)
             hull_points.append(
                 idx
             )
@@ -277,17 +280,17 @@ if __name__ == '__main__':
 
     gmsh.model.mesh.field.add("Threshold", 2)
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "LcMin", 0.5 * args.resolution)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.1)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 1)
+    gmsh.model.mesh.field.setNumber(2, "LcMin", 0.5 * args.resolution * scale_x)
+    gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution * scale_x)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.1 * scale_x)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 1 * scale_x)
 
     gmsh.model.mesh.field.add("Max", 5)
     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
     gmsh.model.mesh.field.setAsBackgroundMesh(5)
     gmsh.model.occ.synchronize()
     # gmsh.model.occ.dilate(gmsh.model.get_entities(3), 0, 0, 0, scale_x, scale_y, scale_z)
-    gmsh.model.occ.dilate(gmsh.model.get_entities(0), 0, 0, 0, scale_x, scale_y, scale_z)
+    # gmsh.model.occ.dilate(gmsh.model.get_entities(0), 0, 0, 0, scale_x, scale_y, scale_z)
     gmsh.model.occ.synchronize()
     print("Generating mesh..")
     gmsh.model.mesh.generate(3)
