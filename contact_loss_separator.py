@@ -190,7 +190,7 @@ if __name__ == '__main__':
     points_on_proc1 = np.array(points_on_proc1, dtype=np.float64)
     u_values1 = np.linalg.norm(current_h.eval(points_on_proc1, cells1), axis=1)
     print(u_values1.shape, points_on_proc1.shape)
-    values_left = np.vstack((points_on_proc1, u_values1))
+    values_left = np.hstack((points_on_proc1, u_values1))
     dbfile_left = open(left_values_path, 'ab')
     pickle.dump(values_left, dbfile_left)
     dbfile_left.close()
