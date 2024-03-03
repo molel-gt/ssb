@@ -195,7 +195,7 @@ if __name__ == '__main__':
     pickle.dump(values_left, dbfile_left)
     dbfile_left.close()
     countsl, binsl = np.histogram(u_values1)
-    plt.hist(binsl[:-1], binsl, weights=countsl)
+    plt.hist(binsl[:-1], binsl, weights=countsl, density=True)
     plt.show()
 
     # right boundary
@@ -222,7 +222,7 @@ if __name__ == '__main__':
     pickle.dump(values_right, dbfile_right)
     dbfile_right.close()
     countsr, binsr = np.histogram(u_values2)
-    plt.hist(binsr[:-1], binsr, weights=countsr)
+    plt.hist(binsr[:-1], binsr, weights=countsr, density=True)
     plt.show()
 
     if args.compute_distribution:
