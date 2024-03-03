@@ -189,10 +189,11 @@ if __name__ == '__main__':
             cells1.append(colliding_cells1.links(i)[0])
     points_on_proc1 = np.array(points_on_proc1, dtype=np.float64)
     u_values1 = current_h.eval(points_on_proc1, cells1)
-    values_left = np.hstack((points_on_proc1, u_values1))
+    values_left = np.vstack((points_on_proc1, u_values1))
     dbfile_left = open(left_values_path, 'ab')
     pickle.dump(values_left, dbfile_left)
     dbfile_left.close()
+    print(u_values1.shape, points_on_proc1.shape, values_left.shape)
 
     # right boundary
     points2 = np.zeros((3, n_points))
@@ -213,7 +214,7 @@ if __name__ == '__main__':
             cells2.append(colliding_cells2.links(i)[0])
     points_on_proc2 = np.array(points_on_proc2, dtype=np.float64)
     u_values2 = current_h.eval(points_on_proc2, cells2)
-    values_right = np.hstack((points_on_proc2, u_values2))
+    values_right = np.vstack((points_on_proc2, u_values2))
     dbfile_right = open(right_values_path, 'ab')
     pickle.dump(values_right, dbfile_right)
     dbfile_right.close()
