@@ -289,8 +289,6 @@ if __name__ == '__main__':
     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
     gmsh.model.mesh.field.setAsBackgroundMesh(5)
     gmsh.model.occ.synchronize()
-    # gmsh.model.occ.dilate(gmsh.model.get_entities(3), 0, 0, 0, scale_x, scale_y, scale_z)
-    # gmsh.model.occ.dilate(gmsh.model.get_entities(0), 0, 0, 0, scale_x, scale_y, scale_z)
     gmsh.model.occ.synchronize()
     print("Generating mesh..")
     gmsh.model.mesh.generate(3)
