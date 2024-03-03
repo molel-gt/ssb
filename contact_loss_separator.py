@@ -169,8 +169,8 @@ if __name__ == '__main__':
     bb_trees = bb_tree(domain, domain.topology.dim)
     x_coords = np.linspace(tol, Lx - tol, n_points)
     y_coords = np.linspace(tol, Ly - tol, n_points)
-    z_coords_1 = np.zeros((1, n_points))  # left boundary
-    z_coords_2 = np.ones((1, n_points)) * Lz  # right boundary
+    z_coords_1 = np.zeros(n_points)  # left boundary
+    z_coords_2 = np.ones(n_points) * Lz  # right boundary
     # left boundary
     points1 = np.zeros((3, n_points))
     points1[0] = x_coords
