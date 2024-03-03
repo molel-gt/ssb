@@ -7,6 +7,7 @@ import timeit
 
 import argparse
 import logging
+import matplotlib.pyplot as plt
 import numpy as np
 import ufl
 
@@ -189,12 +190,13 @@ if __name__ == '__main__':
             cells1.append(colliding_cells1.links(i)[0])
     points_on_proc1 = np.array(points_on_proc1, dtype=np.float64)
     u_values1 = np.linalg.norm(current_h.eval(points_on_proc1, cells1), axis=1).reshape(-1, 1)
-    print(u_values1.shape, points_on_proc1.shape)
     values_left = np.hstack((points_on_proc1, u_values1))
     dbfile_left = open(left_values_path, 'ab')
     pickle.dump(values_left, dbfile_left)
     dbfile_left.close()
-    print(u_values1.shape, points_on_proc1.shape, values_left.shape)
+    countsl, binsl = np.histogram(u_values1)
+    plt.hist(binsl[:-1], binsl, weights=countsl)
+    plt.show()
 
     # right boundary
     points2 = np.zeros((3, n_points))
@@ -219,6 +221,9 @@ if __name__ == '__main__':
     dbfile_right = open(right_values_path, 'ab')
     pickle.dump(values_right, dbfile_right)
     dbfile_right.close()
+    countsr, binsr = np.histogram(u_values2)
+    plt.hist(binsr[:-1], binsr, weights=countsr)
+    plt.show()
 
     if args.compute_distribution:
         logger.debug("Cumulative distribution lines of current density at terminals")
