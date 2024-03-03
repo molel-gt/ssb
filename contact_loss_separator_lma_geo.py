@@ -95,11 +95,11 @@ if __name__ == '__main__':
 
     gmsh.initialize()
     gmsh.model.add('area')
-    # gmsh.option.setNumber('Mesh.MeshSizeMin', min_resolution)
+    # gmsh.option.setNumber('Mesh.MeshSizeMin', args.resolution)
     # gmsh.option.setNumber('Mesh.MeshSizeMax', args.resolution)
-    # gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
-    # gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
-    # gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
+    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
+    gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
+    gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
     z0_points = [
         (0, 0, 0),
         (Lx, 0, 0),
@@ -285,6 +285,10 @@ if __name__ == '__main__':
     gmsh.model.mesh.field.add("Max", 5)
     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
     gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    gmsh.model.occ.synchronize()
+    gmsh.model.occ.dilate(gmsh.model.get_entities(3), 0, 0, 0, scale_x, scale_y, scale_z)
+    # gmsh.model.occ.dilate(gmsh.model.get_entities(0), 0, 0, 0, scale_x, scale_y, scale_z)
+    gmsh.model.occ.synchronize()
     print("Generating mesh..")
     gmsh.model.mesh.generate(3)
     gmsh.write(f"{mshpath}")
