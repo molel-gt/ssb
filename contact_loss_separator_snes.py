@@ -76,7 +76,7 @@ if __name__ == '__main__':
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="conductivity")
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
-    parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=100e-3)
+    parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=0.1, type=float)
     parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=np.nan, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='CONTACT_LOSS_SCALING', type=str)
@@ -173,9 +173,9 @@ if __name__ == '__main__':
 
     snes = PETSc.SNES().create(comm)
     snes.setTolerances(max_it=4000, atol=1e-16, rtol=1e-15)
-    snes.getKSP().setType("gmres")
-    snes.getKSP().getPC().setType("hypre")
-    snes.getKSP().getPC().setFactorSolverType("amg")
+    snes.getKSP().setType("bcgs")
+    snes.getKSP().getPC().setType("mg")
+    # snes.getKSP().getPC().setFactorSolverType("amg")
     snes.setFunction(problem.F, F_vec)
 
     snes.setJacobian(problem.J, J=J_mat, P=None)
