@@ -164,8 +164,8 @@ if __name__ == '__main__':
     F += - 10 * gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.insulated)
 
     # Nitsche Neumann BC terms on insulated boundary
-    F += +(i_exchange * faraday_constant / (R * T)) * u * v * ds(markers.left) - gamma * h * (i_exchange * faraday_constant / (R * T)) * u * inner(grad(v), n) * ds(markers.left)
-    F += - gamma * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.left)
+    F += +(i_exchange * faraday_constant / (R * T)) * u * v * ds(markers.left) - 10 * gamma * h * (i_exchange * faraday_constant / (R * T)) * u * inner(grad(v), n) * ds(markers.left)
+    F += - 10 * gamma * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.left)
 
     problem = petsc.NonlinearProblem(F, u)
     solver = petsc_nls.NewtonSolver(comm, problem)
