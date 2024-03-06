@@ -164,8 +164,29 @@ if __name__ == '__main__':
     F += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.insulated)
 
     # Nitsche Neumann BC terms on insulated boundary
-    F += (i_exchange * faraday_constant / (kappa * R * T)) * u * v * ds(markers.left) - gamma * h * (i_exchange * faraday_constant / (kappa * R * T)) * u * inner(grad(v), n) * ds(markers.left)
+    F += -(i_exchange * faraday_constant / (kappa * R * T)) * u * v * ds(markers.left) + gamma * h * (i_exchange * faraday_constant / (kappa * R * T)) * u * inner(grad(v), n) * ds(markers.left)
     F += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.left)
+
+    problem = petsc.NonlinearProblem(F, u)
+    solver = petsc_nls.NewtonSolver(comm, problem)
+    solver.convergence_criterion = "residual"
+    solver.maximum_iterations = 5
+    solver.atol = 1e-12
+    solver.rtol = 1e-11
+
+    ksp = solver.krylov_solver
+    opts = PETSc.Options()
+    option_prefix = ksp.getOptionsPrefix()
+    opts[f"{option_prefix}ksp_type"] = "gmres"
+    opts[f"{option_prefix}pc_type"] = "lu"
+    ksp.setFromOptions()
+    n_iters, converged = solver.solve(u)
+    if not converged:
+        print(f"Not converged in {n_iters} iterations")
+    else:
+        print(f"Converged in {n_iters} iterations")
+    u.name = 'potential'
+
 
     with VTXWriter(comm, output_potential_path, [u], engine="BP4") as vtx:
         vtx.write(0.0)
