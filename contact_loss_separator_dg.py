@@ -164,15 +164,15 @@ if __name__ == '__main__':
     F += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.insulated)
 
     # Nitsche Neumann BC terms on insulated boundary
-    F += -(i_exchange * faraday_constant / (kappa * R * T)) * u * v * ds(markers.left) + gamma * h * (i_exchange * faraday_constant / (kappa * R * T)) * u * inner(grad(v), n) * ds(markers.left)
+    F += +(i_exchange * faraday_constant / (kappa * R * T)) * u * v * ds(markers.left) - gamma * h * (i_exchange * faraday_constant / (kappa * R * T)) * u * inner(grad(v), n) * ds(markers.left)
     F += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.left)
 
     problem = petsc.NonlinearProblem(F, u)
     solver = petsc_nls.NewtonSolver(comm, problem)
     solver.convergence_criterion = "residual"
-    solver.maximum_iterations = 5
-    solver.atol = 1e-12
-    solver.rtol = 1e-11
+    solver.maximum_iterations = 25
+    solver.atol = 1e-15
+    solver.rtol = 1e-14
 
     ksp = solver.krylov_solver
     opts = PETSc.Options()
