@@ -160,8 +160,8 @@ if __name__ == '__main__':
     F += gamma / h * (u - u_right) * v * ds(markers.right)
 
     # Nitsche Neumann BC terms on insulated boundary
-    F += -g * v * ds(markers.insulated) + gamma * h * g * inner(grad(v), n) * ds(markers.insulated)
-    F += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.insulated)
+    F += -g * v * ds(markers.insulated) + 10 * gamma * h * g * inner(grad(v), n) * ds(markers.insulated)
+    F += - 10 * gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.insulated)
 
     # Nitsche Neumann BC terms on insulated boundary
     F += +(i_exchange * faraday_constant / (R * T)) * u * v * ds(markers.left) - gamma * h * (i_exchange * faraday_constant / (R * T)) * u * inner(grad(v), n) * ds(markers.left)
