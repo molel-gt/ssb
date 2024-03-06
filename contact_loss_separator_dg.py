@@ -164,7 +164,7 @@ if __name__ == '__main__':
     F += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.insulated)
 
     # Nitsche Neumann BC terms on insulated boundary
-    F += -(i_exchange * faraday_constant / (kappa * R * T)) * u * v * ds(markers.left) + gamma * h * (i_exchange * faraday_constant / (kappa * R * T)) * u * inner(grad(v), n) * ds(markers.left)
+    F += (i_exchange * faraday_constant / (kappa * R * T)) * u * v * ds(markers.left) - gamma * h * (i_exchange * faraday_constant / (kappa * R * T)) * u * inner(grad(v), n) * ds(markers.left)
     F += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.left)
 
     with VTXWriter(comm, output_potential_path, [u], engine="BP4") as vtx:
