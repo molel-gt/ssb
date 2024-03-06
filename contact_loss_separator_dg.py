@@ -132,7 +132,7 @@ if __name__ == '__main__':
         u1_loc.set(args.voltage)
 
     alpha = 10
-    gamma = 10
+    gamma = 100
 
     F = kappa * inner(grad(u), grad(v)) * dx - f * v * dx - kappa * inner(grad(u), n) * v * ds
 
