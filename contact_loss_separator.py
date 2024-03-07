@@ -100,7 +100,7 @@ if __name__ == '__main__':
     logger.debug("done\n")
 
     # Dirichlet BCs
-    V = fem.functionspace(domain, ("Lagrange", 2))
+    V = fem.functionspace(domain, ("CG", 2))
     u0 = fem.Function(V)
     with u0.vector.localForm() as u0_loc:
         u0_loc.set(voltage)
