@@ -141,6 +141,7 @@ if __name__ == '__main__':
     else:
         logger.info(f"Converged in {n_iters} iterations")
     u.name = 'potential'
+    u.x.scatter_forward()
 
     with VTXWriter(comm, output_potential_path, [u], engine="BP4") as vtx:
         vtx.write(0.0)
