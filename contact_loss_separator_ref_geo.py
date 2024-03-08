@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser.add_argument("--dimensions", help="integer representation of Lx-Ly-Lz of the grid", required=True)
     parser.add_argument("--eps", help="coverage of area at left cc", nargs='?', const=1, default=0.05, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
-                        const=1, default='MICRON_TO_METER_SCALING', type=str)
+                        const=1, default='MICRON_TO_METER', type=str)
     parser.add_argument("--resolution", help="maximum resolution", nargs='?', const=1, default=1, type=float)
     args = parser.parse_args()
     markers = commons.SurfaceMarkers()
