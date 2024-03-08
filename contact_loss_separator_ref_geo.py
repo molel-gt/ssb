@@ -45,9 +45,9 @@ if __name__ == '__main__':
     _ = subprocess.check_call(f'sed -i "/Lz\ = */c\Lz = {Lz};" {mesh_dir}/contact-loss-ref.geo', shell=True)
     _ = subprocess.check_call(f'sed -i "/Lz\ = */c\Lz = {Lz};" {mesh_dir}/contact-loss-ref.geo', shell=True)
     _ = subprocess.check_call(f'sed -i "/lmax\ = */c\lmax = {resolution};" {mesh_dir}/contact-loss-ref.geo', shell=True)
-    _ = subprocess.check_call(f'sed -i "/left\ = */c\left = {markers.left};" {mesh_dir}/contact-loss-ref.geo', shell=True)
-    _ = subprocess.check_call(f'sed -i "/right\ = */c\right = {markers.right};" {mesh_dir}/contact-loss-ref.geo', shell=True)
-    _ = subprocess.check_call(f'sed -i "/insulated\ = */c\insulated = {markers.insulated};" {mesh_dir}/contact-loss-ref.geo', shell=True)
+    _ = subprocess.check_call(f'sed -i "/mleft\ = */c\mleft = {markers.left};" {mesh_dir}/contact-loss-ref.geo', shell=True)
+    _ = subprocess.check_call(f'sed -i "/mright\ = */c\mright = {markers.right};" {mesh_dir}/contact-loss-ref.geo', shell=True)
+    _ = subprocess.check_call(f'sed -i "/minsulated\ = */c\minsulated = {markers.insulated};" {mesh_dir}/contact-loss-ref.geo', shell=True)
     res = subprocess.check_call(f"gmsh -3 {mesh_dir}/contact-loss-ref.geo -o {tetr_mshfile}", shell=True)
     geometry_metadata = {
         "max_resolution": args.resolution,
