@@ -21,7 +21,7 @@ if __name__ == '__main__':
                         const=1, default='MICRON_TO_METER', type=str)
     parser.add_argument("--resolution", help="maximum resolution", nargs='?', const=1, default=1, type=float)
     args = parser.parse_args()
-    markers = commons.SurfaceMarkers()
+    markers = commons.Markers()
     dimensions = args.dimensions
     scaling = configs.get_configs()[args.scaling]
     scale_x = float(scaling['x'])
@@ -38,14 +38,17 @@ if __name__ == '__main__':
     geometry_metafile = os.path.join(mesh_dir, "geometry.json")
     tetr_mshfile = os.path.join(mesh_dir, "trial.msh")
 
-    _ = subprocess.check_call(f'cp contact-loss.geo {mesh_dir}', shell=True)
-    _ = subprocess.check_call(f'sed -i "/eps\ = */c\eps = {args.eps};" {mesh_dir}/contact-loss.geo', shell=True)
-    _ = subprocess.check_call(f'sed -i "/Lx\ = */c\Lx = {Lx};" {mesh_dir}/contact-loss.geo', shell=True)
-    _ = subprocess.check_call(f'sed -i "/Ly\ = */c\Ly = {Ly};" {mesh_dir}/contact-loss.geo', shell=True)
-    _ = subprocess.check_call(f'sed -i "/Lz\ = */c\Lz = {Lz};" {mesh_dir}/contact-loss.geo', shell=True)
-    _ = subprocess.check_call(f'sed -i "/Lz\ = */c\Lz = {Lz};" {mesh_dir}/contact-loss.geo', shell=True)
-    _ = subprocess.check_call(f'sed -i "/lmax\ = */c\lmax = {resolution};" {mesh_dir}/contact-loss.geo', shell=True)
-    res = subprocess.check_call(f"gmsh -3 {mesh_dir}/contact-loss.geo -o {tetr_mshfile}", shell=True)
+    _ = subprocess.check_call(f'cp contact-loss-ref.geo {mesh_dir}', shell=True)
+    _ = subprocess.check_call(f'sed -i "/eps\ = */c\eps = {args.eps};" {mesh_dir}/contact-loss-ref.geo', shell=True)
+    _ = subprocess.check_call(f'sed -i "/Lx\ = */c\Lx = {Lx};" {mesh_dir}/contact-loss-ref.geo', shell=True)
+    _ = subprocess.check_call(f'sed -i "/Ly\ = */c\Ly = {Ly};" {mesh_dir}/contact-loss-ref.geo', shell=True)
+    _ = subprocess.check_call(f'sed -i "/Lz\ = */c\Lz = {Lz};" {mesh_dir}/contact-loss-ref.geo', shell=True)
+    _ = subprocess.check_call(f'sed -i "/Lz\ = */c\Lz = {Lz};" {mesh_dir}/contact-loss-ref.geo', shell=True)
+    _ = subprocess.check_call(f'sed -i "/lmax\ = */c\lmax = {resolution};" {mesh_dir}/contact-loss-ref.geo', shell=True)
+    _ = subprocess.check_call(f'sed -i "/left\ = */c\left = {markers.left};" {mesh_dir}/contact-loss-ref.geo', shell=True)
+    _ = subprocess.check_call(f'sed -i "/right\ = */c\right = {markers.right};" {mesh_dir}/contact-loss-ref.geo', shell=True)
+    _ = subprocess.check_call(f'sed -i "/insulated\ = */c\insulated = {markers.insulated};" {mesh_dir}/contact-loss-ref.geo', shell=True)
+    res = subprocess.check_call(f"gmsh -3 {mesh_dir}/contact-loss-ref.geo -o {tetr_mshfile}", shell=True)
     geometry_metadata = {
         "max_resolution": args.resolution,
         "dimensions": args.dimensions,
