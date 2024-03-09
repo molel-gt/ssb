@@ -36,7 +36,7 @@ if __name__ == '__main__':
     Lz = Lz * scale_z
     utils.make_dir_if_missing(mesh_dir)
     geometry_metafile = os.path.join(mesh_dir, "geometry.json")
-    tetr_mshfile = os.path.join(mesh_dir, "trial.msh")
+    tetr_mshfile = os.path.join(mesh_dir, "mesh.msh")
 
     _ = subprocess.check_call(f'cp contact-loss-ref.geo {mesh_dir}', shell=True)
     _ = subprocess.check_call(f'sed -i "/eps\ = */c\eps = {args.eps};" {mesh_dir}/contact-loss-ref.geo', shell=True)

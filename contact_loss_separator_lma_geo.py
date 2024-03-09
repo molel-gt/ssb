@@ -84,7 +84,7 @@ if __name__ == '__main__':
     Lz = Lz * scale_z
     outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), str(args.resolution))
     utils.make_dir_if_missing(outdir)
-    mshpath = os.path.join(f"{outdir}", "trial.msh")
+    mshpath = os.path.join(f"{outdir}", "mesh.msh")
     geometry_metafile = os.path.join(outdir, "geometry.json")
     corner_points = [
         (0, 0, 0),
@@ -100,9 +100,9 @@ if __name__ == '__main__':
     gmsh.model.add('area')
     # gmsh.option.setNumber('Mesh.MeshSizeMin', args.resolution)
     # gmsh.option.setNumber('Mesh.MeshSizeMax', args.resolution)
-    # gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
-    # gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
-    # gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
+    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
+    gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
+    gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
     z0_points = [
         (0, 0, 0),
         (Lx, 0, 0),

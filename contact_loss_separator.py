@@ -68,9 +68,7 @@ if __name__ == '__main__':
     Lz = Lz * scale_z
     results_dir = os.path.join(data_dir, f"{args.Wa}")
     utils.make_dir_if_missing(results_dir)
-    output_meshfile_path = os.path.join(data_dir, 'trial.msh')
-    tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
-    tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
+    output_meshfile_path = os.path.join(data_dir, 'mesh.msh')
     output_current_path = os.path.join(results_dir, 'current.bp')
     output_potential_path = os.path.join(results_dir, 'potential.bp')
     frequency_path = os.path.join(results_dir, 'frequency.csv')
