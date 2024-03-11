@@ -29,8 +29,8 @@ scale = (800.0 / 470.0) * 1e-6
 scale_x = scale
 scale_y = scale
 scale_z = scale
-Lsep = 25 * scale
-Lcat = 50 * scale
+Lsep = 15 * scale
+Lcat = 30 * scale
 LX = 470 * scale
 LY = 470 * scale
 LZ = int((Lsep + Lcat)/scale)
@@ -40,7 +40,7 @@ eps_am = 1 - eps_se
 markers = commons.Markers()
 CELL_TYPES = commons.CellTypes()
 resolution = 1
-start_zpos = 50
+
 scale_factor = [scale, scale, scale]
 dimensions = f'470-470-{LZ}'
 print(dimensions)
