@@ -106,8 +106,8 @@ if __name__ == '__main__':
 
     gmsh.initialize()
     gmsh.model.add('area')
-    # gmsh.option.setNumber('Mesh.MeshSizeMin', args.resolution)
-    # gmsh.option.setNumber('Mesh.MeshSizeMax', args.resolution)
+    gmsh.option.setNumber('Mesh.MeshSizeMin', scale_x * args.resolution)
+    gmsh.option.setNumber('Mesh.MeshSizeMax', scale_x * args.resolution)
     gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
@@ -271,7 +271,13 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
     sloop = gmsh.model.occ.addSurfaceLoop(surfaces)
     gmsh.model.occ.synchronize()
-    left_surfs = [vv[1] for vv in gmsh.model.occ.getEntities(2) if vv[1] >= 7]
+    # left_surfs = [vv[1] for vv in gmsh.model.occ.getEntities(2) if vv[1] >= 7]
+    # print(left_surfs)
+    # insulated_se += [2, 3, 4, 5, 6]
+    surfs = gmsh.model.occ.getEntities(2)
+    for surf in surfs:
+        com = gmsh.model.occ.getCenterOfMass(*surf)
+        # print(surf, ": ", com)
 
     box_se = gmsh.model.occ.getEntities(3)[0][1]
     box_am = gmsh.model.occ.addBox(0, 0, LZ - Rp, LX, LY, Rp)
@@ -291,7 +297,7 @@ if __name__ == '__main__':
 
     union = gmsh.model.occ.fuse([(3, box_am)], [(3, c) for c in cylinders], removeTool=False)
     gmsh.model.occ.synchronize()
-    se_phase = gmsh.model.occ.cut([(3, box_se)], [(3, c) for c in cylinders], removeObject=False, removeTool=False)
+    diff = gmsh.model.occ.cut([(3, box_se)], [(3, c) for c in cylinders], removeTool=False)
     gmsh.model.occ.synchronize()
     vols = gmsh.model.occ.getEntities(3)
     se_volumes = []
@@ -303,22 +309,20 @@ if __name__ == '__main__':
             se_volumes.append(vol)
         else:
             am_volumes.append(vol)
-
-    se_vol = gmsh.model.addPhysicalGroup(3, se_volumes, markers.electrolyte)
+    se_vol = gmsh.model.addPhysicalGroup(3, se_volumes, markers.electrolyte, "electrolyte")
     gmsh.model.occ.synchronize()
-    gmsh.model.setPhysicalName(3, se_vol, "electrolyte")
-    gmsh.model.occ.synchronize()
-    am_vol = gmsh.model.addPhysicalGroup(3, am_volumes, markers.positive_am)
-    gmsh.model.occ.synchronize()
-    gmsh.model.setPhysicalName(3, am_vol, "positive_am")
+    am_vol = gmsh.model.addPhysicalGroup(3, am_volumes, markers.positive_am, "positive_am")
     gmsh.model.occ.synchronize()
     print("Generating surface tags..")
+    left_surfs = []
     for surf in gmsh.model.occ.getEntities(2):
         com = gmsh.model.occ.getCenterOfMass(surf[0], surf[1])
         x = com[0] / scale_x
         y = com[1] / scale_x
         z = com[2] / scale_x
         if np.isclose(z, 0, atol=1):
+            # print(surf[1], ": ", com)
+            left_surfs.append(surf[1])
             continue
         elif np.isclose(z, (Lsep + Lcat)/scale_x, atol=1):
             right.append(surf[1])
@@ -334,32 +338,28 @@ if __name__ == '__main__':
                 interface.append(surf[1])
         else:
             interface.append(surf[1])
-    left = gmsh.model.addPhysicalGroup(2, left_surfs, markers.left)
-    gmsh.model.setPhysicalName(2, left, "left")
-    insulated_se = gmsh.model.addPhysicalGroup(2, [2, 3, 4, 5, 6], markers.insulated_electrolyte)
-    gmsh.model.setPhysicalName(2, insulated_se, "insulated_electrolyte")
-    right = gmsh.model.addPhysicalGroup(2, right, markers.right)
-    gmsh.model.setPhysicalName(2, right, "right")
-    insulated_am = gmsh.model.addPhysicalGroup(2, insulated_am, markers.insulated_positive_am)
-    gmsh.model.setPhysicalName(2, insulated_am, "insulated_am")
-    electrolyte_v_positive_am = gmsh.model.addPhysicalGroup(2, interface, markers.electrolyte_v_positive_am)
-    gmsh.model.setPhysicalName(2, electrolyte_v_positive_am, "electrolyte_positive_am_interface")
+    left = gmsh.model.addPhysicalGroup(2, left_surfs[1:], markers.left, "left")
+    insulated_se.append(left_surfs[0])
+    insulated_se = gmsh.model.addPhysicalGroup(2, insulated_se, markers.insulated_electrolyte, "insulated_electrolyte")
+    right = gmsh.model.addPhysicalGroup(2, right, markers.right, "right")
+    insulated_am = gmsh.model.addPhysicalGroup(2, insulated_am, markers.insulated_positive_am, "insulated_am")
+    electrolyte_v_positive_am = gmsh.model.addPhysicalGroup(2, interface, markers.electrolyte_v_positive_am, "electrolyte_positive_am_interface")
     gmsh.model.occ.synchronize()
     # refinement
-    gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "FacesList", [left, electrolyte_v_positive_am, right])
+    # gmsh.model.mesh.field.add("Distance", 1)
+    # gmsh.model.mesh.field.setNumbers(1, "FacesList", [left, electrolyte_v_positive_am, right])
 
-    gmsh.model.mesh.field.add("Threshold", 2)
-    gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "LcMin", 0.1 * args.resolution * scale_x)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution * scale_x)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5 * scale_x)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 1 * scale_x)
+    # gmsh.model.mesh.field.add("Threshold", 2)
+    # gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    # gmsh.model.mesh.field.setNumber(2, "LcMin", 0.1 * args.resolution * scale_x)
+    # gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution * scale_x)
+    # gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5 * scale_x)
+    # gmsh.model.mesh.field.setNumber(2, "DistMax", 1 * scale_x)
 
-    gmsh.model.mesh.field.add("Max", 5)
-    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    gmsh.model.mesh.field.setAsBackgroundMesh(5)
-    gmsh.model.occ.synchronize()
+    # gmsh.model.mesh.field.add("Max", 5)
+    # gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    # gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    # gmsh.model.occ.synchronize()
     print("Generating mesh..")
     gmsh.model.mesh.generate(3)
     gmsh.write(f"{mshpath}")
