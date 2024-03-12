@@ -26,6 +26,9 @@ import commons, geometry, utils
 
 warnings.simplefilter('ignore')
 
+kappa_se = 0.1
+kappa_am = 0.2
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
@@ -36,7 +39,7 @@ if __name__ == '__main__':
     parser.add_argument('--radius', help=f'integer representation of +AM particle radius', type=int, required=True)
     parser.add_argument('--eps_am', help=f'positive active material volume fraction', type=float, required=True)
     parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1, type=float)
-    parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, type=float, default=np.inf)
+    parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, type=float, default=1e-5)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='CONTACT_LOSS_SCALING', type=str)
     parser.add_argument("--compute_distribution", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
@@ -104,11 +107,12 @@ if __name__ == '__main__':
 	with u_right.vector.localForm() as u1_loc:
 	    u1_loc.set(args.voltage)
 
-	i0 = fem.Constant(domain, PETSc.ScalarType(1e2))
+	
 	faraday_const = fem.Constant(domain, PETSc.ScalarType(96485))
 	R = fem.Constant(domain, PETSc.ScalarType(8.3145))
 	T = fem.Constant(domain, PETSc.ScalarType(298))
-
+	i0_left = kappa_se * R * T / (LZ * args.Wa * faraday_constant)
+	i0_interface = fem.Constant(domain, PETSc.ScalarType(1e2))
 	def ocv(sod, L=1, k=2):
 	    return 2.5 + (1/k) * np.log((L - sod) / sod)
 
@@ -118,8 +122,8 @@ if __name__ == '__main__':
 	kappa = fem.Function(Q)
 	cells_electrolyte = ct.find(markers.electrolyte)
 	cells_pos_am = ct.find(markers.positive_am)
-	kappa.x.array[cells_electrolyte] = np.full_like(cells_electrolyte, 0.1, dtype=default_scalar_type)
-	kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, 0.2, dtype=default_scalar_type)
+	kappa.x.array[cells_electrolyte] = np.full_like(cells_electrolyte, kappa_se, dtype=default_scalar_type)
+	kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, kappa_am, dtype=default_scalar_type)
 
 	alpha = 10
 	gamma = 10
@@ -134,8 +138,8 @@ if __name__ == '__main__':
 	F += alpha / h_avg * inner(jump(v, n), jump(u, n)) * dS(0)
 
 	# Internal boundary
-	F += - avg(kappa) * dot(avg(grad(v)), (R * T / i0 / faraday_const) * (kappa * grad(u))('+') + U) * dS(markers.electrolyte_v_positive_am)
-	F += (alpha / h_avg) * avg(kappa) * dot(jump(v, n), (R * T / i0 / faraday_const) * (kappa * grad(u))('+') + U) * dS(markers.electrolyte_v_positive_am)
+	F += - avg(kappa) * dot(avg(grad(v)), (R * T / i0_interface / faraday_const) * (kappa * grad(u))('+') + U) * dS(markers.electrolyte_v_positive_am)
+	F += (alpha / h_avg) * avg(kappa) * dot(jump(v, n), (R * T / i0_interface / faraday_const) * (kappa * grad(u))('+') + U) * dS(markers.electrolyte_v_positive_am)
 
 	# # Symmetry
 	F += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
@@ -173,7 +177,7 @@ if __name__ == '__main__':
 	    print(f"Not converged in {n_iters} iterations")
 	else:
 	    print(f"Converged in {n_iters} iterations")
-	
+
 	current_expr = fem.Expression(-kappa * grad(u), W.element.interpolation_points())
 	current_h = fem.Function(W, name='current_density')
 	current_h.interpolate(current_expr)
