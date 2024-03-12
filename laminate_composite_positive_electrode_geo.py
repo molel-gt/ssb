@@ -21,49 +21,6 @@ warnings.simplefilter('ignore')
 
 
 markers = commons.Markers()
-cell_types = commons.CellTypes()
-max_resolution = 2.5
-
-
-def mesh_surface(coords, xmax=470, ymax=470):
-    points = {}
-    count = 0
-    for row in coords:
-        points[(row[0], row[1])] = count
-        count += 1
-    points_set = set(points.keys())
-
-    triangles = []
-    for (x0, y0) in points_set:
-        p0 = points[(x0, y0)]
-        neighbors = [
-            (int(x0 + 1), y0),
-            (int(x0 + 1), int(y0 + 1)),
-            (x0, int(y0 + 1))
-        ]
-        neighbor_points = [p0]
-        for p in neighbors:
-            v = points.get(p)
-            neighbor_points.append(v)
-
-        midpoint = (x0 + 0.5, y0 + 0.5)
-        if midpoint[0] > xmax or midpoint[1] > ymax:
-            continue
-        points[midpoint] = count
-        p2 = count
-        count += 1
-        for i in range(4):
-            p0 = neighbor_points[i]
-            if i == 3:
-                p1 = neighbor_points[0]
-            else:
-                p1 = neighbor_points[i + 1]
-            if not p0 is None and not p1 is None:
-                triangles.append(
-                    (p0, p1, p2)
-                )
-
-    return triangles, points
 
 
 if __name__ == '__main__':
@@ -236,7 +193,8 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
 
     sloop1 = gmsh.model.occ.addSurfaceLoop(surfaces_1)
-    gmsh.model.occ.extrude([(2, middle[0])], 0, 0, Rp)
+    box_am = gmsh.model.occ.addBox(0, 0, LZ - Rp, LX, LY, Rp)
+
     gmsh.model.occ.synchronize()
     
     # left_surfs = [vv[1] for vv in gmsh.model.occ.getEntities(2) if vv[1] >= 7]
@@ -262,20 +220,18 @@ if __name__ == '__main__':
         cylinders.append((3, counter))
         counter += 1
 
-    ov1, ovv1 = gmsh.model.occ.fragment([(3, box_am)], cylinders)
-    ov2, ovv2 = gmsh.model.occ.cut([(3, box_se)], ov1[1:], removeTool=False)
-    print(ov1)
-    print(ovv1)
-    # quit()
+    ov, ovv = gmsh.model.occ.fragment([(3, box_am)], cylinders)
+    copy =gmsh.model.occ.copy(ov[1:])
+    gmsh.model.occ.cut([(3, box_se)], copy)
 
     gmsh.model.occ.synchronize()
     vols = gmsh.model.occ.getEntities(3)
+
     se_volumes = []
     am_volumes = []
     for (_, vol) in vols:
         com = gmsh.model.occ.getCenterOfMass(3, vol)
         z = com[2] / scale_x
-        print(com[0]/scale_x, com[1]/scale_y, z)
         if np.isclose(z, 0.5 * (Lsep + Lcat - Rp) / scale_x, atol=1):
             se_volumes.append(vol)
         else:
@@ -317,20 +273,20 @@ if __name__ == '__main__':
     electrolyte_v_positive_am = gmsh.model.addPhysicalGroup(2, interface, markers.electrolyte_v_positive_am, "electrolyte_positive_am_interface")
     gmsh.model.occ.synchronize()
     # refinement
-    # gmsh.model.mesh.field.add("Distance", 1)
-    # gmsh.model.mesh.field.setNumbers(1, "FacesList", [left, electrolyte_v_positive_am, right])
+    gmsh.model.mesh.field.add("Distance", 1)
+    gmsh.model.mesh.field.setNumbers(1, "FacesList", [left, electrolyte_v_positive_am, right])
 
-    # gmsh.model.mesh.field.add("Threshold", 2)
-    # gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    # gmsh.model.mesh.field.setNumber(2, "LcMin", 0.1 * args.resolution * scale_x)
-    # gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution * scale_x)
-    # gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5 * scale_x)
-    # gmsh.model.mesh.field.setNumber(2, "DistMax", 1 * scale_x)
+    gmsh.model.mesh.field.add("Threshold", 2)
+    gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    gmsh.model.mesh.field.setNumber(2, "LcMin", 0.1 * args.resolution * scale_x)
+    gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution * scale_x)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5 * scale_x)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 1 * scale_x)
 
-    # gmsh.model.mesh.field.add("Max", 5)
-    # gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    # gmsh.model.mesh.field.setAsBackgroundMesh(5)
-    # gmsh.model.occ.synchronize()
+    gmsh.model.mesh.field.add("Max", 5)
+    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    gmsh.model.occ.synchronize()
     print("Generating mesh..")
     gmsh.model.mesh.generate(3)
     gmsh.write(f"{mshpath}")
