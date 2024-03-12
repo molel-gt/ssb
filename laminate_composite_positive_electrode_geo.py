@@ -289,7 +289,7 @@ if __name__ == '__main__':
     # gmsh.model.occ.synchronize()
     print("Generating mesh..")
     gmsh.model.mesh.generate(3)
-    gmsh.write(f"{mshpath}")
+    gmsh.write(mshpath)
     gmsh.finalize()
 
     geometry_metadata = {
