@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import timeit
 
 import dolfinx
 import gmsh
@@ -23,7 +24,7 @@ from petsc4py import PETSc
 from ufl import (Circumradius, FacetNormal, SpatialCoordinate, TrialFunction, TestFunction,
                  dot, div, dx, ds, dS, grad, inner, grad, avg, jump)
 
-import commons, geometry, utils
+import commons, configs, geometry, utils
 
 warnings.simplefilter('ignore')
 
