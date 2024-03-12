@@ -115,7 +115,7 @@ if __name__ == '__main__':
     faraday_const = fem.Constant(domain, PETSc.ScalarType(96485))
     R = fem.Constant(domain, PETSc.ScalarType(8.3145))
     T = fem.Constant(domain, PETSc.ScalarType(298))
-    i0_left = kappa_se * R * T / (LZ * args.Wa * faraday_constant)
+    i0_left = kappa_se * R * T / (LZ * args.Wa * faraday_const)
     i0_interface = fem.Constant(domain, PETSc.ScalarType(1e2))
     def ocv(sod, L=1, k=2):
         return 2.5 + (1/k) * np.log((L - sod) / sod)
