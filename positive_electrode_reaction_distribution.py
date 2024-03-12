@@ -84,7 +84,7 @@ if __name__ == '__main__':
 	dS = ufl.Measure("dS", domain=domain, subdomain_data=ft)
 
 	V = fem.FunctionSpace(domain, ("DG", 1))
-	W = fem.functionspace(domain, ("CG", 1, (3,)), name='current_density')
+	W = fem.functionspace(domain, ("CG", 1, (3,)))
 	Q = fem.FunctionSpace(domain, ("DG", 0))
 	u = fem.Function(V, name='potential')
 	v = ufl.TestFunction(V)
@@ -175,8 +175,7 @@ if __name__ == '__main__':
 	    print(f"Converged in {n_iters} iterations")
 	
 	current_expr = fem.Expression(-kappa * grad(u), W.element.interpolation_points())
-	current_h = fem.Function(W)
-	current_h.name = 'current_density'
+	current_h = fem.Function(W, name='current_density')
 	current_h.interpolate(current_expr)
 
 	with VTXWriter(comm, current_dg_resultsfile, [current_h], engine="BP4") as vtx:
@@ -199,3 +198,5 @@ if __name__ == '__main__':
 	print(f"left: {I_left:.2e} A, right: {abs(I_right):.2e} A")
 	print(f"insulated electrolyte: {I_insulated_sse:.2e} A, insulated positive am: {I_insulated_pos_am:.2e} A")
 	print(f"Float precision: {np.finfo(float).eps}")
+
+	# C = fem.FunctionSpace(domain, ("CG", 1))  # concentration
