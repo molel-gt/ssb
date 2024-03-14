@@ -118,7 +118,7 @@ if __name__ == '__main__':
     g = fem.Constant(domain, PETSc.ScalarType(0.0))
 
     F = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
-    F -= ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated) + ufl.inner(i_exchange * faraday_constant * (u - 0) / (constants.KAPPA0 * R * T), v) * ds(markers.left)
+    F -= ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated) + ufl.inner(i_exchange * faraday_constant * (u - 0) / (R * T), v) * ds(markers.left)
     logger.debug('Solving problem..')
     problem = petsc.NonlinearProblem(F, u, bcs=[right_bc])
     solver = petsc_nls.NewtonSolver(comm, problem)
