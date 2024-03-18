@@ -31,12 +31,52 @@ R = 8.314  # [J/K/mol]
 T = 298  # [K]
 
 
+class SNESNonlinearProblem:
+    def __init__(self, F, u, bc):
+        V = u.function_space
+        du = ufl.TrialFunction(V)
+        self.L = fem.form(F)
+        self.a = fem.form(ufl.derivative(F, u, du))
+        self.bc = bc
+        self._F, self._J = None, None
+        self.u = u
+        self.J_mat_dolfinx = petsc.create_matrix(self.a)
+        self.F_vec_dolfinx = petsc.create_vector(self.L)
+
+    def F(self, snes, x, F):
+        """Assemble residual vector."""
+        x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+        x.copy(self.u.vector)
+        self.u.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+
+        self.F_vec_dolfinx.set(0.)
+        with F.localForm() as f_local:
+            f_local.set(0.0)
+        petsc.assemble_vector(self.F_vec_dolfinx, self.L)
+        petsc.apply_lifting(self.F_vec_dolfinx, [self.a], bcs=[[self.bc]], x0=[x], scale=-1.0)
+        self.F_vec_dolfinx.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
+        petsc.set_bc(self.F_vec_dolfinx, [self.bc], x, -1.0)
+        F.getArray()[:] = self.F_vec_dolfinx.getArray()[:]
+
+    def J(self, snes, x, J, P):
+        """Assemble Jacobian matrix."""
+        J.zeroEntries()
+        self.J_mat_dolfinx.zeroEntries()
+
+        fem.petsc.assemble_matrix(self.J_mat_dolfinx, self.a, bcs=[self.bc])
+        self.J_mat_dolfinx.assemble()
+        ai, aj, av = self.J_mat_dolfinx.getValuesCSR()
+        J.setPreallocationNNZ(np.diff(ai))
+        J.setValuesCSR(ai, aj, av)
+        J.assemble()
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="conductivity")
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
-    parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1e-3, type=float)
+    parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=0.1, type=float)
     parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=np.nan, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='CONTACT_LOSS_SCALING', type=str)
@@ -68,7 +108,9 @@ if __name__ == '__main__':
     Lz = Lz * scale_z
     results_dir = os.path.join(data_dir, f"{args.Wa}")
     utils.make_dir_if_missing(results_dir)
-    output_meshfile_path = os.path.join(data_dir, 'mesh.msh')
+    output_meshfile_path = os.path.join(data_dir, 'trial.msh')
+    tetr_mesh_path = os.path.join(data_dir, 'tetr.xdmf')
+    tria_mesh_path = os.path.join(data_dir, 'tria.xdmf')
     output_current_path = os.path.join(results_dir, 'current.bp')
     output_potential_path = os.path.join(results_dir, 'potential.bp')
     frequency_path = os.path.join(results_dir, 'frequency.csv')
@@ -118,28 +160,49 @@ if __name__ == '__main__':
     g = fem.Constant(domain, PETSc.ScalarType(0.0))
 
     F = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
-    F -= ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated) + ufl.inner(i_exchange * faraday_constant * (u - 0) / (R * T), v) * ds(markers.left)
+    F -= ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated) + ufl.inner(i_exchange * faraday_constant * (u - 0) / (constants.KAPPA0 * R * T), v) * ds(markers.left)
     logger.debug('Solving problem..')
-    problem = petsc.NonlinearProblem(F, u, bcs=[right_bc])
-    solver = petsc_nls.NewtonSolver(comm, problem)
-    solver.convergence_criterion = "residual"
-    solver.maximum_iterations = 100
-    solver.atol = np.finfo(float).eps
-    solver.rtol = np.finfo(float).eps * 10
+    problem = SNESNonlinearProblem(F, u, right_bc)
+    J_mat_dolfinx = petsc.create_matrix(problem.a)
+    F_vec_dolfinx = petsc.create_vector(problem.L)
+    J_mat = PETSc.Mat().createAIJ(J_mat_dolfinx.getSizes())
+    #J_mat.setLGMap(J_mat_dolfinx.getLGMap()[0],J_mat_dolfinx.getLGMap()[1]) # Only needed when assembling straight into J in problem.J
+    J_mat.setPreallocationNNZ(30)
+    J_mat.setUp()
+    F_vec = J_mat.createVecRight()
 
-    ksp = solver.krylov_solver
-    opts = PETSc.Options()
-    option_prefix = ksp.getOptionsPrefix()
-    opts[f"{option_prefix}ksp_type"] = "gmres"
-    opts[f"{option_prefix}pc_type"] = "hypre"
-    ksp.setFromOptions()
-    n_iters, converged = solver.solve(u)
-    if not converged:
-        logger.debug(f"Solver did not converge in {n_iters} iterations")
-    else:
-        logger.info(f"Converged in {n_iters} iterations")
+    snes = PETSc.SNES().create(comm)
+    snes.setTolerances(max_it=4000, atol=1e-16, rtol=1e-15)
+    snes.getKSP().setType("bcgs")
+    snes.getKSP().getPC().setType("mg")
+    # snes.getKSP().getPC().setFactorSolverType("amg")
+    snes.setFunction(problem.F, F_vec)
+
+    snes.setJacobian(problem.J, J=J_mat, P=None)
+
+    snes.setMonitor(lambda _, it, residual: print(it, residual))
+    solution = petsc.create_vector(problem.L)
+    snes.solve(None, solution)
+    u.x.array[:] = solution.getArray()[:]
+    # problem = petsc.NonlinearProblem(F, u, bcs=[right_bc])
+    # solver = petsc_nls.NewtonSolver(comm, problem)
+    # solver.convergence_criterion = "residual"
+    # solver.maximum_iterations = 100
+    # solver.atol = 1e-15
+    # solver.rtol = 1e-14
+
+    # ksp = solver.krylov_solver
+    # opts = PETSc.Options()
+    # option_prefix = ksp.getOptionsPrefix()
+    # opts[f"{option_prefix}ksp_type"] = "gmres"
+    # opts[f"{option_prefix}pc_type"] = "hypre"
+    # ksp.setFromOptions()
+    # n_iters, converged = solver.solve(u)
+    # if not converged:
+    #     logger.debug(f"Solver did not converge in {n_iters} iterations")
+    # else:
+    #     logger.info(f"Converged in {n_iters} iterations")
     u.name = 'potential'
-    u.x.scatter_forward()
 
     with VTXWriter(comm, output_potential_path, [u], engine="BP4") as vtx:
         vtx.write(0.0)
@@ -162,7 +225,7 @@ if __name__ == '__main__':
     area_right_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.right))), op=MPI.SUM)
     I_left_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left))), op=MPI.SUM)
     I_right_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right))), op=MPI.SUM)
-    I_insulated = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(current_h, n)) * ds(markers.insulated))), op=MPI.SUM)
+    I_insulated = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(current_h, n)) * ds)), op=MPI.SUM)
     volume = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ufl.dx(domain))), op=MPI.SUM)
     A0 = Lx * Ly
     i_right_cc = I_right_cc / area_right_cc
