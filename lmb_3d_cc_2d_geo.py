@@ -11,7 +11,7 @@ warnings.simplefilter('ignore')
 
 
 def build_rectangular_curve(coord_start=(10e-6, 0, 0), step_width=10e-6, step_length=40e-6, length=500e-6):
-    points = [np.asarray(coord_start), np.asarray((coord_start[0], coord_start[1] + 0.5 * width, coord_start[2]))]
+    points = [coord_start, (coord_start[0], coord_start[1] + 0.5 * step_length, coord_start[2])]
     n_pieces = int(length / step_length)
     if n_pieces < 2:
         raise ValueError("Undefined for less than 2 pieces")
@@ -21,19 +21,16 @@ def build_rectangular_curve(coord_start=(10e-6, 0, 0), step_width=10e-6, step_le
             continue
         x, y, z = points[-1]
         to_add = [
-        np.asarray((x + step_width, y, z)),
-        np.asarray((x + step_width, y + step_length, z)),
-        np.asarray((x, y + step_length, z)),
-        np.asarray((x, y + 2 * step_length, z)),
+        (x + step_width, y, z),
+        (x + step_width, y + step_length, z),
+        (x, y + step_length, z),
+        (x, y + 2 * step_length, z),
         ]
         for p in to_add:
             if p[1] < coord_start[2] + length:
                 points.append(p)
-    x, y, z = points[-1]
-    points += [
-        np.asarray((x + step_width, y, z)),
-        np.asarray((x + step_width, y + 0.5 * step_length, z)),
-        ]
+            else:
+                points.append((p[0], length, p[2]))
 
     return points
 
@@ -43,92 +40,91 @@ if __name__ == '__main__':
     adaptive_refine = True
     micron = 1e-6
     resolution = 1 * micron
-
-    L_sep = 25 * micron
-    L_neg_cc = 20 * micron
-    L_sep_neg_cc = 15 * micron
-    feature_radius = 5 * micron
-    disk_radius = 100 * micron
-    L_total = L_sep + L_neg_cc
+    LX = 150e-6
+    LY = 500e-6
+    step_length = 10e-6
+    step_width1 = 40e-6
+    step_width2 = 65e-6
 
     name_of_study = "lithium_metal_3d_cc_2d"
-    dimensions = '100-100-45'
-    workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, str(resolution))
+    dimensions = f'{int(LX/micron)}-{int(LY/micron)}-0'
+    dimensions_ii = f'{int(step_width1/micron)}-{int(step_width2/micron)}-{int(step_length/micron)}'
+    workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, dimensions_ii, str(resolution))
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(workdir, 'mesh.msh')
-    tetr_meshfile = os.path.join(workdir, "tetr.xdmf")
-    tria_meshfile = os.path.join(workdir, "tria.xdmf")
-    line_meshfile = os.path.join(workdir, "line.xdmf")
 
     markers = commons.Markers()
-
-    points = [
-        (0, 0, 0),
-        # (5 * micron, 0, 0),
-        (20 * micron, 0, 0),
-        (45 * micron, 0, 0),
-        (45 * micron, 30 * micron, 0),
-        (20 * micron, 30 * micron, 0),
-        (0, 30 * micron, 0),
-        # middle
-        (20 * micron, 20 * micron, 0),
-        (5 * micron, 20 * micron, 0),
-        (5 * micron, 10 * micron, 0),
-        (20 * micron, 10 * micron, 0),
+    points_left = [
+    (0, 0, 0),
+    (0, LY, 0)
     ]
-    gpoints = []
-    lines = []
+    points_right = [
+    (LX, 0, 0),
+    (LX, LY, 0)
+    ]
+    coord_start1 = (10e-6, 0, 0)
+    coord_start2 = (75e-6, 0, 0)
+
+    interface_1 = build_rectangular_curve(coord_start=coord_start1, step_length=step_length, step_width=step_width1, length=LY)
+    interface_2 = build_rectangular_curve(coord_start=coord_start2, step_length=step_length, step_width=step_width2, length=LY)
+    interface_points1 = []
+    interface_points2 = []
+    points_corners = []
 
     gmsh.initialize()
     gmsh.model.add('lithium-metal')
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.25*micron)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.125 * micron)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1 * micron)
 
-    for idx, p in enumerate(points):
-        gpoints.append(
-            gmsh.model.occ.addPoint(*p)
-        )
+    points_corners.append(gmsh.model.occ.addPoint(*points_left[0]))
+    points_corners.append(gmsh.model.occ.addPoint(*points_left[1]))
+    points_corners.append(gmsh.model.occ.addPoint(*points_right[0]))
+    points_corners.append(gmsh.model.occ.addPoint(*points_right[1]))
+    for p in interface_1:
+        interface_points1.append(gmsh.model.occ.addPoint(*p))
+    for p in interface_2:
+        interface_points2.append(gmsh.model.occ.addPoint(*p))
     gmsh.model.occ.synchronize()
 
-    for idx in range(5):
-        lines.append(
-            gmsh.model.occ.addLine(gpoints[idx], gpoints[idx+1])
-        )
-    lines.append(
-        gmsh.model.occ.addLine(gpoints[5], gpoints[0])
-    )
-    lines.append(
-        gmsh.model.occ.addLine(gpoints[4], gpoints[6])
-    )
-    lines.append(
-        gmsh.model.occ.addLine(gpoints[6], gpoints[7])
-    )
-    lines.append(
-        gmsh.model.occ.addLine(gpoints[7], gpoints[8])
-    )
-    lines.append(
-        gmsh.model.occ.addLine(gpoints[8], gpoints[9])
-    )
-    lines.append(
-        gmsh.model.occ.addLine(gpoints[9], gpoints[1])
-    )
-    insulated = [lines[idx] for idx in [0, 4, 1, 3]]
+    lines = []
+    lines.append(gmsh.model.occ.addLine(points_corners[0], points_corners[1]))
+    lines.append(gmsh.model.occ.addLine(points_corners[2], points_corners[3]))
+    lines.append(gmsh.model.occ.addLine(points_corners[0], interface_points1[0]))
+    lines.append(gmsh.model.occ.addLine(points_corners[1], interface_points1[-1]))
+    lines.append(gmsh.model.occ.addLine(points_corners[2], interface_points2[0]))
+    lines.append(gmsh.model.occ.addLine(points_corners[3], interface_points2[-1]))
+
+    lines.append(gmsh.model.occ.addLine(interface_points1[0], interface_points2[0]))
+    lines.append(gmsh.model.occ.addLine(interface_points1[-1], interface_points2[-1]))
+    
+    interface_lines1 = []
+    interface_lines2 = []
+
+    for idx in range(len(interface_points1)-1):
+        interface_lines1.append(gmsh.model.occ.addLine(interface_points1[idx], interface_points1[idx+1]))
+    for idx in range(len(interface_points2)-1):
+        interface_lines2.append(gmsh.model.occ.addLine(interface_points2[idx], interface_points2[idx+1]))
     gmsh.model.occ.synchronize()
-    gmsh.model.addPhysicalGroup(1, [lines[5]], markers.left)
-    gmsh.model.addPhysicalGroup(1, [lines[2]], markers.right)
-    gmsh.model.addPhysicalGroup(1, [lines[idx] for idx in range(6, 11)], markers.negative_cc_v_negative_am)
-    gmsh.model.addPhysicalGroup(1, [lines[idx] for idx in [0, 4]], markers.insulated_negative_cc)
-    gmsh.model.addPhysicalGroup(1, [lines[idx] for idx in [1, 3]], markers.insulated_electrolyte)
-    gmsh.model.addPhysicalGroup(1, insulated, markers.insulated)
+
+    gmsh.model.addPhysicalGroup(1, [lines[0]], markers.left, "left")
+    gmsh.model.addPhysicalGroup(1, [lines[1]], markers.right, "right")
+    gmsh.model.addPhysicalGroup(1, lines[2:4], markers.insulated_negative_cc, "insulated_negative_cc")
+    gmsh.model.addPhysicalGroup(1, lines[4:6], markers.insulated_positive_am, "insulated_positive_am")
+    gmsh.model.addPhysicalGroup(1, lines[6:8], markers.insulated_electrolyte, "insulated_electrolyte")
+    gmsh.model.addPhysicalGroup(1, interface_lines1, markers.negative_cc_v_negative_am, "negative_cc_v_negative_am")
+    gmsh.model.addPhysicalGroup(1, interface_lines2, markers.electrolyte_v_positive_am, "electrolyte_v_positive_am")
     gmsh.model.occ.synchronize()
-    se_loop = gmsh.model.occ.addCurveLoop([lines[idx] for idx in [1, 2, 3, 6, 7, 8, 9, 10]])
-    ncc_loop = gmsh.model.occ.addCurveLoop([lines[idx] for idx in [0, 5, 4, 6, 7, 8, 9, 10]])
+
+    neg_cc_loop = gmsh.model.occ.addCurveLoop([lines[idx] for idx in [0, 2]] + interface_lines1 + [lines[3]])
+    electrolyte_loop = gmsh.model.occ.addCurveLoop([lines[6]] + interface_lines1 + [lines[7]] + interface_lines2)
+    pos_am_loop = gmsh.model.occ.addCurveLoop([lines[idx] for idx in [1, 4]] + interface_lines2 + [lines[5]])
+    neg_cc_phase = gmsh.model.occ.addPlaneSurface([neg_cc_loop])
+    electrolyte_phase = gmsh.model.occ.addPlaneSurface([electrolyte_loop])
+    pos_am_phase = gmsh.model.occ.addPlaneSurface([pos_am_loop])
     gmsh.model.occ.synchronize()
-    se_phase = gmsh.model.occ.addPlaneSurface([se_loop])
-    ncc_phase = gmsh.model.occ.addPlaneSurface([ncc_loop])
-    gmsh.model.occ.synchronize()
-    gmsh.model.addPhysicalGroup(2, [se_phase], markers.electrolyte)
-    gmsh.model.addPhysicalGroup(2, [ncc_phase], markers.negative_cc)
+    gmsh.model.addPhysicalGroup(2, [neg_cc_phase], markers.negative_cc, "negative_cc")
+    gmsh.model.addPhysicalGroup(2, [electrolyte_phase], markers.electrolyte, "electrolyte")
+    gmsh.model.addPhysicalGroup(2, [pos_am_phase], markers.positive_cc, "positive_am")
     gmsh.model.occ.synchronize()
 
     # adaptive refinement
@@ -150,9 +146,3 @@ if __name__ == '__main__':
     gmsh.model.mesh.generate(2)
     gmsh.write(output_meshfile)
     gmsh.finalize()
-
-    # mesh_2d = meshio.read(output_meshfile)
-    # tria_mesh = geometry.create_mesh(mesh_2d, "triangle")
-    # meshio.write(tria_meshfile, tria_mesh)
-    # line_mesh = geometry.create_mesh(mesh_2d, "line")
-    # meshio.write(line_meshfile, line_mesh)
