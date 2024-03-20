@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import warnings
 
@@ -36,18 +37,28 @@ def build_rectangular_curve(coord_start=(10e-6, 0, 0), step_width=10e-6, step_le
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
+    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="lithium_metal_3d_cc_2d")
+    parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
+    parser.add_argument('--particle_radius', help='radius of particle in pixel units', nargs='?', const=1, default=5, type=float)
+    parser.add_argument('--well_depth', help='depth of well in pixel units', nargs='?', const=1, default=10, type=float)
+    parser.add_argument('--l_pos', help='thickness of positive electrode in pixel units', nargs='?', const=1, default=75, type=float)
+    parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1e-3, type=float)
+    parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=np.nan, type=float)
+    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
+                        const=1, default='CONTACT_LOSS_SCALING', type=str)
+    args = parser.parse_args()
     run_mesh = True
     adaptive_refine = True
     micron = 1e-6
     resolution = 1 * micron
-    LX = 150e-6
-    LY = 500e-6
-    step_length = 10e-6
-    step_width1 = 40e-6
-    step_width2 = 65e-6
+    LX, LY, LZ = [float(val) * micron for val in args.dimensions.split("-")]
+    step_length = 2 * args.particle_radius * micron
+    step_width1 = args.well_depth * micron
+    step_width2 = (args.l_pos - 2 * args.particle_radius) * micron
 
-    name_of_study = "lithium_metal_3d_cc_2d"
-    dimensions = f'{int(LX/micron)}-{int(LY/micron)}-0'
+    name_of_study = args.name_of_study
+    dimensions = args.dimensions
     dimensions_ii = f'{int(step_width1/micron)}-{int(step_width2/micron)}-{int(step_length/micron)}'
     workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, dimensions_ii, str(resolution))
     utils.make_dir_if_missing(workdir)
@@ -74,7 +85,7 @@ if __name__ == '__main__':
     gmsh.initialize()
     gmsh.model.add('lithium-metal')
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.25*micron)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1 * micron)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.25 * micron)
 
     points_corners.append(gmsh.model.occ.addPoint(*points_left[0]))
     points_corners.append(gmsh.model.occ.addPoint(*points_left[1]))

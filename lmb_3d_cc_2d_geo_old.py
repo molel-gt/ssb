@@ -35,7 +35,7 @@ points = [
     (75 * micron, 0, 0),
     (75 * micron, 40 * micron, 0),
     (20 * micron, 40 * micron, 0),
-    (0, 30 * micron, 0),
+    (0, 40 * micron, 0),
     # middle
     (20 * micron, 30 * micron, 0),
     (10 * micron, 30 * micron, 0),
