@@ -4,6 +4,7 @@
 import argparse
 import json
 import os
+import timeit
 
 import dolfinx
 import gmsh
@@ -35,6 +36,9 @@ warnings.simplefilter('ignore')
 
 kappa_elec = 0.1
 kappa_pos_am = 0.2
+faraday_const = 96485
+R = 8.3145
+T = 298
 
 
 class SNESNonlinearProblem:
@@ -92,6 +96,7 @@ if __name__ == '__main__':
                         const=1, default='MICRON_TO_METER', type=str)
 
     args = parser.parse_args()
+    start_time = timeit.default_timer()
     Wa = args.Wa
     voltage = args.voltage
     Wa_n = Wa
@@ -160,7 +165,7 @@ if __name__ == '__main__':
 
     # ### Function Spaces
     V = fem.FunctionSpace(domain, ("DG", 1))
-    W = fem.functionspace(domain, ("DG", 1, (3,)))
+    W = fem.functionspace(domain, ("CG", 1, (3,)))
     Q = fem.FunctionSpace(domain, ("DG", 0))
     u = fem.Function(V, name='potential')
     v = ufl.TestFunction(V)
@@ -190,12 +195,8 @@ if __name__ == '__main__':
     with u_right.vector.localForm() as u1_loc:
         u1_loc.set(voltage)
 
-
-    faraday_const = fem.Constant(domain, PETSc.ScalarType(96485))
-    R = fem.Constant(domain, PETSc.ScalarType(8.3145))
-    T = fem.Constant(domain, PETSc.ScalarType(298))
-    i0_n = fem.Constant(domain, PETSc.ScalarType(kappa_elec * R * T / (Wa_n * faraday_const * LX)))
-    i0_p = fem.Constant(domain, PETSc.ScalarType(kappa_elec * R * T / (Wa_p * faraday_const * LX)))
+    i0_n = kappa_elec * R * T / (Wa_n * faraday_const * LX)  # fem.Constant(domain, PETSc.ScalarType(kappa_elec * R * T / (Wa_n * faraday_const * LX)))
+    i0_p = kappa_elec * R * T / (Wa_p * faraday_const * LX)  # fem.Constant(domain, PETSc.ScalarType(kappa_elec * R * T / (Wa_p * faraday_const * LX)))
 
     U_n = 0
     U_vec = ufl.as_vector((0, 0, 0))
@@ -296,7 +297,7 @@ if __name__ == '__main__':
     b = la.create_petsc_vector(V.dofmap.index_map, V.dofmap.index_map_bs)
     J = petsc.create_matrix(problem.a)
     snes = PETSc.SNES().create(comm)
-    snes.setTolerances(atol=1e-12, rtol=1.0e-11, max_it=10)
+    snes.setTolerances(atol=1e-13, rtol=1.0e-12, max_it=10)
     snes.getKSP().setType("preonly")
     snes.getKSP().getPC().setType("lu")
     snes.setFunction(problem.F, b)
@@ -311,40 +312,6 @@ if __name__ == '__main__':
 
     current_expr = fem.Expression(-kappa * grad(u), W.element.interpolation_points())
     current_h.interpolate(current_expr)
-
-    # ### Continuous Galerkin
-    # i_exchange = i0
-    # kappa = fem.Constant(domain, PETSc.ScalarType(kappa_elec))
-    # f = fem.Constant(domain, PETSc.ScalarType(0.0))
-    # g = fem.Constant(domain, PETSc.ScalarType(0.0))
-
-    # right_boundary = ft.find(markers.right)
-    # right_bc = fem.dirichletbc(u_right, fem.locate_dofs_topological(V, 1, right_boundary))
-
-    # F = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
-    # F += - ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated_electrolyte) 
-    # F += + ufl.inner(i_exchange * faraday_const * (u - 0) / (R * T), v) * ds(markers.negative_cc_v_negative_am)
-
-    # problem = petsc.NonlinearProblem(F, u, bcs=[right_bc])
-    # solver = petsc_nls.NewtonSolver(comm, problem)
-    # solver.convergence_criterion = "residual"
-    # solver.maximum_iterations = 100
-    # solver.atol = np.finfo(float).eps
-    # solver.rtol = np.finfo(float).eps * 10
-
-    # ksp = solver.krylov_solver
-    # opts = PETSc.Options()
-    # option_prefix = ksp.getOptionsPrefix()
-    # opts[f"{option_prefix}ksp_type"] = "gmres"
-    # opts[f"{option_prefix}pc_type"] = "hypre"
-    # ksp.setFromOptions()
-    # n_iters, converged = solver.solve(u)
-    # if not converged:
-    #     print(f"Solver did not converge in {n_iters} iterations")
-    # else:
-    #     print(f"Converged in {n_iters} iterations")
-    # u.name = 'potential'
-    # u.x.scatter_forward()
 
     with VTXWriter(comm, potential_resultsfile, [u], engine="BP4") as vtx:
         vtx.write(0.0)
@@ -364,10 +331,10 @@ if __name__ == '__main__':
     area_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(1.0 * ds(markers.right))), op=MPI.SUM)
     i_sup_left = np.abs(I_neg_charge_xfer / area_neg_charge_xfer)
     i_sup = np.abs(I_right / area_right)
-    eta = np.abs(i_sup_left) * (Wa  * LX / kappa_elec)
-    eta_p = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs((u("+") - u("-") - U_p(0))) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM) / area_pos_charge_xfer
+    eta_n = np.abs(i_sup_left) * ( R * T / i0_n / faraday_const)
+    eta_p = domain.comm.allreduce(fem.assemble_scalar(fem.form((u("+") - u("-") - U_p(0)) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM) / area_pos_charge_xfer
     simulation_metadata = {
-        "Negative Overpotential [V]": eta,
+        "Negative Overpotential [V]": eta_n,
         "Positive Overpotential [V]": eta_p,
         "Voltage": voltage,
         "dimensions": args.dimensions,
@@ -378,8 +345,10 @@ if __name__ == '__main__':
         "Current at insulated boundary": f"{I_insulated:.2e} A",
     }
     if comm.rank == 0:
+        print(eta_n / eta_p)
+        print(area_pos_charge_xfer/area_neg_charge_xfer)
         print(f"Voltage: {voltage} [V]")
-        print(f"Negative Overpotential: {eta:.3e} [V]")
+        print(f"Negative Overpotential: {eta_n:.3e} [V]")
         print(f"Positive Overpotential: {eta_p:.3e} [V]")
         print(f"superficial current density @ left: {np.abs(i_sup_left):.2e} [A/m2]")
         print(f"superficial current density @ right: {np.abs(i_sup):.2e} [A/m2]")
@@ -390,112 +359,4 @@ if __name__ == '__main__':
         print(f"Float precision: {np.finfo(float).eps}")
         with open(simulation_metafile, "w", encoding='utf-8') as f:
             json.dump(simulation_metadata, f, ensure_ascii=False, indent=4)
-
-        bb_trees = bb_tree(domain, domain.topology.dim)
-        n_points = 100000
-        tol = 1e-10
-        points = np.zeros((3, n_points))
-        fig, ax = plt.subplots()
-        colors = ['red', 'blue', 'green']
-        x = np.linspace(0 + tol, LX - tol, n_points)
-        points[0] = x
-        for idx, frac in enumerate([0.2, 0.5, 0.8]):    
-            y = np.ones(n_points) * frac * LY  # position
-            points[1] = y
-            u_values = []
-            cells = []
-            points_on_proc = []
-            # Find cells whose bounding-box collide with the the points
-            cell_candidates = compute_collisions_points(bb_trees, points.T)
-            # Choose one of the cells that contains the point
-            colliding_cells = compute_colliding_cells(domain, cell_candidates, points.T)
-            for i, point in enumerate(points.T):
-                if len(colliding_cells.links(i)) > 0:
-                    points_on_proc.append(point)
-                    cells.append(colliding_cells.links(i)[0])
-            points_on_proc = np.array(points_on_proc, dtype=np.float64)
-            u_values = u.eval(points_on_proc, cells)
-            ax.plot((1/micron) * points_on_proc[:, 0], u_values, "-", linewidth=2, label=f'{frac}' + r' $L_y$', color=colors[idx])
-        ax.set_xlim([0, LX/micron])
-        ax.set_ylim([0, 1.1 * voltage])
-
-        ax.set_ylabel(r'$\phi$ [V]', rotation=90, labelpad=0, fontsize='xx-large')
-        ax.set_xlabel(r'$\mathrm{x}$ ' + '[$\mu$m]')
-        ax.axhline(y=eta, linestyle='--', linewidth=0.5, label=r'$\eta$')
-        ax.legend()
-        ax.set_title(f'Wa = {Wa}')
-        ax.minorticks_on();
-        ax.tick_params(which="both", left=True, right=True, bottom=True, top=True, labelleft=True, labelright=False, labelbottom=True, labeltop=False);
-        plt.tight_layout()
-        plt.savefig(os.path.join(workdir, 'potential-dist-midline.png'))
-        plt.show()
-
-        bb_trees = bb_tree(domain, domain.topology.dim)
-        points = np.zeros((3, n_points))
-        fig, ax = plt.subplots()
-        for idx, frac in enumerate([0.25, 0.5, 0.75]):
-            if np.isclose(frac, 0.25, atol=1e-3) or np.isclose(frac, 0.75, atol=1e-3):
-                x = np.linspace(10 * micron + tol, LX - tol, n_points)
-            else:
-                x = np.linspace(0 + tol, LX - tol, n_points)
-            points[0] = x
-            y = np.ones(n_points) * frac * LY
-            points[1] = y
-            u_values = []
-            cells = []
-            points_on_proc = []
-            cell_candidates = compute_collisions_points(bb_trees, points.T)
-            colliding_cells = compute_colliding_cells(domain, cell_candidates, points.T)
-            for i, point in enumerate(points.T):
-                if len(colliding_cells.links(i)) > 0:
-                    points_on_proc.append(point)
-                    cells.append(colliding_cells.links(i)[0])
-            points_on_proc = np.array(points_on_proc, dtype=np.float64)
-            current_values = current_h.eval(points_on_proc, cells)
-            ax.plot((1/micron) * points_on_proc[:, 0], np.linalg.norm(current_values, axis=1), "-", linewidth=1.5, color=colors[idx], label=f'{frac}'+r' $L_y$')
-        ax.axhline(y=i_sup, color='black', linestyle='--', label=r'$i_{\mathrm{sup}}$')
-        # ax.grid(True)
-        ax.legend()
-        ax.set_xlim([0, LX / micron])
-        ax.set_ylabel(r'$\|{\mathbf{i}}\|$' + r' [Am$^{-2}$]', rotation=90, labelpad=0, fontsize='xx-large')
-        ax.set_xlabel(r'$\mathrm{x}$ ' + r'[$\mu$m]')
-        ax.set_title(f'Wa = {Wa}')
-        ax.minorticks_on();
-        ax.tick_params(which="both", left=True, right=True, bottom=True, top=True, labelleft=True, labelright=False, labelbottom=True, labeltop=False);
-        plt.tight_layout()
-        plt.savefig(os.path.join(workdir, 'current-dist-midline.png'))
-        plt.show()
-
-        bb_trees = bb_tree(domain, domain.topology.dim)
-        points = np.zeros((3, n_points))
-        fig, ax = plt.subplots()
-        # fracs = [15e-6, 30e-6, 50e-6]
-        fracs = [20e-6, 60e-6, 125e-6]
-        for idx, frac in enumerate(fracs):
-            y = np.linspace(0 + tol, LY - tol, n_points)
-            points[1] = y
-            x = np.ones(n_points) * frac
-            points[0] = x
-            u_values = []
-            cells = []
-            points_on_proc = []
-            cell_candidates = compute_collisions_points(bb_trees, points.T)
-            colliding_cells = compute_colliding_cells(domain, cell_candidates, points.T)
-            for i, point in enumerate(points.T):
-                if len(colliding_cells.links(i)) > 0:
-                    points_on_proc.append(point)
-                    cells.append(colliding_cells.links(i)[0])
-            points_on_proc = np.array(points_on_proc, dtype=np.float64)
-            current_values = current_h.eval(points_on_proc, cells)
-            ax.plot((1/micron) * points_on_proc[:, 1], current_values[:, 1], "-", linewidth=2, color=colors[idx], label=r' $\mathrm{x}$ = ' + f'{int(frac/micron)} ' + r'$\mu$m')
-        ax.legend()
-        # ax.set_xlim([0, 0.2 * LY / micron])
-        ax.set_xlim([0, LY / micron])
-        ax.set_ylabel(r'$i_y$ [Am$^{-2}$]', rotation=90, labelpad=0, fontsize='xx-large')
-        ax.set_xlabel(r'$\mathrm{y}$ ' + r'[$\mu$m]')
-        ax.set_title(f'Wa = {Wa}')
-        ax.minorticks_on();
-        ax.tick_params(which="both", left=True, right=True, bottom=True, top=True, labelleft=True, labelright=False, labelbottom=True, labeltop=False);
-        plt.tight_layout()
-        plt.savefig(os.path.join(workdir, 'current-dist-y-vertical.png'))
-        plt.show()
+        print(f"Time elapsed: {int(timeit.default_timer() - start_time):3.5f}s")
