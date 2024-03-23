@@ -345,8 +345,8 @@ if __name__ == '__main__':
         "Current at insulated boundary": f"{I_insulated:.2e} A",
     }
     if comm.rank == 0:
-        print(eta_n / eta_p)
-        print(area_pos_charge_xfer/area_neg_charge_xfer)
+        print(f"Negative overpotential over Positive overpotential: {eta_n/eta_p:.3f}")
+        print(f"Positive area over Negative area: {area_pos_charge_xfer/area_neg_charge_xfer:.3f}")
         print(f"Voltage: {voltage} [V]")
         print(f"Negative Overpotential: {eta_n:.3e} [V]")
         print(f"Positive Overpotential: {eta_p:.3e} [V]")
