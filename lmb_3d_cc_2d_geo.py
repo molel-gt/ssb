@@ -40,18 +40,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="lithium_metal_3d_cc_2d")
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
-    parser.add_argument('--particle_radius', help='radius of particle in pixel units', nargs='?', const=1, default=5, type=float)
-    parser.add_argument('--well_depth', help='depth of well in pixel units', nargs='?', const=1, default=10, type=float)
+    parser.add_argument('--particle_radius', help='radius of particle in pixel units', nargs='?', const=1, default=10, type=float)
+    parser.add_argument('--well_depth', help='depth of well in pixel units', nargs='?', const=1, default=20, type=float)
     parser.add_argument('--l_pos', help='thickness of positive electrode in pixel units', nargs='?', const=1, default=75, type=float)
-    parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1e-3, type=float)
-    parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=np.nan, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
-                        const=1, default='CONTACT_LOSS_SCALING', type=str)
+                        const=1, default='MICRON_TO_METER', type=str)
+    parser.add_argument('--resolution', help=f'max resolution resolution', nargs='?', const=1, default=1, type=float)
     args = parser.parse_args()
-    run_mesh = True
-    adaptive_refine = True
     micron = 1e-6
-    resolution = 1 * micron
+    resolution = args.resolution * micron
     LX, LY, LZ = [float(val) * micron for val in args.dimensions.split("-")]
     step_length = 2 * args.particle_radius * micron
     step_width1 = args.well_depth * micron
@@ -73,7 +70,7 @@ if __name__ == '__main__':
     (LX, 0, 0),
     (LX, LY, 0)
     ]
-    coord_start1 = (10e-6, 0, 0)
+    coord_start1 = (20e-6, 0, 0)
     coord_start2 = (75e-6, 0, 0)
 
     interface_1 = build_rectangular_curve(coord_start=coord_start1, step_length=step_length, step_width=step_width1, length=LY)
@@ -84,11 +81,16 @@ if __name__ == '__main__':
 
     gmsh.initialize()
     gmsh.model.add('lithium-metal')
-    # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.25*micron)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.25 * micron)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", resolution)
+    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
+    gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
+    gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
+    gmsh.option.setNumber('Mesh.ColorCarousel', 2)
+    gmsh.option.setNumber('Mesh.Optimize', 1)
 
-    points_corners.append(gmsh.model.occ.addPoint(*points_left[0]))
-    points_corners.append(gmsh.model.occ.addPoint(*points_left[1]))
+    # points_corners.append(gmsh.model.occ.addPoint(*points_left[0]))
+    # points_corners.append(gmsh.model.occ.addPoint(*points_left[1]))
+    points_corners += [np.nan, np.nan]
     points_corners.append(gmsh.model.occ.addPoint(*points_right[0]))
     points_corners.append(gmsh.model.occ.addPoint(*points_right[1]))
     for p in interface_1:
@@ -98,10 +100,13 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
 
     lines = []
-    lines.append(gmsh.model.occ.addLine(points_corners[0], points_corners[1]))
+    lines += [np.nan]
+    # lines.append(gmsh.model.occ.addLine(points_corners[0], points_corners[1]))
     lines.append(gmsh.model.occ.addLine(points_corners[2], points_corners[3]))
-    lines.append(gmsh.model.occ.addLine(points_corners[0], interface_points1[0]))
-    lines.append(gmsh.model.occ.addLine(points_corners[1], interface_points1[-1]))
+    lines += [np.nan]
+    # lines.append(gmsh.model.occ.addLine(points_corners[0], interface_points1[0]))
+    lines += [np.nan]
+    # lines.append(gmsh.model.occ.addLine(points_corners[1], interface_points1[-1]))
     lines.append(gmsh.model.occ.addLine(points_corners[2], interface_points2[0]))
     lines.append(gmsh.model.occ.addLine(points_corners[3], interface_points2[-1]))
 
@@ -117,43 +122,42 @@ if __name__ == '__main__':
         interface_lines2.append(gmsh.model.occ.addLine(interface_points2[idx], interface_points2[idx+1]))
     gmsh.model.occ.synchronize()
 
-    gmsh.model.addPhysicalGroup(1, [lines[0]], markers.left, "left")
+    # gmsh.model.addPhysicalGroup(1, [lines[0]], markers.left, "left")
     gmsh.model.addPhysicalGroup(1, [lines[1]], markers.right, "right")
-    gmsh.model.addPhysicalGroup(1, lines[2:4], markers.insulated_negative_cc, "insulated_negative_cc")
+    # gmsh.model.addPhysicalGroup(1, lines[2:4], markers.insulated_negative_cc, "insulated_negative_cc")
     gmsh.model.addPhysicalGroup(1, lines[4:6], markers.insulated_positive_am, "insulated_positive_am")
     gmsh.model.addPhysicalGroup(1, lines[6:8], markers.insulated_electrolyte, "insulated_electrolyte")
     gmsh.model.addPhysicalGroup(1, interface_lines1, markers.negative_cc_v_negative_am, "negative_cc_v_negative_am")
     gmsh.model.addPhysicalGroup(1, interface_lines2, markers.electrolyte_v_positive_am, "electrolyte_v_positive_am")
     gmsh.model.occ.synchronize()
 
-    neg_cc_loop = gmsh.model.occ.addCurveLoop([lines[idx] for idx in [0, 2]] + interface_lines1 + [lines[3]])
+    # neg_cc_loop = gmsh.model.occ.addCurveLoop([lines[idx] for idx in [0, 2]] + interface_lines1 + [lines[3]])
     electrolyte_loop = gmsh.model.occ.addCurveLoop([lines[6]] + interface_lines1 + [lines[7]] + interface_lines2)
     pos_am_loop = gmsh.model.occ.addCurveLoop([lines[idx] for idx in [1, 4]] + interface_lines2 + [lines[5]])
-    neg_cc_phase = gmsh.model.occ.addPlaneSurface([neg_cc_loop])
+    # neg_cc_phase = gmsh.model.occ.addPlaneSurface([neg_cc_loop])
     electrolyte_phase = gmsh.model.occ.addPlaneSurface([electrolyte_loop])
     pos_am_phase = gmsh.model.occ.addPlaneSurface([pos_am_loop])
     gmsh.model.occ.synchronize()
-    gmsh.model.addPhysicalGroup(2, [neg_cc_phase], markers.negative_cc, "negative_cc")
+    # gmsh.model.addPhysicalGroup(2, [neg_cc_phase], markers.negative_cc, "negative_cc")
     gmsh.model.addPhysicalGroup(2, [electrolyte_phase], markers.electrolyte, "electrolyte")
-    gmsh.model.addPhysicalGroup(2, [pos_am_phase], markers.positive_cc, "positive_am")
+    gmsh.model.addPhysicalGroup(2, [pos_am_phase], markers.positive_am, "positive_am")
     gmsh.model.occ.synchronize()
 
-    # adaptive refinement
-    # if adaptive_refine:
-    #     gmsh.model.mesh.field.add("Distance", 1)
-    #     gmsh.model.mesh.field.setNumbers(1, "EdgesList", [lines[idx] for idx in range(11)])
-        
-    #     gmsh.model.mesh.field.add("Threshold", 2)
-    #     gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    #     gmsh.model.mesh.field.setNumber(2, "LcMin", 0.1 * micron)
-    #     gmsh.model.mesh.field.setNumber(2, "LcMax", 0.25 * micron)
-    #     gmsh.model.mesh.field.setNumber(2, "DistMin", 0.1 * micron)
-    #     gmsh.model.mesh.field.setNumber(2, "DistMax", 1 * micron)
-        
-    #     gmsh.model.mesh.field.add("Max", 5)
-    #     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    #     gmsh.model.mesh.field.setAsBackgroundMesh(5)
-    #     gmsh.model.occ.synchronize()
+    # gmsh.model.mesh.field.add("Distance", 1)
+    # gmsh.model.mesh.field.setNumbers(1, "EdgesList", [lines[1]] + interface_lines1 + interface_lines2)
+
+    # gmsh.model.mesh.field.add("Threshold", 2)
+    # gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    # gmsh.model.mesh.field.setNumber(2, "LcMin", 0.5 * resolution)
+    # gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
+    # gmsh.model.mesh.field.setNumber(2, "DistMin", 0)
+    # gmsh.model.mesh.field.setNumber(2, "DistMax", 0.5 * resolution)
+
+    # gmsh.model.mesh.field.add("Max", 5)
+    # gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    # gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    # gmsh.model.occ.synchronize()
+
     gmsh.model.mesh.generate(2)
     gmsh.write(output_meshfile)
     gmsh.finalize()
