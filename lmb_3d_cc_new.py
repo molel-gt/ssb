@@ -74,18 +74,17 @@ class SNESNonlinearProblem:
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
+    parser = argparse.ArgumentParser(description='3D Current Collector.')
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="lithium_metal_3d_cc_2d")
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
-    parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1e-3, type=float)
-    parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=np.nan, type=float)
+    parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1.0, type=float)
+    parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='MICRON_TO_METER', type=str)
 
     args = parser.parse_args()
-
-    Wa = 1e0
+    Wa = args.Wa
     Wa_n = Wa
     Wa_p = Wa
     comm = MPI.COMM_WORLD
