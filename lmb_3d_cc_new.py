@@ -202,6 +202,7 @@ if __name__ == '__main__':
     U_vec = ufl.as_vector((0, 0, 0))
     U_p = ufl.as_vector((0, 0, 0))
     V_left = 0
+    u.x.array[:] = 0.5
 
     # ### Discontinuous Galerkin
     alpha = 10
@@ -209,10 +210,10 @@ if __name__ == '__main__':
 
     F = kappa * inner(grad(u), grad(v)) * dx 
     F -= + f * v * dx 
-    F += - kappa * inner(grad(u), n) * v * ds
-    # F += - kappa * inner(grad(u), n) * v * ds(markers.negative_cc_v_negative_am)
-    # F += - kappa * inner(grad(u), n) * v * ds(markers.insulated_electrolyte)
-    # F += - kappa * inner(grad(u), n) * v * ds(markers.right)
+    # F += - kappa * inner(grad(u), n) * v * ds
+    F += - kappa * inner(grad(u), n) * v * ds(markers.negative_cc_v_negative_am)
+    F += - kappa * inner(grad(u), n) * v * ds(markers.insulated_electrolyte)
+    F += - kappa * inner(grad(u), n) * v * ds(markers.right)
 
     # Add DG/IP terms
     F += - inner(jump(kappa * u, n), avg(grad(v))) * dS(0)
@@ -228,13 +229,22 @@ if __name__ == '__main__':
     # F += - inner(jump(v, n), avg(grad(u))) * dS(markers.electrolyte_v_positive_am)
     # F += + alpha / h_avg * inner(jump(kappa, n) * avg(u) + avg(kappa) * (U_p - R * T / i0_p / faraday_const * (kappa * grad(u))('+')), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
 
-    # charge xfer internal boundary - neumann
-    F += + inner(avg(grad(v)), jump(kappa, n) * avg(u) + avg(kappa) * (U_p - R * T / i0_p / faraday_const * (kappa * grad(u))('-'))) * dS(markers.electrolyte_v_positive_am)
-    F += - alpha / h_avg * inner(jump(v, n), jump(kappa, n) * avg(u) + avg(kappa) * (U_p - (R * T / i0_p / faraday_const) * (kappa * grad(u))('-'))) * dS(markers.electrolyte_v_positive_am)
-    F += + inner(avg(grad(v)), jump(kappa, n) * avg(u) + avg(kappa) * (U_p - R * T / i0_p / faraday_const * (kappa * grad(u))('+'))) * dS(markers.electrolyte_v_positive_am)
-    F += - alpha / h_avg * inner(jump(v, n), jump(kappa, n) * avg(u) + avg(kappa) * (U_p - (R * T / i0_p / faraday_const) * (kappa * grad(u))('+'))) * dS(markers.electrolyte_v_positive_am)
-    # F += inner(avg(kappa * grad(u)), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
+    F += - dot(avg(grad(v)), jump(kappa, n) * avg(u) + avg(kappa) * (R * T / i0_p / faraday_const) * (kappa * grad(u))('+') + U_p) * dS(markers.electrolyte_v_positive_am)
+    F += alpha / h_avg * dot(jump(v, n), jump(kappa, n) * avg(u) + avg(kappa) * (R * T / i0_p / faraday_const) * (kappa * grad(u))('-') + U_p) * dS(markers.electrolyte_v_positive_am)
+    F += + avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
+    F += alpha / h_avg * avg(kappa) * inner(jump(u, n), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
 
+    # charge xfer internal boundary - neumann
+    # F += - inner(avg(grad(v)), jump(kappa, n) * avg(u) + avg(kappa) * (U_p - R * T / i0_p / faraday_const * (kappa * grad(u))('-'))) * dS(markers.electrolyte_v_positive_am)
+    # F += + alpha / h_avg * inner(jump(v, n), jump(kappa, n) * avg(u) + avg(kappa) * (U_p - (R * T / i0_p / faraday_const) * (kappa * grad(u))('+'))) * dS(markers.electrolyte_v_positive_am)
+    # F += - inner(avg(grad(v)), jump(kappa, n) * avg(u) + avg(kappa) * (U_p - R * T / i0_p / faraday_const * (kappa * grad(u))('+'))) * dS(markers.electrolyte_v_positive_am)
+    # F += + alpha / h_avg * inner(jump(v, n), jump(kappa, n) * avg(u) + avg(kappa) * (U_p - (R * T / i0_p / faraday_const) * (kappa * grad(u))('-'))) * dS(markers.electrolyte_v_positive_am)
+    
+    # F += - inner(avg(kappa * grad(u)), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
+    # F += + alpha / h_avg * inner(i0_p * faraday_const / R / T * (jump(u, n) - U_p), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
+    # F += - inner(i0_p * faraday_const / R / T * (jump(u, n) - U_p), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
+    
+    # F += - inner(jump(kappa * u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
     # F += - inner(avg(grad(v)), U_p - R * T / i0 / faraday_const * (kappa * grad(u))('+')) * dS(markers.electrolyte_v_positive_am)
     # F += + alpha / h_avg * inner(jump(v, n), U_p - (R * T / i0_p / faraday_const) * (kappa * grad(u))('-')) * dS(markers.electrolyte_v_positive_am)
     # F += - inner(avg(grad(v)), U_p - R * T / i0 / faraday_const * (kappa * grad(u))('+')) * dS(markers.electrolyte_v_positive_am)
@@ -246,10 +256,10 @@ if __name__ == '__main__':
     # F += - dot(avg(grad(v)), (R * T / i0 / faraday_const) * (kappa * grad(u))('-') + U_p) * dS(markers.electrolyte_v_positive_am)
     # F += alpha / h_avg * dot(jump(v, n), (R * T / i0_p / faraday_const) * (kappa * grad(u))('-') + U_p) * dS(markers.electrolyte_v_positive_am)
 
-    # # charge xfer internal boundary - symmetry
-    F += - inner(jump(kappa, n) * avg(u) + avg(kappa) * jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
-    # # charge xfer internal boundary - coercivity
-    F += + alpha / h_avg * inner(jump(kappa, n) * avg(u) + avg(kappa) * jump(u, n), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
+    # # # charge xfer internal boundary - symmetry
+    # F += - inner(jump(kappa, n) * avg(u) + avg(kappa) * jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
+    # # # charge xfer internal boundary - coercivity
+    # F += + alpha / h_avg * inner(jump(kappa, n) * avg(u) + avg(kappa) * jump(u, n), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
 
 
     # right boundary - dirichlet
@@ -272,43 +282,55 @@ if __name__ == '__main__':
     # F += - γ * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.electrolyte_v_positive_am)
     # F -= + γ * h * i0 * faraday_const / R / T  * (u - 0) * inner(grad(v), n) * ds(markers.electrolyte_v_positive_am)
 
-    # problem = petsc.NonlinearProblem(F, u)
-    # solver = petsc_nls.NewtonSolver(comm, problem)
-    # solver.convergence_criterion = "residual"
-    # solver.maximum_iterations = 25
-    # # solver.atol = 5e-12
-    # # solver.rtol = 1e-11
+    problem = petsc.NonlinearProblem(F, u)
+    solver = petsc_nls.NewtonSolver(comm, problem)
+    solver.convergence_criterion = "residual"
+    solver.maximum_iterations = 25
+    solver.atol = 1e-12
+    solver.rtol = 1e-11
 
-    # ksp = solver.krylov_solver
+    ksp = solver.krylov_solver
 
-    # opts = PETSc.Options()
-    # option_prefix = ksp.getOptionsPrefix()
-    # # opts[f"{option_prefix}ksp_type"] = "gmres"
-    # # opts[f"{option_prefix}pc_type"] = "gamg"
+    opts = PETSc.Options()
+    ksp.setMonitor(lambda _, it, residual: print(it, residual))
+    option_prefix = ksp.getOptionsPrefix()
+    opts[f"{option_prefix}ksp_type"] = "gmres"
+    opts[f"{option_prefix}pc_type"] = "lu"
 
-    # ksp.setFromOptions()
-    # n_iters, converged = solver.solve(u)
-    # if converged:
-    #     current_expr = fem.Expression(-kappa * grad(u), W.element.interpolation_points())
-    #     current_h.interpolate(current_expr)
-    #     print(f"Converged in {n_iters} iterations")
+    ksp.setFromOptions()
+    n_iters, converged = solver.solve(u)
+    if converged:
+        current_expr = fem.Expression(-kappa * grad(u), W.element.interpolation_points())
+        current_h.interpolate(current_expr)
+        print(f"Converged in {n_iters} iterations")
 
-    problem = SNESNonlinearProblem(F, u)
-    b = la.create_petsc_vector(V.dofmap.index_map, V.dofmap.index_map_bs)
-    J = petsc.create_matrix(problem.a)
-    snes = PETSc.SNES().create(comm)
-    snes.setTolerances(atol=1e-13, rtol=1.0e-12, max_it=10)
-    snes.getKSP().setType("preonly")
-    snes.getKSP().getPC().setType("lu")
-    snes.setFunction(problem.F, b)
-    snes.setJacobian(problem.J, J=J)
+    # problem = SNESNonlinearProblem(F, u)
+    # b = la.create_petsc_vector(V.dofmap.index_map, V.dofmap.index_map_bs)
+    # J = petsc.create_matrix(problem.a)
+    # converged = False
+    # max_it = 5
+    # its = 0
+    # # while not converged and its < max_it:
+    # snes = PETSc.SNES().create(comm)
+    # snes.setTolerances(atol=1e-12, rtol=1.0e-11, max_it=10)
+    # # snes.setType('vinewtonrsls')
+    # snes.getKSP().setType("preonly")
+    # snes.getKSP().getPC().setType("lu")
+    # # snes.getKSP().getPC().setFactorSolverType("mumps")
+    # snes.setFunction(problem.F, b)
+    # snes.setJacobian(problem.J, J=J)
 
-    snes.setMonitor(lambda _, it, residual: print(it, residual))
-    snes.solve(None, u.vector)
-    if snes.getConvergedReason() > 0:
-        snes.destroy()
-        b.destroy()
-        J.destroy()
+    # snes.setMonitor(lambda _, it, residual: print(it, residual))
+
+    # snes.solve(None, u.vector)
+    # if snes.getConvergedReason() > 0:
+    #     converged = True
+    #     # its += 1
+    #     snes.destroy()
+    #     b.destroy()
+    #     J.destroy()
+    # print(f"Converged Reason: {snes.getConvergedReason()}")
+            
 
     current_expr = fem.Expression(-kappa * grad(u), W.element.interpolation_points())
     current_h.interpolate(current_expr)
