@@ -176,6 +176,7 @@ if __name__ == '__main__':
     x = ufl.SpatialCoordinate(domain)
     h = ufl.CellDiameter(domain)
     h_avg = avg(h)
+    Id = ufl.Identity(3)
 
     cells_elec = ct.find(markers.electrolyte)
     kappa.x.array[cells_elec] = np.full_like(cells_elec, kappa_elec, dtype=default_scalar_type)
@@ -195,14 +196,14 @@ if __name__ == '__main__':
     with u_right.vector.localForm() as u1_loc:
         u1_loc.set(voltage)
 
-    i0_n = kappa_elec * R * T / (Wa_n * faraday_const * LX)  # fem.Constant(domain, PETSc.ScalarType(kappa_elec * R * T / (Wa_n * faraday_const * LX)))
-    i0_p = kappa_elec * R * T / (Wa_p * faraday_const * LX)  # fem.Constant(domain, PETSc.ScalarType(kappa_elec * R * T / (Wa_p * faraday_const * LX)))
+    i0_n = kappa_elec * R * T / (Wa_n * faraday_const * LX)
+    i0_p = kappa_elec * R * T / (Wa_p * faraday_const * LX)
 
     U_n = 0
     U_vec = ufl.as_vector((0, 0, 0))
-    U_p = ufl.as_vector((0, 0, 0))
+    U_p = 0.15
     V_left = 0
-    u.x.array[:] = 0.5
+    # u.x.array[:] = 0.5
 
     # ### Discontinuous Galerkin
     alpha = 10
@@ -211,60 +212,30 @@ if __name__ == '__main__':
     F = kappa * inner(grad(u), grad(v)) * dx 
     F -= + f * v * dx 
     F += - kappa * inner(grad(u), n) * v * ds
-    # F += - kappa * inner(grad(u), n) * v * ds(markers.negative_cc_v_negative_am)
-    # F += - kappa * inner(grad(u), n) * v * ds(markers.insulated_electrolyte)
-    # F += - kappa * inner(grad(u), n) * v * ds(markers.right)
 
     # Add DG/IP terms
-    F += - inner(jump(u, n), avg(grad(v))) * dS(0)
+    # F += - inner(jump(kappa * u, n), avg(grad(v))) * dS(0)
+    # F += - inner(avg(kappa * grad(u)), jump(v, n)) * dS(0)
+    # F += alpha / h_avg * inner(jump(v, n), jump(kappa * u, n)) * dS(0)
+
+    F += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(0)
     F += - inner(avg(kappa * grad(u)), jump(v, n)) * dS(0)
-    F += alpha / h_avg * inner(jump(v, n), jump(u, n)) * dS(0)
+    F += alpha / h_avg * inner(avg(kappa) * jump(u, n), jump(v, n)) * dS(0)
 
     # left boundary - dirichlet
-    # F += - kappa * (u - u_left) * inner(n, grad(v)) * ds(markers.left)
-    # F += γ / h * (u - u_left) * v * ds(markers.left)
+    F += - kappa * (u - u_left) * inner(n, grad(v)) * ds(markers.left)
+    F += γ / h * (u - u_left) * v * ds(markers.left)
 
-    # trial charge transfer
-    # F += - inner(avg(grad(v)), jump(kappa, n) * avg(u) + avg(kappa) * (U_p - R * T / i0_p / faraday_const * (kappa * grad(u))('-'))) * dS(markers.electrolyte_v_positive_am)
-    # F += - inner(jump(v, n), avg(grad(u))) * dS(markers.electrolyte_v_positive_am)
-    # F += + alpha / h_avg * inner(jump(kappa, n) * avg(u) + avg(kappa) * (U_p - R * T / i0_p / faraday_const * (kappa * grad(u))('+')), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
-
-    F += - dot(avg(grad(v)), (R * T / i0_p / faraday_const) * (kappa * grad(u))('+') + U_p) * dS(markers.electrolyte_v_positive_am)
-    F += +alpha / h_avg * dot(jump(v, n), (R * T / i0_p / faraday_const) * (kappa * grad(u))('-') + U_p) * dS(markers.electrolyte_v_positive_am)
-    # F += + avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
-    # F += alpha / h_avg * avg(kappa) * inner(jump(u, n), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
-
-    # charge xfer internal boundary - neumann
-    # F += - inner(avg(grad(v)), jump(kappa, n) * avg(u) + avg(kappa) * (U_p - R * T / i0_p / faraday_const * (kappa * grad(u))('-'))) * dS(markers.electrolyte_v_positive_am)
-    # F += + alpha / h_avg * inner(jump(v, n), jump(kappa, n) * avg(u) + avg(kappa) * (U_p - (R * T / i0_p / faraday_const) * (kappa * grad(u))('+'))) * dS(markers.electrolyte_v_positive_am)
-    # F += - inner(avg(grad(v)), jump(kappa, n) * avg(u) + avg(kappa) * (U_p - R * T / i0_p / faraday_const * (kappa * grad(u))('+'))) * dS(markers.electrolyte_v_positive_am)
-    # F += + alpha / h_avg * inner(jump(v, n), jump(kappa, n) * avg(u) + avg(kappa) * (U_p - (R * T / i0_p / faraday_const) * (kappa * grad(u))('-'))) * dS(markers.electrolyte_v_positive_am)
-    
-    # F += - inner(avg(kappa * grad(u)), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
-    # F += + alpha / h_avg * inner(i0_p * faraday_const / R / T * (jump(u, n) - U_p), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
-    # F += - inner(i0_p * faraday_const / R / T * (jump(u, n) - U_p), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
-    
-    # F += - inner(jump(kappa * u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
-    # F += - inner(avg(grad(v)), U_p - R * T / i0 / faraday_const * (kappa * grad(u))('+')) * dS(markers.electrolyte_v_positive_am)
-    # F += + alpha / h_avg * inner(jump(v, n), U_p - (R * T / i0_p / faraday_const) * (kappa * grad(u))('-')) * dS(markers.electrolyte_v_positive_am)
-    # F += - inner(avg(grad(v)), U_p - R * T / i0 / faraday_const * (kappa * grad(u))('+')) * dS(markers.electrolyte_v_positive_am)
-    # F += + alpha / h_avg * inner(jump(v, n), U_p - (R * T / i0_p / faraday_const) * (kappa * grad(u))('-')) * dS(markers.electrolyte_v_positive_am)
-
-    # charge transfer terms
-    # F += - dot(avg(grad(v)), (R * T / i0 / faraday_const) * (kappa * grad(u))('+') + U_p) * dS(markers.electrolyte_v_positive_am)
-    # F += alpha / h_avg * dot(jump(v, n), (R * T / i0_p / faraday_const) * (kappa * grad(u))('+') + U_p) * dS(markers.electrolyte_v_positive_am)
-    # F += - dot(avg(grad(v)), (R * T / i0 / faraday_const) * (kappa * grad(u))('-') + U_p) * dS(markers.electrolyte_v_positive_am)
-    # F += alpha / h_avg * dot(jump(v, n), (R * T / i0_p / faraday_const) * (kappa * grad(u))('-') + U_p) * dS(markers.electrolyte_v_positive_am)
-
-    # # # charge xfer internal boundary - symmetry
-    F += - inner(jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
-    # # # charge xfer internal boundary - coercivity
-    F += + alpha / h_avg * inner(jump(u, n), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
-
+    F += - dot(avg(grad(v)), avg(kappa) * (Id * U_p * n("-") - R * T / (i0_p * faraday_const) * (kappa * grad(u))('+'))) * dS(markers.electrolyte_v_positive_am)
+    F += (alpha / h_avg) * dot(jump(v, n), avg(kappa) * (Id * U_p * n("-")  - R * T / (i0_p * faraday_const) * (kappa * grad(u))('+'))) * dS(markers.electrolyte_v_positive_am)
+    # charge xfer internal boundary - symmetry
+    F += - inner(avg(kappa) * jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
+    # charge xfer internal boundary - coercivity
+    F += + alpha / h_avg * inner(avg(kappa) * jump(u, n), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
 
     # right boundary - dirichlet
     F += - kappa * (u - u_right) * inner(n, grad(v)) * ds(markers.right) 
-    F += 1 / γ / h * (u - u_right) * v * ds(markers.right)
+    F += γ / h * (u - u_right) * v * ds(markers.right)
 
     # insulated boundary - neumann
     F += - γ * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.insulated_electrolyte)
@@ -275,8 +246,8 @@ if __name__ == '__main__':
     F -= + γ * h * g * inner(grad(v), n) * ds(markers.insulated_positive_am)
 
     # kinetics boundary - neumann
-    F += - γ * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.negative_cc_v_negative_am)
-    F -= - γ * h * i0_n * faraday_const / R / T * (V_left - u - U_n) * inner(grad(v), n) * ds(markers.negative_cc_v_negative_am)
+    # F += - γ * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.left)
+    # F -= - γ * h * i0_n * faraday_const / R / T * (V_left - u - U_n) * inner(grad(v), n) * ds(markers.left)
 
     # charge xfer external boundary - neumann
     # F += - γ * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.electrolyte_v_positive_am)
@@ -342,7 +313,7 @@ if __name__ == '__main__':
         vtx.write(0.0)
 
     I_neg_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.left))), op=MPI.SUM)
-    I_pos_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(i0_p * faraday_const / R / T * ((u("+") - u("-") - U_p(0))) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
+    I_pos_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(i0_p * faraday_const / R / T * ((u("+") - u("-") - U_p)) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     I_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.right))), op=MPI.SUM)
     I_insulated_elec = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(current_h, n)) * ds(markers.insulated_electrolyte))), op=MPI.SUM)
     I_insulated_pos_am = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(current_h, n)) * ds(markers.insulated_positive_am))), op=MPI.SUM)
@@ -354,7 +325,7 @@ if __name__ == '__main__':
     i_sup_left = np.abs(I_neg_charge_xfer / area_neg_charge_xfer)
     i_sup = np.abs(I_right / area_right)
     eta_n = np.abs(i_sup_left) * ( R * T / i0_n / faraday_const)
-    eta_p = domain.comm.allreduce(fem.assemble_scalar(fem.form((u("+") - u("-") - U_p(0)) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM) / area_pos_charge_xfer
+    eta_p = domain.comm.allreduce(fem.assemble_scalar(fem.form((u("+") - u("-") - U_p) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM) / area_pos_charge_xfer
     simulation_metadata = {
         "Negative Overpotential [V]": eta_n,
         "Positive Overpotential [V]": eta_p,
