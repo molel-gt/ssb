@@ -278,10 +278,7 @@ if __name__ == '__main__':
     # problem = SNESNonlinearProblem(F, u)
     # b = la.create_petsc_vector(V.dofmap.index_map, V.dofmap.index_map_bs)
     # J = petsc.create_matrix(problem.a)
-    # converged = False
-    # max_it = 5
-    # its = 0
-    # # while not converged and its < max_it:
+
     # snes = PETSc.SNES().create(comm)
     # snes.setTolerances(atol=1e-12, rtol=1.0e-11, max_it=10)
     # # snes.setType('vinewtonrsls')
@@ -300,7 +297,9 @@ if __name__ == '__main__':
     #     snes.destroy()
     #     b.destroy()
     #     J.destroy()
-    # print(f"Converged Reason: {snes.getConvergedReason()}")
+    # else:
+    #     print(f"Failed to converge: {snes.getConvergedReason()}")
+    #     quit()
             
 
     current_expr = fem.Expression(-kappa * grad(u), W.element.interpolation_points())
