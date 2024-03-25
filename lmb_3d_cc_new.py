@@ -165,7 +165,8 @@ if __name__ == '__main__':
 
     # ### Function Spaces
     V = fem.FunctionSpace(domain, ("DG", 1))
-    W = fem.functionspace(domain, ("CG", 1, (3,)))
+    W = fem.functionspace(domain, ("DG", 1, (3,)))
+    Z = fem.functionspace(domain, ("CG", 1, (3,)))
     Q = fem.FunctionSpace(domain, ("DG", 0))
     u = fem.Function(V, name='potential')
     v = ufl.TestFunction(V)
@@ -205,45 +206,77 @@ if __name__ == '__main__':
     V_left = 0
     # u.x.array[:] = 0.5
 
-    # ### Discontinuous Galerkin
     alpha = 10
-    γ = 10
+    gamma = 10
 
-    F = kappa * inner(grad(u), grad(v)) * dx 
-    F -= + f * v * dx 
-    F += - kappa * inner(grad(u), n) * v * ds
+    F = kappa * inner(grad(u), grad(v)) * dx - f * v * dx - kappa * inner(grad(u), n) * v * ds
 
     # Add DG/IP terms
+    F += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(0)
+    F += - inner(jump(kappa * u, n), avg(grad(v))) * dS(0)
+    F += - inner(avg(kappa * grad(u)), jump(v, n)) * dS(0)
+    F += + avg(u) * inner(jump(kappa, n), avg(grad(v))) * dS(0)
+    F += alpha / h_avg * inner(jump(v, n), jump(kappa * u, n)) * dS(0)
+
+    # Internal boundary
+    F += - avg(kappa) * dot(avg(grad(v)), (R * T / i0_p / faraday_const) * (kappa * grad(u))('+') + Id * U_p * n('+')) * dS(markers.electrolyte_v_positive_am)
+    F += (alpha / h_avg) * avg(kappa) * dot(jump(v, n), (R * T / i0_p / faraday_const) * (kappa * grad(u))('-')  + Id * U_p * n('+')) * dS(markers.electrolyte_v_positive_am)
+
+    # # Symmetry
+    F += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
+
+    # # Coercivity
+    F += alpha / h_avg * avg(kappa) * inner(jump(u, n), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
+
+    # Nitsche Dirichlet BC terms on left and right boundaries
+    F += - kappa * (u - u_left) * inner(n, grad(v)) * ds(markers.left)
+    F += gamma / h * (u - u_left) * v * ds(markers.left)
+    F += - kappa * (u - u_right) * inner(n, grad(v)) * ds(markers.right) 
+    F += gamma / h * (u - u_right) * v * ds(markers.right)
+
+    # Nitsche Neumann BC terms on insulated boundary
+    F += -g * v * ds(markers.insulated) + gamma * h * g * inner(grad(v), n) * ds(markers.insulated_electrolyte)
+    F += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.insulated_electrolyte)
+    F += -g * v * ds(markers.insulated) + gamma * h * g * inner(grad(v), n) * ds(markers.insulated_positive_am)
+    F += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.insulated_positive_am)
+
+    # ### Discontinuous Galerkin
+    # alpha = 10
+    # γ = 10
+
+    # F = kappa * inner(grad(u), grad(v)) * dx 
+    # F -= + f * v * dx 
+    # F += - kappa * inner(grad(u), n) * v * ds
+
+    # # Add DG/IP terms
     # F += - inner(jump(kappa * u, n), avg(grad(v))) * dS(0)
     # F += - inner(avg(kappa * grad(u)), jump(v, n)) * dS(0)
     # F += alpha / h_avg * inner(jump(v, n), jump(kappa * u, n)) * dS(0)
 
-    F += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(0)
-    F += - inner(avg(kappa * grad(u)), jump(v, n)) * dS(0)
-    F += alpha / h_avg * inner(avg(kappa) * jump(u, n), jump(v, n)) * dS(0)
+    # # left boundary - dirichlet
+    # F += - kappa * (u - u_left) * inner(n, grad(v)) * ds(markers.left)
+    # F += γ / h * (u - u_left) * v * ds(markers.left)
 
-    # left boundary - dirichlet
-    F += - kappa * (u - u_left) * inner(n, grad(v)) * ds(markers.left)
-    F += γ / h * (u - u_left) * v * ds(markers.left)
+    # F += - dot(avg(grad(v)), avg(kappa) * (Id * U_p * n("+") - R * T / (i0_p * faraday_const) * (kappa * grad(u))('+'))) * dS(markers.electrolyte_v_positive_am)
+    # F += - dot(avg(grad(v)), jump(kappa, n) * avg(u)) * dS(markers.electrolyte_v_positive_am)
+    # F += alpha / h_avg * dot(jump(v, n), avg(kappa) * (Id * U_p * n("+")  - R * T / (i0_p * faraday_const) * (kappa * grad(u))('-'))) * dS(markers.electrolyte_v_positive_am)
+    # # charge xfer internal boundary - symmetry
+    # F += - inner(avg(kappa) * jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
+    # F += - inner(jump(kappa, n) * avg(u), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
+    # # charge xfer internal boundary - coercivity
+    # F += + alpha / h_avg * inner(avg(kappa) * jump(u, n), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
 
-    F += - dot(avg(grad(v)), avg(kappa) * (Id * U_p * n("-") - R * T / (i0_p * faraday_const) * (kappa * grad(u))('+'))) * dS(markers.electrolyte_v_positive_am)
-    F += (alpha / h_avg) * dot(jump(v, n), avg(kappa) * (Id * U_p * n("-")  - R * T / (i0_p * faraday_const) * (kappa * grad(u))('+'))) * dS(markers.electrolyte_v_positive_am)
-    # charge xfer internal boundary - symmetry
-    F += - inner(avg(kappa) * jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
-    # charge xfer internal boundary - coercivity
-    F += + alpha / h_avg * inner(avg(kappa) * jump(u, n), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
+    # # right boundary - dirichlet
+    # F += - kappa * (u - u_right) * inner(n, grad(v)) * ds(markers.right) 
+    # F += γ / h * (u - u_right) * v * ds(markers.right)
 
-    # right boundary - dirichlet
-    F += - kappa * (u - u_right) * inner(n, grad(v)) * ds(markers.right) 
-    F += γ / h * (u - u_right) * v * ds(markers.right)
+    # # insulated boundary - neumann
+    # F += - γ * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.insulated_electrolyte)
+    # F -= + γ * h * g * inner(grad(v), n) * ds(markers.insulated_electrolyte)
 
-    # insulated boundary - neumann
-    F += - γ * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.insulated_electrolyte)
-    F -= + γ * h * g * inner(grad(v), n) * ds(markers.insulated_electrolyte)
-
-    # insulated boundary - neumann
-    F += - γ * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.insulated_positive_am)
-    F -= + γ * h * g * inner(grad(v), n) * ds(markers.insulated_positive_am)
+    # # insulated boundary - neumann
+    # F += - γ * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.insulated_positive_am)
+    # F -= + γ * h * g * inner(grad(v), n) * ds(markers.insulated_positive_am)
 
     # kinetics boundary - neumann
     # F += - γ * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.left)
@@ -304,6 +337,8 @@ if __name__ == '__main__':
 
     current_expr = fem.Expression(-kappa * grad(u), W.element.interpolation_points())
     current_h.interpolate(current_expr)
+    current_cg = fem.Function(Z, name='current_density')
+    current_cg.interpolate(current_h)
 
     with VTXWriter(comm, potential_resultsfile, [u], engine="BP4") as vtx:
         vtx.write(0.0)
@@ -312,7 +347,9 @@ if __name__ == '__main__':
         vtx.write(0.0)
 
     I_neg_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.left))), op=MPI.SUM)
-    I_pos_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(i0_p * faraday_const / R / T * ((u("+") - u("-") - U_p)) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
+    I_pos_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(i0_p * faraday_const / R / T * (u("+") - u("-") - U_p) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
+    I_pos_charge_xfer1 = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h("-"), n("-")) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
+    I_pos_charge_xfer2 = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_cg("-"), n("-")) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     I_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.right))), op=MPI.SUM)
     I_insulated_elec = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(current_h, n)) * ds(markers.insulated_electrolyte))), op=MPI.SUM)
     I_insulated_pos_am = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(current_h, n)) * ds(markers.insulated_positive_am))), op=MPI.SUM)
@@ -337,6 +374,7 @@ if __name__ == '__main__':
         "Current at insulated boundary": f"{I_insulated:.2e} A",
     }
     if comm.rank == 0:
+        print(i0_p * faraday_const / (R * T) * eta_p, I_pos_charge_xfer1, I_pos_charge_xfer2)
         print(f"Negative overpotential over Positive overpotential: {eta_n/eta_p:.3f}")
         print(f"Positive area over Negative area: {area_pos_charge_xfer/area_neg_charge_xfer:.3f}")
         print(f"Voltage: {voltage} [V]")
