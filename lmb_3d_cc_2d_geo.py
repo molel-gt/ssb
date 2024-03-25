@@ -39,7 +39,7 @@ def build_rectangular_curve(coord_start=(10e-6, 0, 0), step_width=10e-6, step_le
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="lithium_metal_3d_cc_2d")
-    parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
+    parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid',  nargs='?', const=1, default='150-40-0')
     parser.add_argument('--particle_radius', help='radius of particle in pixel units', nargs='?', const=1, default=10, type=float)
     parser.add_argument('--well_depth', help='depth of well in pixel units', nargs='?', const=1, default=20, type=float)
     parser.add_argument('--l_pos', help='thickness of positive electrode in pixel units', nargs='?', const=1, default=75, type=float)
@@ -73,8 +73,24 @@ if __name__ == '__main__':
     coord_start1 = (20e-6, 0, 0)
     coord_start2 = (75e-6, 0, 0)
 
-    interface_1 = build_rectangular_curve(coord_start=coord_start1, step_length=step_length, step_width=step_width1, length=LY)
-    interface_2 = build_rectangular_curve(coord_start=coord_start2, step_length=step_length, step_width=step_width2, length=LY)
+    # interface_1 = build_rectangular_curve(coord_start=coord_start1, step_length=step_length, step_width=step_width1, length=LY)
+    # interface_2 = build_rectangular_curve(coord_start=coord_start2, step_length=step_length, step_width=step_width2, length=LY)
+    interface_1 = [
+        (3 * args.particle_radius * micron, 0, 0),
+        (3 * args.particle_radius * micron, 1 * args.particle_radius * micron, 0),
+        (1 * args.particle_radius * micron, 1 * args.particle_radius * micron, 0),
+        (1 * args.particle_radius * micron, 3 * args.particle_radius * micron, 0),
+        (3 * args.particle_radius * micron, 3 * args.particle_radius * micron, 0),
+        (3 * args.particle_radius * micron, 4 * args.particle_radius * micron, 0),
+        ]
+    interface_2 = [
+        (14 * args.particle_radius * micron, 0, 0),
+        (14 * args.particle_radius * micron, 1 * args.particle_radius * micron, 0),
+        (7.5 * args.particle_radius * micron, 1 * args.particle_radius * micron, 0),
+        (7.5 * args.particle_radius * micron, 3 * args.particle_radius * micron, 0),
+        (14 * args.particle_radius * micron, 3 * args.particle_radius * micron, 0),
+        (14 * args.particle_radius * micron, 4 * args.particle_radius * micron, 0),
+        ]
     interface_points1 = []
     interface_points2 = []
     points_corners = []
@@ -127,7 +143,7 @@ if __name__ == '__main__':
     # gmsh.model.addPhysicalGroup(1, lines[2:4], markers.insulated_negative_cc, "insulated_negative_cc")
     gmsh.model.addPhysicalGroup(1, lines[4:6], markers.insulated_positive_am, "insulated_positive_am")
     gmsh.model.addPhysicalGroup(1, lines[6:8], markers.insulated_electrolyte, "insulated_electrolyte")
-    gmsh.model.addPhysicalGroup(1, interface_lines1, markers.negative_cc_v_negative_am, "negative_cc_v_negative_am")
+    gmsh.model.addPhysicalGroup(1, interface_lines1, markers.left, "negative_cc_v_negative_am")
     gmsh.model.addPhysicalGroup(1, interface_lines2, markers.electrolyte_v_positive_am, "electrolyte_v_positive_am")
     gmsh.model.occ.synchronize()
 
