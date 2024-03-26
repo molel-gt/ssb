@@ -147,12 +147,12 @@ if __name__ == '__main__':
         logger.info(f"Converged in {n_iters} iterations")
         u.x.scatter_forward()
         curr_cd = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(-kappa * ufl.grad(u), n) * ds(markers.right))), op=MPI.SUM) / A0
-        if np.less(np.abs(curr_cd), target_cd, tol=0.01):
-            voltage *= curr / target_cd
-        elif np.great(np.abs(curr), target_cd, tol=0.01):
-            voltage *= target_cd / curr_cd
-        else:
+        if np.isclose(np.abs(curr_cd), target_cd, atol=0.01):
             curr_converged = True
+        elif np.great(np.abs(curr_cd), target_cd):
+            voltage *= curr / target_cd
+        else np.less(np.abs(curr), target_cd):
+            voltage *= target_cd / curr_cd
 
     with VTXWriter(comm, output_potential_path, [u], engine="BP4") as vtx:
         vtx.write(0.0)
