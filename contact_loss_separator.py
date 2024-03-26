@@ -151,7 +151,7 @@ if __name__ == '__main__':
         if np.isclose(np.abs(curr_cd), target_cd, atol=0.01):
             curr_converged = True
         elif np.abs(curr_cd) > target_cd:
-            voltage *= curr / target_cd
+            voltage *= curr_cd / target_cd
         else:
             voltage *= target_cd / curr_cd
 
