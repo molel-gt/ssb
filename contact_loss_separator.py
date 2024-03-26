@@ -158,7 +158,7 @@ if __name__ == '__main__':
     logger.debug("Post-process calculations")
     W = fem.functionspace(domain, ("CG", 1, (3,)))
     current_expr = fem.Expression(-kappa * ufl.grad(u), W.element.interpolation_points())
-    current_h = fem.Function(W, 'current_density')
+    current_h = fem.Function(W, name='current_density')
     tol_fun = fem.Function(V)
     tol_fun_left = fem.Function(V)
     tol_fun_right = fem.Function(V)
