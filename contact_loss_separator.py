@@ -151,7 +151,7 @@ if __name__ == '__main__':
             curr_converged = True
         elif np.great(np.abs(curr_cd), target_cd):
             voltage *= curr / target_cd
-        else np.less(np.abs(curr), target_cd):
+        else:
             voltage *= target_cd / curr_cd
 
     with VTXWriter(comm, output_potential_path, [u], engine="BP4") as vtx:
