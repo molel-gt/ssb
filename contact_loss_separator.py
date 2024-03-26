@@ -129,7 +129,7 @@ if __name__ == '__main__':
 
         F = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
         F -= ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated) - ufl.inner(i0 * faraday_constant * (u - 0) / (R * T), v) * ds(markers.left)
-        logger.debug('Solving problem..')
+        logger.debug(f'Iteration {its}: Solving problem..')
         problem = petsc.NonlinearProblem(F, u, bcs=[right_bc])
         solver = petsc_nls.NewtonSolver(comm, problem)
         solver.convergence_criterion = "residual"
