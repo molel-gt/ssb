@@ -150,10 +150,7 @@ if __name__ == '__main__':
         logger.info(f"Iteration: {its}, current: {curr_cd}, target: {target_cd}")
         if np.isclose(curr_cd, target_cd, atol=0.01):
             curr_converged = True
-        elif curr_cd > target_cd:
-            voltage *= curr_cd / target_cd
-        else:
-            voltage *= target_cd / curr_cd
+        voltage *= target_cd / curr_cd
 
     with VTXWriter(comm, output_potential_path, [u], engine="BP4") as vtx:
         vtx.write(0.0)
