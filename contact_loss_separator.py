@@ -146,7 +146,7 @@ if __name__ == '__main__':
         n_iters, converged = solver.solve(u)
         logger.info(f"Converged in {n_iters} iterations")
         u.x.scatter_forward()
-        curr_cd = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(-kappa * grad(u), n) * ds(markers.right))), op=MPI.SUM) / A0
+        curr_cd = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(-kappa * ufl.grad(u), n) * ds(markers.right))), op=MPI.SUM) / A0
         if np.less(np.abs(curr_cd), target_cd, tol=0.01):
             voltage *= curr / target_cd
         elif np.great(np.abs(curr), target_cd, tol=0.01):
