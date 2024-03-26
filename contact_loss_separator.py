@@ -149,7 +149,7 @@ if __name__ == '__main__':
         curr_cd = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(-kappa * ufl.grad(u), n) * ds(markers.right))), op=MPI.SUM) / A0
         if np.isclose(np.abs(curr_cd), target_cd, atol=0.01):
             curr_converged = True
-        elif np.great(np.abs(curr_cd), target_cd):
+        elif np.abs(curr_cd) > target_cd:
             voltage *= curr / target_cd
         else:
             voltage *= target_cd / curr_cd
