@@ -239,8 +239,8 @@ if __name__ == '__main__':
         logger.debug("Writing summary information..")
         simulation_metadata = {
             "Wagner number": args.Wa,
-            "Contact area fraction at left electrode": f"{area_left_cc / (Lx * Ly):.4f}",
-            "Contact area fraction at right electrode": f"{area_right_cc / (Lx * Ly):.4f}",
+            "Contact area fraction at left electrode": f"{area_left_cc / (Lx * Ly):.4e}",
+            "Contact area fraction at right electrode": f"{area_right_cc / (Lx * Ly):.4e}",
             "Contact area at left electrode [sq. m]": f"{area_left_cc:.4e}",
             "Contact area at right electrode [sq. m]": f"{area_right_cc:.4e}",
             "Insulated area [sq. m]": f"{insulated_area:.4e}",
@@ -255,7 +255,7 @@ if __name__ == '__main__':
             "Dimensions Lx-Ly-Lz (unscaled)": args.dimensions,
             "Scaling for dimensions x,y,z to meters": args.scaling,
             "Bulk conductivity [S.m-1]": constants.KAPPA0,
-            "Effective conductivity [S.m-1]": f"{kappa_eff:.4f}",
+            "Effective conductivity [S.m-1]": f"{kappa_eff:.4e}",
             "Max electrode current over min electrode current (error)": error,
             "Simulation time (seconds)": f"{int(timeit.default_timer() - start_time):,}",
             "Voltage drop [V]": voltage,
@@ -266,4 +266,4 @@ if __name__ == '__main__':
         with open(simulation_metafile, "w", encoding='utf-8') as f:
             json.dump(simulation_metadata, f, ensure_ascii=False, indent=4)
 
-        logger.info(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
+        logger.info(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):,}s")
