@@ -117,7 +117,11 @@ if __name__ == '__main__':
     i0 = constants.KAPPA0 * R * T / (Lz * args.Wa * faraday_constant)
     A0 = Lx * Ly
 
-    while not curr_converged:
+    max_iters = 100
+    its = 0
+
+    while not curr_converged and its < max_iters:
+        its += 1
         u0 = fem.Function(V)
         with u0.vector.localForm() as u0_loc:
             u0_loc.set(voltage)
