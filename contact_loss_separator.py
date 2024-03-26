@@ -146,11 +146,11 @@ if __name__ == '__main__':
         n_iters, converged = solver.solve(u)
         logger.info(f"Converged in {n_iters} iterations")
         u.x.scatter_forward()
-        curr_cd = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(-kappa * ufl.grad(u), n) * ds(markers.right))), op=MPI.SUM) / A0
+        curr_cd = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(-kappa * ufl.grad(u), n)) * ds(markers.right))), op=MPI.SUM) / A0
         logger.info(f"Iteration: {its}, current: {curr_cd}, target: {target_cd}")
-        if np.isclose(np.abs(curr_cd), target_cd, atol=0.01):
+        if np.isclose(curr_cd, target_cd, atol=0.01):
             curr_converged = True
-        elif np.abs(curr_cd) > target_cd:
+        elif curr_cd > target_cd:
             voltage *= curr_cd / target_cd
         else:
             voltage *= target_cd / curr_cd
