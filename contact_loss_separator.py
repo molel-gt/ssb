@@ -258,7 +258,7 @@ if __name__ == '__main__':
             "Effective conductivity [S.m-1]": f"{kappa_eff:.4f}",
             "Max electrode current over min electrode current (error)": error,
             "Simulation time (seconds)": f"{int(timeit.default_timer() - start_time):,}",
-            "Voltage drop [V]": args.voltage,
+            "Voltage drop [V]": voltage,
             "Electrolyte volume fraction": f"{volume_fraction:.4f}",
             "Electrolyte volume [cu. m]": f"{volume:.4e}",
             "Total resistance [Ω.cm2]": args.voltage / (np.abs(I_right_cc) / (A0 * 1e4)),
