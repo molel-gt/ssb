@@ -99,47 +99,56 @@ if __name__ == '__main__':
 
     # Dirichlet BCs
     V = fem.functionspace(domain, ("CG", 2))
-    u0 = fem.Function(V)
-    with u0.vector.localForm() as u0_loc:
-        u0_loc.set(voltage)
-
-    i_exchange = constants.KAPPA0 * R * T / (Lz * args.Wa * faraday_constant)
-    right_bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 2, right_boundary))
+    
     n = ufl.FacetNormal(domain)
     ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
 
     # Define variational problem
-    u = fem.Function(V)
+    u = fem.Function(V, name='potential')
     v = ufl.TestFunction(V)
 
     # bulk conductivity [S.m-1]
     kappa = fem.Constant(domain, PETSc.ScalarType(constants.KAPPA0))
     f = fem.Constant(domain, PETSc.ScalarType(0.0))
     g = fem.Constant(domain, PETSc.ScalarType(0.0))
+    curr_converged = False
+    curr_cd = 0
+    target_cd = 10  # A/m2
+    i0 = constants.KAPPA0 * R * T / (Lz * args.Wa * faraday_constant)
+    A0 = Lx * Ly
 
-    F = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
-    F -= ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated) - ufl.inner(i_exchange * faraday_constant * (u - 0) / (R * T), v) * ds(markers.left)
-    logger.debug('Solving problem..')
-    problem = petsc.NonlinearProblem(F, u, bcs=[right_bc])
-    solver = petsc_nls.NewtonSolver(comm, problem)
-    solver.convergence_criterion = "residual"
-    solver.maximum_iterations = 100
-    solver.atol = np.finfo(float).eps
-    solver.rtol = np.finfo(float).eps * 10
+    while not curr_converged:
+        u0 = fem.Function(V)
+        with u0.vector.localForm() as u0_loc:
+            u0_loc.set(voltage)
+        right_bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 2, right_boundary))
 
-    ksp = solver.krylov_solver
-    opts = PETSc.Options()
-    option_prefix = ksp.getOptionsPrefix()
-    opts[f"{option_prefix}ksp_type"] = "gmres"
-    opts[f"{option_prefix}pc_type"] = "hypre"
-    ksp.setFromOptions()
-    n_iters, converged = solver.solve(u)
-    if not converged:
-        logger.debug(f"Solver did not converge in {n_iters} iterations")
-    else:
+        F = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
+        F -= ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated) - ufl.inner(i0 * faraday_constant * (u - 0) / (R * T), v) * ds(markers.left)
+        logger.debug('Solving problem..')
+        problem = petsc.NonlinearProblem(F, u, bcs=[right_bc])
+        solver = petsc_nls.NewtonSolver(comm, problem)
+        solver.convergence_criterion = "residual"
+        solver.maximum_iterations = 100
+        solver.atol = np.finfo(float).eps
+        solver.rtol = np.finfo(float).eps * 10
+
+        ksp = solver.krylov_solver
+        opts = PETSc.Options()
+        option_prefix = ksp.getOptionsPrefix()
+        opts[f"{option_prefix}ksp_type"] = "gmres"
+        opts[f"{option_prefix}pc_type"] = "hypre"
+        ksp.setFromOptions()
+        n_iters, converged = solver.solve(u)
         logger.info(f"Converged in {n_iters} iterations")
-    u.name = 'potential'
-    u.x.scatter_forward()
+        u.x.scatter_forward()
+        curr_cd = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(-kappa * grad(u), n) * ds(markers.right))), op=MPI.SUM) / A0
+        if np.less(np.abs(curr_cd), target_cd, tol=0.01):
+            voltage *= curr / target_cd
+        elif np.great(np.abs(curr), target_cd, tol=0.01):
+            voltage *= target_cd / curr_cd
+        else:
+            curr_converged = True
 
     with VTXWriter(comm, output_potential_path, [u], engine="BP4") as vtx:
         vtx.write(0.0)
@@ -147,7 +156,7 @@ if __name__ == '__main__':
     logger.debug("Post-process calculations")
     W = fem.functionspace(domain, ("CG", 1, (3,)))
     current_expr = fem.Expression(-kappa * ufl.grad(u), W.element.interpolation_points())
-    current_h = fem.Function(W)
+    current_h = fem.Function(W, 'current_density')
     tol_fun = fem.Function(V)
     tol_fun_left = fem.Function(V)
     tol_fun_right = fem.Function(V)
@@ -164,7 +173,7 @@ if __name__ == '__main__':
     I_right_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right))), op=MPI.SUM)
     I_insulated = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(current_h, n)) * ds(markers.insulated))), op=MPI.SUM)
     volume = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ufl.dx(domain))), op=MPI.SUM)
-    A0 = Lx * Ly
+
     i_right_cc = I_right_cc / area_right_cc
     i_left_cc = I_left_cc / area_left_cc
     i_insulated = I_insulated / insulated_area
