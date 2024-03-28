@@ -183,7 +183,7 @@ if __name__ == '__main__':
     kappa.x.array[cells_elec] = np.full_like(cells_elec, kappa_elec, dtype=default_scalar_type)
 
     cells_pos_am = ct.find(markers.positive_am)
-    kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, kappa_pos_am, dtype=default_scalar_type)
+    kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, kappa_elec, dtype=default_scalar_type)
 
     x = SpatialCoordinate(domain)
 
@@ -202,25 +202,25 @@ if __name__ == '__main__':
 
     U_n = 0
     U_vec = ufl.as_vector((0, 0, 0))
-    U_p = 0.15
+    u_ocv = 0.15
     V_left = 0
     # u.x.array[:] = 0.5
 
-    alpha = 10
-    gamma = 10
+    alpha = 5
+    gamma = 5
 
     F = kappa * inner(grad(u), grad(v)) * dx - f * v * dx - kappa * inner(grad(u), n) * v * ds
 
     # Add DG/IP terms
     F += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(0)
-    F += - inner(jump(kappa * u, n), avg(grad(v))) * dS(0)
+    # F += - inner(jump(kappa * u, n), avg(grad(v))) * dS(0)
     F += - inner(avg(kappa * grad(u)), jump(v, n)) * dS(0)
-    F += + avg(u) * inner(jump(kappa, n), avg(grad(v))) * dS(0)
-    F += alpha / h_avg * inner(jump(v, n), jump(kappa * u, n)) * dS(0)
+    # F += + avg(u) * inner(jump(kappa, n), avg(grad(v))) * dS(0)
+    F += alpha / h_avg * avg(kappa) * inner(jump(v, n), jump(u, n)) * dS(0)
 
     # Internal boundary
-    F += - avg(kappa) * dot(avg(grad(v)), (R * T / i0_p / faraday_const) * (kappa * grad(u))('+') + Id * U_p * n('+')) * dS(markers.electrolyte_v_positive_am)
-    F += (alpha / h_avg) * avg(kappa) * dot(jump(v, n), (R * T / i0_p / faraday_const) * (kappa * grad(u))('-')  + Id * U_p * n('+')) * dS(markers.electrolyte_v_positive_am)
+    F += + avg(kappa) * dot(avg(grad(v)), u_ocv * n("+") - (R * T / i0_p / faraday_const) * (kappa * grad(u))('-')) * dS(markers.electrolyte_v_positive_am)
+    # F += -alpha / h_avg * avg(kappa) * dot(jump(v, n), u_ocv * n("+") - (R * T / i0_p / faraday_const) * (kappa * grad(u))('-')) * dS(markers.electrolyte_v_positive_am)
 
     # # Symmetry
     F += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
@@ -230,9 +230,9 @@ if __name__ == '__main__':
 
     # Nitsche Dirichlet BC terms on left and right boundaries
     F += - kappa * (u - u_left) * inner(n, grad(v)) * ds(markers.left)
-    F += gamma / h * (u - u_left) * v * ds(markers.left)
+    F += -gamma / h * (u - u_left) * v * ds(markers.left)
     F += - kappa * (u - u_right) * inner(n, grad(v)) * ds(markers.right) 
-    F += gamma / h * (u - u_right) * v * ds(markers.right)
+    F += -gamma / h * (u - u_right) * v * ds(markers.right)
 
     # Nitsche Neumann BC terms on insulated boundary
     F += -g * v * ds(markers.insulated) + gamma * h * g * inner(grad(v), n) * ds(markers.insulated_electrolyte)
@@ -240,69 +240,28 @@ if __name__ == '__main__':
     F += -g * v * ds(markers.insulated) + gamma * h * g * inner(grad(v), n) * ds(markers.insulated_positive_am)
     F += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.insulated_positive_am)
 
-    # ### Discontinuous Galerkin
-    # alpha = 10
-    # γ = 10
-
-    # F = kappa * inner(grad(u), grad(v)) * dx 
-    # F -= + f * v * dx 
-    # F += - kappa * inner(grad(u), n) * v * ds
-
-    # # Add DG/IP terms
-    # F += - inner(jump(kappa * u, n), avg(grad(v))) * dS(0)
-    # F += - inner(avg(kappa * grad(u)), jump(v, n)) * dS(0)
-    # F += alpha / h_avg * inner(jump(v, n), jump(kappa * u, n)) * dS(0)
-
-    # # left boundary - dirichlet
-    # F += - kappa * (u - u_left) * inner(n, grad(v)) * ds(markers.left)
-    # F += γ / h * (u - u_left) * v * ds(markers.left)
-
-    # F += - dot(avg(grad(v)), avg(kappa) * (Id * U_p * n("+") - R * T / (i0_p * faraday_const) * (kappa * grad(u))('+'))) * dS(markers.electrolyte_v_positive_am)
-    # F += - dot(avg(grad(v)), jump(kappa, n) * avg(u)) * dS(markers.electrolyte_v_positive_am)
-    # F += alpha / h_avg * dot(jump(v, n), avg(kappa) * (Id * U_p * n("+")  - R * T / (i0_p * faraday_const) * (kappa * grad(u))('-'))) * dS(markers.electrolyte_v_positive_am)
-    # # charge xfer internal boundary - symmetry
-    # F += - inner(avg(kappa) * jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
-    # F += - inner(jump(kappa, n) * avg(u), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
-    # # charge xfer internal boundary - coercivity
-    # F += + alpha / h_avg * inner(avg(kappa) * jump(u, n), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
-
-    # # right boundary - dirichlet
-    # F += - kappa * (u - u_right) * inner(n, grad(v)) * ds(markers.right) 
-    # F += γ / h * (u - u_right) * v * ds(markers.right)
-
-    # # insulated boundary - neumann
-    # F += - γ * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.insulated_electrolyte)
-    # F -= + γ * h * g * inner(grad(v), n) * ds(markers.insulated_electrolyte)
-
-    # # insulated boundary - neumann
-    # F += - γ * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.insulated_positive_am)
-    # F -= + γ * h * g * inner(grad(v), n) * ds(markers.insulated_positive_am)
-
     # kinetics boundary - neumann
     # F += - γ * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.left)
     # F -= - γ * h * i0_n * faraday_const / R / T * (V_left - u - U_n) * inner(grad(v), n) * ds(markers.left)
-
-    # charge xfer external boundary - neumann
-    # F += - γ * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.electrolyte_v_positive_am)
-    # F -= + γ * h * i0 * faraday_const / R / T  * (u - 0) * inner(grad(v), n) * ds(markers.electrolyte_v_positive_am)
 
     problem = petsc.NonlinearProblem(F, u)
     solver = petsc_nls.NewtonSolver(comm, problem)
     solver.convergence_criterion = "residual"
     solver.maximum_iterations = 25
-    solver.atol = 1e-12
-    solver.rtol = 1e-11
+    # solver.atol = 1e-12
+    # solver.rtol = 1e-11
 
     ksp = solver.krylov_solver
 
     opts = PETSc.Options()
     ksp.setMonitor(lambda _, it, residual: print(it, residual))
     option_prefix = ksp.getOptionsPrefix()
-    opts[f"{option_prefix}ksp_type"] = "gmres"
+    opts[f"{option_prefix}ksp_type"] = "preonly"
     opts[f"{option_prefix}pc_type"] = "lu"
 
     ksp.setFromOptions()
     n_iters, converged = solver.solve(u)
+    u.x.scatter_forward()
     if converged:
         current_expr = fem.Expression(-kappa * grad(u), W.element.interpolation_points())
         current_h.interpolate(current_expr)
@@ -313,7 +272,7 @@ if __name__ == '__main__':
     # J = petsc.create_matrix(problem.a)
 
     # snes = PETSc.SNES().create(comm)
-    # snes.setTolerances(atol=1e-12, rtol=1.0e-11, max_it=10)
+    # snes.setTolerances(atol=1e-11, rtol=1.0e-10, max_it=10)
     # # snes.setType('vinewtonrsls')
     # snes.getKSP().setType("preonly")
     # snes.getKSP().getPC().setType("lu")
@@ -326,7 +285,6 @@ if __name__ == '__main__':
     # snes.solve(None, u.vector)
     # if snes.getConvergedReason() > 0:
     #     converged = True
-    #     # its += 1
     #     snes.destroy()
     #     b.destroy()
     #     J.destroy()
@@ -337,7 +295,7 @@ if __name__ == '__main__':
 
     current_expr = fem.Expression(-kappa * grad(u), W.element.interpolation_points())
     current_h.interpolate(current_expr)
-    current_cg = fem.Function(Z, name='current_density')
+    current_cg = fem.Function(W, name='current_density')
     current_cg.interpolate(current_h)
 
     with VTXWriter(comm, potential_resultsfile, [u], engine="BP4") as vtx:
@@ -347,7 +305,7 @@ if __name__ == '__main__':
         vtx.write(0.0)
 
     I_neg_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.left))), op=MPI.SUM)
-    I_pos_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(i0_p * faraday_const / R / T * (u("+") - u("-") - U_p) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
+    I_pos_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(i0_p * faraday_const / R / T * (u("+") - u("-") - u_ocv) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     I_pos_charge_xfer1 = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h("-"), n("-")) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     I_pos_charge_xfer2 = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_cg("-"), n("-")) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     I_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.right))), op=MPI.SUM)
@@ -361,7 +319,7 @@ if __name__ == '__main__':
     i_sup_left = np.abs(I_neg_charge_xfer / area_neg_charge_xfer)
     i_sup = np.abs(I_right / area_right)
     eta_n = np.abs(i_sup_left) * ( R * T / i0_n / faraday_const)
-    eta_p = domain.comm.allreduce(fem.assemble_scalar(fem.form((u("+") - u("-") - U_p) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM) / area_pos_charge_xfer
+    eta_p = domain.comm.allreduce(fem.assemble_scalar(fem.form((u("+") - u("-") - u_ocv) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM) / area_pos_charge_xfer
     simulation_metadata = {
         "Negative Overpotential [V]": eta_n,
         "Positive Overpotential [V]": eta_p,
@@ -374,7 +332,7 @@ if __name__ == '__main__':
         "Current at insulated boundary": f"{I_insulated:.2e} A",
     }
     if comm.rank == 0:
-        print(i0_p * faraday_const / (R * T) * eta_p, I_pos_charge_xfer1, I_pos_charge_xfer2)
+        print(i0_p * faraday_const / (R * T) * eta_p * area_pos_charge_xfer, I_pos_charge_xfer1, I_pos_charge_xfer2)
         print(f"Negative overpotential over Positive overpotential: {eta_n/eta_p:.3f}")
         print(f"Positive area over Negative area: {area_pos_charge_xfer/area_neg_charge_xfer:.3f}")
         print(f"Voltage: {voltage} [V]")
