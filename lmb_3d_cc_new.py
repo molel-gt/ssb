@@ -177,73 +177,40 @@ if __name__ == '__main__':
     alpha = 15
     gamma = 15
 
-    # F = kappa * inner(grad(u), grad(v)) * dx - f * v * dx - kappa * inner(grad(u), n) * v * ds
-
-    # # Add DG/IP terms
-    # F += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(0)
-    # # F += - inner(jump(kappa * u, n), avg(grad(v))) * dS(0)
-    # F += - inner(avg(kappa * grad(u)), jump(v, n)) * dS(0)
-    # # F += + avg(u) * inner(jump(kappa, n), avg(grad(v))) * dS(0)
-    # F += alpha / h_avg * avg(kappa) * inner(jump(v, n), jump(u, n)) * dS(0)
-
-    # # Internal boundary
-    # F += + avg(kappa) * dot(avg(grad(v)), u_ocv * n("+") - (R * T / i0_p / faraday_const) * (kappa * grad(u))('-')) * dS(markers.electrolyte_v_positive_am)
-    # F += -alpha / h_avg * avg(kappa) * dot(jump(v, n), u_ocv * n("+") - (R * T / i0_p / faraday_const) * (kappa * grad(u))('-')) * dS(markers.electrolyte_v_positive_am)
-
-    # # # Symmetry
-    # F += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
-
-    # # # Coercivity
-    # F += alpha / h_avg * avg(kappa) * inner(jump(u, n), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
-
-    # # Nitsche Dirichlet BC terms on left and right boundaries
-    # F += - kappa * (u - u_left) * inner(n, grad(v)) * ds(markers.left)
-    # F += -gamma / h * (u - u_left) * v * ds(markers.left)
-    # F += - kappa * (u - u_right) * inner(n, grad(v)) * ds(markers.right) 
-    # F += -gamma / h * (u - u_right) * v * ds(markers.right)
-
-    # # Nitsche Neumann BC terms on insulated boundary
-    # F += -g * v * ds(markers.insulated_electrolyte) + gamma * h * g * inner(grad(v), n) * ds(markers.insulated_electrolyte)
-    # F += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.insulated_electrolyte)
-    # F += -g * v * ds(markers.insulated_positive_am) + gamma * h * g * inner(grad(v), n) * ds(markers.insulated_positive_am)
-    # F += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.insulated_positive_am)
-
-    # kinetics boundary - neumann
-    # F += - γ * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.left)
-    # F -= - γ * h * i0_n * faraday_const / R / T * (V_left - u - U_n) * inner(grad(v), n) * ds(markers.left)
-
     F = kappa * inner(grad(u), grad(v)) * dx - f * v * dx - kappa * inner(grad(u), n) * v * ds
 
     # Add DG/IP terms
     F += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(0)
-    # F += - inner(jump(kappa * u, n), avg(grad(v))) * dS(0) #
+    # F += - inner(jump(kappa * u, n), avg(grad(v))) * dS(0)
     F += - inner(avg(kappa * grad(u)), jump(v, n)) * dS(0)
-    # F += + avg(u) * inner(jump(kappa, n), avg(grad(v))) * dS(0) #
-
+    # F += + avg(u) * inner(jump(kappa, n), avg(grad(v))) * dS(0)
     F += alpha / h_avg * avg(kappa) * inner(jump(v, n), jump(u, n)) * dS(0)
 
     # Internal boundary
-    F += + avg(kappa) * dot(avg(grad(v)), u_ocv * n("+") -(R * T / i0_p / faraday_const) * (kappa * grad(u))('-')) * dS(markers.electrolyte_v_positive_am)
+    F += + avg(kappa) * dot(avg(grad(v)), u_ocv * n("+") - (R * T / i0_p / faraday_const) * (kappa * grad(u))('-')) * dS(markers.electrolyte_v_positive_am)
     F += -alpha / h_avg * avg(kappa) * dot(jump(v, n), u_ocv * n("+") - (R * T / i0_p / faraday_const) * (kappa * grad(u))('-')) * dS(markers.electrolyte_v_positive_am)
 
-    # Symmetry
+    # # Symmetry
     F += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
 
-
-    # Coercivity
+    # # Coercivity
     F += alpha / h_avg * avg(kappa) * inner(jump(u, n), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
 
     # Nitsche Dirichlet BC terms on left and right boundaries
-    F += - kappa * (u - u_left) * inner(n, grad(v)) * ds(markers.left)
-    F += -gamma / h * (u - u_left) * v * ds(markers.left)
+    # F += - kappa * (u - u_left) * inner(n, grad(v)) * ds(markers.left)
+    # F += -gamma / h * (u - u_left) * v * ds(markers.left)
     F += - kappa * (u - u_right) * inner(n, grad(v)) * ds(markers.right) 
-    F +=  -gamma / h * (u - u_right) * v * ds(markers.right)
+    F += -gamma / h * (u - u_right) * v * ds(markers.right)
 
     # Nitsche Neumann BC terms on insulated boundary
     F += -g * v * ds(markers.insulated_electrolyte) + gamma * h * g * inner(grad(v), n) * ds(markers.insulated_electrolyte)
     F += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.insulated_electrolyte)
     F += -g * v * ds(markers.insulated_positive_am) + gamma * h * g * inner(grad(v), n) * ds(markers.insulated_positive_am)
     F += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.insulated_positive_am)
+
+    # kinetics boundary - neumann
+    F += - gamma * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.left)
+    F -= - gamma * h * i0_n * faraday_const / R / T * (V_left - u - 0) * inner(grad(v), n) * ds(markers.left)
 
     problem = petsc.NonlinearProblem(F, u)
     solver = petsc_nls.NewtonSolver(comm, problem)
@@ -324,6 +291,11 @@ if __name__ == '__main__':
     i_sup = np.abs(I_right / area_right)
     eta_n = np.abs(i_sup_left) * ( R * T / i0_n / faraday_const)
     eta_p = domain.comm.allreduce(fem.assemble_scalar(fem.form((u("+") - u("-") - u_ocv) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM) / area_pos_charge_xfer
+    u_avg_right = fem.assemble_scalar(fem.form(u * ds(markers.right))) / area_right
+    u_avg_left = fem.assemble_scalar(fem.form(u * ds(markers.left))) / area_left
+    u_stdev_right = np.sqrt(fem.assemble_scalar(fem.form((u - u_avg_right) ** 2 * ds(markers.right))) / area_right)
+    u_stdev_left = np.sqrt(fem.assemble_scalar(fem.form((u - u_avg_left) ** 2 * ds(markers.left))) / area_left)
+    
     simulation_metadata = {
         "Negative Overpotential [V]": eta_n,
         "Positive Overpotential [V]": eta_p,
@@ -337,6 +309,8 @@ if __name__ == '__main__':
     }
     if comm.rank == 0:
         print(i0_p * faraday_const / (R * T) * eta_p * area_pos_charge_xfer, I_pos_charge_xfer1, I_pos_charge_xfer2)
+        print(f"Left - avg potential  : {u_avg_left:.3e}, stdev potential  : {u_stdev_left:.3e}")
+        print(f"Right - avg potential : {u_avg_right:.3e}, stdev potential  : {u_stdev_right:.3e}")
         print(f"Negative overpotential over Positive overpotential: {eta_n/eta_p:.3f}")
         print(f"Positive area over Negative area: {area_pos_charge_xfer/area_neg_charge_xfer:.3f}")
         print(f"Voltage: {voltage} [V]")
