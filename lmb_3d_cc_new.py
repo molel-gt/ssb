@@ -138,7 +138,7 @@ if __name__ == '__main__':
     alpha = 15
     gamma = 15
     i_loc = inner((kappa * grad(u))('-'), n("+"))
-    u_jump = 2 * math.asinh(i_loc/i0_p) * (R * T / faraday_const)
+    u_jump = 2 * ufl.ln(0.5 * i_loc/i0_p + ufl.sqrt((0.5 * i_loc/i0_p)**2 + 1)) * (R * T / faraday_const)
 
     F = kappa * inner(grad(u), grad(v)) * dx - f * v * dx - kappa * inner(grad(u), n) * v * ds
 
@@ -173,7 +173,7 @@ if __name__ == '__main__':
 
     # kinetics boundary - neumann
     F += - gamma * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.left)
-    F -= - gamma * h * i0_n * faraday_const / R / T * (V_left - u - 0) * inner(grad(v), n) * ds(markers.left)
+    F -= - gamma * h * 2 * i0_n * ufl.sinh(0.5 * faraday_const / R / T * (V_left - u - 0)) * inner(grad(v), n) * ds(markers.left)
 
     problem = petsc.NonlinearProblem(F, u)
     solver = petsc_nls.NewtonSolver(comm, problem)
@@ -181,8 +181,8 @@ if __name__ == '__main__':
     solver.maximum_iterations = 25
     # solver.atol = 1e-12
     # solver.rtol = 1e-11
-    # solver.atol = 1.0e-8
-    # solver.rtol = 1.0e2 * np.finfo(default_real_type).eps
+    solver.atol = 1.0e-8
+    solver.rtol = 1.0e2 * np.finfo(default_real_type).eps
 
     ksp = solver.krylov_solver
 
@@ -213,7 +213,7 @@ if __name__ == '__main__':
         vtx.write(0.0)
 
     I_neg_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.left))), op=MPI.SUM)
-    I_pos_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(i0_p * faraday_const / R / T * (u("+") - u("-") - u_ocv) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
+    I_pos_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(2 * i0_p * ufl.sinh(0.5*faraday_const / R / T * (u("+") - u("-") - u_ocv)) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     I_pos_charge_xfer1 = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h("-"), n("-")) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     I_pos_charge_xfer2 = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_cg("-"), n("-")) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     I_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.right))), op=MPI.SUM)
@@ -226,13 +226,13 @@ if __name__ == '__main__':
     area_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(1.0 * ds(markers.right))), op=MPI.SUM)
     i_sup_left = np.abs(I_neg_charge_xfer / area_neg_charge_xfer)
     i_sup = np.abs(I_right / area_right)
-    eta_n = np.abs(i_sup_left) * ( R * T / i0_n / faraday_const)
+    
     eta_p = domain.comm.allreduce(fem.assemble_scalar(fem.form((u("+") - u("-") - u_ocv) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM) / area_pos_charge_xfer
     u_avg_right = fem.assemble_scalar(fem.form(u * ds(markers.right))) / area_right
     u_avg_left = fem.assemble_scalar(fem.form(u * ds(markers.left))) / area_left
     u_stdev_right = np.sqrt(fem.assemble_scalar(fem.form((u - u_avg_right) ** 2 * ds(markers.right))) / area_right)
     u_stdev_left = np.sqrt(fem.assemble_scalar(fem.form((u - u_avg_left) ** 2 * ds(markers.left))) / area_left)
-    
+    eta_n = u_avg_left
     simulation_metadata = {
         "Negative Overpotential [V]": eta_n,
         "Positive Overpotential [V]": eta_p,
@@ -245,7 +245,7 @@ if __name__ == '__main__':
         "Current at insulated boundary": f"{I_insulated:.2e} A",
     }
     if comm.rank == 0:
-        print(i0_p * faraday_const / (R * T) * eta_p * area_pos_charge_xfer, I_pos_charge_xfer1, I_pos_charge_xfer2)
+        print(2 * i0_p * math.sinh(0.5 * faraday_const / (R * T) * eta_p) * area_pos_charge_xfer, I_pos_charge_xfer1, I_pos_charge_xfer2)
         print(f"Left - avg potential  : {u_avg_left:.3e}, stdev potential  : {u_stdev_left:.3e}")
         print(f"Right - avg potential : {u_avg_right:.3e}, stdev potential  : {u_stdev_right:.3e}")
         print(f"Negative overpotential over Positive overpotential: {eta_n/eta_p:.3f}")
