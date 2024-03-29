@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import math
 import os
 import timeit
 
@@ -39,46 +40,6 @@ kappa_pos_am = 0.2
 faraday_const = 96485
 R = 8.3145
 T = 298
-
-
-class SNESNonlinearProblem:
-    def __init__(self, F, u):
-        V = u.function_space
-        du = ufl.TrialFunction(V)
-        self.L = fem.form(F)
-        self.a = fem.form(ufl.derivative(F, u, du))
-        # self.bc = bc
-        self._F, self._J = None, None
-        self.u = u
-        self.J_mat_dolfinx = petsc.create_matrix(self.a)
-        self.F_vec_dolfinx = petsc.create_vector(self.L)
-
-    def F(self, snes, x, F):
-        """Assemble residual vector."""
-        x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-        x.copy(self.u.vector)
-        self.u.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-
-        self.F_vec_dolfinx.set(0.)
-        with F.localForm() as f_local:
-            f_local.set(0.0)
-        petsc.assemble_vector(self.F_vec_dolfinx, self.L)
-        petsc.apply_lifting(self.F_vec_dolfinx, [self.a], bcs=[[]], x0=[x], scale=-1.0)
-        self.F_vec_dolfinx.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
-        petsc.set_bc(self.F_vec_dolfinx, [], x, -1.0)
-        F.getArray()[:] = self.F_vec_dolfinx.getArray()[:]
-
-    def J(self, snes, x, J, P):
-        """Assemble Jacobian matrix."""
-        J.zeroEntries()
-        self.J_mat_dolfinx.zeroEntries()
-
-        fem.petsc.assemble_matrix(self.J_mat_dolfinx, self.a, bcs=[])
-        self.J_mat_dolfinx.assemble()
-        ai, aj, av = self.J_mat_dolfinx.getValuesCSR()
-        J.setPreallocationNNZ(np.diff(ai))
-        J.setValuesCSR(ai, aj, av)
-        J.assemble()
 
 
 def ocv(sod, L=1, k=2):
@@ -176,6 +137,8 @@ if __name__ == '__main__':
 
     alpha = 15
     gamma = 15
+    i_loc = inner((kappa * grad(u))('-'), n("+"))
+    u_jump = 2 * math.asinh(i_loc/i0_p) * (R * T / faraday_const)
 
     F = kappa * inner(grad(u), grad(v)) * dx - f * v * dx - kappa * inner(grad(u), n) * v * ds
 
@@ -187,8 +150,8 @@ if __name__ == '__main__':
     F += alpha / h_avg * avg(kappa) * inner(jump(v, n), jump(u, n)) * dS(0)
 
     # Internal boundary
-    F += + avg(kappa) * dot(avg(grad(v)), u_ocv * n("+") - (R * T / i0_p / faraday_const) * (kappa * grad(u))('-')) * dS(markers.electrolyte_v_positive_am)
-    F += -alpha / h_avg * avg(kappa) * dot(jump(v, n), u_ocv * n("+") - (R * T / i0_p / faraday_const) * (kappa * grad(u))('-')) * dS(markers.electrolyte_v_positive_am)
+    F += + avg(kappa) * dot(avg(grad(v)), (u_ocv - u_jump) * n('+')) * dS(markers.electrolyte_v_positive_am)
+    F += -alpha / h_avg * avg(kappa) * dot(jump(v, n), (u_ocv - u_jump) * n('+')) * dS(markers.electrolyte_v_positive_am)
 
     # # Symmetry
     F += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
@@ -218,8 +181,8 @@ if __name__ == '__main__':
     solver.maximum_iterations = 25
     # solver.atol = 1e-12
     # solver.rtol = 1e-11
-    solver.atol = 1.0e-8
-    solver.rtol = 1.0e2 * np.finfo(default_real_type).eps
+    # solver.atol = 1.0e-8
+    # solver.rtol = 1.0e2 * np.finfo(default_real_type).eps
 
     ksp = solver.krylov_solver
 
@@ -237,32 +200,6 @@ if __name__ == '__main__':
 
     current_expr = fem.Expression(-kappa * grad(u), W.element.interpolation_points())
     current_h.interpolate(current_expr)
-
-    # problem = SNESNonlinearProblem(F, u)
-    # b = la.create_petsc_vector(V.dofmap.index_map, V.dofmap.index_map_bs)
-    # J = petsc.create_matrix(problem.a)
-
-    # snes = PETSc.SNES().create(comm)
-    # snes.setTolerances(atol=1e-11, rtol=1.0e-10, max_it=10)
-    # # snes.setType('vinewtonrsls')
-    # snes.getKSP().setType("preonly")
-    # snes.getKSP().getPC().setType("lu")
-    # # snes.getKSP().getPC().setFactorSolverType("mumps")
-    # snes.setFunction(problem.F, b)
-    # snes.setJacobian(problem.J, J=J)
-
-    # snes.setMonitor(lambda _, it, residual: print(it, residual))
-
-    # snes.solve(None, u.vector)
-    # if snes.getConvergedReason() > 0:
-    #     converged = True
-    #     snes.destroy()
-    #     b.destroy()
-    #     J.destroy()
-    # else:
-    #     print(f"Failed to converge: {snes.getConvergedReason()}")
-    #     quit()
-            
 
     current_expr = fem.Expression(-kappa * grad(u), W.element.interpolation_points())
     current_h.interpolate(current_expr)
