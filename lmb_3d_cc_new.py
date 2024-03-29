@@ -179,10 +179,8 @@ if __name__ == '__main__':
     solver = petsc_nls.NewtonSolver(comm, problem)
     solver.convergence_criterion = "residual"
     solver.maximum_iterations = 25
-    # solver.atol = 1e-12
-    # solver.rtol = 1e-11
-    solver.atol = 1.0e-8
-    solver.rtol = 1.0e2 * np.finfo(default_real_type).eps
+    # solver.atol = 1.0e-8
+    # solver.rtol = 1.0e2 * np.finfo(default_real_type).eps
 
     ksp = solver.krylov_solver
 
@@ -234,17 +232,21 @@ if __name__ == '__main__':
     u_stdev_left = np.sqrt(fem.assemble_scalar(fem.form((u - u_avg_left) ** 2 * ds(markers.left))) / area_left)
     eta_n = u_avg_left
     simulation_metadata = {
+        "Negative Wagner Number": f"{Wa_n:.1e}",
+        "Positive Wagner Number": f"{Wa_p:.1e}",
         "Negative Overpotential [V]": eta_n,
         "Positive Overpotential [V]": eta_p,
         "Voltage": voltage,
         "dimensions": args.dimensions,
-        "i_sup [A/m2]": f"{np.abs(i_sup):.2e} [A/m2]",
+        "Superficial current density [A/m2]": f"{np.abs(i_sup):.2e} [A/m2]",
         "Current at negative am - electrolyte boundary": f"{np.abs(I_neg_charge_xfer):.2e} A",
         "Current at electrolyte - positive am boundary": f"{np.abs(I_pos_charge_xfer):.2e} A",
         "Current at right boundary": f"{np.abs(I_right):.2e} A",
         "Current at insulated boundary": f"{I_insulated:.2e} A",
     }
     if comm.rank == 0:
+        print(f"Negative Wagner Number: {Wa_n:.1e}")
+        print(f"Positive Wagner Number: {Wa_p:.1e}")
         print(2 * i0_p * math.sinh(0.5 * faraday_const / (R * T) * eta_p) * area_pos_charge_xfer, I_pos_charge_xfer1, I_pos_charge_xfer2)
         print(f"Left - avg potential  : {u_avg_left:.3e}, stdev potential  : {u_stdev_left:.3e}")
         print(f"Right - avg potential : {u_avg_right:.3e}, stdev potential  : {u_stdev_right:.3e}")
