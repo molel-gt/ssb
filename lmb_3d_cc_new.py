@@ -226,10 +226,10 @@ if __name__ == '__main__':
     i_sup = np.abs(I_right / area_right)
     
     eta_p = domain.comm.allreduce(fem.assemble_scalar(fem.form((u("+") - u("-") - u_ocv) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM) / area_pos_charge_xfer
-    u_avg_right = fem.assemble_scalar(fem.form(u * ds(markers.right))) / area_right
-    u_avg_left = fem.assemble_scalar(fem.form(u * ds(markers.left))) / area_left
-    u_stdev_right = np.sqrt(fem.assemble_scalar(fem.form((u - u_avg_right) ** 2 * ds(markers.right))) / area_right)
-    u_stdev_left = np.sqrt(fem.assemble_scalar(fem.form((u - u_avg_left) ** 2 * ds(markers.left))) / area_left)
+    u_avg_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.right))) / area_right, op=MPI.SUM)
+    u_avg_left = domain.comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.left))) / area_left, op=MPI.SUM)
+    u_stdev_right = domain.comm.allreduce(np.sqrt(fem.assemble_scalar(fem.form((u - u_avg_right) ** 2 * ds(markers.right))) / area_right), op=MPI.SUM)
+    u_stdev_left = domain.comm.allreduce(np.sqrt(fem.assemble_scalar(fem.form((u - u_avg_left) ** 2 * ds(markers.left))) / area_left), op=MPI.SUM)
     eta_n = u_avg_left
     simulation_metadata = {
         "Negative Wagner Number": f"{Wa_n:.1e}",
