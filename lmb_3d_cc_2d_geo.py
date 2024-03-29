@@ -77,18 +77,47 @@ if __name__ == '__main__':
     # interface_2 = build_rectangular_curve(coord_start=coord_start2, step_length=step_length, step_width=step_width2, length=LY)
     interface_1 = [
         (3 * args.particle_radius * micron, 0, 0),
-        (3 * args.particle_radius * micron, 1 * args.particle_radius * micron, 0),
-        (1 * args.particle_radius * micron, 1 * args.particle_radius * micron, 0),
-        (1 * args.particle_radius * micron, 3 * args.particle_radius * micron, 0),
-        (3 * args.particle_radius * micron, 3 * args.particle_radius * micron, 0),
+        # arc points
+        (3 * args.particle_radius * micron, 1 * args.particle_radius * micron - micron, 0),
+        (3 * args.particle_radius * micron - micron, 1 * args.particle_radius * micron - micron, 0),
+        (3 * args.particle_radius * micron - micron, 1 * args.particle_radius * micron, 0),
+
+        # arc points
+        (1 * args.particle_radius * micron + micron, 1 * args.particle_radius * micron, 0),
+        (1 * args.particle_radius * micron + micron, 1 * args.particle_radius * micron + micron, 0),
+         (1 * args.particle_radius * micron, 1 * args.particle_radius * micron + micron, 0),
+
+        # arc points
+        (1 * args.particle_radius * micron, 3 * args.particle_radius * micron - micron, 0),
+        (1 * args.particle_radius * micron + micron, 3 * args.particle_radius * micron - micron, 0),
+        (1 * args.particle_radius * micron + micron, 3 * args.particle_radius * micron, 0),
+
+        # arc points
+        (3 * args.particle_radius * micron - micron, 3 * args.particle_radius * micron, 0),
+        (3 * args.particle_radius * micron - micron, 3 * args.particle_radius * micron + micron, 0),
+        (3 * args.particle_radius * micron, 3 * args.particle_radius * micron + micron, 0),
+
         (3 * args.particle_radius * micron, 4 * args.particle_radius * micron, 0),
         ]
     interface_2 = [
         (14 * args.particle_radius * micron, 0, 0),
-        (14 * args.particle_radius * micron, 1 * args.particle_radius * micron, 0),
-        (7.5 * args.particle_radius * micron, 1 * args.particle_radius * micron, 0),
-        (7.5 * args.particle_radius * micron, 3 * args.particle_radius * micron, 0),
-        (14 * args.particle_radius * micron, 3 * args.particle_radius * micron, 0),
+
+        (14 * args.particle_radius * micron, 1 * args.particle_radius * micron - micron, 0),
+        (14 * args.particle_radius * micron - micron, 1 * args.particle_radius * micron - micron, 0),
+        (14 * args.particle_radius * micron - micron, 1 * args.particle_radius * micron, 0),
+
+        (7.5 * args.particle_radius * micron + micron, 1 * args.particle_radius * micron, 0),
+        (7.5 * args.particle_radius * micron + micron, 1 * args.particle_radius * micron + micron, 0),
+        (7.5 * args.particle_radius * micron, 1 * args.particle_radius * micron + micron, 0),
+
+        (7.5 * args.particle_radius * micron, 3 * args.particle_radius * micron - micron, 0),
+        (7.5 * args.particle_radius * micron + micron, 3 * args.particle_radius * micron - micron, 0),
+        (7.5 * args.particle_radius * micron + micron, 3 * args.particle_radius * micron, 0),
+
+        (14 * args.particle_radius * micron - micron, 3 * args.particle_radius * micron, 0),
+        (14 * args.particle_radius * micron - micron, 3 * args.particle_radius * micron + micron, 0),
+        (14 * args.particle_radius * micron, 3 * args.particle_radius * micron + micron, 0),
+
         (14 * args.particle_radius * micron, 4 * args.particle_radius * micron, 0),
         ]
     interface_points1 = []
@@ -132,10 +161,43 @@ if __name__ == '__main__':
     interface_lines1 = []
     interface_lines2 = []
 
+    curr_idx = 0
     for idx in range(len(interface_points1)-1):
-        interface_lines1.append(gmsh.model.occ.addLine(interface_points1[idx], interface_points1[idx+1]))
+        if idx != curr_idx:
+            continue
+        if curr_idx == 0:
+            interface_lines1.append(gmsh.model.occ.addLine(interface_points1[curr_idx], interface_points1[curr_idx+1]))
+            curr_idx += 1
+            continue
+        else:
+            interface_lines1.append(
+                gmsh.model.occ.addCircleArc(
+                    interface_points1[curr_idx],
+                    interface_points1[curr_idx+1],
+                    interface_points1[curr_idx+2]
+                    )
+                )
+            interface_lines1.append(gmsh.model.occ.addLine(interface_points1[curr_idx+2], interface_points1[curr_idx+3]))
+            curr_idx += 3
+            continue
+    curr_idx = 0
     for idx in range(len(interface_points2)-1):
-        interface_lines2.append(gmsh.model.occ.addLine(interface_points2[idx], interface_points2[idx+1]))
+        if idx != curr_idx:
+            continue
+        if curr_idx == 0:
+            interface_lines2.append(gmsh.model.occ.addLine(interface_points2[curr_idx], interface_points2[curr_idx+1]))
+            curr_idx += 1
+        else:
+            interface_lines2.append(
+                gmsh.model.occ.addCircleArc(
+                    interface_points2[curr_idx],
+                    interface_points2[curr_idx+1],
+                    interface_points2[curr_idx+2]
+                    )
+                )
+            interface_lines2.append(gmsh.model.occ.addLine(interface_points2[curr_idx+2], interface_points2[curr_idx+3]))
+            curr_idx += 3
+
     gmsh.model.occ.synchronize()
 
     # gmsh.model.addPhysicalGroup(1, [lines[0]], markers.left, "left")
@@ -167,7 +229,7 @@ if __name__ == '__main__':
     gmsh.model.mesh.field.setNumber(2, "LcMin", 0.25 * resolution)
     gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
     gmsh.model.mesh.field.setNumber(2, "DistMin", 0)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 2 * micron)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 1 * micron)
 
     gmsh.model.mesh.field.add("Max", 5)
     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
