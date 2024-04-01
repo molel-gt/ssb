@@ -192,7 +192,7 @@ if __name__ == '__main__':
 
     ksp.setFromOptions()
     n_iters, converged = solver.solve(u)
-    # u.x.scatter_forward()
+    u.x.scatter_forward()
     if converged:
         print(f"Converged in {n_iters} iterations")
 
@@ -238,6 +238,10 @@ if __name__ == '__main__':
         "Positive Overpotential [V]": eta_p,
         "Voltage": voltage,
         "dimensions": args.dimensions,
+        "average potential left [V]": u_avg_left,
+        "stdev potential left [V]": u_stdev_left,
+        "average potential right [V]": u_avg_right,
+        "stdev potential right [V]": u_stdev_right,
         "Superficial current density [A/m2]": f"{np.abs(i_sup):.2e} [A/m2]",
         "Current at negative am - electrolyte boundary": f"{np.abs(I_neg_charge_xfer):.2e} A",
         "Current at electrolyte - positive am boundary": f"{np.abs(I_pos_charge_xfer):.2e} A",
