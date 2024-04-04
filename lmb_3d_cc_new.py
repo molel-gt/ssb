@@ -251,7 +251,6 @@ if __name__ == '__main__':
     if comm.rank == 0:
         print(f"Negative Wagner Number: {Wa_n:.1e}")
         print(f"Positive Wagner Number: {Wa_p:.1e}")
-        print(2 * i0_p * math.sinh(0.5 * faraday_const / (R * T) * eta_p) * area_pos_charge_xfer, I_pos_charge_xfer1, I_pos_charge_xfer2)
         print(f"Left - avg potential  : {u_avg_left:.3e}, stdev potential  : {u_stdev_left:.3e}")
         print(f"Right - avg potential : {u_avg_right:.3e}, stdev potential  : {u_stdev_right:.3e}")
         print(f"Negative overpotential over Positive overpotential: {eta_n/eta_p:.3f}")
