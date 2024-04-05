@@ -212,6 +212,7 @@ if __name__ == '__main__':
 
     I_neg_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.left))), op=MPI.SUM)
     I_pos_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(2 * i0_p * ufl.sinh(0.5*faraday_const / R / T * (u("+") - u("-") - u_ocv)) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
+    I_pos_am = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h("+"), n("+")) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     I_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.right))), op=MPI.SUM)
     I_insulated_elec = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(current_h, n)) * ds(markers.insulated_electrolyte))), op=MPI.SUM)
     I_insulated_pos_am = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(current_h, n)) * ds(markers.insulated_positive_am))), op=MPI.SUM)
@@ -247,6 +248,7 @@ if __name__ == '__main__':
         "Current at insulated boundary": f"{I_insulated:.2e} A",
     }
     if comm.rank == 0:
+        print(I_pos_am)
         print(f"Negative Wagner Number: {Wa_n:.1e}")
         print(f"Positive Wagner Number: {Wa_p:.1e}")
         print(f"Left - avg potential  : {u_avg_left:.3e}, stdev potential  : {u_stdev_left:.3e}")
