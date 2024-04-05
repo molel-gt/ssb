@@ -132,7 +132,7 @@ if __name__ == '__main__':
     # gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
     # gmsh.option.setNumber('Mesh.ColorCarousel', 2)
     gmsh.option.setNumber('Mesh.Optimize', 1)
-    gmsh.option.setNumber('Mesh.Algorithm', 5)
+    gmsh.option.setNumber('Mesh.Algorithm', 6)
     gmsh.option.setNumber('Mesh.OptimizeThreshold', 0.5)
 
     # points_corners.append(gmsh.model.occ.addPoint(*points_left[0]))
@@ -247,8 +247,10 @@ if __name__ == '__main__':
     _, eleTags , _ = gmsh.model.mesh.getElements(dim=2)
     # q = gmsh.model.mesh.getElementQualities(eleTags[0], "minSICN")
     q = gmsh.model.mesh.getElementQualities(eleTags[0], "angleShape")
+    angles = []
     for vv in zip(eleTags[0], q):
-        print(vv[1])
+        angles.append(vv[1])
+    print(np.average(angles), np.min(angles), np.max(angles), np.std(angles))
     # gmsh.plugin.setNumber("AnalyseMeshQuality", "ICNMeasure", 1.)
     # gmsh.plugin.setNumber("AnalyseMeshQuality", "CreateView", 1.)
     # t = gmsh.plugin.run("AnalyseMeshQuality")
