@@ -46,6 +46,7 @@ if __name__ == '__main__':
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='MICRON_TO_METER', type=str)
     parser.add_argument('--resolution', help=f'max resolution resolution', nargs='?', const=1, default=1, type=float)
+    parser.add_argument("--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
     micron = 1e-6
     resolution = args.resolution * micron
@@ -126,14 +127,15 @@ if __name__ == '__main__':
 
     gmsh.initialize()
     gmsh.model.add('lithium-metal')
-    # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", resolution)
-    # gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
-    # gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 1)
-    # gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
-    # gmsh.option.setNumber('Mesh.ColorCarousel', 2)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", resolution)
+    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
+    gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 1)
+    gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
+    gmsh.option.setNumber('Mesh.ColorCarousel', 2)
     gmsh.option.setNumber('Mesh.Optimize', 1)
     gmsh.option.setNumber('Mesh.Algorithm', 6)
-    gmsh.option.setNumber('Mesh.OptimizeThreshold', 0.5)
+    gmsh.option.setNumber('Mesh.OptimizeThreshold', 0.75)
+    gmsh.option.setNumber('Mesh.AllowSwapAngle', 30)
 
     # points_corners.append(gmsh.model.occ.addPoint(*points_left[0]))
     # points_corners.append(gmsh.model.occ.addPoint(*points_left[1]))
@@ -223,20 +225,21 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, [pos_am_phase], markers.positive_am, "positive_am")
     gmsh.model.occ.synchronize()
 
-    gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "EdgesList", [lines[1]] + interface_lines1 + interface_lines2)
+    if args.refine:
+        gmsh.model.mesh.field.add("Distance", 1)
+        gmsh.model.mesh.field.setNumbers(1, "EdgesList", [lines[1]] + interface_lines1 + interface_lines2 + lines[4:6] + lines[6:8])
 
-    gmsh.model.mesh.field.add("Threshold", 2)
-    gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "LcMin", resolution/20)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.01 * micron)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 2 * micron)
+        gmsh.model.mesh.field.add("Threshold", 2)
+        gmsh.model.mesh.field.setNumber(2, "IField", 1)
+        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution/20)
+        gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", 0.01 * micron)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", 2 * micron)
 
-    gmsh.model.mesh.field.add("Max", 5)
-    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    gmsh.model.mesh.field.setAsBackgroundMesh(5)
-    gmsh.model.occ.synchronize()
+        gmsh.model.mesh.field.add("Max", 5)
+        gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+        gmsh.model.mesh.field.setAsBackgroundMesh(5)
+        gmsh.model.occ.synchronize()
 
     gmsh.model.mesh.generate(2)
     # elementType = gmsh.model.mesh.getElementType("triangle", 2)
