@@ -53,6 +53,7 @@ if __name__ == '__main__':
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1.0, type=float)
     parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
+    parser.add_argument("--gamma", help="interior penalty parameter", nargs='?', const=1, default=15, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='MICRON_TO_METER', type=str)
 
@@ -66,7 +67,7 @@ if __name__ == '__main__':
     encoding = io.XDMFFile.Encoding.HDF5
     micron = 1e-6
     LX, LY, LZ = [float(vv) * micron for vv in args.dimensions.split("-")]
-    workdir = os.path.join(args.mesh_folder, str(Wa_n) + "-" + str(Wa_p))
+    workdir = os.path.join(args.mesh_folder, str(Wa_n) + "-" + str(Wa_p), str(args.gamma))
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(args.mesh_folder, 'mesh.msh')
     potential_resultsfile = os.path.join(workdir, "potential.bp")
@@ -135,8 +136,8 @@ if __name__ == '__main__':
     u_ocv = 0.15
     V_left = 0
 
-    alpha = 15
-    gamma = 15
+    alpha = args.gamma
+    gamma = args.gamma
     i_loc = inner((kappa * grad(u))('-'), n("+"))
     u_jump = 2 * ufl.ln(0.5 * i_loc/i0_p + ufl.sqrt((0.5 * i_loc/i0_p)**2 + 1)) * (R * T / faraday_const)
 
@@ -237,6 +238,7 @@ if __name__ == '__main__':
         "Positive Overpotential [V]": eta_p,
         "Voltage": voltage,
         "dimensions": args.dimensions,
+        "interior penalty (gamma)": args.gamma,
         "average potential left [V]": u_avg_left,
         "stdev potential left [V]": u_stdev_left,
         "average potential right [V]": u_avg_right,
