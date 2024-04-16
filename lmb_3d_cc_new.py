@@ -180,8 +180,8 @@ if __name__ == '__main__':
     solver = petsc_nls.NewtonSolver(comm, problem)
     solver.convergence_criterion = "residual"
     solver.maximum_iterations = 25
-    # solver.atol = 1.0e-8
-    # solver.rtol = 1.0e2 * np.finfo(default_real_type).eps
+    solver.rtol = 1.0e-12
+    solver.atol = 1.0e1 * np.finfo(default_real_type).eps
 
     ksp = solver.krylov_solver
 
@@ -250,23 +250,7 @@ if __name__ == '__main__':
         "Current at insulated boundary": f"{I_insulated:.2e} A",
     }
     if comm.rank == 0:
-        print(I_pos_am)
-        print(f"Negative Wagner Number: {Wa_n:.1e}")
-        print(f"Positive Wagner Number: {Wa_p:.1e}")
-        print(f"Left - avg potential  : {u_avg_left:.3e}, stdev potential  : {u_stdev_left:.3e}")
-        print(f"Right - avg potential : {u_avg_right:.3e}, stdev potential  : {u_stdev_right:.3e}")
-        print(f"Negative overpotential over Positive overpotential: {eta_n/eta_p:.3f}")
-        print(f"Positive area over Negative area: {area_pos_charge_xfer/area_neg_charge_xfer:.3f}")
-        print(f"Voltage: {voltage} [V]")
-        print(f"Negative Overpotential: {eta_n:.3e} [V]")
-        print(f"Positive Overpotential: {eta_p:.3e} [V]")
-        print(f"superficial current density @ left: {np.abs(i_sup_left):.2e} [A/m2]")
-        print(f"superficial current density @ right: {np.abs(i_sup):.2e} [A/m2]")
-        print(f"Current at negative_am - electrolyte boundary: {np.abs(I_neg_charge_xfer):.2e} A")
-        print(f"Current at electrolyte - positive am boundary: {np.abs(I_pos_charge_xfer):.2e} A")
-        print(f"Current at right boundary: {np.abs(I_right):.2e} A")
-        print(f"Current at insulated boundary: {I_insulated:.2e} A")
-        print(f"Float precision: {np.finfo(float).eps}")
+        utils.print_dict(simulation_metadata, padding=50)
         with open(simulation_metafile, "w", encoding='utf-8') as f:
             json.dump(simulation_metadata, f, ensure_ascii=False, indent=4)
         print(f"Time elapsed: {int(timeit.default_timer() - start_time):3.5f}s")
