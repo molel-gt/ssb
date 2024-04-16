@@ -10,7 +10,7 @@ import numpy as np
 import ufl
 import warnings
 
-import commons, geometry, utils
+import commons, configs, geometry, utils
 
 warnings.simplefilter('ignore')
 
@@ -39,7 +39,7 @@ if __name__ == '__main__':
     workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, dimensions_ii, str(resolution))
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(workdir, 'mesh.msh')
-    encoding = io.XDMFFile.Encoding.HDF5
+
     markers = commons.Markers()
     points = [
         (0, 0, 0),
@@ -118,9 +118,3 @@ if __name__ == '__main__':
     gmsh.model.mesh.generate(2)
     gmsh.write(output_meshfile)
     gmsh.finalize()
-
-    mesh_2d = meshio.read(output_meshfile)
-    tria_mesh = geometry.create_mesh(mesh_2d, "triangle")
-    meshio.write(tria_meshfile, tria_mesh)
-    line_mesh = geometry.create_mesh(mesh_2d, "line")
-    meshio.write(line_meshfile, line_mesh)
