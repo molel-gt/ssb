@@ -114,7 +114,14 @@ if __name__ == '__main__':
         gmsh.model.mesh.field.setAsBackgroundMesh(5)
         gmsh.model.occ.synchronize()
 
-
     gmsh.model.mesh.generate(2)
+
+    _, eleTags , _ = gmsh.model.mesh.getElements(dim=2)
+    q = gmsh.model.mesh.getElementQualities(eleTags[0], "angleShape")
+    angles = []
+    for vv in zip(eleTags[0], q):
+        angles.append(vv[1])
+    print(np.average(angles), np.min(angles), np.max(angles), np.std(angles))
+
     gmsh.write(output_meshfile)
     gmsh.finalize()
