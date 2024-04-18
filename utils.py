@@ -19,10 +19,10 @@ def nmc_capacity(density, volume, Ni=0.6, Mn=0.2, Co=0.2):
     """
     faraday_constant = 96485  # A.s/mol
     mwt_li = 6.94e-3  # kg/mol
-    mwt_ni = 58.693  # kg/mol
-    mwt_mn = 54.938  # kg/mol
-    mwt_co = 58.933  # kg/mol
-    mwt_o = 15.999  # kg/mol
+    mwt_ni = 58.693e-3  # kg/mol
+    mwt_mn = 54.938e-3  # kg/mol
+    mwt_co = 58.933e-3  # kg/mol
+    mwt_o = 15.999e-3  # kg/mol
     mass_frac_li = mwt_li / (mwt_li + Ni * mwt_ni + Mn * mwt_mn + Co * mwt_co + 2 * mwt_o)
     moles_li = density * volume * mass_frac_li / mwt_li
 
