@@ -48,7 +48,7 @@ def ocv(sod, L=1, k=2):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='3D Current Collector.')
-    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="lithium_metal_3d_cc_2d")
+    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="ssb_full_cell")
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1.0, type=float)
