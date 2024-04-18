@@ -13,7 +13,8 @@ def print_dict(dict, padding=20):
 
 def nmc_capacity(density, volume, Ni=0.6, Mn=0.2, Co=0.2):
     """
-    density of nmc [kg/m3]
+    :density: [kg/m3]
+    :volume:  m3
 
     return: capacity in [A.h]
     """
@@ -36,3 +37,20 @@ def c_rate_current(capacity, c_rate=1):
     returns `current` [A]
     """
     return capacity * c_rate
+
+
+def lithium_concentration_nmc(density, Ni=0.6, Mn=0.2, Co=0.2):
+    """
+    :density: [kg/m3]
+    :volume:  m3
+
+    :returns: concentration in mol/m3
+    """
+    mwt_li = 6.94e-3  # kg/mol
+    mwt_ni = 58.693e-3  # kg/mol
+    mwt_mn = 54.938e-3  # kg/mol
+    mwt_co = 58.933e-3  # kg/mol
+    mwt_o = 15.999e-3  # kg/mol
+    mass_frac_li = mwt_li / (mwt_li + Ni * mwt_ni + Mn * mwt_mn + Co * mwt_co + 2 * mwt_o)
+
+    return density * mass_frac_li / mwt_li
