@@ -30,3 +30,6 @@ jupyter nbconvert --to=python chapter-1-notebook.ipynb
 
 # rename file
 find output/contact_loss_lma/ -name trial.msh -exec bash -c 'echo mv $0 ${0/trial/mesh}' {} \;
+
+# list disk usage
+du -sh * | sort -h

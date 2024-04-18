@@ -99,47 +99,58 @@ if __name__ == '__main__':
 
     # Dirichlet BCs
     V = fem.functionspace(domain, ("CG", 2))
-    u0 = fem.Function(V)
-    with u0.vector.localForm() as u0_loc:
-        u0_loc.set(voltage)
-
-    i_exchange = constants.KAPPA0 * R * T / (Lz * args.Wa * faraday_constant)
-    right_bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 2, right_boundary))
+    
     n = ufl.FacetNormal(domain)
     ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
 
     # Define variational problem
-    u = fem.Function(V)
+    u = fem.Function(V, name='potential')
     v = ufl.TestFunction(V)
 
     # bulk conductivity [S.m-1]
     kappa = fem.Constant(domain, PETSc.ScalarType(constants.KAPPA0))
     f = fem.Constant(domain, PETSc.ScalarType(0.0))
     g = fem.Constant(domain, PETSc.ScalarType(0.0))
+    curr_converged = False
+    curr_cd = 0
+    target_cd = 10  # A/m2
+    i0 = constants.KAPPA0 * R * T / (Lz * args.Wa * faraday_constant)
+    A0 = Lx * Ly
 
-    F = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
-    F -= ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated) + ufl.inner(i_exchange * faraday_constant * (u - 0) / (R * T), v) * ds(markers.left)
-    logger.debug('Solving problem..')
-    problem = petsc.NonlinearProblem(F, u, bcs=[right_bc])
-    solver = petsc_nls.NewtonSolver(comm, problem)
-    solver.convergence_criterion = "residual"
-    solver.maximum_iterations = 100
-    solver.atol = np.finfo(float).eps
-    solver.rtol = np.finfo(float).eps * 10
+    max_iters = 100
+    its = 0
 
-    ksp = solver.krylov_solver
-    opts = PETSc.Options()
-    option_prefix = ksp.getOptionsPrefix()
-    opts[f"{option_prefix}ksp_type"] = "gmres"
-    opts[f"{option_prefix}pc_type"] = "hypre"
-    ksp.setFromOptions()
-    n_iters, converged = solver.solve(u)
-    if not converged:
-        logger.debug(f"Solver did not converge in {n_iters} iterations")
-    else:
+    while not curr_converged and its < max_iters:
+        its += 1
+        u0 = fem.Function(V)
+        with u0.vector.localForm() as u0_loc:
+            u0_loc.set(voltage)
+        right_bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 2, right_boundary))
+
+        F = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
+        F -= ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated) - ufl.inner(i0 * faraday_constant * (u - 0) / (R * T), v) * ds(markers.left)
+        logger.debug(f'Iteration {its}: Solving problem..')
+        problem = petsc.NonlinearProblem(F, u, bcs=[right_bc])
+        solver = petsc_nls.NewtonSolver(comm, problem)
+        solver.convergence_criterion = "residual"
+        solver.maximum_iterations = 100
+        solver.atol = np.finfo(float).eps
+        solver.rtol = np.finfo(float).eps * 10
+
+        ksp = solver.krylov_solver
+        opts = PETSc.Options()
+        option_prefix = ksp.getOptionsPrefix()
+        opts[f"{option_prefix}ksp_type"] = "gmres"
+        opts[f"{option_prefix}pc_type"] = "hypre"
+        ksp.setFromOptions()
+        n_iters, converged = solver.solve(u)
         logger.info(f"Converged in {n_iters} iterations")
-    u.name = 'potential'
-    u.x.scatter_forward()
+        u.x.scatter_forward()
+        curr_cd = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(-kappa * ufl.grad(u), n)) * ds(markers.right))), op=MPI.SUM) / A0
+        logger.info(f"Iteration: {its}, current: {curr_cd}, target: {target_cd}")
+        if np.isclose(curr_cd, target_cd, atol=0.01):
+            curr_converged = True
+        voltage *= target_cd / curr_cd
 
     with VTXWriter(comm, output_potential_path, [u], engine="BP4") as vtx:
         vtx.write(0.0)
@@ -147,7 +158,7 @@ if __name__ == '__main__':
     logger.debug("Post-process calculations")
     W = fem.functionspace(domain, ("CG", 1, (3,)))
     current_expr = fem.Expression(-kappa * ufl.grad(u), W.element.interpolation_points())
-    current_h = fem.Function(W)
+    current_h = fem.Function(W, name='current_density')
     tol_fun = fem.Function(V)
     tol_fun_left = fem.Function(V)
     tol_fun_right = fem.Function(V)
@@ -164,7 +175,7 @@ if __name__ == '__main__':
     I_right_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right))), op=MPI.SUM)
     I_insulated = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(current_h, n)) * ds(markers.insulated))), op=MPI.SUM)
     volume = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ufl.dx(domain))), op=MPI.SUM)
-    A0 = Lx * Ly
+
     i_right_cc = I_right_cc / area_right_cc
     i_left_cc = I_left_cc / area_left_cc
     i_insulated = I_insulated / insulated_area
@@ -228,8 +239,8 @@ if __name__ == '__main__':
         logger.debug("Writing summary information..")
         simulation_metadata = {
             "Wagner number": args.Wa,
-            "Contact area fraction at left electrode": f"{area_left_cc / (Lx * Ly):.4f}",
-            "Contact area fraction at right electrode": f"{area_right_cc / (Lx * Ly):.4f}",
+            "Contact area fraction at left electrode": f"{area_left_cc / (Lx * Ly):.4e}",
+            "Contact area fraction at right electrode": f"{area_right_cc / (Lx * Ly):.4e}",
             "Contact area at left electrode [sq. m]": f"{area_left_cc:.4e}",
             "Contact area at right electrode [sq. m]": f"{area_right_cc:.4e}",
             "Insulated area [sq. m]": f"{insulated_area:.4e}",
@@ -244,15 +255,15 @@ if __name__ == '__main__':
             "Dimensions Lx-Ly-Lz (unscaled)": args.dimensions,
             "Scaling for dimensions x,y,z to meters": args.scaling,
             "Bulk conductivity [S.m-1]": constants.KAPPA0,
-            "Effective conductivity [S.m-1]": f"{kappa_eff:.4f}",
+            "Effective conductivity [S.m-1]": f"{kappa_eff:.4e}",
             "Max electrode current over min electrode current (error)": error,
             "Simulation time (seconds)": f"{int(timeit.default_timer() - start_time):,}",
-            "Voltage drop [V]": args.voltage,
+            "Voltage drop [V]": voltage,
             "Electrolyte volume fraction": f"{volume_fraction:.4f}",
             "Electrolyte volume [cu. m]": f"{volume:.4e}",
-            "Total resistance [Ω.cm2]": args.voltage / (np.abs(I_right_cc) / (A0 * 1e4)),
+            "Total resistance [Ω.cm2]": voltage / (np.abs(I_right_cc) / (A0 * 1e4)),
         }
         with open(simulation_metafile, "w", encoding='utf-8') as f:
             json.dump(simulation_metadata, f, ensure_ascii=False, indent=4)
 
-        logger.info(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
+        logger.info(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):,}s")
