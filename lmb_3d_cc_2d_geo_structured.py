@@ -85,17 +85,17 @@ if __name__ == '__main__':
     gmsh.model.add('lithium-metal')
 
     for idx, p in enumerate(points_left):
-        points[idx, 0] = gmsh.model.occ.addPoint(*p, meshSize=micron)
+        points[idx, 0] = gmsh.model.occ.addPoint(*p, meshSize=resolution)
     for idx, p in enumerate(points_1):
-        points[idx, 1] = gmsh.model.occ.addPoint(*p, meshSize=micron)
+        points[idx, 1] = gmsh.model.occ.addPoint(*p, meshSize=resolution)
     for idx, p in enumerate(points_2):
-        points[idx, 2] = gmsh.model.occ.addPoint(*p, meshSize=micron)
+        points[idx, 2] = gmsh.model.occ.addPoint(*p, meshSize=resolution)
     for idx, p in enumerate(points_3):
-        points[idx, 3] = gmsh.model.occ.addPoint(*p, meshSize=micron)
+        points[idx, 3] = gmsh.model.occ.addPoint(*p, meshSize=resolution)
     for idx, p in enumerate(points_4):
-        points[idx, 4] = gmsh.model.occ.addPoint(*p, meshSize=micron)
+        points[idx, 4] = gmsh.model.occ.addPoint(*p, meshSize=resolution)
     for idx, p in enumerate(points_right):
-        points[idx, 5] = gmsh.model.occ.addPoint(*p, meshSize=micron)
+        points[idx, 5] = gmsh.model.occ.addPoint(*p, meshSize=resolution)
 
     for col in range(6):
         for row in range(3):
