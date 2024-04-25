@@ -180,13 +180,13 @@ if __name__ == '__main__':
     solver = petsc_nls.NewtonSolver(comm, problem)
     solver.convergence_criterion = "residual"
     solver.maximum_iterations = 25
-    solver.rtol = 1.0e-12
+    solver.rtol = 1.0e2 * np.finfo(default_real_type).eps
     solver.atol = 1.0e1 * np.finfo(default_real_type).eps
 
     ksp = solver.krylov_solver
 
     opts = PETSc.Options()
-    ksp.setMonitor(lambda _, it, residual: print(it, residual))
+    # ksp.setMonitor(lambda _, it, residual: print(it, residual))
     option_prefix = ksp.getOptionsPrefix()
     opts[f"{option_prefix}ksp_type"] = "preonly"
     opts[f"{option_prefix}pc_type"] = "lu"
