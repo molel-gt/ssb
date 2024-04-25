@@ -1,3 +1,5 @@
+fenics-dolfinx
+mpich
 alphashape
 igraph
 hdbscan
@@ -12,14 +14,10 @@ meshio
 numpy
 openpyxl
 pandas
-ptscotch
 pybamm
-pythreejs
 python-gmsh
 pyvista
 scipy
-scikit-image
 scikit-learn
-scotch
 tetgen
 vtk
