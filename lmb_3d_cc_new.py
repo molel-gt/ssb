@@ -179,7 +179,7 @@ if __name__ == '__main__':
     problem = petsc.NonlinearProblem(F, u)
     solver = petsc_nls.NewtonSolver(comm, problem)
     solver.convergence_criterion = "residual"
-    solver.maximum_iterations = 25
+    # solver.maximum_iterations = 25
     solver.rtol = 1.0e2 * np.finfo(default_real_type).eps
     solver.atol = 1.0e1 * np.finfo(default_real_type).eps
 
