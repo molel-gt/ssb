@@ -56,9 +56,9 @@ if __name__ == '__main__':
     with io.XDMFFile(MPI.COMM_WORLD, f"{line_meshname}.xdmf", "r") as infile3:
         ft = infile3.read_meshtags(msh, name="Grid")
 
-    Q = fem.FunctionSpace(msh, ("DG", 0))
+    Q = fem.functionspace(msh, ("DG", 0))
 
-    V = fem.FunctionSpace(msh, ("Lagrange", 1))
+    V = fem.functionspace(msh, ("Lagrange", 1))
     meshtags = mesh.meshtags(msh, msh.topology.dim - 1, ft.indices, ft.values)
     n = -ufl.FacetNormal(msh)
     ds = ufl.Measure("ds", domain=msh, subdomain_data=meshtags)

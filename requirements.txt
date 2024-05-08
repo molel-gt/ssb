@@ -5,6 +5,7 @@ igraph
 hdbscan
 igraph
 ipympl
+ipykernel
 jax
 jupyter
 libptscotch
@@ -17,6 +18,7 @@ pandas
 pybamm
 python-gmsh
 pyvista
+pyvistaqt
 scipy
 scikit-learn
 tetgen

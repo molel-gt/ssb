@@ -11,7 +11,7 @@ import pyvista
 
 comm = MPI.COMM_WORLD
 domain = mesh.create_unit_square(comm, 100, 100)
-V = fem.FunctionSpace(domain, ("DG", 1))
+V = fem.functionspace(domain, ("DG", 1))
 uD = fem.Function(V)
 uD.interpolate(lambda x: np.full(x[0].shape, 0.0))
 

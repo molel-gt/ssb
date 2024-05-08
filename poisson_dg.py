@@ -10,9 +10,9 @@ from ufl import (Circumradius, FacetNormal, SpatialCoordinate, TrialFunction, Te
 
 N = 8
 domain = mesh.create_unit_square(MPI.COMM_WORLD, N, N)
-V = fem.FunctionSpace(domain, ("DG", 1))
+V = fem.functionspace(domain, ("DG", 1))
 
-V_CG = fem.FunctionSpace(domain, ("CG", 1))
+V_CG = fem.functionspace(domain, ("CG", 1))
 print(f"Num DG dofs: {V.dofmap.index_map.size_local}")
 print(f"Num CG dofs: {V_CG.dofmap.index_map.size_local}")
 

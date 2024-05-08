@@ -98,10 +98,10 @@ if __name__ == '__main__':
     dS = ufl.Measure("dS", domain=domain, subdomain_data=ft)
 
     # ### Function Spaces
-    V = fem.FunctionSpace(domain, ("DG", 1))
+    V = fem.functionspace(domain, ("DG", 1))
     W = fem.functionspace(domain, ("DG", 1, (3,)))
     Z = fem.functionspace(domain, ("CG", 1, (3,)))
-    Q = fem.FunctionSpace(domain, ("DG", 0))
+    Q = fem.functionspace(domain, ("DG", 0))
     u = fem.Function(V, name='potential')
     v = ufl.TestFunction(V)
     current_h = fem.Function(W, name='current_density')

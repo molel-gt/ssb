@@ -76,7 +76,7 @@ if __name__ == '__main__':
     domaintags = mesh.meshtags(domain, domain.topology.dim, ct.indices, ct.values)
 
     # potential problem
-    Q = fem.FunctionSpace(domain, ("CG", 2))
+    Q = fem.functionspace(domain, ("CG", 2))
 
     u0 = fem.Function(Q)
     with u0.vector.localForm() as u0_loc:

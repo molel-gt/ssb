@@ -90,9 +90,9 @@ if __name__ == '__main__':
     ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
     dS = ufl.Measure("dS", domain=domain, subdomain_data=ft)
 
-    V = fem.FunctionSpace(domain, ("DG", 1))
+    V = fem.functionspace(domain, ("DG", 1))
     W = fem.functionspace(domain, ("CG", 1, (3,)))
-    Q = fem.FunctionSpace(domain, ("DG", 0))
+    Q = fem.functionspace(domain, ("DG", 0))
     u = fem.Function(V, name='potential')
     v = ufl.TestFunction(V)
     n = ufl.FacetNormal(domain)
@@ -209,4 +209,4 @@ if __name__ == '__main__':
     print(f"insulated electrolyte: {I_insulated_sse:.2e} A, insulated positive am: {I_insulated_pos_am:.2e} A")
     print(f"Float precision: {np.finfo(float).eps}")
 
-    # C = fem.FunctionSpace(domain, ("CG", 1))  # concentration
+    # C = fem.functionspace(domain, ("CG", 1))  # concentration
