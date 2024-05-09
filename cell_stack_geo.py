@@ -341,6 +341,7 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, negative_cc_2, phases.negative_cc_2, "negative_cc_2")
     gmsh.model.occ.synchronize()
 
+    # line below creates structure mesh, so comment line if want unstructured mesh
     gmsh.model.mesh.setTransfiniteAutomatic([(2, s) for s in valid_surfs], cornerAngle=np.pi/4, recombine=False)
 
     gmsh.model.mesh.generate(2)
