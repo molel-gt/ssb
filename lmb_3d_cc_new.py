@@ -161,8 +161,8 @@ if __name__ == '__main__':
     F += alpha / h_avg * avg(kappa) * inner(jump(u, n), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
 
     # Nitsche Dirichlet BC terms on left and right boundaries
-    # F += - kappa * (u - u_left) * inner(n, grad(v)) * ds(markers.left)
-    # F += -gamma / h * (u - u_left) * v * ds(markers.left)
+    F += - kappa * (u - u_left) * inner(n, grad(v)) * ds(markers.left)
+    F += -gamma / h * (u - u_left) * v * ds(markers.left)
     F += - kappa * (u - u_right) * inner(n, grad(v)) * ds(markers.right) 
     F += -gamma / h * (u - u_right) * v * ds(markers.right)
 
@@ -173,8 +173,8 @@ if __name__ == '__main__':
     F += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.insulated_positive_am)
 
     # kinetics boundary - neumann
-    F += - gamma * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.left)
-    F -= - gamma * h * 2 * i0_n * ufl.sinh(0.5 * faraday_const / R / T * (V_left - u - 0)) * inner(grad(v), n) * ds(markers.left)
+    # F += - gamma * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.left)
+    # F -= - gamma * h * 2 * i0_n * ufl.sinh(0.5 * faraday_const / R / T * (V_left - u - 0)) * inner(grad(v), n) * ds(markers.left)
 
     problem = petsc.NonlinearProblem(F, u)
     solver = petsc_nls.NewtonSolver(comm, problem)
