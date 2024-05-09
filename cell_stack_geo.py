@@ -297,13 +297,13 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(1, list(lines_horizontal[-1, 0:-1]), boundaries.top, "top")
 
     insulated_negative_cc_1 = list(lines_vertical[0, [0, -2]]) + list(lines_horizontal[1, [0, 1]])
-    insulated_graphite_1 = list(lines_vertical[1, [2, -1]])
+    insulated_graphite_1 = list(lines_vertical[1, [2, -2]])
     insulated_separator_1 = list(lines_vertical[2, [1, -1]]) + list(lines_horizontal[2, [1, -1]]) + list(lines_horizontal[3, [1, 2, -3, -2, -1]])
     insulated_nmc_1 = list(lines_vertical[3, [3, -4]])
     insulated_positive_cc_1 = list(lines_vertical[4, [2, -3]]) + list(lines_horizontal[4, [2, -3]])  + list(lines_horizontal[5, [2, -3]])
     insulated_nmc_2 = list(lines_vertical[5, [3, -4]])
     insulated_separator_2 = list(lines_vertical[6, [1, -1]]) + list(lines_horizontal[-3, [1, -1]]) + list(lines_horizontal[-4, [1, 2, -3, -2, -1]])
-    insulated_graphite_2 = list(lines_vertical[-2, [2, -1]])
+    insulated_graphite_2 = list(lines_vertical[-2, [2, -2]])
     insulated_negative_cc_2 = list(lines_vertical[-1, [0, -2]]) + list(lines_horizontal[-2, [0, 1]])
 
     insulated = insulated_negative_cc_1 + insulated_graphite_1 + insulated_separator_1 + insulated_nmc_1 + insulated_positive_cc_1 +\
