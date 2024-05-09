@@ -50,6 +50,46 @@ class Boundaries:
     def top(self):
         return 10
 
+    @property
+    def insulated_negative_cc_1(self):
+        return 11
+
+    @property
+    def insulated_graphite_1(self):
+        return 12
+
+    @property
+    def insulated_separator_1(self):
+        return 13
+
+    @property
+    def insulated_nmc_1(self):
+        return 14
+
+    @property
+    def insulated_positive_cc_1(self):
+        return 15
+
+    @property
+    def insulated_nmc_2(self):
+        return 16
+
+    @property
+    def insulated_separator_2(self):
+        return 17
+
+    @property
+    def insulated_graphite_2(self):
+        return 18
+
+    @property
+    def insulated_negative_cc_2(self):
+        return 19
+
+    @property
+    def insulated(self):
+        return 20
+
 
 class Phases:
     def __init__(self):
@@ -255,6 +295,30 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(1, list(lines_horizontal[7, 2:-1]), boundaries.separator_2_graphite_2, "separator_2_graphite_2")
     gmsh.model.addPhysicalGroup(1, list(lines_horizontal[-2, 2:-1]), boundaries.graphite_2_negative_cc_2, "graphite_2_negative_cc_2")
     gmsh.model.addPhysicalGroup(1, list(lines_horizontal[-1, 0:-1]), boundaries.top, "top")
+
+    insulated_negative_cc_1 = list(lines_vertical[0, [0, -2]]) + list(lines_horizontal[1, [0, 1]]) #+ list(lines_horizontal[0, :])
+    insulated_graphite_1 = list(lines_vertical[1, [2, -1]])
+    insulated_separator_1 = list(lines_vertical[2, [1, -1]]) + list(lines_horizontal[2, [1, -1]]) + list(lines_horizontal[3, [1, 2, -3, -2, -1]])
+    insulated_nmc_1 = list(lines_vertical[3, [3, -4]])
+    insulated_positive_cc_1 = list(lines_vertical[4, [2, -3]]) + list(lines_horizontal[4, [2, -3]])  + list(lines_horizontal[5, [2, -3]])
+    insulated_nmc_2 = list(lines_vertical[5, [3, -4]])
+    insulated_separator_2 = list(lines_vertical[6, [1, -1]]) + list(lines_horizontal[-3, [1, -1]]) + list(lines_horizontal[-4, [1, 2, -3, -2, -1]])
+    insulated_graphite_2 = list(lines_vertical[-2, [2, -1]])
+    insulated_negative_cc_2 = list(lines_vertical[-1, [0, -2]]) + list(lines_horizontal[-2, [0, 1]]) #+ list(lines_horizontal[-1, :])
+
+    insulated = insulated_negative_cc_1 + insulated_graphite_1 + insulated_separator_1 + insulated_nmc_1 + insulated_positive_cc_1 +\
+        insulated_nmc_2 + insulated_separator_2 + insulated_graphite_2 + insulated_negative_cc_2 
+    gmsh.model.addPhysicalGroup(1, insulated_negative_cc_1, boundaries.insulated_negative_cc_1, "insulated_negative_cc_1")
+    gmsh.model.addPhysicalGroup(1, insulated_graphite_1, boundaries.insulated_graphite_1, "insulated_graphite_1")
+    gmsh.model.addPhysicalGroup(1, insulated_separator_1, boundaries.insulated_separator_1, "insulated_separator_1")
+    gmsh.model.addPhysicalGroup(1, insulated_nmc_1, boundaries.insulated_nmc_1, "insulated_nmc_1")
+    gmsh.model.addPhysicalGroup(1, insulated_positive_cc_1, boundaries.insulated_positive_cc_1, "insulated_positive_cc_1")
+    gmsh.model.addPhysicalGroup(1, insulated_nmc_2, boundaries.insulated_nmc_2, "insulated_nmc_2")
+    gmsh.model.addPhysicalGroup(1, insulated_separator_2, boundaries.insulated_separator_2, "insulated_separator_2")
+    gmsh.model.addPhysicalGroup(1, insulated_graphite_2, boundaries.insulated_graphite_2, "insulated_graphite_2")
+    gmsh.model.addPhysicalGroup(1, insulated_negative_cc_2, boundaries.insulated_negative_cc_2, "insulated_negative_cc_2")
+    gmsh.model.addPhysicalGroup(1, insulated, boundaries.insulated, "insulated")
+
     gmsh.model.occ.synchronize()
     negative_cc_1 = list(surfaces[0, :-1])
     graphite_1 = list(surfaces[1, 2:-1])
