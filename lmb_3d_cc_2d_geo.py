@@ -242,23 +242,16 @@ if __name__ == '__main__':
         gmsh.model.occ.synchronize()
 
     gmsh.model.mesh.generate(2)
-    # elementType = gmsh.model.mesh.getElementType("triangle", 2)
-    # elementTypes = gmsh.model.mesh.getElementTypes(dim=2)
-    # print(elementType, elementTypes)
-    # print(gmsh.model.mesh.getElementQualities(elementTypes, qualityName='angleShape'))
-    
-    _, eleTags , _ = gmsh.model.mesh.getElements(dim=2)
-    # q = gmsh.model.mesh.getElementQualities(eleTags[0], "minSICN")
-    q = gmsh.model.mesh.getElementQualities(eleTags[0], "angleShape")
-    angles = []
-    for vv in zip(eleTags[0], q):
-        angles.append(vv[1])
-    print(np.average(angles), np.min(angles), np.max(angles), np.std(angles))
-    # gmsh.plugin.setNumber("AnalyseMeshQuality", "ICNMeasure", 1.)
-    # gmsh.plugin.setNumber("AnalyseMeshQuality", "CreateView", 1.)
-    # t = gmsh.plugin.run("AnalyseMeshQuality")
-    # dataType, tags, data, time, numComp = gmsh.view.getModelData(t, 0)
-    # print('ICN for element {0} = {1}'.format(tags[0], data[0]))
-
     gmsh.write(output_meshfile)
+    surfs = gmsh.model.getEntities(2)
+    angles = []
+    for surf in surfs:
+        _, _triangles, _nodes = gmsh.model.mesh.getElements(surf[0], surf[1])
+        triangles = _triangles[0]
+        nodes = _nodes[0].reshape(triangles.shape[0], 3)
+        for idx in range(triangles.shape[0]):
+            p1, p2, p3 = [gmsh.model.mesh.getNode(nodes[idx, i])[0] for i in range(3)]
+            _angles = utils.compute_angles_in_triangle(p1, p2, p3)
+            angles += _angles
+    print(f"Minimum angle in triangles is {np.rad2deg(min(angles)):.2f} degrees")
     gmsh.finalize()

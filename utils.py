@@ -1,5 +1,7 @@
 import os
 
+import numpy as np
+
 
 def make_dir_if_missing(f_path):
     """"""
@@ -9,6 +11,17 @@ def make_dir_if_missing(f_path):
 def print_dict(dict, padding=20):
     for k, v in dict.items():
         print(k.ljust(padding, ' '), ": ", str(v))
+
+
+def compute_angles_in_triangle(p1, p2, p3):
+    B = np.array(p3) - np.array(p1)
+    C = np.array(p2) - np.array(p1)
+    A = np.array(p2) - np.array(p3)
+    a = np.arccos(np.dot(B, C) / (np.linalg.norm(B) * np.linalg.norm(C)))
+    b = np.arccos(np.dot(A, C) / (np.linalg.norm(A) * np.linalg.norm(C)))
+    c = np.arccos(np.dot(A, B) / (np.linalg.norm(A) * np.linalg.norm(B)))
+
+    return a, b, c
 
 
 def nmc_capacity(density, volume, Ni=0.6, Mn=0.2, Co=0.2):
