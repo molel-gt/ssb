@@ -148,4 +148,15 @@ if __name__ == '__main__':
 
     gmsh.model.mesh.generate(2)
     gmsh.write(output_meshfile)
+    surfs = gmsh.model.getEntities(2)
+    angles = []
+    for surf in surfs:
+        _, _triangles, _nodes = gmsh.model.mesh.getElements(surf[0], surf[1])
+        triangles = _triangles[0]
+        nodes = _nodes[0].reshape(triangles.shape[0], 3)
+        for idx in range(triangles.shape[0]):
+            p1, p2, p3 = [gmsh.model.mesh.getNode(nodes[idx, i])[0] for i in range(3)]
+            _angles = utils.compute_angles_in_triangle(p1, p2, p3)
+            angles += _angles
+    print(f"Minimum angle in triangles is {np.rad2deg(min(angles)):.2f} degrees")
     gmsh.finalize()
