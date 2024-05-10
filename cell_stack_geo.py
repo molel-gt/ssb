@@ -87,20 +87,24 @@ class Boundaries:
         return 19
 
     @property
-    def insulated(self):
+    def insulated_free_electrolyte(self):
         return 20
 
     @property
-    def positive_tab_1(self):
+    def insulated(self):
         return 21
 
     @property
-    def negative_tab_1(self):
+    def positive_tab_1(self):
         return 22
 
     @property
-    def negative_tab_2(self):
+    def negative_tab_1(self):
         return 23
+
+    @property
+    def negative_tab_2(self):
+        return 24
 
 
 class Phases:
@@ -142,6 +146,10 @@ class Phases:
     @property
     def negative_cc_2(self):
         return 9
+
+    @property
+    def free_electrolyte(self):
+        return 10
 
 
 if __name__ == '__main__':
@@ -202,6 +210,18 @@ if __name__ == '__main__':
     (150 * micron, 325 * micron, 0),
     ]
     points_4 = [
+    (200 * micron, 0, 0),
+    (200 * micron, 25 * micron, 0),
+    (200 * micron, 75 * micron, 0),
+    (200 * micron, 100 * micron, 0),
+    (200 * micron, 150 * micron, 0),
+    (200 * micron, 175 * micron, 0),
+    (200 * micron, 225 * micron, 0),
+    (200 * micron, 250 * micron, 0),
+    (200 * micron, 300 * micron, 0),
+    (200 * micron, 325 * micron, 0),
+    ]
+    points_5 = [
     (3100 * micron, 0, 0),
     (3100 * micron, 25 * micron, 0),
     (3100 * micron, 75 * micron, 0),
@@ -213,7 +233,7 @@ if __name__ == '__main__':
     (3100 * micron, 300 * micron, 0),
     (3100 * micron, 325 * micron, 0),
     ]
-    points_5 = [
+    points_6 = [
     (3150 * micron, 0, 0),
     (3150 * micron, 25 * micron, 0),
     (3150 * micron, 75 * micron, 0),
@@ -225,7 +245,7 @@ if __name__ == '__main__':
     (3150 * micron, 300 * micron, 0),
     (3150 * micron, 325 * micron, 0),
     ]
-    points_6 = [
+    points_7 = [
     (3200 * micron, 0, 0),
     (3200 * micron, 25 * micron, 0),
     (3200 * micron, 75 * micron, 0),
@@ -237,7 +257,7 @@ if __name__ == '__main__':
     (3200 * micron, 300 * micron, 0),
     (3200 * micron, 325 * micron, 0),
     ]
-    points_7 = [
+    points_8 = [
     (3250 * micron, 0, 0),
     (3250 * micron, 25 * micron, 0),
     (3250 * micron, 75 * micron, 0),
@@ -249,7 +269,7 @@ if __name__ == '__main__':
     (3250 * micron, 300 * micron, 0),
     (3250 * micron, 325 * micron, 0),
     ]
-    points_right = [
+    points_9 = [
     (3300 * micron, 0, 0),
     (3300 * micron, 25 * micron, 0),
     (3300 * micron, 75 * micron, 0),
@@ -261,12 +281,24 @@ if __name__ == '__main__':
     (3300 * micron, 300 * micron, 0),
     (3300 * micron, 325 * micron, 0),
     ]
+    points_right = [
+    (3350 * micron, 0, 0),
+    (3350 * micron, 25 * micron, 0),
+    (3350 * micron, 75 * micron, 0),
+    (3350 * micron, 100 * micron, 0),
+    (3350 * micron, 150 * micron, 0),
+    (3350 * micron, 175 * micron, 0),
+    (3350 * micron, 225 * micron, 0),
+    (3350 * micron, 250 * micron, 0),
+    (3350 * micron, 300 * micron, 0),
+    (3350 * micron, 325 * micron, 0),
+    ]
 
-    points = np.zeros((10, 9), dtype=np.intc)
-    lines_vertical = np.zeros((9, 9), dtype=np.intc)
-    lines_horizontal = np.zeros((10, 8), dtype=np.intc)
-    loops = np.zeros((9, 8), dtype=np.intc)
-    surfaces = np.zeros((9, 8), dtype=np.intc)
+    points = np.zeros((10, 11), dtype=np.intc)
+    lines_vertical = np.zeros((9, 11), dtype=np.intc)
+    lines_horizontal = np.zeros((10, 10), dtype=np.intc)
+    loops = np.zeros((9, 10), dtype=np.intc)
+    surfaces = np.zeros((9, 10), dtype=np.intc)
 
     gmsh.initialize()
     gmsh.model.add('cell-stack')
@@ -287,21 +319,25 @@ if __name__ == '__main__':
         points[idx, 6] = gmsh.model.occ.addPoint(*p, meshSize=resolution)
     for idx, p in enumerate(points_7):
         points[idx, 7] = gmsh.model.occ.addPoint(*p, meshSize=resolution)
-    for idx, p in enumerate(points_right):
+    for idx, p in enumerate(points_8):
         points[idx, 8] = gmsh.model.occ.addPoint(*p, meshSize=resolution)
+    for idx, p in enumerate(points_9):
+        points[idx, 9] = gmsh.model.occ.addPoint(*p, meshSize=resolution)
+    for idx, p in enumerate(points_right):
+        points[idx, 10] = gmsh.model.occ.addPoint(*p, meshSize=resolution)
 
-    for col in range(9):
+    for col in range(11):
         for row in range(9):
             lines_vertical[row, col] = gmsh.model.occ.addLine(points[row, col], points[row + 1, col])
 
     for row in range(10):
-        for col in range(8):
+        for col in range(10):
             lines_horizontal[row, col] = gmsh.model.occ.addLine(points[row, col], points[row, col + 1])
 
     gmsh.model.occ.synchronize()
 
     for row in range(9):
-        for col in range(8):
+        for col in range(10):
             loops[row, col] = gmsh.model.occ.addCurveLoop(
                 [lines_horizontal[row, col],
                 lines_vertical[row, col+1],
@@ -311,34 +347,34 @@ if __name__ == '__main__':
             surfaces[row, col] = gmsh.model.occ.addPlaneSurface([loops[row, col]])
             gmsh.model.occ.synchronize()
 
-    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[0, 0:-2]), boundaries.bottom, "bottom")
-    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[1, 2:-2]), boundaries.negative_cc_1_graphite_1, "negative_cc_1_graphite_1")
-    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[2, 2:-1]), boundaries.graphite_1_separator_1, "graphite_1_separator_1")
-    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[3, 3:-3]), boundaries.separator_1_nmc_1, "separator_1_nmc_1")
-    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[4, 3:-3]), boundaries.nmc_1_positive_cc_1, "nmc_1_positive_cc_1")
-    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[5, 3:-3]), boundaries.positive_cc_1_nmc_2, "positive_cc_1_nmc_2")
-    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[6, 3:-3]), boundaries.nmc_2_separator_2, "nmc_2_separator_2")
-    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[7, 2:-1]), boundaries.separator_2_graphite_2, "separator_2_graphite_2")
-    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[-2, 2:-2]), boundaries.graphite_2_negative_cc_2, "graphite_2_negative_cc_2")
-    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[-1, 0:-2]), boundaries.top, "top")
+    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[0, 0:-3]), boundaries.bottom, "bottom")
+    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[1, 3:-3]), boundaries.negative_cc_1_graphite_1, "negative_cc_1_graphite_1")
+    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[2, 3:-3]), boundaries.graphite_1_separator_1, "graphite_1_separator_1")
+    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[3, 4:-4]), boundaries.separator_1_nmc_1, "separator_1_nmc_1")
+    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[4, 4:-4]), boundaries.nmc_1_positive_cc_1, "nmc_1_positive_cc_1")
+    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[5, 4:-4]), boundaries.positive_cc_1_nmc_2, "positive_cc_1_nmc_2")
+    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[6, 4:-4]), boundaries.nmc_2_separator_2, "nmc_2_separator_2")
+    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[7, 3:-3]), boundaries.separator_2_graphite_2, "separator_2_graphite_2")
+    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[-2, 3:-3]), boundaries.graphite_2_negative_cc_2, "graphite_2_negative_cc_2")
+    gmsh.model.addPhysicalGroup(1, list(lines_horizontal[-1, 0:-3]), boundaries.top, "top")
 
     # current tabs
-    gmsh.model.addPhysicalGroup(1, list(lines_vertical[4, [-1]]), boundaries.positive_tab_1, "positive_tab_1")
+    gmsh.model.addPhysicalGroup(1, list(lines_vertical[4, [-2]]), boundaries.positive_tab_1, "positive_tab_1")
     gmsh.model.addPhysicalGroup(1, list(lines_vertical[0, [0]]), boundaries.negative_tab_1, "negative_tab_1")
     gmsh.model.addPhysicalGroup(1, list(lines_vertical[-1, [0]]), boundaries.negative_tab_2, "negative_tab_2")
 
-    insulated_negative_cc_1 = list(lines_vertical[0, [-3]]) + list(lines_horizontal[1, [0, 1]])
-    insulated_graphite_1 = list(lines_vertical[1, [2, -3]])
-    insulated_separator_1 = list(lines_vertical[2, [1, -2]]) + list(lines_horizontal[2, [1, -2]]) + list(lines_horizontal[3, [1, 2, -3, -2]])
-    insulated_nmc_1 = list(lines_vertical[3, [3, -4]])
-    insulated_positive_cc_1 = list(lines_vertical[4, [2]]) + list(lines_horizontal[4, [2, -3, -2, -1]])  + list(lines_horizontal[5, [2, -3, -2, -1]])
-    insulated_nmc_2 = list(lines_vertical[5, [3, -4]])
-    insulated_separator_2 = list(lines_vertical[6, [1, -2]]) + list(lines_horizontal[-3, [1, -2]]) + list(lines_horizontal[-4, [1, 2, -3, -2]])
-    insulated_graphite_2 = list(lines_vertical[-2, [2, -3]])
-    insulated_negative_cc_2 = list(lines_vertical[-1, [-3]]) + list(lines_horizontal[-2, [0, 1]])
-
+    insulated_negative_cc_1 = list(lines_vertical[0, [-4]]) + list(lines_horizontal[1, [0, 1, 2]])
+    insulated_graphite_1 = list(lines_vertical[1, [3, -4]])
+    insulated_separator_1 = list(lines_vertical[2, [2, -3]]) + list(lines_horizontal[2, [2, -3]]) + list(lines_horizontal[3, [2, 3, 4, -4, -3]])
+    insulated_nmc_1 = list(lines_vertical[3, [4, -5]])
+    insulated_positive_cc_1 = list(lines_vertical[4, [3]]) + list(lines_horizontal[4, [3, -4, -3, -2]])  + list(lines_horizontal[5, [3, -4, -3, -2]])
+    insulated_nmc_2 = list(lines_vertical[5, [4, -5]])
+    insulated_separator_2 = list(lines_vertical[6, [2, -3]]) + list(lines_horizontal[-3, [2, -3]]) + list(lines_horizontal[-4, [2, 3, 4, -4, -3]])
+    insulated_graphite_2 = list(lines_vertical[-2, [3, -4]])
+    insulated_negative_cc_2 = list(lines_vertical[-1, [-4]]) + list(lines_horizontal[-2, [0, 1, 2]])
+    insulated_free_electrolyte = list(lines_vertical[1:-1, 1]) + list(lines_vertical[1:-1, -1]) + list(lines_horizontal[1, -3:]) + list(lines_horizontal[-2, -3:])
     insulated = insulated_negative_cc_1 + insulated_graphite_1 + insulated_separator_1 + insulated_nmc_1 + insulated_positive_cc_1 +\
-        insulated_nmc_2 + insulated_separator_2 + insulated_graphite_2 + insulated_negative_cc_2 
+        insulated_nmc_2 + insulated_separator_2 + insulated_graphite_2 + insulated_negative_cc_2 + insulated_free_electrolyte
     gmsh.model.addPhysicalGroup(1, insulated_negative_cc_1, boundaries.insulated_negative_cc_1, "insulated_negative_cc_1")
     gmsh.model.addPhysicalGroup(1, insulated_graphite_1, boundaries.insulated_graphite_1, "insulated_graphite_1")
     gmsh.model.addPhysicalGroup(1, insulated_separator_1, boundaries.insulated_separator_1, "insulated_separator_1")
@@ -351,16 +387,20 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(1, insulated, boundaries.insulated, "insulated")
 
     gmsh.model.occ.synchronize()
-    negative_cc_1 = list(surfaces[0, :-2])
-    graphite_1 = list(surfaces[1, 2:-2])
-    separator_1 = list(surfaces[2, 1:-1])
-    nmc_1 = list(surfaces[3, 3:-3])
+    negative_cc_1 = list(surfaces[0, :-3])
+    graphite_1 = list(surfaces[1, 2:-3])
+    separator_1 = list(surfaces[2, 1:-2])
+    nmc_1 = list(surfaces[3, 4:-4])
     positive_cc_1 = list(surfaces[4, 2:])
-    nmc_2 = list(surfaces[-4, 3:-3])
-    separator_2 = list(surfaces[-3, 1:-1])
-    graphite_2 = list(surfaces[-2, 2:-2])
-    negative_cc_2 = list(surfaces[-1, :-2])
-    valid_surfs = negative_cc_1 + graphite_1 + separator_1 + nmc_1 + positive_cc_1 + nmc_2 + separator_2 + graphite_2 + negative_cc_2
+    nmc_2 = list(surfaces[-4, 4:-4])
+    separator_2 = list(surfaces[-3, 1:-2])
+    graphite_2 = list(surfaces[-2, 2:-3])
+    negative_cc_2 = list(surfaces[-1, :-3])
+    free_electrolyte = list(surfaces[1, [1, 2, -3, -2, -1]]) + list(surfaces[-2, [1, 2, -3, -2, -1]]) +\
+        list(surfaces[2, [1, -2, -1]]) + list(surfaces[-3, [1, -2, -1]]) +\
+        list(surfaces[3, [1, 2, 3, -4, -3, -2, -1]]) + list(surfaces[5, [1, 2, 3, -4, -3, -2, -1]]) +\
+        list(surfaces[4, [1, 2, -1]])
+    valid_surfs = negative_cc_1 + graphite_1 + separator_1 + nmc_1 + positive_cc_1 + nmc_2 + separator_2 + graphite_2 + negative_cc_2 + free_electrolyte
     gmsh.model.addPhysicalGroup(2, negative_cc_1, phases.negative_cc_1, "negative_cc_1")
     gmsh.model.addPhysicalGroup(2, graphite_1, phases.graphite_1, "graphite_1")
     gmsh.model.addPhysicalGroup(2, separator_1, phases.separator_1, "separator_1")
@@ -370,6 +410,7 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, separator_2, phases.separator_2, "separator_2")
     gmsh.model.addPhysicalGroup(2, graphite_2, phases.graphite_2, "graphite_2")
     gmsh.model.addPhysicalGroup(2, negative_cc_2, phases.negative_cc_2, "negative_cc_2")
+    gmsh.model.addPhysicalGroup(2, free_electrolyte, phases.free_electrolyte, "free_electrolyte")
     gmsh.model.occ.synchronize()
 
     # line below creates structured mesh, so comment line if want unstructured mesh
