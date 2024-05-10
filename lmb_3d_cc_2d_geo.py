@@ -131,7 +131,6 @@ if __name__ == '__main__':
     gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 1)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
-    gmsh.option.setNumber('Mesh.ColorCarousel', 2)
     gmsh.option.setNumber('Mesh.Optimize', 1)
     gmsh.option.setNumber('Mesh.Algorithm', 6)
     gmsh.option.setNumber('Mesh.OptimizeThreshold', 0.75)
