@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
 
 import gmsh
@@ -36,9 +37,10 @@ if __name__ == '__main__':
     name_of_study = args.name_of_study
     dimensions = args.dimensions
     dimensions_ii = f'{int(step_width1/micron)}-{int(step_width2/micron)}-{int(step_length/micron)}'
-    workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, dimensions_ii, str(resolution))
+    workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, dimensions_ii, f'{resolution:.1e}')
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(workdir, 'mesh.msh')
+    output_metafile = os.path.join(workdir, 'geometry.json')
 
     markers = commons.Markers()
     points = [
@@ -128,3 +130,11 @@ if __name__ == '__main__':
     print(f"Minimum angle in triangles is {np.rad2deg(min(angles)):.2f} degrees")
     gmsh.write(output_meshfile)
     gmsh.finalize()
+
+    metadata = {
+        "resolution": resolution,
+        "minimum triangle angle (rad)": min(angles),
+        "adaptive refine": args.refine,
+    }
+    with open(output_metafile, "w", encoding='utf-8') as f:
+        json.dump(metadata, f, ensure_ascii=False, indent=4)

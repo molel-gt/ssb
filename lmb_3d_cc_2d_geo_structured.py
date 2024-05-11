@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import os
 import warnings
 
@@ -21,6 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='MICRON_TO_METER', type=str)
     parser.add_argument('--resolution', help=f'max resolution resolution', nargs='?', const=1, default=1, type=float)
+    parser.add_argument("--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
     micron = 1e-6
     resolution = args.resolution * micron
@@ -32,9 +34,10 @@ if __name__ == '__main__':
     step_width2 = (args.l_pos - 2 * args.particle_radius) * micron
     dimensions = args.dimensions
     dimensions_ii = f'{int(step_width1/micron)}-{int(step_width2/micron)}-{int(step_length/micron)}'
-    workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, dimensions_ii, str(resolution))
+    workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, dimensions_ii, f"{resolution:.1e}")
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(workdir, 'mesh.msh')
+    output_metafile = os.path.join(workdir, 'geometry.json')
 
     markers = commons.Markers()
 
@@ -160,3 +163,11 @@ if __name__ == '__main__':
             angles += _angles
     print(f"Minimum angle in triangles is {np.rad2deg(min(angles)):.2f} degrees")
     gmsh.finalize()
+
+    metadata = {
+        "resolution": resolution,
+        "minimum triangle angle (rad)": min(angles),
+        "adaptive refine": args.refine,
+    }
+    with open(output_metafile, "w", encoding='utf-8') as f:
+        json.dump(metadata, f, ensure_ascii=False, indent=4)
