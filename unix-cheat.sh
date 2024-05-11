@@ -36,3 +36,6 @@ du -sh * | sort -h
 
 # install from requirements
 conda install --file requirements.txt
+
+# remove conda env
+mamba remove --name paraview --all
