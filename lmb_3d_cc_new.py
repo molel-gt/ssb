@@ -52,17 +52,17 @@ if __name__ == '__main__':
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1.0, type=float)
-    parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
+    parser.add_argument("--Wa_n", help="Wagna number for negative electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
+    parser.add_argument("--Wa_p", help="Wagna number for positive electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
     parser.add_argument("--gamma", help="interior penalty parameter", nargs='?', const=1, default=15, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='MICRON_TO_METER', type=str)
 
     args = parser.parse_args()
     start_time = timeit.default_timer()
-    Wa = args.Wa
     voltage = args.voltage
-    Wa_n = Wa
-    Wa_p = Wa
+    Wa_n = args.Wa_n
+    Wa_p = args.Wa_p
     comm = MPI.COMM_WORLD
     encoding = io.XDMFFile.Encoding.HDF5
     micron = 1e-6
