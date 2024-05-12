@@ -49,13 +49,15 @@ if __name__ == '__main__':
     output_meshfile = os.path.join(workdir, "mesh.msh")
     output_metafile = os.path.join(workdir, 'geometry.json')
     boundaries = Boundaries()
+    LX = 50
+    LY = 100
     points_left = [
         (0, 0, 0),
-        (0, 1000 * micron, 0),
+        (0, LY * micron, 0),
     ]
     points_right = [
-        (50 * micron, 0, 0),
-        (50 * micron, 1000 * micron, 0),
+        (LX * micron, 0, 0),
+        (LX * micron, LY * micron, 0),
     ]
     points = np.zeros((2, 2), dtype=np.intc)
     lines_horizontal = np.zeros((2, 1), dtype=np.intc)
