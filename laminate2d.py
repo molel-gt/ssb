@@ -32,7 +32,7 @@ alpha_c = dolfinx.fem.Constant(mesh2d, PETSc.ScalarType(0.5))
 F = dolfinx.fem.Constant(mesh2d, PETSc.ScalarType(96485))  # coulomb per mole --> Faraday constant
 u_am = dolfinx.fem.Constant(mesh2d, PETSc.ScalarType(0))
 
-V = dolfinx.fem.FunctionSpace(mesh2d, ("CG", 1))
+V = dolfinx.fem.functionspace(mesh2d, ("CG", 1))
 v = ufl.TestFunction(V)
 u = dolfinx.fem.Function(V)
 
@@ -60,7 +60,7 @@ ds_right_cc = ufl.Measure('ds', domain=mesh2d, subdomain_data=surf_meshtags, sub
 F = ufl.inner(K0 * ufl.grad(u), ufl.grad(v)) * ufl.dx
 
 # set bcs
-W = dolfinx.fem.FunctionSpace(mesh2d, ("Lagrange", 1))
+W = dolfinx.fem.functionspace(mesh2d, ("Lagrange", 1))
 
 def grad_u_bv(u):
     """magnitude of gradient of potential expressed using Butler-Volmer

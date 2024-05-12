@@ -21,49 +21,6 @@ warnings.simplefilter('ignore')
 
 
 markers = commons.Markers()
-cell_types = commons.CellTypes()
-max_resolution = 2.5
-
-
-def mesh_surface(coords, xmax=470, ymax=470):
-    points = {}
-    count = 0
-    for row in coords:
-        points[(row[0], row[1])] = count
-        count += 1
-    points_set = set(points.keys())
-
-    triangles = []
-    for (x0, y0) in points_set:
-        p0 = points[(x0, y0)]
-        neighbors = [
-            (int(x0 + 1), y0),
-            (int(x0 + 1), int(y0 + 1)),
-            (x0, int(y0 + 1))
-        ]
-        neighbor_points = [p0]
-        for p in neighbors:
-            v = points.get(p)
-            neighbor_points.append(v)
-
-        midpoint = (x0 + 0.5, y0 + 0.5)
-        if midpoint[0] > xmax or midpoint[1] > ymax:
-            continue
-        points[midpoint] = count
-        p2 = count
-        count += 1
-        for i in range(4):
-            p0 = neighbor_points[i]
-            if i == 3:
-                p1 = neighbor_points[0]
-            else:
-                p1 = neighbor_points[i + 1]
-            if not p0 is None and not p1 is None:
-                triangles.append(
-                    (p0, p1, p2)
-                )
-
-    return triangles, points
 
 
 if __name__ == '__main__':
@@ -123,8 +80,10 @@ if __name__ == '__main__':
         (LX, LY, LZ - Rp),
         (0, LY, LZ - Rp),
     ]
+
     points0 = []
     points1 = []
+
     lines = []
 
     for i in range(4):
@@ -132,83 +91,55 @@ if __name__ == '__main__':
         points0.append(idx)
     for i in range(4):
         idx = gmsh.model.occ.addPoint(*zL_points[i])
-        points1.append(
-            idx
-        )
+        points1.append(idx)
+
     gmsh.model.occ.synchronize()
     for i in range(-1, 3):
         idx = gmsh.model.occ.addLine(points0[i], points0[i + 1])
-        lines.append(
-            idx
-        )
+        lines.append(idx)
 
     for i in range(-1, 3):
         idx = gmsh.model.occ.addLine(points1[i], points1[i + 1])
-        lines.append(
-            idx
-        )
+        lines.append(idx)
 
     # 1 --> 5
     idx = gmsh.model.occ.addLine(points0[1], points1[1])
-    lines.append(
-        idx
-    )
+    lines.append(idx)
 
     # 2 --> 6
     idx = gmsh.model.occ.addLine(points0[2], points1[2])
-    lines.append(
-        idx
-    )
+    lines.append(idx)
 
     # 3 --> 7
     idx = gmsh.model.occ.addLine(points0[3], points1[3])
-    lines.append(
-        idx
-    )
+    lines.append(idx)
 
     # 0 --> 4
     idx = gmsh.model.occ.addLine(points0[0], points1[0])
-    lines.append(
-        idx
-    )
+    lines.append(idx)
 
     gmsh.model.occ.synchronize()
 
     loops = []
     # xy sides
     idx = gmsh.model.occ.addCurveLoop(lines[:4])
-    loops.append(
-        idx
-    )
-
+    loops.append(idx)
     idx = gmsh.model.occ.addCurveLoop(lines[4:8])
-    loops.append(
-        idx
-    )
+    loops.append(idx)
 
     # xz sides
     idx = gmsh.model.occ.addCurveLoop([lines[1]] + [lines[8]] + [lines[5]] + [lines[11]])
-    loops.append(
-        idx
-    )
-
+    loops.append(idx)
     idx = gmsh.model.occ.addCurveLoop([lines[3]] + [lines[9]] + [lines[7]] + [lines[10]])
-    loops.append(
-        idx
-    )
+    loops.append(idx)
 
     # yz sides
     idx = gmsh.model.occ.addCurveLoop([lines[2]] + [lines[8]] + [lines[6]] + [lines[9]])
-    loops.append(
-        idx
-    )
-
+    loops.append(idx)
     idx = gmsh.model.occ.addCurveLoop([lines[0]] + [lines[11]] + [lines[4]] + [lines[10]])
-    loops.append(
-        idx
-    )
+    loops.append(idx)
 
-    gmsh.model.occ.synchronize()
+    # gmsh.model.occ.synchronize()
 
     side_loops = []
     insulated = []
@@ -231,16 +162,12 @@ if __name__ == '__main__':
         hull_points = []
         for pp in hull[:-1]:
             idx = gmsh.model.occ.addPoint(int(pp[0]) * scale_x, int(pp[1]) * scale_y, 0)
-            hull_points.append(
-                idx
-            )
+            hull_points.append(idx)
         gmsh.model.occ.synchronize()
         hull_lines = []
         for i in range(-1, len(hull_points) - 1):
             idx = gmsh.model.occ.addLine(hull_points[i], hull_points[i + 1])
-            hull_lines.append(
-                idx
-            )
+            hull_lines.append(idx)
 
         gmsh.model.occ.synchronize()
         idx = gmsh.model.occ.addCurveLoop(hull_lines)
@@ -249,28 +176,27 @@ if __name__ == '__main__':
         left.append(idx2)
         gmsh.model.occ.synchronize()
 
-    right = [gmsh.model.occ.addPlaneSurface((loops[1], ))]
+    middle = [gmsh.model.occ.addPlaneSurface((loops[1], ))]
     gmsh.model.occ.synchronize()
 
     for vv in loops[2:]:
         idx = gmsh.model.occ.addPlaneSurface((vv, ))
-        insulated.append(
-            idx
-        )
+        insulated.append(idx)
         gmsh.model.occ.synchronize()
 
-    if len(np.unique(img)) == 1 and np.isclose(np.unique(img)[0], 1):
-        insulated += [gmsh.model.occ.addPlaneSurface((loops[0], ))]
-    else:
-        insulated += [gmsh.model.occ.addPlaneSurface((loops[0], *side_loops))]
+    insulated += [gmsh.model.occ.addPlaneSurface((loops[0], *side_loops))]
 
     gmsh.model.occ.healShapes()
     gmsh.model.occ.synchronize()
-    surfaces = tuple(left + insulated + right)
+    surfaces_1 = tuple(left + insulated + middle)
 
     gmsh.model.occ.synchronize()
-    sloop = gmsh.model.occ.addSurfaceLoop(surfaces)
+
+    sloop1 = gmsh.model.occ.addSurfaceLoop(surfaces_1)
+    box_am = gmsh.model.occ.addBox(0, 0, LZ - Rp, LX, LY, Rp)
+
     gmsh.model.occ.synchronize()
+    
     # left_surfs = [vv[1] for vv in gmsh.model.occ.getEntities(2) if vv[1] >= 7]
     # print(left_surfs)
     # insulated_se += [2, 3, 4, 5, 6]
@@ -280,26 +206,27 @@ if __name__ == '__main__':
         # print(surf, ": ", com)
 
     box_se = gmsh.model.occ.getEntities(3)[0][1]
-    box_am = gmsh.model.occ.addBox(0, 0, LZ - Rp, LX, LY, Rp)
-    gmsh.model.occ.synchronize()
+    box_am = gmsh.model.occ.getEntities(3)[1][1]
     cylinders = []
     spheres = []
-
+    counter = 3
     for idx in range(df.shape[0]):
         x, y, _ = df.loc[idx, :]
         if (x + Rp) >= LX or (y + Rp) >= LY:
             continue
         if (x - Rp) <= 0 or (y - Rp) <= 0:
             continue
-        cyl = gmsh.model.occ.addCylinder(x, y, Lsep, 0, 0, Lcat - Rp, Rp)
-        gmsh.model.occ.synchronize()
-        cylinders.append(cyl)
+        gmsh.model.occ.addCylinder(x, y, Lsep, 0, 0, Lcat - Rp, Rp, counter)
+        cylinders.append((3, counter))
+        counter += 1
 
-    union = gmsh.model.occ.fuse([(3, box_am)], [(3, c) for c in cylinders], removeTool=False)
-    gmsh.model.occ.synchronize()
-    diff = gmsh.model.occ.cut([(3, box_se)], [(3, c) for c in cylinders], removeTool=False)
+    ov, ovv = gmsh.model.occ.fragment([(3, box_am)], cylinders)
+    copy =gmsh.model.occ.copy(ov[1:])
+    gmsh.model.occ.cut([(3, box_se)], copy)
+
     gmsh.model.occ.synchronize()
     vols = gmsh.model.occ.getEntities(3)
+
     se_volumes = []
     am_volumes = []
     for (_, vol) in vols:
@@ -362,7 +289,7 @@ if __name__ == '__main__':
     # gmsh.model.occ.synchronize()
     print("Generating mesh..")
     gmsh.model.mesh.generate(3)
-    gmsh.write(f"{mshpath}")
+    gmsh.write(mshpath)
     gmsh.finalize()
 
     geometry_metadata = {

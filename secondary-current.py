@@ -113,7 +113,7 @@ def create_mesh(kappa=0.5, y_lower=0.25, y_upper=0.75):
 
     grad_u = ufl.grad(uh)
 
-    W = dolfinx.fem.FunctionSpace(mesh, ("Lagrange", 1))
+    W = dolfinx.fem.functionspace(mesh, ("Lagrange", 1))
     current_expr = dolfinx.fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
     current_h = dolfinx.fem.Function(W)
     current_h.interpolate(current_expr)

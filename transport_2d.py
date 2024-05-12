@@ -21,7 +21,7 @@ with dolfinx.io.XDMFFile(MPI.COMM_WORLD, f"{meshname}.xdmf", "r") as infile3:
 
 msh.topology.create_connectivity(msh.topology.dim, msh.topology.dim-1)
 
-Q = dolfinx.fem.FunctionSpace(msh, ("DG", 0))
+Q = dolfinx.fem.functionspace(msh, ("DG", 0))
 kappa = 1.0
 # kappa = dolfinx.fem.Function(Q)
 # lithium_cells = ct.indices[np.argwhere(ct.values == 1)]
@@ -29,7 +29,7 @@ kappa = 1.0
 # electrolyte_cells = ct.indices[np.argwhere(ct.values == 2)]
 # kappa.x.array[electrolyte_cells]  = np.full_like(electrolyte_cells, 1, dtype=PETSc.ScalarType)
 
-V = dolfinx.fem.FunctionSpace(msh, ("Lagrange", 1))
+V = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
 
 # Dirichlet BCs
 u0 = dolfinx.fem.Function(V)
@@ -64,7 +64,7 @@ with dolfinx.io.XDMFFile(msh.comm, f"{meshname}-{coverage}-potential.xdmf", "w")
     file.write_function(uh)
 grad_u = ufl.grad(uh)
 
-W = dolfinx.fem.FunctionSpace(msh, ("Lagrange", 1))
+W = dolfinx.fem.functionspace(msh, ("Lagrange", 1))
 
 current_expr = dolfinx.fem.Expression(ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points)
 current_h = dolfinx.fem.Function(W)

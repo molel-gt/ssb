@@ -52,17 +52,17 @@ if __name__ == '__main__':
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1.0, type=float)
-    parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
+    parser.add_argument("--Wa_n", help="Wagna number for negative electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
+    parser.add_argument("--Wa_p", help="Wagna number for positive electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
     parser.add_argument("--gamma", help="interior penalty parameter", nargs='?', const=1, default=15, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='MICRON_TO_METER', type=str)
 
     args = parser.parse_args()
     start_time = timeit.default_timer()
-    Wa = args.Wa
     voltage = args.voltage
-    Wa_n = Wa
-    Wa_p = Wa
+    Wa_n = args.Wa_n
+    Wa_p = args.Wa_p
     comm = MPI.COMM_WORLD
     encoding = io.XDMFFile.Encoding.HDF5
     micron = 1e-6
@@ -98,10 +98,10 @@ if __name__ == '__main__':
     dS = ufl.Measure("dS", domain=domain, subdomain_data=ft)
 
     # ### Function Spaces
-    V = fem.FunctionSpace(domain, ("DG", 1))
+    V = fem.functionspace(domain, ("DG", 1))
     W = fem.functionspace(domain, ("DG", 1, (3,)))
     Z = fem.functionspace(domain, ("CG", 1, (3,)))
-    Q = fem.FunctionSpace(domain, ("DG", 0))
+    Q = fem.functionspace(domain, ("DG", 0))
     u = fem.Function(V, name='potential')
     v = ufl.TestFunction(V)
     current_h = fem.Function(W, name='current_density')
@@ -161,8 +161,8 @@ if __name__ == '__main__':
     F += alpha / h_avg * avg(kappa) * inner(jump(u, n), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
 
     # Nitsche Dirichlet BC terms on left and right boundaries
-    # F += - kappa * (u - u_left) * inner(n, grad(v)) * ds(markers.left)
-    # F += -gamma / h * (u - u_left) * v * ds(markers.left)
+    F += - kappa * (u - u_left) * inner(n, grad(v)) * ds(markers.left)
+    F += -gamma / h * (u - u_left) * v * ds(markers.left)
     F += - kappa * (u - u_right) * inner(n, grad(v)) * ds(markers.right) 
     F += -gamma / h * (u - u_right) * v * ds(markers.right)
 
@@ -173,20 +173,20 @@ if __name__ == '__main__':
     F += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.insulated_positive_am)
 
     # kinetics boundary - neumann
-    F += - gamma * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.left)
-    F -= - gamma * h * 2 * i0_n * ufl.sinh(0.5 * faraday_const / R / T * (V_left - u - 0)) * inner(grad(v), n) * ds(markers.left)
+    # F += - gamma * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.left)
+    # F -= - gamma * h * 2 * i0_n * ufl.sinh(0.5 * faraday_const / R / T * (V_left - u - 0)) * inner(grad(v), n) * ds(markers.left)
 
     problem = petsc.NonlinearProblem(F, u)
     solver = petsc_nls.NewtonSolver(comm, problem)
     solver.convergence_criterion = "residual"
-    solver.maximum_iterations = 25
-    solver.rtol = 1.0e-12
+    # solver.maximum_iterations = 25
+    solver.rtol = 1.0e2 * np.finfo(default_real_type).eps
     solver.atol = 1.0e1 * np.finfo(default_real_type).eps
 
     ksp = solver.krylov_solver
 
     opts = PETSc.Options()
-    ksp.setMonitor(lambda _, it, residual: print(it, residual))
+    # ksp.setMonitor(lambda _, it, residual: print(it, residual))
     option_prefix = ksp.getOptionsPrefix()
     opts[f"{option_prefix}ksp_type"] = "preonly"
     opts[f"{option_prefix}pc_type"] = "lu"

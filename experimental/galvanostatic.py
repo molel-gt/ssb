@@ -39,7 +39,7 @@ g = dolfinx.fem.Constant(mesh2d, PETSc.ScalarType(0.0))
 kappa = fem.Constant(mesh2d, PETSc.ScalarType(1))
 
 # Define function space and standard part of variational form
-V = fem.FunctionSpace(mesh2d, ("CG", 1))
+V = fem.functionspace(mesh2d, ("CG", 1))
 u, v = fem.Function(V), ufl.TestFunction(V)
 
 def i_butler_volmer(phi1=u, phi2=phi2):
@@ -109,7 +109,7 @@ area_right_cc = dolfinx.fem.assemble_scalar(dolfinx.fem.form(1 * ds(2)))
 i_left_cc = (1/area_left_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(1)))
 i_right_cc = (1/area_right_cc) * dolfinx.fem.assemble_scalar(dolfinx.fem.form(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(2)))
 
-W = dolfinx.fem.FunctionSpace(mesh2d, ("Lagrange", 1))
+W = dolfinx.fem.functionspace(mesh2d, ("Lagrange", 1))
 current_expr = dolfinx.fem.Expression(kappa * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
 current_h = dolfinx.fem.Function(W)
 current_h.interpolate(current_expr)
