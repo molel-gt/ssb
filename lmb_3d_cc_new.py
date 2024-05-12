@@ -55,6 +55,8 @@ if __name__ == '__main__':
     parser.add_argument("--Wa_n", help="Wagna number for negative electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
     parser.add_argument("--Wa_p", help="Wagna number for positive electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
     parser.add_argument("--gamma", help="interior penalty parameter", nargs='?', const=1, default=15, type=float)
+    parser.add_argument("--atol", help="solver absolute tolerance", nargs='?', const=1, default=1e-12, type=float)
+    parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-9, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='MICRON_TO_METER', type=str)
 
@@ -93,9 +95,9 @@ if __name__ == '__main__':
     values[ft.indices] = ft.values
     ft = mesh.meshtags(domain, fdim, indices, values)
     ct = mesh.meshtags(domain, tdim, ct.indices, ct.values)
-    dx = ufl.Measure("dx", domain=domain, subdomain_data=ct)
-    ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
-    dS = ufl.Measure("dS", domain=domain, subdomain_data=ft)
+    dx = ufl.Measure("dx", domain=domain, subdomain_data=ct, metadata={"quadrature_degree": 4})
+    ds = ufl.Measure("ds", domain=domain, subdomain_data=ft, metadata={"quadrature_degree": 4})
+    dS = ufl.Measure("dS", domain=domain, subdomain_data=ft, metadata={"quadrature_degree": 4})
 
     # ### Function Spaces
     V = fem.functionspace(domain, ("DG", 1))
@@ -180,8 +182,8 @@ if __name__ == '__main__':
     solver = petsc_nls.NewtonSolver(comm, problem)
     solver.convergence_criterion = "residual"
     # solver.maximum_iterations = 25
-    solver.rtol = 1.0e2 * np.finfo(default_real_type).eps
-    solver.atol = 1.0e1 * np.finfo(default_real_type).eps
+    solver.rtol = args.rtol
+    solver.atol = args.atol
 
     ksp = solver.krylov_solver
 
@@ -248,6 +250,9 @@ if __name__ == '__main__':
         "Current at electrolyte - positive am boundary": f"{np.abs(I_pos_charge_xfer):.2e} A",
         "Current at right boundary": f"{np.abs(I_right):.2e} A",
         "Current at insulated boundary": f"{I_insulated:.2e} A",
+        "solver atol": args.atol,
+        "solver rtol": args.rtol,
+
     }
     if comm.rank == 0:
         utils.print_dict(simulation_metadata, padding=50)
