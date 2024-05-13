@@ -52,7 +52,7 @@ if __name__ == '__main__':
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1.0, type=float)
-    parser.add_argument("--Wa_n", help="Wagna number for negative electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
+    parser.add_argument("--Wa_n", help="Wagna number for negative electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e-3, type=float)
     parser.add_argument("--Wa_p", help="Wagna number for positive electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
     parser.add_argument("--gamma", help="interior penalty parameter", nargs='?', const=1, default=15, type=float)
     parser.add_argument("--atol", help="solver absolute tolerance", nargs='?', const=1, default=1e-12, type=float)
@@ -140,7 +140,7 @@ if __name__ == '__main__':
 
     alpha = args.gamma
     gamma = args.gamma
-    i_loc = inner((kappa * grad(u))('-'), n("+"))
+    i_loc = -inner((kappa * grad(u))('-'), n("+"))
     u_jump = 2 * ufl.ln(0.5 * i_loc/i0_p + ufl.sqrt((0.5 * i_loc/i0_p)**2 + 1)) * (R * T / faraday_const)
 
     F = kappa * inner(grad(u), grad(v)) * dx - f * v * dx - kappa * inner(grad(u), n) * v * ds
@@ -153,8 +153,8 @@ if __name__ == '__main__':
     F += alpha / h_avg * avg(kappa) * inner(jump(v, n), jump(u, n)) * dS(0)
 
     # Internal boundary
-    F += + avg(kappa) * dot(avg(grad(v)), (u_ocv - u_jump) * n('+')) * dS(markers.electrolyte_v_positive_am)
-    F += -alpha / h_avg * avg(kappa) * dot(jump(v, n), (u_ocv - u_jump) * n('+')) * dS(markers.electrolyte_v_positive_am)
+    F += + avg(kappa) * dot(avg(grad(v)), -(u_ocv - u_jump) * n('+')) * dS(markers.electrolyte_v_positive_am)
+    F += -alpha / h_avg * avg(kappa) * dot(jump(v, n), -(u_ocv - u_jump) * n('+')) * dS(markers.electrolyte_v_positive_am)
 
     # # Symmetry
     F += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
@@ -182,8 +182,8 @@ if __name__ == '__main__':
     solver = petsc_nls.NewtonSolver(comm, problem)
     solver.convergence_criterion = "residual"
     # solver.maximum_iterations = 25
-    solver.rtol = args.rtol
-    solver.atol = args.atol
+    # solver.rtol = args.rtol
+    # solver.atol = args.atol
 
     ksp = solver.krylov_solver
 
@@ -214,7 +214,7 @@ if __name__ == '__main__':
         vtx.write(0.0)
 
     I_neg_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.left))), op=MPI.SUM)
-    I_pos_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(2 * i0_p * ufl.sinh(0.5*faraday_const / R / T * (u("+") - u("-") - u_ocv)) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
+    I_pos_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(2 * i0_p * ufl.sinh(0.5*faraday_const / R / T * (u("-") - u("+") - u_ocv)) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     I_pos_am = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h("+"), n("+")) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     I_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.right))), op=MPI.SUM)
     I_insulated_elec = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(current_h, n)) * ds(markers.insulated_electrolyte))), op=MPI.SUM)
@@ -227,7 +227,7 @@ if __name__ == '__main__':
     i_sup_left = np.abs(I_neg_charge_xfer / area_neg_charge_xfer)
     i_sup = np.abs(I_right / area_right)
     
-    eta_p = domain.comm.allreduce(fem.assemble_scalar(fem.form((u("+") - u("-") - u_ocv) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM) / area_pos_charge_xfer
+    eta_p = domain.comm.allreduce(fem.assemble_scalar(fem.form((u("-") - u("+") - u_ocv) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM) / area_pos_charge_xfer
     u_avg_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.right))) / area_right, op=MPI.SUM)
     u_avg_left = domain.comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.left))) / area_left, op=MPI.SUM)
     u_stdev_right = domain.comm.allreduce(np.sqrt(fem.assemble_scalar(fem.form((u - u_avg_right) ** 2 * ds(markers.right))) / area_right), op=MPI.SUM)
@@ -247,7 +247,7 @@ if __name__ == '__main__':
         "stdev potential right [V]": u_stdev_right,
         "Superficial current density [A/m2]": f"{np.abs(i_sup):.2e} [A/m2]",
         "Current at negative am - electrolyte boundary": f"{np.abs(I_neg_charge_xfer):.2e} A",
-        "Current at electrolyte - positive am boundary": f"{np.abs(I_pos_charge_xfer):.2e} A",
+        "Current at electrolyte - positive am boundary": f"{np.abs(I_pos_am):.2e} A",
         "Current at right boundary": f"{np.abs(I_right):.2e} A",
         "Current at insulated boundary": f"{I_insulated:.2e} A",
         "solver atol": args.atol,
