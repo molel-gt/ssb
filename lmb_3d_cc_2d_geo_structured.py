@@ -134,7 +134,7 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(1, [lines_horizontal[0, idx] for idx in [4]] + [lines_horizontal[-1, idx] for idx in [4]], markers.insulated_positive_am, "insulated_positive_am")
     gmsh.model.addPhysicalGroup(1, [lines_horizontal[0, idx] for idx in [2, 3]] + [lines_horizontal[-1, idx] for idx in [2, 3]], markers.insulated_electrolyte, "insulated_electrolyte")
     gmsh.model.addPhysicalGroup(1, [lines_vertical[1, 1]] + [lines_vertical[idx, 2] for idx in [0, 2]], markers.left, "negative_cc_v_negative_am")
-    gmsh.model.addPhysicalGroup(1, [lines_vertical[1, 3]] + [lines_vertical[idx, 4] for idx in [0, 2]], markers.electrolyte_v_positive_am, "electrolyte_v_positive_am")
+    gmsh.model.addPhysicalGroup(1, [lines_vertical[1, 3]] + [lines_vertical[idx, 4] for idx in [0, 2]] + list(lines_horizontal[1, -2:-1]) + list(lines_horizontal[2, -2:-1]), markers.electrolyte_v_positive_am, "electrolyte_v_positive_am")
     gmsh.model.occ.synchronize()
 
     gmsh.model.occ.synchronize()
