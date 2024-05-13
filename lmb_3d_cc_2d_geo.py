@@ -129,14 +129,13 @@ if __name__ == '__main__':
 
     gmsh.initialize()
     gmsh.model.add('lithium-metal')
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", resolution)
-    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
+    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 1)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
-    gmsh.option.setNumber('Mesh.Optimize', 1)
-    gmsh.option.setNumber('Mesh.Algorithm', 6)
-    gmsh.option.setNumber('Mesh.OptimizeThreshold', 0.75)
-    gmsh.option.setNumber('Mesh.AllowSwapAngle', 30)
+    # gmsh.option.setNumber('Mesh.Optimize', 1)
+    # gmsh.option.setNumber('Mesh.Algorithm', 6)
+    # gmsh.option.setNumber('Mesh.OptimizeThreshold', 0.75)
+    # gmsh.option.setNumber('Mesh.AllowSwapAngle', 30)
 
     # points_corners.append(gmsh.model.occ.addPoint(*points_left[0]))
     # points_corners.append(gmsh.model.occ.addPoint(*points_left[1]))
@@ -228,14 +227,15 @@ if __name__ == '__main__':
 
     if args.refine:
         gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "EdgesList", [lines[1]] + interface_lines1 + interface_lines2 + lines[4:6] + lines[6:8])
+        # gmsh.model.mesh.field.setNumbers(1, "CurvesList", [lines[1]] + interface_lines1 + interface_lines2 + lines[4:6] + lines[6:8])
+        gmsh.model.mesh.field.setNumbers(1, "CurvesList", interface_lines1 + interface_lines2)
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
-        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution/20)
+        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution/10)
         gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
-        gmsh.model.mesh.field.setNumber(2, "DistMin", 0.01 * micron)
-        gmsh.model.mesh.field.setNumber(2, "DistMax", 2 * micron)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", resolution)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", 5 * resolution)
 
         gmsh.model.mesh.field.add("Max", 5)
         gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
