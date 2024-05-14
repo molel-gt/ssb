@@ -143,23 +143,7 @@ if __name__ == '__main__':
     refine_boundaries += list(lines_vertical[:, -1])
     refine_boundaries += [lines_vertical[1, 1]] + [lines_vertical[idx, 2] for idx in [0, 2]] + list(lines_horizontal[[1, 2], 1])
 
-    # if args.refine:
-    #     gmsh.model.mesh.field.add("Distance", 1)
-    #     gmsh.model.mesh.field.setNumbers(1, "CurvesList", refine_boundaries)
-    #     gmsh.model.mesh.field.add("Threshold", 2)
-    #     gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    #     gmsh.model.mesh.field.setNumber(2, "LcMin", resolution/10)
-    #     gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
-    #     gmsh.model.mesh.field.setNumber(2, "DistMin", 5 * micron)
-    #     gmsh.model.mesh.field.setNumber(2, "DistMax", 7.5 * micron)
-    #     gmsh.model.mesh.field.add("Max", 5)
-    #     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    #     gmsh.model.mesh.field.setAsBackgroundMesh(5)
-    #     gmsh.model.occ.synchronize()
-
-    # gmsh.model.mesh.setTransfiniteAutomatic()
     gmsh.model.mesh.setTransfiniteAutomatic([(2, s) for s in valid_surfs], cornerAngle=np.pi/4, recombine=False)
-    # gmsh.model.mesh.setTransfiniteCurve()
     gmsh.model.occ.synchronize()
 
     gmsh.model.mesh.generate(2)
