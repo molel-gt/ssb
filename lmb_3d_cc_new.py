@@ -93,11 +93,63 @@ if __name__ == '__main__':
     values = np.zeros(indices.shape, dtype=np.intc)
 
     values[ft.indices] = ft.values
+
+
     ft = mesh.meshtags(domain, fdim, indices, values)
     ct = mesh.meshtags(domain, tdim, ct.indices, ct.values)
     dx = ufl.Measure("dx", domain=domain, subdomain_data=ct, metadata={"quadrature_degree": 4})
     ds = ufl.Measure("ds", domain=domain, subdomain_data=ft, metadata={"quadrature_degree": 4})
     dS = ufl.Measure("dS", domain=domain, subdomain_data=ft, metadata={"quadrature_degree": 4})
+
+    f_to_c = domain.topology.connectivity(fdim, tdim)
+    c_to_f = domain.topology.connectivity(tdim, fdim)
+    charge_xfer_facets = ft.find(markers.electrolyte_v_positive_am)
+    left_entities = []
+    for i, facet in enumerate(charge_xfer_facets):
+        # Only loop over facets owned by the process to avoid duplicate integration
+        if facet >= ft_imap.size_local:
+            continue
+        # Find cells connected to facet
+        cells = f_to_c.links(facet)
+        # Get value of cells
+        marked_cells = ct.values[cells]
+        # Get electrolyte cells
+        correct_cell = np.flatnonzero(marked_cells == markers.electrolyte)
+
+        assert len(correct_cell) == 1
+        # Get local index of facet
+        local_facets = c_to_f.links(cells[correct_cell[0]])
+        local_index = np.flatnonzero(local_facets == facet)
+        assert len(local_index) == 1
+
+        # Append integration entities
+        left_entities.append(cells[correct_cell[0]])
+        left_entities.append(local_index[0])
+
+    right_entities = []
+    for i, facet in enumerate(charge_xfer_facets):
+        # Only loop over facets owned by the process to avoid duplicate integration
+        if facet >= ft_imap.size_local:
+            continue
+        # Find cells connected to facet
+        cells = f_to_c.links(facet)
+        # Get value of cells
+        marked_cells = ct.values[cells]
+        # Get positive am cells
+        correct_cell = np.flatnonzero(marked_cells == markers.positive_am)
+
+        assert len(correct_cell) == 1
+        # Get local index of facet
+        local_facets = c_to_f.links(cells[correct_cell[0]])
+        local_index = np.flatnonzero(local_facets == facet)
+        assert len(local_index) == 1
+
+        # Append integration entities
+        right_entities.append(cells[correct_cell[0]])
+        right_entities.append(local_index[0])
+
+    ds_xfer = ufl.Measure("ds", domain=domain, subdomain_data=[
+                 (1, np.asarray(left_entities, dtype=np.int32)), (2, np.asarray(right_entities, dtype=np.int32))])
 
     # ### Function Spaces
     V = fem.functionspace(domain, ("DG", 1))
