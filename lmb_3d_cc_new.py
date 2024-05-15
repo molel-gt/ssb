@@ -182,8 +182,8 @@ if __name__ == '__main__':
     solver = petsc_nls.NewtonSolver(comm, problem)
     solver.convergence_criterion = "residual"
     # solver.maximum_iterations = 25
-    # solver.rtol = args.rtol
-    # solver.atol = args.atol
+    solver.rtol = args.rtol
+    solver.atol = args.atol
 
     ksp = solver.krylov_solver
 
