@@ -97,59 +97,48 @@ if __name__ == '__main__':
 
     ft = mesh.meshtags(domain, fdim, indices, values)
     ct = mesh.meshtags(domain, tdim, ct.indices, ct.values)
+
     dx = ufl.Measure("dx", domain=domain, subdomain_data=ct, metadata={"quadrature_degree": 4})
     ds = ufl.Measure("ds", domain=domain, subdomain_data=ft, metadata={"quadrature_degree": 4})
-    dS = ufl.Measure("dS", domain=domain, subdomain_data=ft, metadata={"quadrature_degree": 4})
 
     f_to_c = domain.topology.connectivity(fdim, tdim)
     c_to_f = domain.topology.connectivity(tdim, fdim)
     charge_xfer_facets = ft.find(markers.electrolyte_v_positive_am)
-    left_entities = []
-    for i, facet in enumerate(charge_xfer_facets):
-        # Only loop over facets owned by the process to avoid duplicate integration
-        if facet >= ft_imap.size_local:
+    other_internal_facets = ft.find(0)
+    int_facet_domain = []
+    for f in charge_xfer_facets:
+        if f >= ft_imap.size_local or len(f_to_c.links(f)) != 2:
             continue
-        # Find cells connected to facet
-        cells = f_to_c.links(facet)
-        # Get value of cells
-        marked_cells = ct.values[cells]
-        # Get electrolyte cells
-        correct_cell = np.flatnonzero(marked_cells == markers.electrolyte)
+        c_0, c_1 = f_to_c.links(f)[0], f_to_c.links(f)[1]
+        subdomain_0, subdomain_1 = ct.values[[c_0, c_1]]
+        local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
+        local_f_1 = np.where(c_to_f.links(c_1) == f)[0][0]
+        if subdomain_0 > subdomain_1:
+            int_facet_domain.append(c_0)
+            int_facet_domain.append(local_f_0)
+            int_facet_domain.append(c_1)
+            int_facet_domain.append(local_f_1)
+        else:
+            int_facet_domain.append(c_1)
+            int_facet_domain.append(local_f_1)
+            int_facet_domain.append(c_0)
+            int_facet_domain.append(local_f_0)
 
-        assert len(correct_cell) == 1
-        # Get local index of facet
-        local_facets = c_to_f.links(cells[correct_cell[0]])
-        local_index = np.flatnonzero(local_facets == facet)
-        assert len(local_index) == 1
-
-        # Append integration entities
-        left_entities.append(cells[correct_cell[0]])
-        left_entities.append(local_index[0])
-
-    right_entities = []
-    for i, facet in enumerate(charge_xfer_facets):
-        # Only loop over facets owned by the process to avoid duplicate integration
-        if facet >= ft_imap.size_local:
+    other_internal_facet_domains = []
+    for f in other_internal_facets:
+        if f >= ft_imap.size_local or len(f_to_c.links(f)) != 2:
             continue
-        # Find cells connected to facet
-        cells = f_to_c.links(facet)
-        # Get value of cells
-        marked_cells = ct.values[cells]
-        # Get positive am cells
-        correct_cell = np.flatnonzero(marked_cells == markers.positive_am)
+        c_0, c_1 = f_to_c.links(f)[0], f_to_c.links(f)[1]
+        subdomain_0, subdomain_1 = ct.values[[c_0, c_1]]
+        local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
+        local_f_1 = np.where(c_to_f.links(c_1) == f)[0][0]
+        other_internal_facet_domains.append(c_0)
+        other_internal_facet_domains.append(local_f_0)
+        other_internal_facet_domains.append(c_1)
+        other_internal_facet_domains.append(local_f_1)
+    int_facet_domains = [(markers.electrolyte_v_positive_am, int_facet_domain)]#, (0, other_internal_facet_domains)]
 
-        assert len(correct_cell) == 1
-        # Get local index of facet
-        local_facets = c_to_f.links(cells[correct_cell[0]])
-        local_index = np.flatnonzero(local_facets == facet)
-        assert len(local_index) == 1
-
-        # Append integration entities
-        right_entities.append(cells[correct_cell[0]])
-        right_entities.append(local_index[0])
-
-    ds_xfer = ufl.Measure("ds", domain=domain, subdomain_data=[
-                 (1, np.asarray(left_entities, dtype=np.int32)), (2, np.asarray(right_entities, dtype=np.int32))])
+    dS = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains)
 
     # ### Function Spaces
     V = fem.functionspace(domain, ("DG", 1))
@@ -192,21 +181,21 @@ if __name__ == '__main__':
 
     alpha = args.gamma
     gamma = args.gamma
-    i_loc = -inner((kappa * grad(u))('-'), n("+"))
+    i_loc = -inner((kappa * grad(u))('+'), n("+"))
     u_jump = 2 * ufl.ln(0.5 * i_loc/i0_p + ufl.sqrt((0.5 * i_loc/i0_p)**2 + 1)) * (R * T / faraday_const)
 
     F = kappa * inner(grad(u), grad(v)) * dx - f * v * dx - kappa * inner(grad(u), n) * v * ds
 
     # Add DG/IP terms
-    F += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(0)
-    # F += - inner(jump(kappa * u, n), avg(grad(v))) * dS(0)
-    F += - inner(avg(kappa * grad(u)), jump(v, n)) * dS(0)
-    # F += + avg(u) * inner(jump(kappa, n), avg(grad(v))) * dS(0)
-    F += alpha / h_avg * avg(kappa) * inner(jump(v, n), jump(u, n)) * dS(0)
+    F += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS#(0)
+    # F += - inner(utils.jump(kappa * u, n), avg(grad(v))) * dS(0)
+    F += - inner(avg(kappa * grad(u)), jump(v, n)) * dS#(0)
+    # F += + avg(u) * inner(utils.jump(kappa, n), avg(grad(v))) * dS(0)
+    F += alpha / h_avg * avg(kappa) * inner(jump(v, n), jump(u, n)) * dS#(0)
 
     # Internal boundary
-    F += + avg(kappa) * dot(avg(grad(v)), -(u_ocv - u_jump) * n('+')) * dS(markers.electrolyte_v_positive_am)
-    F += -alpha / h_avg * avg(kappa) * dot(jump(v, n), -(u_ocv - u_jump) * n('+')) * dS(markers.electrolyte_v_positive_am)
+    F += + avg(kappa) * dot(avg(grad(v)), (u_jump + u_ocv) * n('+')) * dS(markers.electrolyte_v_positive_am)
+    F += -alpha / h_avg * avg(kappa) * dot(jump(v, n), (u_jump + u_ocv) * n('+')) * dS(markers.electrolyte_v_positive_am)
 
     # # Symmetry
     F += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
@@ -242,17 +231,14 @@ if __name__ == '__main__':
     opts = PETSc.Options()
     # ksp.setMonitor(lambda _, it, residual: print(it, residual))
     option_prefix = ksp.getOptionsPrefix()
-    opts[f"{option_prefix}ksp_type"] = "preonly"
-    opts[f"{option_prefix}pc_type"] = "lu"
+    opts[f"{option_prefix}ksp_type"] = "gmres"
+    opts[f"{option_prefix}pc_type"] = "hypre"
 
     ksp.setFromOptions()
     n_iters, converged = solver.solve(u)
     u.x.scatter_forward()
     if converged:
         print(f"Converged in {n_iters} iterations")
-
-    current_expr = fem.Expression(-kappa * grad(u), W.element.interpolation_points())
-    current_h.interpolate(current_expr)
 
     current_expr = fem.Expression(-kappa * grad(u), W.element.interpolation_points())
     current_h.interpolate(current_expr)
@@ -266,7 +252,6 @@ if __name__ == '__main__':
         vtx.write(0.0)
 
     I_neg_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.left))), op=MPI.SUM)
-    I_pos_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(2 * i0_p * ufl.sinh(0.5*faraday_const / R / T * (u("-") - u("+") - u_ocv)) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     I_pos_am = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h("+"), n("+")) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     I_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.right))), op=MPI.SUM)
     I_insulated_elec = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(current_h, n)) * ds(markers.insulated_electrolyte))), op=MPI.SUM)
@@ -278,8 +263,8 @@ if __name__ == '__main__':
     area_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(1.0 * ds(markers.right))), op=MPI.SUM)
     i_sup_left = np.abs(I_neg_charge_xfer / area_neg_charge_xfer)
     i_sup = np.abs(I_right / area_right)
-    
-    eta_p = domain.comm.allreduce(fem.assemble_scalar(fem.form((u("-") - u("+") - u_ocv) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM) / area_pos_charge_xfer
+
+    eta_p = domain.comm.allreduce(fem.assemble_scalar(fem.form(2 * R * T / (faraday_const) * utils.arcsinh(0.5 * np.abs(-inner(kappa * grad(u), n)("+"))) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     u_avg_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.right))) / area_right, op=MPI.SUM)
     u_avg_left = domain.comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.left))) / area_left, op=MPI.SUM)
     u_stdev_right = domain.comm.allreduce(np.sqrt(fem.assemble_scalar(fem.form((u - u_avg_right) ** 2 * ds(markers.right))) / area_right), op=MPI.SUM)
@@ -288,15 +273,15 @@ if __name__ == '__main__':
     simulation_metadata = {
         "Negative Wagner Number": f"{Wa_n:.1e}",
         "Positive Wagner Number": f"{Wa_p:.1e}",
-        "Negative Overpotential [V]": eta_n,
-        "Positive Overpotential [V]": eta_p,
+        "Negative Overpotential [V]": f"{eta_n:.2e}",
+        "Positive Overpotential [V]": f"{eta_p:.2e}",
         "Voltage": voltage,
         "dimensions": args.dimensions,
         "interior penalty (gamma)": args.gamma,
-        "average potential left [V]": u_avg_left,
-        "stdev potential left [V]": u_stdev_left,
-        "average potential right [V]": u_avg_right,
-        "stdev potential right [V]": u_stdev_right,
+        "average potential left [V]": f"{u_avg_left:.2e}",
+        "stdev potential left [V]": f"{u_stdev_left:.2e}",
+        "average potential right [V]": f"{u_avg_right:.2e}",
+        "stdev potential right [V]": f"{u_stdev_right:.2e}",
         "Superficial current density [A/m2]": f"{np.abs(i_sup):.2e} [A/m2]",
         "Current at negative am - electrolyte boundary": f"{np.abs(I_neg_charge_xfer):.2e} A",
         "Current at electrolyte - positive am boundary": f"{np.abs(I_pos_am):.2e} A",
