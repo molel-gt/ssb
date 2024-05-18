@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+import ufl
 
 
 def make_dir_if_missing(f_path):
@@ -67,3 +68,7 @@ def lithium_concentration_nmc(density, Ni=0.6, Mn=0.2, Co=0.2):
     mass_frac_li = mwt_li / (mwt_li + Ni * mwt_ni + Mn * mwt_mn + Co * mwt_co + 2 * mwt_o)
 
     return density * mass_frac_li / mwt_li
+
+
+def arcsinh(x):
+    return ufl.ln(x + ufl.sqrt(x ** 2 + 1))

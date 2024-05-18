@@ -232,7 +232,7 @@ if __name__ == '__main__':
     # ksp.setMonitor(lambda _, it, residual: print(it, residual))
     option_prefix = ksp.getOptionsPrefix()
     opts[f"{option_prefix}ksp_type"] = "gmres"
-    opts[f"{option_prefix}pc_type"] = "hypre"
+    # opts[f"{option_prefix}pc_type"] = "hypre"
 
     ksp.setFromOptions()
     n_iters, converged = solver.solve(u)
@@ -263,7 +263,9 @@ if __name__ == '__main__':
     area_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(1.0 * ds(markers.right))), op=MPI.SUM)
     i_sup_left = np.abs(I_neg_charge_xfer / area_neg_charge_xfer)
     i_sup = np.abs(I_right / area_right)
-
+    i_pos_am = I_pos_am / area_pos_charge_xfer
+    std_dev_i_pos_am = np.sqrt(domain.comm.allreduce(fem.assemble_scalar(fem.form((inner(current_h("+"), n("+")) - i_pos_am) ** 2 * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)/area_pos_charge_xfer)
+    std_dev_i_pos_am_norm = np.abs(std_dev_i_pos_am / i_pos_am)
     eta_p = domain.comm.allreduce(fem.assemble_scalar(fem.form(2 * R * T / (faraday_const) * utils.arcsinh(0.5 * np.abs(-inner(kappa * grad(u), n)("+"))) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     u_avg_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.right))) / area_right, op=MPI.SUM)
     u_avg_left = domain.comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.left))) / area_left, op=MPI.SUM)
@@ -287,6 +289,8 @@ if __name__ == '__main__':
         "Current at electrolyte - positive am boundary": f"{np.abs(I_pos_am):.2e} A",
         "Current at right boundary": f"{np.abs(I_right):.2e} A",
         "Current at insulated boundary": f"{I_insulated:.2e} A",
+        "stdev i positive charge transfer": f"{std_dev_i_pos_am:.2e} A/m2",
+        "stdev i positive charge transfer (normalized)": f"{std_dev_i_pos_am_norm:.2e}",
         "solver atol": args.atol,
         "solver rtol": args.rtol,
 
