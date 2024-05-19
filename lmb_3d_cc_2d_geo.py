@@ -129,8 +129,6 @@ if __name__ == '__main__':
 
     gmsh.initialize()
     gmsh.model.add('lithium-metal')
-    if not args.refine:
-        gmsh.option.setNumber("Mesh.CharacteristicLengthMax", resolution)
     gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
@@ -227,25 +225,10 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, [pos_am_phase], markers.positive_am, "positive_am")
     gmsh.model.occ.synchronize()
 
-    def meshSizeCallback(dim, tag, x, y, z, lc):
-        if np.isclose(x, 140 * micron, atol=10 * micron) and (y <= 10 * micron or y >= 30 * micron):
-            return resolution / 5 * (1 + abs(x - 140 * micron)/(10*micron) * 4)
-        elif np.isclose(x, 75 * micron, atol=10 * micron) and (10*micron <= y <= 30*micron):
-            return resolution / 5 * (1 + abs(x - 75 * micron)/(10*micron) * 4)
-        elif np.isclose(y, 10 * micron, atol=10*micron) and 75 * micron <= x <= 140 * micron:
-            return resolution / 5 * (1 + abs(y - 10 * micron)/(10*micron) * 4)
-        elif np.isclose(y, 30 * micron, atol=10*micron) and 75 * micron <= x <= 140 * micron:
-            return resolution / 5 * (1 + abs(y - 30 * micron)/(10*micron) * 4)
-        else:
-            return resolution
-
-    if args.refine:
-        gmsh.model.mesh.setSizeCallback(meshSizeCallback)
-
     if args.refine:
         gmsh.model.mesh.field.add("Distance", 1)
         # gmsh.model.mesh.field.setNumbers(1, "CurvesList", [lines[1]] + interface_lines1 + interface_lines2 + lines[4:6] + lines[6:8])
-        gmsh.model.mesh.field.setNumbers(1, "CurvesList", interface_lines1 + interface_lines2)
+        gmsh.model.mesh.field.setNumbers(1, "CurvesList", interface_lines1 + interface_lines2 + [lines[1]] + lines[4:8])
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
