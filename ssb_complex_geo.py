@@ -76,8 +76,6 @@ if __name__ == '__main__':
 
     gmsh.initialize()
     gmsh.model.add('lithium-metal')
-    if not args.refine:
-        gmsh.option.setNumber("Mesh.CharacteristicLengthMax", resolution)
     gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
@@ -101,8 +99,6 @@ if __name__ == '__main__':
     lines.append(gmsh.model.occ.addLine(points_corners[1], interface_points2[-1]))
     lines.append(gmsh.model.occ.addLine(points_corners[2], interface_points2[0]))
     lines.append(gmsh.model.occ.addLine(points_corners[3], interface_points2[-1]))
-
-    print(len(lines))
 
     interface_lines2 = []
     curr_idx = 0
@@ -139,9 +135,6 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, [electrolyte_phase], markers.electrolyte, "electrolyte")
     gmsh.model.addPhysicalGroup(2, [pos_am_phase], markers.positive_am, "positive_am")
     gmsh.model.occ.synchronize()
-
-    if args.refine:
-        gmsh.model.mesh.setSizeCallback(meshSizeCallback)
 
     if args.refine:
         gmsh.model.mesh.field.add("Distance", 1)
