@@ -72,3 +72,7 @@ def lithium_concentration_nmc(density, Ni=0.6, Mn=0.2, Co=0.2):
 
 def arcsinh(x):
     return ufl.ln(x + ufl.sqrt(x ** 2 + 1))
+
+
+def cot(x):
+    return 1 / np.tan(x)
