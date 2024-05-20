@@ -54,6 +54,7 @@ if __name__ == '__main__':
     parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1.0, type=float)
     parser.add_argument("--Wa_n", help="Wagna number for negative electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e-3, type=float)
     parser.add_argument("--Wa_p", help="Wagna number for positive electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
+    parser.add_argument("--kr", help="ratio of ionic to electronic conductivity", nargs='?', const=1, default=1, type=float)
     parser.add_argument("--gamma", help="interior penalty parameter", nargs='?', const=1, default=15, type=float)
     parser.add_argument("--atol", help="solver absolute tolerance", nargs='?', const=1, default=1e-12, type=float)
     parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-9, type=float)
@@ -69,7 +70,7 @@ if __name__ == '__main__':
     encoding = io.XDMFFile.Encoding.HDF5
     micron = 1e-6
     LX, LY, LZ = [float(vv) * micron for vv in args.dimensions.split("-")]
-    workdir = os.path.join(args.mesh_folder, str(Wa_n) + "-" + str(Wa_p), str(args.gamma))
+    workdir = os.path.join(args.mesh_folder, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), str(args.gamma))
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(args.mesh_folder, 'mesh.msh')
     potential_resultsfile = os.path.join(workdir, "potential.bp")
@@ -158,8 +159,9 @@ if __name__ == '__main__':
     cells_elec = ct.find(markers.electrolyte)
     kappa.x.array[cells_elec] = np.full_like(cells_elec, kappa_elec, dtype=default_scalar_type)
 
+    kappa_pos_am = kappa_elec/args.kr
     cells_pos_am = ct.find(markers.positive_am)
-    kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, kappa_elec, dtype=default_scalar_type)
+    kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, kappa_pos_am, dtype=default_scalar_type)
 
     x = SpatialCoordinate(domain)
 
@@ -222,7 +224,7 @@ if __name__ == '__main__':
     problem = petsc.NonlinearProblem(F, u)
     solver = petsc_nls.NewtonSolver(comm, problem)
     solver.convergence_criterion = "residual"
-    # solver.maximum_iterations = 25
+    solver.maximum_iterations = 100
     solver.rtol = args.rtol
     solver.atol = args.atol
 
@@ -245,10 +247,10 @@ if __name__ == '__main__':
     current_cg = fem.Function(W, name='current_density')
     current_cg.interpolate(current_h)
 
-    with VTXWriter(comm, potential_resultsfile, [u], engine="BP4") as vtx:
+    with VTXWriter(comm, potential_resultsfile, [u], engine="BP5") as vtx:
         vtx.write(0.0)
 
-    with VTXWriter(comm, current_resultsfile, [current_h], engine="BP4") as vtx:
+    with VTXWriter(comm, current_resultsfile, [current_h], engine="BP5") as vtx:
         vtx.write(0.0)
 
     I_neg_charge_xfer = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.left))), op=MPI.SUM)
@@ -264,7 +266,7 @@ if __name__ == '__main__':
     i_sup_left = np.abs(I_neg_charge_xfer / area_neg_charge_xfer)
     i_sup = np.abs(I_right / area_right)
     i_pos_am = I_pos_am / area_pos_charge_xfer
-    std_dev_i_pos_am = np.sqrt(domain.comm.allreduce(fem.assemble_scalar(fem.form((inner(current_h("+"), n("+")) - i_pos_am) ** 2 * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)/area_pos_charge_xfer)
+    std_dev_i_pos_am = np.sqrt(domain.comm.allreduce(fem.assemble_scalar(fem.form((np.abs(inner(current_h("+"), n("+"))) - np.abs(i_pos_am)) ** 2 * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)/area_pos_charge_xfer)
     std_dev_i_pos_am_norm = np.abs(std_dev_i_pos_am / i_pos_am)
     eta_p = domain.comm.allreduce(fem.assemble_scalar(fem.form(2 * R * T / (faraday_const) * utils.arcsinh(0.5 * np.abs(-inner(kappa * grad(u), n)("+"))) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     u_avg_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.right))) / area_right, op=MPI.SUM)
@@ -280,6 +282,8 @@ if __name__ == '__main__':
         "Voltage": voltage,
         "dimensions": args.dimensions,
         "interior penalty (gamma)": args.gamma,
+        "interior penalty kr-modified (gamma)": gamma,
+        "ionic to electronic conductivity ratio (kr)": args.kr,
         "average potential left [V]": f"{u_avg_left:.2e}",
         "stdev potential left [V]": f"{u_stdev_left:.2e}",
         "average potential right [V]": f"{u_avg_right:.2e}",
