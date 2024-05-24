@@ -5,6 +5,7 @@ import os
 import warnings
 
 import gmsh
+import meshio
 import numpy as np
 
 import commons, configs, geometry, utils
@@ -62,6 +63,7 @@ if __name__ == '__main__':
     workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, dimensions_ii, f"{resolution:.1e}")
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(workdir, 'mesh.msh')
+    lines_xdmffile = os.path.join(workdir, 'lines.xdmf')
     output_metafile = os.path.join(workdir, 'geometry.json')
 
     markers = commons.Markers()
@@ -244,6 +246,11 @@ if __name__ == '__main__':
 
     gmsh.model.mesh.generate(2)
     gmsh.write(output_meshfile)
+    # write lines
+    msh = meshio.read(output_meshfile)
+    line_mesh = geometry.create_mesh(msh, "line")
+    line_mesh.write(lines_xdmffile)
+
     surfs = gmsh.model.getEntities(2)
     angles = []
     for surf in surfs:

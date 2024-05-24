@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import argparse
+import itertools
 import json
 import math
 import os
@@ -9,18 +10,20 @@ import timeit
 
 import dolfinx
 import gmsh
+import h5py
 import matplotlib.pyplot as plt
 import meshio
 import numpy as np
 import pyvista
 import pyvista as pv
 import pyvistaqt as pvqt
+import subprocess
 import ufl
 import warnings
 
 from dolfinx import cpp, default_real_type, default_scalar_type, fem, io, la, mesh, nls, plot
 from dolfinx.fem import petsc
-from dolfinx.io import gmshio, VTXWriter
+from dolfinx.io import gmshio, VTXWriter, XDMFFile
 from dolfinx.nls import petsc as petsc_nls
 from dolfinx.geometry import bb_tree, compute_collisions_points, compute_colliding_cells
 from IPython.display import Image
@@ -44,6 +47,14 @@ T = 298
 
 def ocv(sod, L=1, k=2):
     return 2.5 + (1/k) * np.log((L - sod) / sod)
+
+
+def read_node_ids_for_marker(h5_file_obj, marker):
+    line_ids = np.where(np.asarray(h5_file_obj['data2']) == marker)[0]
+    lines = np.asarray(h5_file_obj['data1'])[line_ids, :]
+    nodes = sorted(list(set(list(itertools.chain.from_iterable(lines.reshape(-1, 1).tolist())))))
+
+    return nodes
 
 
 if __name__ == '__main__':
@@ -73,8 +84,11 @@ if __name__ == '__main__':
     workdir = os.path.join(args.mesh_folder, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), str(args.gamma))
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(args.mesh_folder, 'mesh.msh')
+    lines_h5file = os.path.join(args.mesh_folder, 'lines.h5')
     potential_resultsfile = os.path.join(workdir, "potential.bp")
     concentration_resultsfile = os.path.join(workdir, "concentration.bp")
+    current_dist_file = os.path.join(workdir, f"current-y-positions-{str(args.Wa_p)}-{str(args.kr)}.png")
+    reaction_dist_file = os.path.join(workdir, f"reaction-dist-{str(args.Wa_p)}-{str(args.kr)}.png")
     current_resultsfile = os.path.join(workdir, "current.bp")
     simulation_metafile = os.path.join(workdir, "simulation.json")
 
@@ -86,6 +100,7 @@ if __name__ == '__main__':
     tdim = domain.topology.dim
     fdim = tdim - 1
     domain.topology.create_connectivity(tdim, fdim)
+    x = SpatialCoordinate(domain)
 
     # tag internal facets as 0
     ft_imap = domain.topology.index_map(fdim)
@@ -105,6 +120,7 @@ if __name__ == '__main__':
     f_to_c = domain.topology.connectivity(fdim, tdim)
     c_to_f = domain.topology.connectivity(tdim, fdim)
     charge_xfer_facets = ft.find(markers.electrolyte_v_positive_am)
+
     other_internal_facets = ft.find(0)
     int_facet_domain = []
     for f in charge_xfer_facets:
@@ -163,8 +179,6 @@ if __name__ == '__main__':
     cells_pos_am = ct.find(markers.positive_am)
     kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, kappa_pos_am, dtype=default_scalar_type)
 
-    x = SpatialCoordinate(domain)
-
     f = fem.Constant(domain, PETSc.ScalarType(0))
     g = fem.Constant(domain, PETSc.ScalarType(0))
 
@@ -181,8 +195,8 @@ if __name__ == '__main__':
     u_ocv = 0.15
     V_left = 0
 
-    alpha = args.gamma
-    gamma = args.gamma
+    alpha = 100#args.gamma
+    gamma = 100#args.gamma
     i_loc = -inner((kappa * grad(u))('+'), n("+"))
     u_jump = 2 * ufl.ln(0.5 * i_loc/i0_p + ufl.sqrt((0.5 * i_loc/i0_p)**2 + 1)) * (R * T / faraday_const)
 
@@ -244,8 +258,6 @@ if __name__ == '__main__':
 
     current_expr = fem.Expression(-kappa * grad(u), W.element.interpolation_points())
     current_h.interpolate(current_expr)
-    current_cg = fem.Function(W, name='current_density')
-    current_cg.interpolate(current_h)
 
     with VTXWriter(comm, potential_resultsfile, [u], engine="BP5") as vtx:
         vtx.write(0.0)
@@ -299,8 +311,91 @@ if __name__ == '__main__':
         "solver rtol": args.rtol,
 
     }
+    # visualization
+    if comm.size == 1:
+        h5obj = h5py.File(lines_h5file, 'r')
+        coords = np.asarray(h5obj['data0'])
+        nodes = read_node_ids_for_marker(h5obj, markers.electrolyte_v_positive_am)
+        points = coords[nodes, :]#.T
+        
+        points = points[np.where(np.logical_and(np.logical_and(points[:, 0] > 75e-6, points[:, 0] < 140e-6), points[:, 1] > 20e-6))].T
+        normals = np.zeros(points.shape)
+        # print(points.shape)
+        bb_trees = bb_tree(domain, domain.topology.dim)
+        fig, ax = plt.subplots()
+        u_values = []
+        cells = []
+        points_on_proc = []
+        # Find cells whose bounding-box collide with the the points
+        cell_candidates = compute_collisions_points(bb_trees, points.T)
+        # Choose one of the cells that contains the point
+        colliding_cells = compute_colliding_cells(domain, cell_candidates, points.T)
+        for i, point in enumerate(points.T):
+            if len(colliding_cells.links(i)) > 0:
+                if np.isclose(point[0], 75e-6) or np.isclose(point[0], 140e-6):
+                    normals[:, i] = (-1, 0, 0)
+                elif np.isclose(point[1], 10e-6):
+                    normals[:, i] = (0, 1, 0)
+                elif np.isclose(point[1], 30e-6):
+                    normals[:, i] = (0, -1, 0)
+                points_on_proc.append(point)
+                cells.append(colliding_cells.links(i)[0])
+        points_on_proc = np.array(points_on_proc, dtype=np.float64)
+        current_values = current_h.eval(points_on_proc, cells)
+        print(current_values.shape, normals.shape)
+        ax.plot(points_on_proc[:, 0] / micron, np.abs(np.sum(current_values * normals.T, axis=1)), 'r+', linewidth=0.5)
+        ax.grid(True)
+        # ax.legend()
+        # ax.set_xlim([75, 140])
+        # ax.set_ylim([0, voltage])
+        ax.set_ylabel(r'$i_n$ [Am$^{-2}$]', rotation=90, labelpad=0, fontsize='xx-large')
+        ax.set_xlabel(r'[$\mu$m]')
+        ax.set_title(r'$\mathrm{Wa}$ = ' + f'{args.Wa_p}' + ',' + r'$\frac{\kappa}{\sigma}$ = ' + f'{args.kr}')
+        plt.tight_layout()
+        plt.savefig(reaction_dist_file)
+        subprocess.check_call('mkdir -p figures/sipdg/complex', shell=True)
+        subprocess.check_call(f'cp {reaction_dist_file} figures/sipdg/complex', shell=True)
+
+    # n_points = 10000
+    # y_pos = [0.125, 0.5, 0.875]
+    # tol = 1e-14  # Avoid hitting the outside of the domain
+    # bb_trees = bb_tree(domain, domain.topology.dim)
+    # x = np.linspace(tol, LX - tol, n_points)
+    # points = np.zeros((3, n_points))
+    # points[0] = x
+    # styles = ['r', 'b', 'g']
+    # fig, ax = plt.subplots()
+    # for idx, pos in enumerate(y_pos):
+    #     y = np.ones(n_points) * pos * LY  # midline
+    #     points[1] = y
+    #     u_values = []
+    #     cells = []
+    #     points_on_proc = []
+    #     # Find cells whose bounding-box collide with the the points
+    #     cell_candidates = compute_collisions_points(bb_trees, points.T)
+    #     # Choose one of the cells that contains the point
+    #     colliding_cells = compute_colliding_cells(domain, cell_candidates, points.T)
+    #     for i, point in enumerate(points.T):
+    #         if len(colliding_cells.links(i)) > 0:
+    #             points_on_proc.append(point)
+    #             cells.append(colliding_cells.links(i)[0])
+    #     points_on_proc = np.array(points_on_proc, dtype=np.float64)
+    #     current_values = current_h.eval(points_on_proc, cells)
+        
+    #     ax.plot(points_on_proc[:, 0] / micron, np.linalg.norm(current_values, axis=1), styles[idx], label=f'{pos:.3f}' + r'$L_y$', linewidth=1)
+    # ax.grid(True)
+    # ax.legend()
+    # ax.set_xlim([0, LX / micron])
+    # # ax.set_ylim([0, voltage])
+    # ax.set_ylabel(r'$\Vert i \Vert$ [Am$^{-2}$]', rotation=90, labelpad=0, fontsize='xx-large')
+    # ax.set_xlabel(r'[$\mu$m]')
+    # ax.set_title(r'$\mathrm{Wa}$ = ' + f'{args.Wa_p}' + ',' + r'$\frac{\kappa}{\sigma}$ = ' + f'{args.kr}')
+    # plt.tight_layout()
+    # plt.savefig(current_dist_file)
+        # plt.show()
     if comm.rank == 0:
         utils.print_dict(simulation_metadata, padding=50)
         with open(simulation_metafile, "w", encoding='utf-8') as f:
             json.dump(simulation_metadata, f, ensure_ascii=False, indent=4)
+        print(f"Saved results files in {workdir}")
         print(f"Time elapsed: {int(timeit.default_timer() - start_time):3.5f}s")
