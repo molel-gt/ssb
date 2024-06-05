@@ -30,7 +30,7 @@ if __name__ == '__main__':
     parser.add_argument('--lsep', help=f'integer representation of separator thickness', type=int, required=True)
     parser.add_argument('--radius', help=f'integer representation of +AM particle radius', type=int, required=True)
     parser.add_argument('--eps_am', help=f'positive active material volume fraction', type=float, required=True)
-    parser.add_argument('--resolution', help=f'max resolution resolution', nargs='?', const=1, default=1, type=float)
+    parser.add_argument('--resolution', help=f'max resolution resolution (microns)', nargs='?', const=1, default=1, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', type=str, required=True)
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="contact_loss_lma")
     args = parser.parse_args()
@@ -58,14 +58,13 @@ if __name__ == '__main__':
         (0, LY, 0)
     ]
 
-    min_resolution = (1/5) * args.resolution * scale_x
-    min_dist = 5e-5 * LZ
+    resolution = args.resolution * 1e-6
 
     gmsh.initialize()
     gmsh.model.add('area')
-    gmsh.option.setNumber('Mesh.MeshSizeMin', scale_x * args.resolution)
-    gmsh.option.setNumber('Mesh.MeshSizeMax', scale_x * args.resolution)
-    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
+    # gmsh.option.setNumber('Mesh.MeshSizeMin', scale_x * args.resolution)
+    # gmsh.option.setNumber('Mesh.MeshSizeMax', scale_x * args.resolution)
+    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
     z0_points = [
@@ -265,28 +264,28 @@ if __name__ == '__main__':
                 interface.append(surf[1])
         else:
             interface.append(surf[1])
-    left = gmsh.model.addPhysicalGroup(2, left_surfs[1:], markers.left, "left")
+    gmsh.model.addPhysicalGroup(2, left_surfs[1:], markers.left, "left")
     insulated_se.append(left_surfs[0])
-    insulated_se = gmsh.model.addPhysicalGroup(2, insulated_se, markers.insulated_electrolyte, "insulated_electrolyte")
-    right = gmsh.model.addPhysicalGroup(2, right, markers.right, "right")
-    insulated_am = gmsh.model.addPhysicalGroup(2, insulated_am, markers.insulated_positive_am, "insulated_am")
-    electrolyte_v_positive_am = gmsh.model.addPhysicalGroup(2, interface, markers.electrolyte_v_positive_am, "electrolyte_positive_am_interface")
+    gmsh.model.addPhysicalGroup(2, insulated_se, markers.insulated_electrolyte, "insulated_electrolyte")
+    gmsh.model.addPhysicalGroup(2, right, markers.right, "right")
+    gmsh.model.addPhysicalGroup(2, insulated_am, markers.insulated_positive_am, "insulated_am")
+    gmsh.model.addPhysicalGroup(2, interface, markers.electrolyte_v_positive_am, "electrolyte_positive_am_interface")
     gmsh.model.occ.synchronize()
     # refinement
-    # gmsh.model.mesh.field.add("Distance", 1)
-    # gmsh.model.mesh.field.setNumbers(1, "FacesList", [left, electrolyte_v_positive_am, right])
+    gmsh.model.mesh.field.add("Distance", 1)
+    gmsh.model.mesh.field.setNumbers(1, "FacesList", left_surfs[1:] + interface + right)
 
-    # gmsh.model.mesh.field.add("Threshold", 2)
-    # gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    # gmsh.model.mesh.field.setNumber(2, "LcMin", 0.1 * args.resolution * scale_x)
-    # gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution * scale_x)
-    # gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5 * scale_x)
-    # gmsh.model.mesh.field.setNumber(2, "DistMax", 1 * scale_x)
+    gmsh.model.mesh.field.add("Threshold", 2)
+    gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    gmsh.model.mesh.field.setNumber(2, "LcMin", resolution / 5)
+    gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", resolution)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 5 * resolution)
 
-    # gmsh.model.mesh.field.add("Max", 5)
-    # gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    # gmsh.model.mesh.field.setAsBackgroundMesh(5)
-    # gmsh.model.occ.synchronize()
+    gmsh.model.mesh.field.add("Max", 5)
+    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    gmsh.model.occ.synchronize()
     print("Generating mesh..")
     gmsh.model.mesh.generate(3)
     gmsh.write(mshpath)
