@@ -33,16 +33,17 @@ if __name__ == '__main__':
     parser.add_argument('--resolution', help=f'max resolution resolution (microns)', nargs='?', const=1, default=1, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', type=str, required=True)
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="contact_loss_lma")
+    parser.add_argument("--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
     start_time = timeit.default_timer()
-    LX, LY, LZ = [int(v) for v in args.dimensions.split("-")]
+    Lx, Ly, Lz = [int(v) for v in args.dimensions.split("-")]
     scaling = configs.get_configs()[args.scaling]
     scale_x = float(scaling['x'])
     scale_y = float(scaling['y'])
     scale_z = float(scaling['z'])
-    LX = LX * scale_x
-    LY = LY * scale_y
-    LZ = LZ * scale_z
+    LX = Lx * scale_x
+    LY = Ly * scale_y
+    LZ = Lz * scale_z
     Rp = args.radius * scale_x
     Lsep = args.lsep * scale_x
     Lcat = LZ - Lsep
@@ -63,10 +64,10 @@ if __name__ == '__main__':
     gmsh.initialize()
     gmsh.model.add('area')
     # gmsh.option.setNumber('Mesh.MeshSizeMin', scale_x * args.resolution)
-    # gmsh.option.setNumber('Mesh.MeshSizeMax', scale_x * args.resolution)
-    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
-    gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
-    gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
+    # gmsh.option.setNumber('Mesh.MeshSizeMax', 0.1)
+    # gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
+    # gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
+    # gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
     z0_points = [
         (0, 0, 0),
         (LX, 0, 0),
@@ -74,10 +75,10 @@ if __name__ == '__main__':
         (0, LY, 0),
     ]
     zL_points = [
-        (0, 0, LZ - Rp),
-        (LX, 0, LZ - Rp),
-        (LX, LY, LZ - Rp),
-        (0, LY, LZ - Rp),
+        (0, 0, LZ),
+        (LX, 0, LZ),
+        (LX, LY, LZ),
+        (0, LY, LZ),
     ]
 
     points0 = []
@@ -92,7 +93,7 @@ if __name__ == '__main__':
         idx = gmsh.model.occ.addPoint(*zL_points[i])
         points1.append(idx)
 
-    gmsh.model.occ.synchronize()
+    # gmsh.model.occ.synchronize()
     for i in range(-1, 3):
         idx = gmsh.model.occ.addLine(points0[i], points0[i + 1])
         lines.append(idx)
@@ -138,8 +139,6 @@ if __name__ == '__main__':
     idx = gmsh.model.occ.addCurveLoop([lines[0]] + [lines[11]] + [lines[4]] + [lines[10]])
     loops.append(idx)
 
-    # gmsh.model.occ.synchronize()
-
     side_loops = []
     insulated = []
     right = []
@@ -162,66 +161,45 @@ if __name__ == '__main__':
         for pp in hull[:-1]:
             idx = gmsh.model.occ.addPoint(int(pp[0]) * scale_x, int(pp[1]) * scale_y, 0)
             hull_points.append(idx)
-        gmsh.model.occ.synchronize()
+
         hull_lines = []
         for i in range(-1, len(hull_points) - 1):
             idx = gmsh.model.occ.addLine(hull_points[i], hull_points[i + 1])
             hull_lines.append(idx)
 
-        gmsh.model.occ.synchronize()
         idx = gmsh.model.occ.addCurveLoop(hull_lines)
         side_loops.append(idx)
         idx2 = gmsh.model.occ.addPlaneSurface((idx, ))
         left.append(idx2)
-        gmsh.model.occ.synchronize()
 
     middle = [gmsh.model.occ.addPlaneSurface((loops[1], ))]
-    gmsh.model.occ.synchronize()
 
     for vv in loops[2:]:
         idx = gmsh.model.occ.addPlaneSurface((vv, ))
         insulated.append(idx)
-        gmsh.model.occ.synchronize()
 
     insulated += [gmsh.model.occ.addPlaneSurface((loops[0], *side_loops))]
 
     gmsh.model.occ.healShapes()
-    gmsh.model.occ.synchronize()
     surfaces_1 = tuple(left + insulated + middle)
-
-    gmsh.model.occ.synchronize()
-
-    sloop1 = gmsh.model.occ.addSurfaceLoop(surfaces_1)
+    box_se = gmsh.model.occ.getEntities(3)[0][1]
     box_am = gmsh.model.occ.addBox(0, 0, LZ - Rp, LX, LY, Rp)
 
-    gmsh.model.occ.synchronize()
-    
-    # left_surfs = [vv[1] for vv in gmsh.model.occ.getEntities(2) if vv[1] >= 7]
-    # print(left_surfs)
-    # insulated_se += [2, 3, 4, 5, 6]
-    surfs = gmsh.model.occ.getEntities(2)
-    for surf in surfs:
-        com = gmsh.model.occ.getCenterOfMass(*surf)
-        # print(surf, ": ", com)
-
-    box_se = gmsh.model.occ.getEntities(3)[0][1]
-    box_am = gmsh.model.occ.getEntities(3)[1][1]
     cylinders = []
     spheres = []
-    counter = 3
+
     for idx in range(df.shape[0]):
-        x, y, _ = df.loc[idx, :]
+        x, y = df.loc[idx, :]
         if (x + Rp) >= LX or (y + Rp) >= LY:
             continue
         if (x - Rp) <= 0 or (y - Rp) <= 0:
             continue
-        gmsh.model.occ.addCylinder(x, y, Lsep, 0, 0, Lcat - Rp, Rp, counter)
-        cylinders.append((3, counter))
-        counter += 1
+        cyl = gmsh.model.occ.addCylinder(x, y, Lsep, 0, 0, Lcat - Rp, Rp)
+        cylinders.append((3, cyl))
 
-    ov, ovv = gmsh.model.occ.fragment([(3, box_am)], cylinders)
-    copy =gmsh.model.occ.copy(ov[1:])
-    gmsh.model.occ.cut([(3, box_se)], copy)
+    merged = gmsh.model.occ.fuse([(3, box_am)], cylinders)
+    gmsh.model.occ.cut([(3, box_se)], merged[0], removeTool=False)
+    
 
     gmsh.model.occ.synchronize()
     vols = gmsh.model.occ.getEntities(3)
@@ -244,26 +222,20 @@ if __name__ == '__main__':
     for surf in gmsh.model.occ.getEntities(2):
         com = gmsh.model.occ.getCenterOfMass(surf[0], surf[1])
         x = com[0] / scale_x
-        y = com[1] / scale_x
-        z = com[2] / scale_x
+        y = com[1] / scale_y
+        z = com[2] / scale_z
         if np.isclose(z, 0, atol=1):
-            # print(surf[1], ": ", com)
             left_surfs.append(surf[1])
             continue
-        elif np.isclose(z, (Lsep + Lcat)/scale_x, atol=1):
+        elif np.isclose(com[2], LZ):
             right.append(surf[1])
-        elif np.isclose(z, 0.5 * (Lsep + Lcat - Rp) / scale_x, atol=1):
-            if np.isclose(x, LX/scale_x, atol=1) or np.isclose(y, LY/scale_x, atol=1) or np.isclose(x, 0, atol=1) or np.isclose(y, 0, atol=1):
-                insulated_se.append(surf[1])
-            else:
-                interface.append(surf[1])
-        elif np.isclose(z, (Lsep + Lcat - 0.5 * Rp) / scale_x, atol=1):
-            if np.isclose(x, LX/scale_x, atol=1) or np.isclose(y, LY/scale_x, atol=1) or np.isclose(x, 0, atol=1) or np.isclose(y, 0, atol=1):
-                insulated_am.append(surf[1])
-            else:
-                interface.append(surf[1])
+        elif np.isclose(com[2], 0.5*(LZ - Rp)):
+            insulated_se.append(surf[1])
+        elif np.isclose(com[2], LZ - 0.5 * Rp):
+            insulated_am.append(surf[1])
         else:
             interface.append(surf[1])
+
     gmsh.model.addPhysicalGroup(2, left_surfs[1:], markers.left, "left")
     insulated_se.append(left_surfs[0])
     gmsh.model.addPhysicalGroup(2, insulated_se, markers.insulated_electrolyte, "insulated_electrolyte")
@@ -271,21 +243,23 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, insulated_am, markers.insulated_positive_am, "insulated_am")
     gmsh.model.addPhysicalGroup(2, interface, markers.electrolyte_v_positive_am, "electrolyte_positive_am_interface")
     gmsh.model.occ.synchronize()
+    gmsh.model.mesh.removeDuplicateElements()
     # refinement
-    gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "FacesList", left_surfs + interface)
+    if args.refine:
+        gmsh.model.mesh.field.add("Distance", 1)
+        gmsh.model.mesh.field.setNumbers(1, "FacesList", left_surfs + interface)
 
-    gmsh.model.mesh.field.add("Threshold", 2)
-    gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "LcMin", resolution / 2)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 2 * resolution)
+        gmsh.model.mesh.field.add("Threshold", 2)
+        gmsh.model.mesh.field.setNumber(2, "IField", 1)
+        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution / 2)
+        gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", resolution)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", 2 * resolution)
 
-    gmsh.model.mesh.field.add("Max", 5)
-    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    gmsh.model.mesh.field.setAsBackgroundMesh(5)
-    gmsh.model.occ.synchronize()
+        gmsh.model.mesh.field.add("Max", 5)
+        gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+        gmsh.model.mesh.field.setAsBackgroundMesh(5)
+        gmsh.model.occ.synchronize()
     print("Generating mesh..")
     gmsh.model.mesh.generate(3)
     gmsh.write(mshpath)
