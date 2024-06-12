@@ -245,12 +245,12 @@ if __name__ == '__main__':
     # refinement
     if args.refine:
         gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "FacesList", left_surfs + interface)
+        gmsh.model.mesh.field.setNumbers(1, "FacesList", left_surfs + interface + right + insulated_se + insulated_am)
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
         gmsh.model.mesh.field.setNumber(2, "LcMin", resolution / 2)
-        gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
+        gmsh.model.mesh.field.setNumber(2, "LcMax", 5 * resolution)
         gmsh.model.mesh.field.setNumber(2, "DistMin", resolution)
         gmsh.model.mesh.field.setNumber(2, "DistMax", 2 * resolution)
 
