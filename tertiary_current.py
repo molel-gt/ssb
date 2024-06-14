@@ -11,6 +11,7 @@ import timeit
 import dolfinx
 import gmsh
 import h5py
+import logging
 import matplotlib.pyplot as plt
 import meshio
 import numpy as np
@@ -51,8 +52,13 @@ def arctanh(y):
 
 
 def ocv(c, cmax=35000):
-    xi = c / cmax
+    xi = 2 * (c - 0.5 * cmax) / cmax
     return 3.25 - 0.5 * arctanh(xi)
+
+def initial_condition(x, val=0):
+    values = np.zeros((1, x.shape[1]), dtype=default_scalar_type)
+    values[0] = val
+    return values
 
 
 if __name__ == '__main__':
@@ -89,6 +95,16 @@ if __name__ == '__main__':
     reaction_dist_file = os.path.join(workdir, f"reaction-dist-{str(args.Wa_p)}-{str(args.kr)}.png")
     current_resultsfile = os.path.join(workdir, "current.bp")
     simulation_metafile = os.path.join(workdir, "simulation.json")
+
+    loglevel = configs.get_configs()['LOGGING']['level']
+    dimensions = args.dimensions
+    logger = logging.getLogger()
+    logger.setLevel(loglevel)
+    formatter = logging.Formatter(f'%(levelname)s:%(asctime)s:{workdir}:%(message)s')
+    fh = logging.FileHandler(os.path.basename(__file__).replace(".py", ".log"))
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+    logger.debug(args.mesh_folder)
 
     markers = commons.Markers()
 
@@ -189,10 +205,13 @@ if __name__ == '__main__':
     D.x.array[cells_pos_am] = np.full_like(cells_pos_am, 1e-15, dtype=default_scalar_type)
     D.x.array[cells_elec] = np.full_like(cells_elec, 1e-5, dtype=default_scalar_type)
 
-    u0.sub(1).x.array[cells_elec] = np.full_like(cells_elec, 0, dtype=default_scalar_type)
-    u0.sub(1).x.array[cells_pos_am] = np.full_like(cells_pos_am, 32500, dtype=default_scalar_type)
+    fun1 = lambda x: initial_condition(x, val=32500)
+    fun2 = lambda x: initial_condition(x, val=0)
+    u0.sub(1).interpolate(fun1, cells=cells_pos_am)
+    u0.sub(1).interpolate(fun2, cells=cells_elec)
     u0.x.scatter_forward()
     φ0, c0 = ufl.split(u0)
+    u.sub(1).interpolate(u0.sub(1))
 
     dt = 1e-3
     TIME = 50 * dt
@@ -276,7 +295,7 @@ if __name__ == '__main__':
     Fct += - gamma * h * inner(inner(grad(c), n), inner(grad(δc), n)) * ds(markers.right)
 
     # Internal boundary
-    Fct += + (1/faraday_const) * inner(jump(δc, n), avg(kappa * grad(φ))) * dS(markers.electrolyte_v_positive_am)
+    Fct += - (1/faraday_const) * inner(jump(δc, n), avg(kappa * grad(φ))) * dS(markers.electrolyte_v_positive_am)
     # Fct += -alpha / h_avg * avg(D) * dot(jump(δc, n), (u_jump + u_ocv) * n('+')) * dS(markers.electrolyte_v_positive_am)
 
     # # # Symmetry
@@ -312,7 +331,7 @@ if __name__ == '__main__':
 
     while t < TIME:
         t += dt
-        print(f"Time: {t}")
+        logger.debug(f"Time: {t}")
         n_iters, converged = solver.solve(u)
         u.x.scatter_forward()
         u0.x.array[:] = u.x.array
