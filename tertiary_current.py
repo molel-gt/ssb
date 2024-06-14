@@ -187,7 +187,7 @@ if __name__ == '__main__':
     kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, kappa_pos_am, dtype=default_scalar_type)
 
     D.x.array[cells_pos_am] = np.full_like(cells_pos_am, 1e-15, dtype=default_scalar_type)
-    D.x.array[cells_elec] = np.full_like(cells_elec, 1e-10, dtype=default_scalar_type)
+    D.x.array[cells_elec] = np.full_like(cells_elec, 1e-5, dtype=default_scalar_type)
 
     u0.sub(1).x.array[cells_elec] = np.full_like(cells_elec, 0, dtype=default_scalar_type)
     u0.sub(1).x.array[cells_pos_am] = np.full_like(cells_pos_am, 32500, dtype=default_scalar_type)
@@ -196,7 +196,7 @@ if __name__ == '__main__':
 
     dt = 1e-3
     TIME = 50 * dt
-    voltage = 1
+    voltage = args.voltage
 
     f = fem.Constant(domain, PETSc.ScalarType(0))
     g = fem.Constant(domain, PETSc.ScalarType(0))
@@ -264,15 +264,15 @@ if __name__ == '__main__':
     Fct += alpha / h_avg * avg(D) * inner(jump(δc, n), jump(c, n)) * dS#(0)
 
     # zero-concentration
-    # Fct += - kappa * (c - 0) * inner(n, grad(δc)) * ds(markers.left)
-    # Fct += -gamma / h * (c - 0) * δc * ds(markers.left)
+    Fct += - kappa * (c - 0) * inner(n, grad(δc)) * ds(markers.left)
+    Fct += -gamma / h * (c - 0) * δc * ds(markers.left)
 
     # insulated
     Fct += -g * δc * ds(markers.insulated_electrolyte) + gamma * h * g * inner(grad(δc), n) * ds(markers.insulated_electrolyte)
     Fct += - gamma * h * inner(inner(grad(c), n), inner(grad(δc), n)) * ds(markers.insulated_electrolyte)
     Fct += -g * δc * ds(markers.insulated_positive_am) + gamma * h * g * inner(grad(δc), n) * ds(markers.insulated_positive_am)
     Fct += - gamma * h * inner(inner(grad(c), n), inner(grad(δc), n)) * ds(markers.insulated_positive_am)
-    Fct += -g * δc * ds(markers.insulated_positive_am) + gamma * h * g * inner(grad(δc), n) * ds(markers.right)
+    Fct += -g * δc * ds(markers.right) + gamma * h * g * inner(grad(δc), n) * ds(markers.right)
     Fct += - gamma * h * inner(inner(grad(c), n), inner(grad(δc), n)) * ds(markers.right)
 
     # Internal boundary
