@@ -21,6 +21,7 @@ import subprocess
 import ufl
 import warnings
 
+from basix.ufl import element, mixed_element
 from dolfinx import cpp, default_real_type, default_scalar_type, fem, io, la, mesh, nls, plot
 from dolfinx.fem import petsc
 from dolfinx.io import gmshio, VTXWriter, XDMFFile
