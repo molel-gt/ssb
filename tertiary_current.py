@@ -283,7 +283,7 @@ if __name__ == '__main__':
     Fct += alpha / h_avg * avg(D) * inner(jump(δc, n), jump(c, n)) * dS#(0)
 
     # zero-concentration
-    Fct += - kappa * (c - 0) * inner(n, grad(δc)) * ds(markers.left)
+    Fct += - D * (c - 0) * inner(n, grad(δc)) * ds(markers.left)
     Fct += -gamma / h * (c - 0) * δc * ds(markers.left)
 
     # insulated
