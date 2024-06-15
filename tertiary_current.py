@@ -335,5 +335,8 @@ if __name__ == '__main__':
         n_iters, converged = solver.solve(u)
         u.x.scatter_forward()
         u0.x.array[:] = u.x.array
+        I_pos_am_pot = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-(kappa * grad(φ))("+"), n("+")) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
+        I_pos_am_conc = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-(faraday_const * D * grad(c))("+"), n("+")) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
+        logger.debug(f"Charge transfer current (potential): {I_pos_am_pot:.4f} A, Charge transfer current (concentration): {I_pos_am_conc:.4f} A")
         c_vtx.write(t)
     c_vtx.close()
