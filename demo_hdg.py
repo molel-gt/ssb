@@ -187,15 +187,7 @@ ksp.getPC().setFactorSolverType("superlu_dist")
 
 # Compute solution
 x = A.createVecRight()
-try:
-    ksp.solve(b, x)
-except PETSc.Error as e:  # type: ignore
-    if e.ierr == 92:
-        print("The required PETSc solver/preconditioner is not available. Exiting.")
-        print(e)
-        exit(0)
-    else:
-        raise e
+ksp.solve(b, x)
 
 # Create functions for the solution and update values
 u, ubar = fem.Function(V), fem.Function(Vbar)
@@ -206,15 +198,10 @@ u.x.scatter_forward()
 ubar.x.scatter_forward()
 
 # Write to file
-try:
-    from dolfinx.io import VTXWriter
-
-    with VTXWriter(domain.comm, "u.bp", u, "bp4") as f:
-        f.write(0.0)
-    with VTXWriter(domain.comm, "ubar.bp", ubar, "bp4") as f:
-        f.write(0.0)
-except ImportError:
-    print("ADIOS2 required for VTX output")
+with VTXWriter(domain.comm, "u.bp", u, "bp4") as f:
+    f.write(0.0)
+with VTXWriter(domain.comm, "ubar.bp", ubar, "bp4") as f:
+    f.write(0.0)
 
 
 # Compute errors
