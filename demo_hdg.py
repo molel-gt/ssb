@@ -1,47 +1,23 @@
-# ---
-# jupyter:
-#   jupytext:
-#     text_representation:
-#       extension: .py
-#       format_name: light
-#       format_version: '1.5'
-#       jupytext_version: 1.13.6
-# ---
-
-# # HDG scheme for the Poisson equation
-#
-# This demo is implemented in {download}`demo_hdg.py`. It
-# illustrates how to:
-#
+#!/usr/bin/env python3
 # - Solve Poisson's equation using an HDG scheme.
 
 # +
 import importlib.util
-
-if importlib.util.find_spec("petsc4py") is not None:
-    import dolfinx
-
-    if not dolfinx.has_petsc:
-        print("This demo requires DOLFINx to be compiled with PETSc enabled.")
-        exit(0)
-    from petsc4py import PETSc
-
-    from dolfinx.fem.petsc import assemble_matrix_block, assemble_vector_block
-
-else:
-    print("This demo requires petsc4py.")
-    exit(0)
-
 import sys
 
-from mpi4py import MPI
-
+import dolfinx
 import numpy as np
-
 import ufl
+
 from dolfinx import fem, mesh
 from dolfinx.cpp.mesh import cell_num_entities
+
+from dolfinx.fem.petsc import assemble_matrix_block, assemble_vector_block
+from dolfinx.io import VTXWriter
+from mpi4py import MPI
+from petsc4py import PETSc
 from ufl import div, dot, grad, inner
+
 
 
 def par_print(comm, string):
