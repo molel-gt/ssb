@@ -32,21 +32,21 @@ def norm_L2(comm, v, measure=ufl.dx):
     )
 
 
-def compute_cell_boundary_facets(msh):
+def compute_cell_boundary_facets(domain):
     """Compute the integration entities for integrals around the
-    boundaries of all cells in msh.
+    boundaries of all cells in domain.
 
     Parameters:
-        msh: The mesh.
+        domain: The mesh.
 
     Returns:
         Facets to integrate over, identified by ``(cell, local facet
         index)`` pairs.
     """
-    tdim = msh.topology.dim
+    tdim = domain.topology.dim
     fdim = tdim - 1
-    n_f = cell_num_entities(msh.topology.cell_type, fdim)
-    n_c = msh.topology.index_map(tdim).size_local
+    n_f = cell_num_entities(domain.topology.cell_type, fdim)
+    n_c = domain.topology.index_map(tdim).size_local
     return np.vstack((np.repeat(np.arange(n_c), n_f), np.tile(np.arange(n_f), n_c))).T.flatten()
 
 
@@ -79,26 +79,26 @@ dtype = PETSc.ScalarType
 n = 8
 
 # Create the mesh
-msh = mesh.create_unit_cube(comm, n, n, n, ghost_mode=mesh.GhostMode.none)
+domain = mesh.create_unit_cube(comm, n, n, n, ghost_mode=mesh.GhostMode.none)
 
 # We need to create a broken Lagrange space defined over the facets of the
 # mesh. To do so, we require a sub-mesh of the all facets. We begin by
 # creating a list of all of the facets in the mesh
-tdim = msh.topology.dim
+tdim = domain.topology.dim
 fdim = tdim - 1
-msh.topology.create_entities(fdim)
-facet_imap = msh.topology.index_map(fdim)
+domain.topology.create_entities(fdim)
+facet_imap = domain.topology.index_map(fdim)
 num_facets = facet_imap.size_local + facet_imap.num_ghosts
 facets = np.arange(num_facets, dtype=np.int32)
 
 # Create the sub-mesh
 # NOTE Despite all facets being present in the submesh, the entity map isn't
 # necessarily the identity in parallel
-facet_mesh, facet_mesh_to_mesh = mesh.create_submesh(msh, fdim, facets)[:2]
+facet_mesh, facet_mesh_to_mesh = mesh.create_submesh(domain, fdim, facets)[:2]
 
 # Define function spaces
 k = 3  # Polynomial order
-V = fem.functionspace(msh, ("Discontinuous Lagrange", k))
+V = fem.functionspace(domain, ("Discontinuous Lagrange", k))
 Vbar = fem.functionspace(facet_mesh, ("Discontinuous Lagrange", k))
 
 # Trial and test functions
@@ -109,31 +109,31 @@ ubar, vbar = ufl.TrialFunction(Vbar), ufl.TestFunction(Vbar)
 
 # Define integration measures
 # Cell
-dx_c = ufl.Measure("dx", domain=msh)
+dx_c = ufl.Measure("dx", domain=domain)
 # Cell boundaries
 # We need to define an integration measure to integrate around the
 # boundary of each cell. The integration entities can be computed
 # using the following convenience function.
-cell_boundary_facets = compute_cell_boundary_facets(msh)
+cell_boundary_facets = compute_cell_boundary_facets(domain)
 cell_boundaries = 1  # A tag
 # Create the measure
-ds_c = ufl.Measure("ds", subdomain_data=[(cell_boundaries, cell_boundary_facets)], domain=msh)
+ds_c = ufl.Measure("ds", subdomain_data=[(cell_boundaries, cell_boundary_facets)], domain=domain)
 # Create a cell integral measure over the facet mesh
 dx_f = ufl.Measure("dx", domain=facet_mesh)
 
-# We write the mixed domain forms as integrals over msh. Hence, we must
-# provide a map from facets in msh to cells in facet_mesh. This is the
+# We write the mixed domain forms as integrals over domain. Hence, we must
+# provide a map from facets in domain to cells in facet_mesh. This is the
 # 'inverse' of facet_mesh_to_mesh, which we compute as follows:
 mesh_to_facet_mesh = np.full(num_facets, -1)
 mesh_to_facet_mesh[facet_mesh_to_mesh] = np.arange(len(facet_mesh_to_mesh))
 entity_maps = {facet_mesh: mesh_to_facet_mesh}
 
 # Define forms
-h = ufl.CellDiameter(msh)
-n = ufl.FacetNormal(msh)
+h = ufl.CellDiameter(domain)
+n = ufl.FacetNormal(domain)
 gamma = 16.0 * k**2 / h  # Scaled penalty parameter
 
-x = ufl.SpatialCoordinate(msh)
+x = ufl.SpatialCoordinate(domain)
 c = 1.0 + 0.1 * ufl.sin(ufl.pi * x[0]) * ufl.sin(ufl.pi * x[1])
 a_00 = fem.form(
     inner(c * grad(u), grad(v)) * dx_c
@@ -162,12 +162,12 @@ a = [[a_00, a_01], [a_10, a_11]]
 L = [L_0, L_1]
 
 # Apply Dirichlet boundary conditions
-# We begin by locating the boundary facets of msh
-msh_boundary_facets = mesh.locate_entities_boundary(msh, fdim, boundary)
+# We begin by locating the boundary facets of domain
+domain_boundary_facets = mesh.locate_entities_boundary(domain, fdim, boundary)
 # Since the boundary condition is enforced in the facet space, we must
 # use the mesh_to_facet_mesh map to get the corresponding facets in
 # facet_mesh
-facet_mesh_boundary_facets = mesh_to_facet_mesh[msh_boundary_facets]
+facet_mesh_boundary_facets = mesh_to_facet_mesh[domain_boundary_facets]
 # Get the dofs and apply the bondary condition
 facet_mesh.topology.create_connectivity(fdim, fdim)
 dofs = fem.locate_dofs_topological(Vbar, fdim, facet_mesh_boundary_facets)
@@ -179,7 +179,7 @@ A.assemble()
 b = assemble_vector_block(L, a, bcs=[bc])
 
 # Setup the solver
-ksp = PETSc.KSP().create(msh.comm)
+ksp = PETSc.KSP().create(domain.comm)
 ksp.setOperators(A)
 ksp.setType("preonly")
 ksp.getPC().setType("lu")
@@ -209,18 +209,18 @@ ubar.x.scatter_forward()
 try:
     from dolfinx.io import VTXWriter
 
-    with VTXWriter(msh.comm, "u.bp", u, "bp4") as f:
+    with VTXWriter(domain.comm, "u.bp", u, "bp4") as f:
         f.write(0.0)
-    with VTXWriter(msh.comm, "ubar.bp", ubar, "bp4") as f:
+    with VTXWriter(domain.comm, "ubar.bp", ubar, "bp4") as f:
         f.write(0.0)
 except ImportError:
     print("ADIOS2 required for VTX output")
 
 
 # Compute errors
-x = ufl.SpatialCoordinate(msh)
-e_u = norm_L2(msh.comm, u - u_e(x))
+x = ufl.SpatialCoordinate(domain)
+e_u = norm_L2(domain.comm, u - u_e(x))
 x_bar = ufl.SpatialCoordinate(facet_mesh)
-e_ubar = norm_L2(msh.comm, ubar - u_e(x_bar))
+e_ubar = norm_L2(domain.comm, ubar - u_e(x_bar))
 par_print(comm, f"e_u = {e_u}")
 par_print(comm, f"e_ubar = {e_ubar}")
