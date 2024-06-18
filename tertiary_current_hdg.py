@@ -91,8 +91,6 @@ if __name__ == '__main__':
     ct = mesh.meshtags(domain, tdim, ct.indices, ct.values)
 
     # Create the sub-mesh
-    # NOTE Despite all facets being present in the submesh, the entity map isn't
-    # necessarily the identity in parallel
     facet_mesh, facet_mesh_to_mesh = mesh.create_submesh(domain, fdim, ft.indices)[:2]
 
     # Define function spaces
@@ -133,7 +131,7 @@ if __name__ == '__main__':
     gamma = 16.0 * k**2 / h  # Scaled penalty parameter
 
     x = ufl.SpatialCoordinate(domain)
-    c = 1.0 # lambda x: 1.0 + x[0] - x[0]  # 1.0 + 0.1 * ufl.sin(ufl.pi * x[0]) * ufl.sin(ufl.pi * x[1])
+    c = 1.0
     a_00 = fem.form(
         inner(c * grad(u), grad(v)) * dx_c
         - (
@@ -151,7 +149,7 @@ if __name__ == '__main__':
     a_11 = fem.form(gamma * inner(c * ubar, vbar) * ds_c(cell_boundaries), entity_maps=entity_maps)
 
     # Manufacture a source term
-    f = fem.Constant(domain, dtype(0.0))  # -div(c * grad(u_e(x)))
+    f = fem.Constant(domain, dtype(0.0))
 
     L_0 = fem.form(inner(f, v) * dx_c)
     L_1 = fem.form(inner(fem.Constant(facet_mesh, dtype(0.0)), vbar) * dx_f)
@@ -164,9 +162,6 @@ if __name__ == '__main__':
     # We begin by locating the boundary facets of domain
     left_boundary = ft.find(markers.left)
     right_boundary = ft.find(markers.right)
-
-    # left_domain_boundary_facets = mesh.locate_entities_boundary(domain, fdim, left_boundary)
-    # left_domain_boundary_facets = mesh.locate_entities_boundary(domain, fdim, right_boundary)
 
     # Since the boundary condition is enforced in the facet space, we must
     # use the mesh_to_facet_mesh map to get the corresponding facets in
@@ -211,6 +206,7 @@ if __name__ == '__main__':
     with VTXWriter(domain.comm, ubar_resultsfile, ubar, "bp5") as f:
         f.write(0.0)
 
+    # interpolated functions
     W_DG = fem.functionspace(domain, ('DG', 1))
     u_dg = fem.Function(W_DG)
     u_dg.interpolate(u)
