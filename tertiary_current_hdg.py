@@ -148,6 +148,8 @@ if __name__ == '__main__':
     phase2_facets = compute_cell_boundary_facets_new(domain, ct, phase2)
 
     ds_c = ufl.Measure("ds", subdomain_data=[(phase1, phase1_facets), (phase2, phase2_facets)], domain=domain)
+    dS = ufl.Measure("dS", domain=domain, subdomain_data=ft)
+    ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
     # ds_c = ufl.Measure("ds", subdomain_data=[(cell_boundaries, cell_boundary_facets)], domain=domain)
     # Create a cell integral measure over the facet mesh
     dx_f = ufl.Measure("dx", domain=facet_mesh, subdomain_data=ft)
@@ -248,6 +250,14 @@ if __name__ == '__main__':
     current_cg = fem.Function(W_CG)
     current_expr = fem.Expression(-grad(u_dg), W_CG.element.interpolation_points())
     current_cg.interpolate(current_expr)
+    I_left = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(grad(u_dg), n) * ds(markers.left))), op=MPI.SUM)
+    I_middle = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(grad(u_dg)('+'), n('+')) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
+    I_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(grad(u_dg), n) * ds(markers.right))), op=MPI.SUM)
+    I_insulated = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(grad(u_dg), n)) * ds(markers.insulated))), op=MPI.SUM)
+    print(f"I_left       : {np.abs(I_left):.4e} A")
+    print(f"I_middle     : {np.abs(I_middle):.4e} A")
+    print(f"I_right      : {np.abs(I_right):.4e} A")
+    print(f"I_insulated  : {np.abs(I_insulated):.4e} A")
     with VTXWriter(domain.comm, potential_resultsfile, u_dg, "bp5") as f:
         f.write(0.0)
 
