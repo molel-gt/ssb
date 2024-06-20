@@ -22,6 +22,30 @@ from ufl import div, dot, grad, inner
 import commons, utils
 
 
+def compute_cell_boundary_facets_new(domain, ct, marker):
+    """Compute the integration entities for integrals around the
+    boundaries of all cells in domain.
+
+    Parameters:
+        domain: The mesh.
+        ct: cell tags
+        marker: physical group label
+
+    Returns:
+        Facets to integrate over, identified by ``(cell, local facet
+        index)`` pairs.
+    """
+    tdim = domain.topology.dim
+    fdim = tdim - 1
+    n_f = cell_num_entities(domain.topology.cell_type, fdim)
+    cells_1 = ct.find(marker)
+    perm = np.argsort(cells_1)
+    n_c = cells_1.shape[0]
+    print(n_f, n_c)
+
+    return np.vstack((np.repeat(cells_1[perm], n_f), np.tile(np.arange(n_f), n_c))).T.flatten()
+
+
 def compute_cell_boundary_facets(domain):
     """Compute the integration entities for integrals around the
     boundaries of all cells in domain.
@@ -36,7 +60,10 @@ def compute_cell_boundary_facets(domain):
     tdim = domain.topology.dim
     fdim = tdim - 1
     n_f = cell_num_entities(domain.topology.cell_type, fdim)
+    
     n_c = domain.topology.index_map(tdim).size_local
+    print(n_f, n_c)
+
     return np.vstack((np.repeat(np.arange(n_c), n_f), np.tile(np.arange(n_f), n_c))).T.flatten()
 
 
@@ -80,6 +107,7 @@ if __name__ == '__main__':
     fdim = tdim - 1
     domain.topology.create_connectivity(tdim, fdim)
     domain.topology.create_connectivity(tdim, tdim)
+    domain.topology.create_connectivity(fdim, fdim)
 
     # tag internal facets as 0
     ft_imap = domain.topology.index_map(fdim)
@@ -91,7 +119,7 @@ if __name__ == '__main__':
     ct = mesh.meshtags(domain, tdim, ct.indices, ct.values)
 
     # Create the sub-mesh
-    facet_mesh, facet_mesh_to_mesh = mesh.create_submesh(domain, fdim, ft.indices)[:2]
+    facet_mesh, facet_mesh_to_mesh, _, _ = mesh.create_submesh(domain, fdim, ft.indices)
 
     # Define function spaces
     k = 3  # Polynomial order
@@ -106,7 +134,7 @@ if __name__ == '__main__':
 
     # Define integration measures
     # Cell
-    dx_c = ufl.Measure("dx", domain=domain)
+    dx_c = ufl.Measure("dx", domain=domain, subdomain_data=ct)
     # Cell boundaries
     # We need to define an integration measure to integrate around the
     # boundary of each cell. The integration entities can be computed
@@ -114,9 +142,15 @@ if __name__ == '__main__':
     cell_boundary_facets = compute_cell_boundary_facets(domain)
     cell_boundaries = 1  # A tag
     # Create the measure
-    ds_c = ufl.Measure("ds", subdomain_data=[(cell_boundaries, cell_boundary_facets)], domain=domain)
+    phase1 = markers.electrolyte
+    phase2 = markers.positive_am
+    phase1_facets = compute_cell_boundary_facets_new(domain, ct, phase1)
+    phase2_facets = compute_cell_boundary_facets_new(domain, ct, phase2)
+
+    ds_c = ufl.Measure("ds", subdomain_data=[(phase1, phase1_facets), (phase2, phase2_facets)], domain=domain)
+    # ds_c = ufl.Measure("ds", subdomain_data=[(cell_boundaries, cell_boundary_facets)], domain=domain)
     # Create a cell integral measure over the facet mesh
-    dx_f = ufl.Measure("dx", domain=facet_mesh)
+    dx_f = ufl.Measure("dx", domain=facet_mesh, subdomain_data=ft)
 
     # We write the mixed domain forms as integrals over domain. Hence, we must
     # provide a map from facets in domain to cells in facet_mesh. This is the
@@ -135,18 +169,18 @@ if __name__ == '__main__':
     a_00 = fem.form(
         inner(c * grad(u), grad(v)) * dx_c
         - (
-            inner(c * u, dot(grad(v), n)) * ds_c(cell_boundaries)
-            + inner(dot(grad(u), n), c * v) * ds_c(cell_boundaries)
+            inner(c * u, dot(grad(v), n)) * (ds_c(phase1) + ds_c(phase2))
+            + inner(dot(grad(u), n), c * v) * (ds_c(phase1) + ds_c(phase2))
         )
-        + gamma * inner(c * u, v) * ds_c(cell_boundaries)
+        + gamma * inner(c * u, v) * (ds_c(phase1) + ds_c(phase2))
     )
     a_10 = fem.form(
-        inner(dot(grad(u), n) - gamma * u, c * vbar) * ds_c(cell_boundaries), entity_maps=entity_maps
+        inner(dot(grad(u), n) - gamma * u, c * vbar) * (ds_c(phase1) + ds_c(phase2)), entity_maps=entity_maps
     )
     a_01 = fem.form(
-        inner(c * ubar, dot(grad(v), n) - gamma * v) * ds_c(cell_boundaries), entity_maps=entity_maps
+        inner(c * ubar, dot(grad(v), n) - gamma * v) * (ds_c(phase1) + ds_c(phase2)), entity_maps=entity_maps
     )
-    a_11 = fem.form(gamma * inner(c * ubar, vbar) * ds_c(cell_boundaries), entity_maps=entity_maps)
+    a_11 = fem.form(gamma * inner(c * ubar, vbar) * (ds_c(phase1) + ds_c(phase2)), entity_maps=entity_maps)
 
     # Manufacture a source term
     f = fem.Constant(domain, dtype(0.0))
