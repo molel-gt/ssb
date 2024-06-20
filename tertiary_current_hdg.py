@@ -22,6 +22,9 @@ from ufl import div, dot, grad, inner
 import commons, utils
 
 
+kappa_elec = 0.1  # S/m
+
+
 def compute_cell_boundary_facets_new(domain, ct, marker):
     """Compute the integration entities for integrals around the
     boundaries of all cells in domain.
@@ -41,7 +44,6 @@ def compute_cell_boundary_facets_new(domain, ct, marker):
     cells_1 = ct.find(marker)
     perm = np.argsort(cells_1)
     n_c = cells_1.shape[0]
-    print(n_f, n_c)
 
     return np.vstack((np.repeat(cells_1[perm], n_f), np.tile(np.arange(n_f), n_c))).T.flatten()
 
@@ -62,7 +64,6 @@ def compute_cell_boundary_facets(domain):
     n_f = cell_num_entities(domain.topology.cell_type, fdim)
     
     n_c = domain.topology.index_map(tdim).size_local
-    print(n_f, n_c)
 
     return np.vstack((np.repeat(np.arange(n_c), n_f), np.tile(np.arange(n_f), n_c))).T.flatten()
 
@@ -75,7 +76,7 @@ if __name__ == '__main__':
     parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1.0, type=float)
     # parser.add_argument("--Wa_n", help="Wagna number for negative electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e-3, type=float)
     # parser.add_argument("--Wa_p", help="Wagna number for positive electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
-    # parser.add_argument("--kr", help="ratio of ionic to electronic conductivity", nargs='?', const=1, default=1, type=float)
+    parser.add_argument("--kr", help="ratio of ionic to electronic conductivity", nargs='?', const=1, default=1, type=float)
     # parser.add_argument("--gamma", help="interior penalty parameter", nargs='?', const=1, default=15, type=float)
     # parser.add_argument("--atol", help="solver absolute tolerance", nargs='?', const=1, default=1e-12, type=float)
     # parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-9, type=float)
@@ -117,6 +118,16 @@ if __name__ == '__main__':
     values[ft.indices] = ft.values
     ft = mesh.meshtags(domain, fdim, indices, values)
     ct = mesh.meshtags(domain, tdim, ct.indices, ct.values)
+
+    # properties
+    Q = fem.functionspace(domain, ('DG', 0))
+    kappa = fem.Function(Q)
+    cells_elec = ct.find(markers.electrolyte)
+    kappa.x.array[cells_elec] = np.full_like(cells_elec, kappa_elec, dtype=dtype)
+
+    kappa_pos_am = kappa_elec/args.kr
+    cells_pos_am = ct.find(markers.positive_am)
+    kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, kappa_pos_am, dtype=dtype)
 
     # Create the sub-mesh
     facet_mesh, facet_mesh_to_mesh, _, _ = mesh.create_submesh(domain, fdim, ft.indices)
@@ -169,20 +180,20 @@ if __name__ == '__main__':
     x = ufl.SpatialCoordinate(domain)
     c = 1.0
     a_00 = fem.form(
-        inner(c * grad(u), grad(v)) * dx_c
+        inner(kappa * grad(u), grad(v)) * dx_c
         - (
-            inner(c * u, dot(grad(v), n)) * (ds_c(phase1) + ds_c(phase2))
-            + inner(dot(grad(u), n), c * v) * (ds_c(phase1) + ds_c(phase2))
+            inner(kappa * u, dot(grad(v), n)) * (ds_c(phase1) + ds_c(phase2))
+            + inner(dot(grad(u), n), kappa * v) * (ds_c(phase1) + ds_c(phase2))
         )
-        + gamma * inner(c * u, v) * (ds_c(phase1) + ds_c(phase2))
+        + gamma * inner(kappa * u, v) * (ds_c(phase1) + ds_c(phase2))
     )
     a_10 = fem.form(
-        inner(dot(grad(u), n) - gamma * u, c * vbar) * (ds_c(phase1) + ds_c(phase2)), entity_maps=entity_maps
+        inner(dot(grad(u), n) - gamma * u, kappa * vbar) * (ds_c(phase1) + ds_c(phase2)), entity_maps=entity_maps
     )
     a_01 = fem.form(
-        inner(c * ubar, dot(grad(v), n) - gamma * v) * (ds_c(phase1) + ds_c(phase2)), entity_maps=entity_maps
+        inner(kappa * ubar, dot(grad(v), n) - gamma * v) * (ds_c(phase1) + ds_c(phase2)), entity_maps=entity_maps
     )
-    a_11 = fem.form(gamma * inner(c * ubar, vbar) * (ds_c(phase1) + ds_c(phase2)), entity_maps=entity_maps)
+    a_11 = fem.form(gamma * inner(kappa * ubar, vbar) * (ds_c(phase1) + ds_c(phase2)), entity_maps=entity_maps)
 
     # Manufacture a source term
     f = fem.Constant(domain, dtype(0.0))
@@ -250,10 +261,10 @@ if __name__ == '__main__':
     current_cg = fem.Function(W_CG)
     current_expr = fem.Expression(-grad(u_dg), W_CG.element.interpolation_points())
     current_cg.interpolate(current_expr)
-    I_left = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(grad(u_dg), n) * ds(markers.left))), op=MPI.SUM)
-    I_middle = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(grad(u_dg)('+'), n('+')) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
-    I_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(grad(u_dg), n) * ds(markers.right))), op=MPI.SUM)
-    I_insulated = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(grad(u_dg), n)) * ds(markers.insulated))), op=MPI.SUM)
+    I_left = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-kappa * grad(u_dg), n) * ds(markers.left))), op=MPI.SUM)
+    I_middle = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-(kappa * grad(u_dg))('+'), n('+')) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
+    I_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-kappa * grad(u_dg), n) * ds(markers.right))), op=MPI.SUM)
+    I_insulated = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(-kappa * grad(u_dg), n)) * ds(markers.insulated))), op=MPI.SUM)
     print(f"I_left       : {np.abs(I_left):.4e} A")
     print(f"I_middle     : {np.abs(I_middle):.4e} A")
     print(f"I_right      : {np.abs(I_right):.4e} A")
