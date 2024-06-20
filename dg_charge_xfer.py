@@ -121,7 +121,7 @@ if __name__ == '__main__':
     c_to_f = domain.topology.connectivity(tdim, fdim)
     charge_xfer_facets = ft.find(markers.electrolyte_v_positive_am)
 
-    other_internal_facets = ft.find(0)
+    other_internal_facets = np.asarray(set(ft.indices).difference(set(charge_xfer_facets)))
     int_facet_domain = []
     for f in charge_xfer_facets:
         if f >= ft_imap.size_local or len(f_to_c.links(f)) != 2:
@@ -145,6 +145,15 @@ if __name__ == '__main__':
     for f in other_internal_facets:
         if f >= ft_imap.size_local or len(f_to_c.links(f)) != 2:
             continue
+        # if f >= ft_imap.size_local:
+        #     continue
+        # else:
+        #      if len(f_to_c.links(f)) != 2:
+        #         c_0 = f_to_c.links(f)[0]
+        #         local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
+        #         other_internal_facet_domains.append(c_0)
+        #         other_internal_facet_domains.append(local_f_0)
+        #         continue
         c_0, c_1 = f_to_c.links(f)[0], f_to_c.links(f)[1]
         subdomain_0, subdomain_1 = ct.values[[c_0, c_1]]
         local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
