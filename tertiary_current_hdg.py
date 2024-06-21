@@ -140,6 +140,7 @@ class NewtonSolver:
         self._solver.destroy()
         self.x.destroy()
 
+
 def compute_cell_boundary_facets_new(domain, ct, marker):
     """Compute the integration entities for integrals around the
     boundaries of all cells in domain.
@@ -220,7 +221,7 @@ if __name__ == '__main__':
     cells_elec = ct.find(markers.electrolyte)
     kappa.x.array[cells_elec] = np.full_like(cells_elec, kappa_elec, dtype=dtype)
 
-    kappa_pos_am = kappa_elec/args.kr
+    kappa_pos_am = kappa_elec / args.kr
     cells_pos_am = ct.find(markers.positive_am)
     kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, kappa_pos_am, dtype=dtype)
     # diffusivity
