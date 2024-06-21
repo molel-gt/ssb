@@ -252,8 +252,6 @@ if __name__ == '__main__':
     # We need to define an integration measure to integrate around the
     # boundary of each cell. The integration entities can be computed
     # using the following convenience function.
-    cell_boundary_facets = compute_cell_boundary_facets(domain)
-    cell_boundaries = 1  # A tag
     # Create the measure
     phase1 = markers.electrolyte
     phase2 = markers.positive_am
