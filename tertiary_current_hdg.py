@@ -163,26 +163,6 @@ def compute_cell_boundary_facets_new(domain, ct, marker):
     return np.vstack((np.repeat(cells_1[perm], n_f), np.tile(np.arange(n_f), n_c))).T.flatten()
 
 
-def compute_cell_boundary_facets(domain):
-    """Compute the integration entities for integrals around the
-    boundaries of all cells in domain.
-
-    Parameters:
-        domain: The mesh.
-
-    Returns:
-        Facets to integrate over, identified by ``(cell, local facet
-        index)`` pairs.
-    """
-    tdim = domain.topology.dim
-    fdim = tdim - 1
-    n_f = cell_num_entities(domain.topology.cell_type, fdim)
-    
-    n_c = domain.topology.index_map(tdim).size_local
-
-    return np.vstack((np.repeat(np.arange(n_c), n_f), np.tile(np.arange(n_f), n_c))).T.flatten()
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='3D Current Collector.')
     # parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="lithium_metal_3d_cc_2d")
