@@ -23,6 +23,9 @@ import commons, utils
 
 
 kappa_elec = 0.1  # S/m
+faraday_const = 96485
+R = 8.3145
+T = 298
 
 
 def compute_cell_boundary_facets_new(domain, ct, marker):
@@ -128,6 +131,10 @@ if __name__ == '__main__':
     kappa_pos_am = kappa_elec/args.kr
     cells_pos_am = ct.find(markers.positive_am)
     kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, kappa_pos_am, dtype=dtype)
+    # diffusivity
+    D = fem.Function(Q)
+    D.x.array[cells_pos_am] = np.full_like(cells_pos_am, 1e-15, dtype=dtype)
+    D.x.array[cells_elec] = np.full_like(cells_elec, 1e-5, dtype=dtype)
 
     # Create the sub-mesh
     facet_mesh, facet_mesh_to_mesh, _, _ = mesh.create_submesh(domain, fdim, ft.indices)
@@ -140,8 +147,10 @@ if __name__ == '__main__':
     # Trial and test functions
     # Cell space
     u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
+    c, q = ufl.TrialFunction(V), ufl.TestFunction(V)
     # Facet space
     ubar, vbar = ufl.TrialFunction(Vbar), ufl.TestFunction(Vbar)
+    cbar, qbar = ufl.TrialFunction(Vbar), ufl.TestFunction(Vbar)
 
     # Define integration measures
     # Cell
@@ -178,7 +187,7 @@ if __name__ == '__main__':
     gamma = 16.0 * k**2 / h  # Scaled penalty parameter
 
     x = ufl.SpatialCoordinate(domain)
-    c = 1.0
+
     a_00 = fem.form(
         inner(kappa * grad(u), grad(v)) * dx_c
         - (
