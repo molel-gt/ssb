@@ -209,7 +209,7 @@ def ocv(c, cmax=30000):
     xi = 2 * (c - 0.5 * cmax) / cmax
     return 3.25 - 0.5 * arctanh(xi)
 
-
+voltage = 3.5
 Wa = 1e1
 encoding = io.XDMFFile.Encoding.HDF5
 comm = MPI.COMM_WORLD
@@ -218,8 +218,7 @@ markers = commons.Markers()
 LX = 150 * micron
 LY = 40 * micron
 
-# workdir = "output/subdomains_dg/150-40-0/20-55-20/1e-07/"
-workdir = "output/tertiary_current/150-40-0/20-55-20/1.0e-06/"
+workdir = "output/tertiary_current/150-40-0/20-55-20/5.0e-06/"
 utils.make_dir_if_missing(workdir)
 output_meshfile = os.path.join(workdir, 'mesh.msh')
 potential_resultsfile = os.path.join(workdir, "potential.bp")
@@ -371,7 +370,6 @@ f = fem.Constant(domain, dtype(0))
 fc = fem.Constant(submesh, dtype(0))
 g = fem.Constant(domain, dtype(0))
 gc = fem.Constant(submesh, dtype(0))
-voltage = 1
 u_left = fem.Function(V)
 with u_left.vector.localForm() as u0_loc:
     u0_loc.set(0)
@@ -447,7 +445,8 @@ F1 -= dt * (inner(fc, q) * dx_r + inner(gc, q) * (ds_r(markers.insulated_positiv
 
 TIME = 1000 * dt
 t = 0
-c_vtx = VTXWriter(comm, concentration_resultsfile, [c], engine="BP4")
+c_vtx = VTXWriter(comm, concentration_resultsfile, [c], engine="BP5")
+u_vtx = VTXWriter(comm, concentration_resultsfile, [u], engine="BP5")
 c_vtx.write(0.0)
 
 while t < TIME:
@@ -482,8 +481,9 @@ while t < TIME:
     solver.solve(1e-5, beta=1)
     c0.x.array[:] = c.x.array[:]
     c_vtx.write(t)
+    u_vtx.write(t)
 c_vtx.close()
-
+u_vtx.close()
 
 # ### variational problem solution
 
