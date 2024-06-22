@@ -429,14 +429,14 @@ if __name__ == '__main__':
             J,
             [u, c],
             bcs=[],
-            max_iterations=2,
+            max_iterations=10,
             petsc_options={
             "ksp_type": "preonly",
             "pc_type": "lu",
             "pc_factor_mat_solver_type": "superlu_dist",
             },
             )
-        solver.solve(1e-9, beta=1)
+        solver.solve(1e-6, beta=1)
         c0.x.array[:] = c.x.array[:]
         c_vtx.write(t)
         u_vtx.write(t)
