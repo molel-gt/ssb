@@ -235,15 +235,17 @@ if __name__ == '__main__':
     # Define function spaces
     k = 3  # Polynomial order
     V = fem.functionspace(domain, ("Discontinuous Lagrange", k))
+    W = fem.functionspace(domain, ("Discontinuous Lagrange", k))
     Vbar = fem.functionspace(facet_mesh, ("Discontinuous Lagrange", k))
+    Wbar = fem.functionspace(facet_mesh, ("Discontinuous Lagrange", k))
 
     # Trial and test functions
     # Cell space
     u, v = fem.Function(V), ufl.TestFunction(V)
-    # c, q = fem.Function(V), ufl.TestFunction(V)
+    # c, q = fem.Function(W), ufl.TestFunction(W)
     # Facet space
     ubar, vbar = fem.Function(Vbar), ufl.TestFunction(Vbar)
-    # cbar, qbar = ufl.TrialFunction(Vbar), ufl.TestFunction(Vbar)
+    # cbar, qbar = fem.Function(Wbar), ufl.TestFunction(Wbar)
 
     # Define integration measures
     # Cell
