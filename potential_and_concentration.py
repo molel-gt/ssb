@@ -31,6 +31,8 @@ kappa_elec = 0.1
 faraday_const = 96485
 R = 8.3145
 T = 298
+D = 1e-15
+
 
 class NewtonSolver:
     max_iterations: int
@@ -134,6 +136,8 @@ class NewtonSolver:
             correction_norm = self.dx.norm(0)
             print(f"Iteration {i}: Correction norm {correction_norm}")
             if correction_norm < tol:
+                break
+            if np.isnan(self.dx.norm(0)):
                 break
             i += 1
 
@@ -343,7 +347,6 @@ if __name__ == '__main__':
     cells_pos_am = ct.find(markers.positive_am)
     kappa.x.array[cells_electrolyte] = np.full_like(cells_electrolyte, kappa_elec, dtype=dtype)
     kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, kappa_pos_am, dtype=dtype)
-    D = 1e-15
 
     # ### variational formulation
 
@@ -400,7 +403,7 @@ if __name__ == '__main__':
 
     # solve tertiary current distribution
 
-    TIME = 500 * dt
+    TIME = 50 * dt
     t = 0
     c_vtx = VTXWriter(comm, concentration_resultsfile, [c], engine="BP5")
     u_vtx = VTXWriter(comm, potential_resultsfile, [u], engine="BP5")
@@ -438,6 +441,8 @@ if __name__ == '__main__':
             )
         solver.solve(1e-6, beta=1)
         c0.x.array[:] = c.x.array[:]
+        if np.isnan(solver.dx.norm(0)):
+            break
         c_vtx.write(t)
         u_vtx.write(t)
     c_vtx.close()
