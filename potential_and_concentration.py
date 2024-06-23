@@ -245,7 +245,6 @@ if __name__ == '__main__':
     i_loc = -inner((kappa * grad(u))('+'), n("+"))
     u_jump = 2 * ufl.ln(0.5 * i_loc/i0_p + ufl.sqrt((0.5 * i_loc/i0_p)**2 + 1)) * (R * T / faraday_const)
 
-    u_ocv = ocv(c("+"))
     F0 = kappa * inner(grad(u), grad(v)) * dx - f * v * dx - kappa * inner(grad(u), n) * v * ds
 
     # Add DG/IP terms
@@ -254,8 +253,8 @@ if __name__ == '__main__':
     F0 += alpha / h_avg * avg(kappa) * inner(jump(v, n), jump(u, n)) * dS#(0)
 
     # Internal boundary
-    F0 += + avg(kappa) * dot(avg(grad(v)), (u_jump + u_ocv) * n('+')) * dS(markers.electrolyte_v_positive_am)
-    F0 += -alpha / h_avg * avg(kappa) * dot(jump(v, n), (u_jump + u_ocv) * n('+')) * dS(markers.electrolyte_v_positive_am)
+    F0 += + avg(kappa) * dot(avg(grad(v)), (u_jump + ocv(c("+"))) * n('+')) * dS(markers.electrolyte_v_positive_am)
+    F0 += -alpha / h_avg * avg(kappa) * dot(jump(v, n), (u_jump + ocv(c("+"))) * n('+')) * dS(markers.electrolyte_v_positive_am)
 
     # # Symmetry
     F0 += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
@@ -284,9 +283,9 @@ if __name__ == '__main__':
     dt = 1e-3
     F1 = inner(c - c0, q) * dx_r
     F1 += dt * inner(D * grad(c), grad(q)) * dx_r
-    F1 += - dt * inner(fc, q) * dx_r
-    F1 += - dt * inner(gc, q) * (ds_r(markers.insulated_positive_am) + ds_r(markers.right))
-    F1 += - dt * inner(1/faraday_const * inner(-kappa * grad(u), n), q) * ds_r(markers.electrolyte_v_positive_am)
+    F1 += - dt * fc * q * dx_r
+    F1 += - dt * gc * q * (ds_r(markers.insulated_positive_am) + ds_r(markers.right))
+    F1 += - dt * 1/faraday_const * inner(inner(-kappa * grad(u), n), q) * ds_r(markers.electrolyte_v_positive_am)
 
 
     # solve tertiary current distribution
