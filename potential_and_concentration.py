@@ -282,8 +282,11 @@ if __name__ == '__main__':
     # concentration problem
 
     dt = 1e-3
-    F1 = inner(c - c0, q) * dx_r + dt * inner(D * grad(c), grad(q)) * dx_r
-    F1 -= dt * (inner(fc, q) * dx_r + inner(gc, q) * (ds_r(markers.insulated_positive_am) + ds_r(markers.right)) - inner(1/faraday_const * inner(-kappa * grad(u), n), q) * ds_r(markers.electrolyte_v_positive_am))
+    F1 = inner(c - c0, q) * dx_r
+    F1 += dt * inner(D * grad(c), grad(q)) * dx_r
+    F1 += - dt * inner(fc, q) * dx_r
+    F1 += - dt * inner(gc, q) * (ds_r(markers.insulated_positive_am) + ds_r(markers.right))
+    F1 += - dt * inner(1/faraday_const * inner(-kappa * grad(u), n), q) * ds_r(markers.electrolyte_v_positive_am)
 
 
     # solve tertiary current distribution
