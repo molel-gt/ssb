@@ -312,7 +312,7 @@ if __name__ == '__main__':
             fem.form(F0, entity_maps=entity_maps),
             fem.form(F1, entity_maps=entity_maps),
             ]
-        solver = NewtonSolver(
+        solver = solvers.NewtonSolver(
             F,
             J,
             [u, c],
