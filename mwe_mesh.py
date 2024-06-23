@@ -2,59 +2,12 @@
 
 import gmsh
 
-class Markers:
-    def __init__(self):
-        pass
 
-    @property
-    def phase_1(self):
-        return 1
-
-    @property
-    def phase_2(self):
-        return 2
-
-    @property
-    def left(self):
-        return 3
-
-    @property
-    def bottom_left(self):
-        return 4
-
-    @property
-    def bottom_right(self):
-        return 5
-
-    @property
-    def right(self):
-        return 6
-
-    @property
-    def top_right(self):
-        return 7
-
-    @property
-    def top_left(self):
-        return 8
-
-    @property
-    def middle(self):
-        return 9
-
-    @property
-    def insulated(self):
-        return 10
-
-
-if __name__ == '__main__':
+def create_mesh(output_meshfile):
     micron = 1e-6
     resolution = 5 * micron
     LX = 150 * micron
     LY = 40 * micron
-    output_meshfile = 'mesh.msh'
-
-    markers = Markers()
     points = [
         (0, 0, 0),
         (0.5 * LX, 0, 0),
@@ -87,16 +40,36 @@ if __name__ == '__main__':
     lines.append(
         gmsh.model.occ.addLine(gpoints[1], gpoints[4])
     )
+    phase_1 = 1
+    phase_2 = 2
+
+    left = 1
+    bottom_left = 2
+    bottom_right = 3
+    right = 4
+    top_right = 5
+    top_left = 6
+    middle = 7
+    labels = {
+        "phase_1": phase_1,
+        "phase_2": phase_2,
+        "left": left,
+        "bottom_left": bottom_left,
+        "bottom_right": bottom_right,
+        "right": right,
+        "top_right": top_right,
+        "top_left": top_left,
+        "middle": middle,
+    }
 
     gmsh.model.occ.synchronize()
-    gmsh.model.addPhysicalGroup(1, [lines[-2]], markers.left, "left")
-    gmsh.model.addPhysicalGroup(1, [lines[2]], markers.right, "right")
-    gmsh.model.addPhysicalGroup(1, [lines[idx] for idx in [-1]], markers.middle, "middle")
-    gmsh.model.addPhysicalGroup(1, [lines[idx] for idx in [0]], markers.bottom_left, "bottom left")
-    gmsh.model.addPhysicalGroup(1, [lines[idx] for idx in [4]], markers.top_left, "top left")
-    gmsh.model.addPhysicalGroup(1, [lines[idx] for idx in [1]], markers.bottom_right, "bottom right")
-    gmsh.model.addPhysicalGroup(1, [lines[idx] for idx in [3]], markers.top_right, "top right")
-    gmsh.model.addPhysicalGroup(1, [lines[idx] for idx in [0, 1, 3, 4]], markers.insulated, "insulated")
+    gmsh.model.addPhysicalGroup(1, [lines[-2]], left, "left")
+    gmsh.model.addPhysicalGroup(1, [lines[2]], right, "right")
+    gmsh.model.addPhysicalGroup(1, [lines[idx] for idx in [-1]], middle, "middle")
+    gmsh.model.addPhysicalGroup(1, [lines[idx] for idx in [0]], bottom_left, "bottom left")
+    gmsh.model.addPhysicalGroup(1, [lines[idx] for idx in [4]], top_left, "top left")
+    gmsh.model.addPhysicalGroup(1, [lines[idx] for idx in [1]], bottom_right, "bottom right")
+    gmsh.model.addPhysicalGroup(1, [lines[idx] for idx in [3]], top_right, "top right")
 
     gmsh.model.occ.synchronize()
     se_loop = gmsh.model.occ.addCurveLoop([lines[idx] for idx in [0, 6, 4, 5]])
@@ -112,3 +85,5 @@ if __name__ == '__main__':
     gmsh.model.mesh.generate(2)
     gmsh.write(output_meshfile)
     gmsh.finalize()
+
+    return labels
