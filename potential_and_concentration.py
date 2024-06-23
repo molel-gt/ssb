@@ -330,6 +330,9 @@ if __name__ == '__main__':
             break
         c_vtx.write(t)
         u_vtx.write(t)
+        I_pos_am_1 = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-(kappa * grad(u))("+"), n("+")) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
+        I_pos_am_2 = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-faraday_const * D * grad(c), nc) * ds_r(markers.electrolyte_v_positive_am),entity_maps=entity_maps)), op=MPI.SUM)
+        print(f"I_pos_am potential: {I_pos_am_1:.2e}, concentration: {I_pos_am_2:.2e}")
     c_vtx.close()
     u_vtx.close()
 
