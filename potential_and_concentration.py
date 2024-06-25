@@ -10,7 +10,7 @@ import numpy as np
 import ufl
 import warnings
 
-from basix.ufl import element
+from basix.ufl import element, mixed_element
 from dolfinx import cpp, default_scalar_type, fem, graph, io, mesh, nls, plot
 from dolfinx.fem import petsc
 from dolfinx.graph import partitioner_parmetis
@@ -191,7 +191,9 @@ if __name__ == '__main__':
 
 
     # ### Function Spaces
-
+    P1 = element("DG", domain.basix_cell(), 1)
+    P2 = element("CG", domain.basix_cell(), 1)
+    ME = fem.functionspace(domain, mixed_element([P1, P2]))
     V = fem.functionspace(domain, ("DG", 1))
     V_submesh = fem.functionspace(submesh, ("CG", 1))
     W = fem.functionspace(domain, ("DG", 1, (3,)))
