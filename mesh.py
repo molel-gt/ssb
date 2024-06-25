@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 
 import gmsh
 
@@ -78,8 +79,8 @@ def create_mesh(output_meshfile):
     se_phase = gmsh.model.occ.addPlaneSurface([se_loop])
     pe_phase = gmsh.model.occ.addPlaneSurface([pe_loop])
     gmsh.model.occ.synchronize()
-    gmsh.model.addPhysicalGroup(2, [se_phase], markers.phase_1, "phase 1")
-    gmsh.model.addPhysicalGroup(2, [pe_phase], markers.phase_2, "phase 2")
+    gmsh.model.addPhysicalGroup(2, [se_phase], phase_1, "phase 1")
+    gmsh.model.addPhysicalGroup(2, [pe_phase], phase_2, "phase 2")
     gmsh.model.occ.synchronize()
 
     gmsh.model.mesh.generate(2)
@@ -87,3 +88,6 @@ def create_mesh(output_meshfile):
     gmsh.finalize()
 
     return labels
+
+if __name__ == '__main__':
+    create_mesh("mesh.msh")
