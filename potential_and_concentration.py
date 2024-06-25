@@ -200,9 +200,8 @@ if __name__ == '__main__':
     c = fem.Function(V_submesh, name='concentration')
     c0 = fem.Function(V_submesh, name='concentration')
     c0.interpolate(lambda x: 0.5 * c_li + x[0] - x[0])
-    c.interpolate(c0)
+    c.interpolate(lambda x: 100 + x[0] - x[0])
     q = ufl.TestFunction(V_submesh)
-    # u_cg = fem.Function(V_CG, name='potential', dtype=np.float64)
     v = ufl.TestFunction(V)
     n = ufl.FacetNormal(domain)
     nc = ufl.FacetNormal(submesh)
@@ -285,7 +284,7 @@ if __name__ == '__main__':
     F1 += dt * inner(D * grad(c), grad(q)) * dx_r
     F1 += - dt * fc * q * dx_r
     F1 += - dt * gc * q * (ds_r(markers.insulated_positive_am) + ds_r(markers.right))
-    F1 += - dt * 1/faraday_const * inner(inner(-kappa * grad(u), n), q) * ds_r(markers.electrolyte_v_positive_am)
+    F1 += - dt * 1/faraday_const * inner(inner(kappa * grad(u), n), q) * ds_r(markers.electrolyte_v_positive_am)
 
 
     # solve tertiary current distribution
@@ -295,10 +294,13 @@ if __name__ == '__main__':
     c_vtx = VTXWriter(comm, concentration_resultsfile, [c], engine="BP5")
     u_vtx = VTXWriter(comm, potential_resultsfile, [u], engine="BP5")
     c_vtx.write(0.0)
+    vol = comm.allreduce(fem.assemble_scalar(fem.form(1 * dx_r)), op=MPI.SUM)
 
     while t < TIME:
         print(f"Time: {t:.3f}")
         t += dt
+        c_avg = comm.allreduce(fem.assemble_scalar(fem.form(c * dx_r)), op=MPI.SUM) / vol
+        print(f"average concentration: {c_avg:.1f}")
         jac00 = ufl.derivative(F0, u)
         jac01 = ufl.derivative(F0, c)
         jac10 = ufl.derivative(F1, u)
@@ -327,7 +329,7 @@ if __name__ == '__main__':
             },
             )
         solver.solve(1e-6, beta=1)
-        c0.x.array[:] = c.x.array[:]
+        c0.x.array[:] = c.x.array
         if np.isnan(solver.dx.norm(0)):
             break
         c_vtx.write(t)
