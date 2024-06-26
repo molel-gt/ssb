@@ -291,7 +291,7 @@ if __name__ == '__main__':
 
     # solve tertiary current distribution
 
-    TIME = 50 * dt
+    TIME = 5 * dt
     t = 0
     c_vtx = VTXWriter(comm, concentration_resultsfile, [c], engine="BP5")
     u_vtx = VTXWriter(comm, potential_resultsfile, [u], engine="BP5")
