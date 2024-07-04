@@ -173,13 +173,14 @@ if __name__ == '__main__':
     x = ufl.SpatialCoordinate(domain)
 
     # constants
-    dt_ = 1e-1
+    dt_ = 1e-3
     dt = fem.Constant(submesh, dtype(dt_))
     f0 = fem.Constant(domain, dtype(0))
     f1 = fem.Constant(submesh, dtype(0))
     f2 = fem.Constant(submeshf, dtype(0))
     g0 = fem.Constant(domain, dtype(0))
     g1 = fem.Constant(submesh, dtype(0))
+    fun1 = fem.Constant(submesh, dtype(1))
     u_left = fem.Function(V0)
     with u_left.vector.localForm() as u0_loc:
         u0_loc.set(0)
@@ -187,13 +188,17 @@ if __name__ == '__main__':
     with u_right.vector.localForm() as u1_loc:
         u1_loc.set(3.5)
 
+    u_right2 = fem.Function(V1)
+    with u_right2.vector.localForm() as u1_loc2:
+        u1_loc2.set(1)
+
     # variational formulation
     a00 = fem.form(kappa * inner(grad(u), grad(v)) * dx)# + inner(-kappa*grad(u), n) * v * ds_f(middle))
     a01 = None
     a02 = fem.form(inner(lamda, kappa/faraday_const*inner(grad(v), n)) * ds_f(middle), entity_maps=entity_maps)
 
-    a10 = fem.form(dt * inner(kappa/faraday_const * grad(u), n) * q * ds_f(middle), entity_maps=entity_maps)
-    a11 = fem.form(inner(c, q) * dx(phase_2) - dt * inner(D * grad(c), grad(q)) * dx(phase_2) - dt * D * inner(grad(c), nc) * q * ds_f(middle), entity_maps=entity_maps)
+    a10 = fem.form(-inner(kappa/faraday_const * grad(u), nc) * q * ds_f(middle), entity_maps=entity_maps)
+    a11 = fem.form(inner(D * grad(c), grad(q)) * dx(phase_2), entity_maps=entity_maps)
     a12 = fem.form(- inner(lamda, D * inner(grad(q), nc)) * ds_f(middle), entity_maps=entity_maps)
 
     a20 = fem.form(inner(eta, kappa/faraday_const * inner(grad(u), n)) * ds_f(middle), entity_maps=entity_maps)
@@ -202,21 +207,22 @@ if __name__ == '__main__':
 
     left_bc = fem.dirichletbc(u_left, fem.locate_dofs_topological(V0, 1, ft.find(left)))
     right_bc = fem.dirichletbc(u_right, fem.locate_dofs_topological(V0, 1, ft.find(right)))
+    right_bc2 = fem.dirichletbc(u_right2, fem.locate_dofs_topological(V1, 1, ft.find(right)))
 
     a = [
             [a00, a01, a02],
             [a10, a11, a12],
             [a20, a21, a22]
         ]
-    L0_ = inner(f0, v) * dx
-    L0_ += inner(g0, v) * ds(insulated_phase_1)
-    L0_ += inner(g0, v) * ds(insulated_phase_2)
+    L0_ = f0 * v * dx
+    L0_ += g0 * v * ds((insulated_phase_1, insulated_phase_2))
+    # L0_ += g0 * v * ds(insulated_phase_2)
     L0 = fem.form(L0_)
 
-    L1_ = dt * inner(f1, q) * dx(phase_2) 
-    L1_ += dt * inner(c0, q) * dx(phase_2)
-    L1_ += dt * inner(g1, q) * ds(insulated_phase_2)
-    L1_ += dt * inner(g1, q) * ds(right)
+    L1_ = f1 * q * dx(phase_2) 
+    # L1_ += c0 * q * dx(phase_2)
+    L1_ += g1 * q * ds((insulated_phase_2,))
+    # L1_ += g1 * q * ds(right)
     L1 = fem.form(L1_, entity_maps=entity_maps)
     L2 = fem.form(inner(f2, eta) * ds_f(middle), entity_maps=entity_maps)
     L = [L0, L1, L2]
@@ -231,18 +237,20 @@ if __name__ == '__main__':
     cvtx = VTXWriter(comm, "c.bp", [ch], "BP5")
     lvtx = VTXWriter(comm, "lamda.bp", [lamdah], "BP5")
 
-
+    bcs = [left_bc, right_bc, right_bc2]
     TIME = 10 * dt_
     t = 0
     vol = comm.allreduce(fem.assemble_scalar(fem.form(1 * dx(phase_2), entity_maps=entity_maps)), op=MPI.SUM)
 
     while t < TIME:
         print(f"Time: {t:.3f}")
+        c_avg = comm.allreduce(fem.assemble_scalar(fem.form(c0 * dx(phase_2), entity_maps=entity_maps)), op=MPI.SUM) / vol
+        print(f"Concentration (avg): {c_avg:.0f}")
         t += dt_
 
-        A = fem.petsc.assemble_matrix_block(a, bcs=[left_bc, right_bc])
+        A = fem.petsc.assemble_matrix_block(a, bcs=bcs)
         A.assemble()
-        b = fem.petsc.assemble_vector_block(L, a, bcs=[left_bc, right_bc])
+        b = fem.petsc.assemble_vector_block(L, a, bcs=bcs)
         facets = np.hstack((ft.find(external), ft.find(middle)))
         dofs0 = fem.locate_dofs_topological(V0, tdim, ct.indices)
         dofs1 = fem.locate_dofs_topological(V1, tdim, ct.find(phase_2))
