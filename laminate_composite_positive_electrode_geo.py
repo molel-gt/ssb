@@ -236,18 +236,18 @@ if __name__ == '__main__':
     # refinement
     if args.refine:
         gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "FacesList", left_surfs + interface + right + insulated_se + insulated_am)
+        gmsh.model.mesh.field.setNumbers(1, "FacesList", left_surfs + interface)
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
-        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution / 5)
+        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution / 10)
         gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
-        gmsh.model.mesh.field.setNumber(2, "DistMin", resolution)
-        gmsh.model.mesh.field.setNumber(2, "DistMax", 5 * resolution)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", resolution/20)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", resolution/10)
 
-        gmsh.model.mesh.field.add("Max", 5)
-        gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-        gmsh.model.mesh.field.setAsBackgroundMesh(5)
+        # gmsh.model.mesh.field.add("Max", 5)
+        # gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+        # gmsh.model.mesh.field.setAsBackgroundMesh(5)
         gmsh.model.occ.synchronize()
     print("Generating mesh..")
     gmsh.model.mesh.generate(3)
