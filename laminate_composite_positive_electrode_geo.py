@@ -202,18 +202,9 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
     vols = gmsh.model.occ.getEntities(3)
 
-    se_volumes = []
-    am_volumes = []
-    for (_, vol) in vols:
-        com = gmsh.model.occ.getCenterOfMass(3, vol)
-        z = com[2] / scale_x
-        if np.isclose(z, 0.5 * (Lsep + Lcat - Rp) / scale_x, atol=1):
-            se_volumes.append(vol)
-        else:
-            am_volumes.append(vol)
-    se_vol = gmsh.model.addPhysicalGroup(3, se_volumes, markers.electrolyte, "electrolyte")
+    gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.electrolyte, "electrolyte")
     gmsh.model.occ.synchronize()
-    am_vol = gmsh.model.addPhysicalGroup(3, am_volumes, markers.positive_am, "positive_am")
+    gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.positive_am, "positive_am")
     gmsh.model.occ.synchronize()
     print("Generating surface tags..")
     left_surfs = []
