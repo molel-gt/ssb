@@ -35,8 +35,8 @@ import commons, configs, geometry, utils
 warnings.simplefilter('ignore')
 
 
-kappa_elec = 0.1
-kappa_pos_am = 0.2
+# kappa_elec = 0.1
+kappa_pos_am = 0.1
 faraday_const = 96485
 R = 8.3145
 T = 298
@@ -179,9 +179,10 @@ if __name__ == '__main__':
     h_avg = avg(h)
 
     cells_elec = ct.find(markers.electrolyte)
+    kappa_elec = args.kr * kappa_pos_am
     kappa.x.array[cells_elec] = np.full_like(cells_elec, kappa_elec, dtype=default_scalar_type)
 
-    kappa_pos_am = kappa_elec/args.kr
+    # kappa_pos_am = kappa_elec/args.kr
     cells_pos_am = ct.find(markers.positive_am)
     kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, kappa_pos_am, dtype=default_scalar_type)
 
