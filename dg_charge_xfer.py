@@ -14,9 +14,6 @@ import h5py
 import matplotlib.pyplot as plt
 import meshio
 import numpy as np
-import pyvista
-import pyvista as pv
-import pyvistaqt as pvqt
 import subprocess
 import ufl
 import warnings
