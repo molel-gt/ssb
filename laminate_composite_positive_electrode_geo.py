@@ -66,7 +66,9 @@ if __name__ == '__main__':
     gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
-    gmsh.option.setNumber('Mesh.MeshSizeMax', 5e-6)
+    if not args.refine:
+        gmsh.option.setNumber('Mesh.MeshSizeMin', resolution/10)
+        gmsh.option.setNumber('Mesh.MeshSizeMax', resolution)
     z0_points = [
         (0, 0, 0),
         (LX, 0, 0),
@@ -237,7 +239,7 @@ if __name__ == '__main__':
     # refinement
     if args.refine:
         gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "FacesList", left_surfs + interface)
+        gmsh.model.mesh.field.setNumbers(1, "FacesList", left_surfs + interface + right + insulated_se + insulated_am)
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
