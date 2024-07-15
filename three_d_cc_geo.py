@@ -112,12 +112,13 @@ if __name__ == '__main__':
     # gmsh.model.occ.synchronize()
 
     lines_mid = []
+    three_d_cc_well = []
     lines_mid.append(gmsh.model.occ.addLine(points_arr[1, 1], points_arc_t[0]))
     lines_mid.append(gmsh.model.occ.addCircleArc(*points_arc_t))
-    # lines_mid.append(gmsh.model.occ.addEllipse(*points_ellipse_center, R_major, R_minor, angle1=0.5*np.pi, angle2=1.5*np.pi))
-    lines_mid.append(gmsh.model.occ.addEllipseArc(points_arc_t[-1], ellipse_center, ellipse_center_2, ellipse_end))
-    lines_mid.append(gmsh.model.occ.addEllipseArc(points_arc_b[0], ellipse_center, ellipse_center_2, ellipse_end))
-    lines_mid.append(gmsh.model.occ.addCircleArc(*points_arc_b))
+    three_d_cc_well.append(gmsh.model.occ.addEllipseArc(points_arc_t[-1], ellipse_center, ellipse_center_2, ellipse_end))
+    three_d_cc_well.append(gmsh.model.occ.addEllipseArc(points_arc_b[0], ellipse_center, ellipse_center_2, ellipse_end))
+    three_d_cc_well.append(gmsh.model.occ.addCircleArc(*points_arc_b))
+    lines_mid.extend(three_d_cc_well)
     lines_mid.append(gmsh.model.occ.addLine(points_arr[0, 1], points_arc_b[-1]))
     gmsh.model.occ.synchronize()
     loop_ncc = gmsh.model.occ.addCurveLoop([external_lines[0], external_lines[5], external_lines[4]] + lines_mid)
@@ -133,6 +134,7 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(1, [external_lines[0], external_lines[4]], markers.insulated_negative_cc, "insulated negative cc")
     gmsh.model.addPhysicalGroup(1, [external_lines[1], external_lines[3]], markers.insulated_electrolyte, "insulated electrolyte")
     gmsh.model.addPhysicalGroup(1, lines_mid, markers.negative_am_v_electrolyte, "negative am - electrolyte interface")
+    gmsh.model.addPhysicalGroup(1, three_d_cc_well, markers.three_d_cc_well, "3D CC Well")
     gmsh.model.occ.synchronize()
 
     if args.refine:
