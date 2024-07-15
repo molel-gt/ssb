@@ -96,6 +96,8 @@ if __name__ == '__main__':
         points_arc_b.append(gmsh.model.occ.addPoint(*p))
 
     ellipse_center = gmsh.model.occ.addPoint(*points_ellipse_center)
+    ellipse_center_2 = gmsh.model.occ.addPoint(L_ncc - microns(1) - 0.5 * R_major, 0.5 * W, 0)
+    ellipse_end = gmsh.model.occ.addPoint(L_ncc - microns(1) - R_major, 0.5 * W, 0)
     points_ellipse = []
     for p in points_ellipse_arc:
         points_ellipse.append(gmsh.model.occ.addPoint(*p))
@@ -107,11 +109,14 @@ if __name__ == '__main__':
     external_lines.append(gmsh.model.occ.addLine(*points_arr[1, [1, 2]]))
     external_lines.append(gmsh.model.occ.addLine(*points_arr[1, [0, 1]]))
     external_lines.append(gmsh.model.occ.addLine(*points_arr[[0, 1], 0]))
+    # gmsh.model.occ.synchronize()
 
     lines_mid = []
     lines_mid.append(gmsh.model.occ.addLine(points_arr[1, 1], points_arc_t[0]))
     lines_mid.append(gmsh.model.occ.addCircleArc(*points_arc_t))
-    lines_mid.append(gmsh.model.occ.addEllipse(*points_ellipse_center, R_major, R_minor, angle1=0.5*np.pi, angle2=1.5*np.pi))
+    # lines_mid.append(gmsh.model.occ.addEllipse(*points_ellipse_center, R_major, R_minor, angle1=0.5*np.pi, angle2=1.5*np.pi))
+    lines_mid.append(gmsh.model.occ.addEllipseArc(points_arc_t[-1], ellipse_center, ellipse_center_2, ellipse_end))
+    lines_mid.append(gmsh.model.occ.addEllipseArc(points_arc_b[0], ellipse_center, ellipse_center_2, ellipse_end))
     lines_mid.append(gmsh.model.occ.addCircleArc(*points_arc_b))
     lines_mid.append(gmsh.model.occ.addLine(points_arr[0, 1], points_arc_b[-1]))
     gmsh.model.occ.synchronize()
@@ -128,6 +133,7 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(1, [external_lines[0], external_lines[4]], markers.insulated_negative_cc, "insulated negative cc")
     gmsh.model.addPhysicalGroup(1, [external_lines[1], external_lines[3]], markers.insulated_electrolyte, "insulated electrolyte")
     gmsh.model.addPhysicalGroup(1, lines_mid, markers.negative_am_v_electrolyte, "negative am - electrolyte interface")
+    gmsh.model.occ.synchronize()
 
     if args.refine:
             gmsh.model.mesh.field.add("Distance", 1)
