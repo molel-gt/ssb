@@ -17,7 +17,7 @@ def microns(x):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Geometry of 3D CC')
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="3dcc")
-    parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid',  nargs='?', const=1, default='150-40-0')
+    parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid',  nargs='?', const=1, default='50-250-0')
     parser.add_argument('--radius_minor', help='radius of well', nargs='?', const=1, default=5, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='MICRON_TO_METER', type=str)
