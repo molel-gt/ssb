@@ -21,6 +21,7 @@ from dolfinx.io import gmshio, VTXWriter
 from dolfinx.nls import petsc as petsc_nls
 from mpi4py import MPI
 from petsc4py import PETSc
+from ufl import grad, inner
 
 import commons, configs, constants, utils
 
@@ -29,21 +30,21 @@ markers = commons.Markers()
 faraday_constant = 96485  # [C/mol]
 R = 8.314  # [J/K/mol]
 T = 298  # [K]
+dtype = PETSc.ScalarType
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
-    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="conductivity")
-    parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
+    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="contact_loss_lma")
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1e-3, type=float)
     parser.add_argument("--Wa", help="Wagna number: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=np.nan, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='CONTACT_LOSS_SCALING', type=str)
-    parser.add_argument("--compute_distribution", help="compute current distribution stats", default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--galvanostatic", help="specify current of 10 A/m^2", default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--compute_distribution", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
-    data_dir = os.path.join(f'{args.mesh_folder}')
     voltage = args.voltage
     comm = MPI.COMM_WORLD
     rank = comm.rank
@@ -53,22 +54,23 @@ if __name__ == '__main__':
     scale_y = float(scaling['y'])
     scale_z = float(scaling['z'])
     loglevel = configs.get_configs()['LOGGING']['level']
-    dimensions = args.dimensions
+    dimensions = utils.extract_dimensions_from_meshfolder(args.mesh_folder)
     logger = logging.getLogger()
     logger.setLevel(loglevel)
-    formatter = logging.Formatter(f'%(levelname)s:%(asctime)s:{data_dir}:{dimensions}:%(message)s')
+    formatter = logging.Formatter(f'%(levelname)s:%(asctime)s:{args.mesh_folder}:%(message)s')
     fh = logging.FileHandler(os.path.basename(__file__).replace(".py", ".log"))
     fh.setFormatter(formatter)
     logger.addHandler(fh)
     logger.debug(args.mesh_folder)
+    os.environ["XDG_CACHE_HOME"] = "/path/to/case3"
 
     Lx, Ly, Lz = [float(v) for v in dimensions.split("-")]
     Lx = Lx * scale_x
     Ly = Ly * scale_y
     Lz = Lz * scale_z
-    results_dir = os.path.join(data_dir, f"{args.Wa}")
+    results_dir = os.path.join(args.mesh_folder, f"{args.Wa}")
     utils.make_dir_if_missing(results_dir)
-    output_meshfile_path = os.path.join(data_dir, 'mesh.msh')
+    output_meshfile_path = os.path.join(args.mesh_folder, 'mesh.msh')
     output_current_path = os.path.join(results_dir, 'current.bp')
     output_potential_path = os.path.join(results_dir, 'potential.bp')
     frequency_path = os.path.join(results_dir, 'frequency.csv')
@@ -98,39 +100,36 @@ if __name__ == '__main__':
     logger.debug("done\n")
 
     # Dirichlet BCs
-    V = fem.functionspace(domain, ("CG", 2))
+    V = fem.functionspace(domain, ("CG", 1))
     
     n = ufl.FacetNormal(domain)
     ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
+    dx = ufl.Measure("dx", domain=domain, subdomain_data=ct)
 
     # Define variational problem
     u = fem.Function(V, name='potential')
     v = ufl.TestFunction(V)
 
     # bulk conductivity [S.m-1]
-    kappa = fem.Constant(domain, PETSc.ScalarType(constants.KAPPA0))
-    f = fem.Constant(domain, PETSc.ScalarType(0.0))
-    g = fem.Constant(domain, PETSc.ScalarType(0.0))
+    kappa = fem.Constant(domain, dtype(constants.KAPPA0))
+    f = fem.Constant(domain, dtype(0.0))
+    g = fem.Constant(domain, dtype(0.0))
     curr_converged = False
     curr_cd = 0
     target_cd = 10  # A/m2
-    i0 = constants.KAPPA0 * R * T / (Lz * args.Wa * faraday_constant)
+
     A0 = Lx * Ly
 
-    max_iters = 100
-    its = 0
+    if not args.galvanostatic:
+        left_dofs = fem.locate_dofs_topological(V, 2, left_boundary)
+        right_dofs = fem.locate_dofs_topological(V, 2, right_boundary)
+        left_bc = fem.dirichletbc(dtype(0), left_dofs, V)
+        right_bc = fem.dirichletbc(dtype(voltage), right_dofs, V)
 
-    while not curr_converged and its < max_iters:
-        its += 1
-        u0 = fem.Function(V)
-        with u0.vector.localForm() as u0_loc:
-            u0_loc.set(voltage)
-        right_bc = fem.dirichletbc(u0, fem.locate_dofs_topological(V, 2, right_boundary))
-
-        F = ufl.inner(kappa * ufl.grad(u), ufl.grad(v)) * ufl.dx
-        F -= ufl.inner(f, v) * ufl.dx + ufl.inner(g, v) * ds(markers.insulated) - ufl.inner(i0 * faraday_constant * (u - 0) / (R * T), v) * ds(markers.left)
-        logger.debug(f'Iteration {its}: Solving problem..')
-        problem = petsc.NonlinearProblem(F, u, bcs=[right_bc])
+        F = inner(kappa * grad(u), grad(v)) * dx
+        F -= inner(f, v) * dx + inner(g, v) * ds(markers.insulated)
+        logger.debug(f'Solving problem..')
+        problem = petsc.NonlinearProblem(F, u, bcs=[left_bc, right_bc])
         solver = petsc_nls.NewtonSolver(comm, problem)
         solver.convergence_criterion = "residual"
         solver.maximum_iterations = 100
@@ -146,13 +145,43 @@ if __name__ == '__main__':
         n_iters, converged = solver.solve(u)
         logger.info(f"Converged in {n_iters} iterations")
         u.x.scatter_forward()
-        curr_cd = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(-kappa * ufl.grad(u), n)) * ds(markers.right))), op=MPI.SUM) / A0
+
+    max_iters = 100
+    its = 0
+
+    while args.galvanostatic and not curr_converged and its < max_iters:
+        its += 1
+        left_dofs = fem.locate_dofs_topological(V, 2, left_boundary)
+        right_dofs = fem.locate_dofs_topological(V, 2, right_boundary)
+        left_bc = fem.dirichletbc(dtype(0), left_dofs, V)
+        right_bc = fem.dirichletbc(dtype(voltage), right_dofs, V)
+
+        F = inner(kappa * grad(u), grad(v)) * dx
+        F -= inner(f, v) * dx + inner(g, v) * ds(markers.insulated)
+        logger.debug(f'Iteration {its}: Solving problem..')
+        problem = petsc.NonlinearProblem(F, u, bcs=[left_bc, right_bc])
+        solver = petsc_nls.NewtonSolver(comm, problem)
+        solver.convergence_criterion = "residual"
+        solver.maximum_iterations = 100
+        solver.atol = np.finfo(float).eps
+        solver.rtol = np.finfo(float).eps * 10
+
+        ksp = solver.krylov_solver
+        opts = PETSc.Options()
+        option_prefix = ksp.getOptionsPrefix()
+        opts[f"{option_prefix}ksp_type"] = "gmres"
+        opts[f"{option_prefix}pc_type"] = "hypre"
+        ksp.setFromOptions()
+        n_iters, converged = solver.solve(u)
+        logger.info(f"Converged in {n_iters} iterations")
+        u.x.scatter_forward()
+        curr_cd = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(-kappa * ufl.grad(u), n)) * ds(markers.right))), op=MPI.SUM) / A0
         logger.info(f"Iteration: {its}, current: {curr_cd}, target: {target_cd}")
         if np.isclose(curr_cd, target_cd, atol=0.01):
             curr_converged = True
         voltage *= target_cd / curr_cd
 
-    with VTXWriter(comm, output_potential_path, [u], engine="BP4") as vtx:
+    with VTXWriter(comm, output_potential_path, [u], engine="BP5") as vtx:
         vtx.write(0.0)
 
     logger.debug("Post-process calculations")
@@ -164,23 +193,29 @@ if __name__ == '__main__':
     tol_fun_right = fem.Function(V)
     current_h.interpolate(current_expr)
 
-    with VTXWriter(comm, output_current_path, [current_h], engine="BP4") as vtx:
+    with VTXWriter(comm, output_current_path, [current_h], engine="BP5") as vtx:
         vtx.write(0.0)
 
     logger.debug("Post-process Results Summary")
     insulated_area = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.insulated))), op=MPI.SUM)
     area_left_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.left))), op=MPI.SUM)
     area_right_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.right))), op=MPI.SUM)
-    I_left_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.left))), op=MPI.SUM)
-    I_right_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(ufl.inner(current_h, n) * ds(markers.right))), op=MPI.SUM)
-    I_insulated = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(current_h, n)) * ds(markers.insulated))), op=MPI.SUM)
-    volume = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * ufl.dx(domain))), op=MPI.SUM)
+    I_left_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.left))), op=MPI.SUM)
+    I_right_cc = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(current_h, n) * ds(markers.right))), op=MPI.SUM)
+    I_insulated = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(current_h, n)) * ds(markers.insulated))), op=MPI.SUM)
+    volume = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * dx(domain))), op=MPI.SUM)
+
+    u_avg_left = domain.comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.left))), op=MPI.SUM) / area_left
+    u_avg_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.right))), op=MPI.SUM) / area_right
+
+    u_var_left = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_left_cc) * (u - u_avg_left) ** 2 * ds(markers.left))))
+    u_var_right = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_right_cc) * (u - u_avg_right) ** 2 * ds(markers.right))))
 
     i_right_cc = I_right_cc / area_right_cc
     i_left_cc = I_left_cc / area_left_cc
     i_insulated = I_insulated / insulated_area
-    var_left = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_left_cc) * (ufl.inner(current_h, n) - i_left_cc) ** 2 * ds(markers.left))))
-    var_right = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_right_cc) * (ufl.inner(current_h, n) - i_right_cc) ** 2 * ds(markers.right))))
+    var_left = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_left_cc) * (inner(current_h, n) - i_left_cc) ** 2 * ds(markers.left))))
+    var_right = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_right_cc) * (inner(current_h, n) - i_right_cc) ** 2 * ds(markers.right))))
     volume_fraction = volume / (Lx * Ly * Lz)
     total_area = area_left_cc + area_right_cc + insulated_area
     error = max([np.abs(I_left_cc), np.abs(I_right_cc)]) / min([np.abs(I_left_cc), np.abs(I_right_cc)])
@@ -246,13 +281,17 @@ if __name__ == '__main__':
             "Insulated area [sq. m]": f"{insulated_area:.4e}",
             "Average current density at active area of left electrode [A.m-2]": f"{np.abs(i_left_cc):.4e}",
             "Average current density at active area of right electrode [A.m-2]": f"{np.abs(i_right_cc):.4e}",
+            "Average potential at active area of left electrode [A.m-2]": f"{np.abs(u_avg_left):.4e}",
+            "Average potential at active area of right electrode [A.m-2]": f"{np.abs(u_avg_right):.4e}",
             "STDEV current density left electrode [A/m2]": f"{np.sqrt(var_left):.4e}",
             "STDEV current density right electrode [A/m2]": f"{np.sqrt(var_right):.4e}",
+            "STDEV potential left electrode [A/m2]": f"{np.sqrt(u_var_left):.4e}",
+            "STDEV potential right electrode [A/m2]": f"{np.sqrt(u_var_right):.4e}",
             "Average current density at insulated area [A.m-2]": f"{i_insulated:.4e}",
             "Current at active area of left electrode [A]": f"{np.abs(I_left_cc):.4e}",
             "Current at active area of right electrode [A]": f"{np.abs(I_right_cc):.4e}",
             "Current at insulated area [A]": f"{np.abs(I_insulated):.4e}",
-            "Dimensions Lx-Ly-Lz (unscaled)": args.dimensions,
+            "Dimensions Lx-Ly-Lz (unscaled)": dimensions,
             "Scaling for dimensions x,y,z to meters": args.scaling,
             "Bulk conductivity [S.m-1]": constants.KAPPA0,
             "Effective conductivity [S.m-1]": f"{kappa_eff:.4e}",
