@@ -89,7 +89,7 @@ fdim = tdim - 1
 
 boundary_facets = sub_meshtag.find(markers['pe_se'])
 
-Q = fem.FunctionSpace(domain, ("CG", 1))
+Q = fem.functionspace(domain, ("CG", 1))
 
 # Create initial condition
 c_n = fem.Function(Q)

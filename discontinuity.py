@@ -67,7 +67,7 @@ if __name__ == '__main__':
     ds = ufl.Measure('ds', domain=domain, subdomain_data=tags)
 
     n = ufl.FacetNormal(domain)
-    V = fem.FunctionSpace(domain, ("CG", 2))
+    V = fem.functionspace(domain, ("CG", 2))
     # u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
     u = fem.Function(V)
     v = ufl.TestFunction(V)

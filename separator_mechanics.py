@@ -232,7 +232,7 @@ if __name__ == '__main__':
     #     print(f"Time step {n}, Number of iterations {num_its}")
     # dvtx.close()
     # compute magnitude of displacement to visualize
-    Vs = fem.FunctionSpace(domain, ("Lagrange", 2))
+    Vs = fem.functionspace(domain, ("Lagrange", 2))
     magnitude = fem.Function(Vs)
     us = fem.Expression(ufl.sqrt(sum([u[i] ** 2 for i in range(len(u))])), Vs.element.interpolation_points())
     magnitude.interpolate(us)

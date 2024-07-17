@@ -144,7 +144,7 @@ def run_model(c=c, r=r, Wa=0.1, W=W, L=L, L2=L2):
     i_exch = KAPPA * R * T / (L * faraday_const * Wa * (alpha_a + alpha_c))
 
     # Define function space and standard part of variational form
-    V = fem.FunctionSpace(domain, ("CG", 1))
+    V = fem.functionspace(domain, ("CG", 1))
     u, v = TrialFunction(V), TestFunction(V)
     F = inner(kappa * grad(u), grad(v)) * dx - inner(f, v) * dx
 

@@ -33,3 +33,12 @@ find output/contact_loss_lma/ -name trial.msh -exec bash -c 'echo mv $0 ${0/tria
 
 # list disk usage
 du -sh * | sort -h
+
+# directory size
+du -s ssb/ --block-size=MB
+
+# install from requirements
+conda install --file requirements.txt
+
+# remove conda env
+mamba remove --name paraview --all

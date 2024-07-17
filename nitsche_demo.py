@@ -11,7 +11,7 @@ from ufl import (div, dx, ds, grad, inner, grad)
 comm = MPI.COMM_WORLD
 N = 8
 domain = mesh.create_unit_square(comm, N, N)
-V = fem.FunctionSpace(domain, ("CG", 1))
+V = fem.functionspace(domain, ("CG", 1))
 
 uD = fem.Function(V)
 uD.interpolate(lambda x: 1 + x[0] ** 2 + 2 * x[1] ** 2)

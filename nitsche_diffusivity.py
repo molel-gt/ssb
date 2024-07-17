@@ -31,7 +31,7 @@ with io.XDMFFile(comm, line_mesh_filepath, "r") as infile2:
 meshtags = mesh.meshtags(domain, domain.topology.dim - 1, ft.indices, ft.values)
 domaintags = mesh.meshtags(domain, domain.topology.dim, ct.indices, ct.values)
 
-V = fem.FunctionSpace(domain, ("CG", 1))
+V = fem.functionspace(domain, ("CG", 1))
 
 # u_D = fem.Function(V)
 # u_D.interpolate(lambda x: 0.01 * (60e-6 - x[0]) ** 2)
