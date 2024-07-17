@@ -70,7 +70,7 @@ if __name__ == '__main__':
     parser.add_argument('--img_id', help='contact area image index', required=True, type=int)
     parser.add_argument("--dimensions", help="integer representation of Lx-Ly-Lz of the grid", required=True)
     parser.add_argument('--resolution', help=f'max resolution resolution', nargs='?', const=1, default=1, type=float)
-    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', type=str, required=True)
+    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?', const=1, default='CONTACT_LOSS_SCALING', type=str)
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="contact_loss_lma")
     args = parser.parse_args()
     start_time = timeit.default_timer()
@@ -280,7 +280,7 @@ if __name__ == '__main__':
 
     gmsh.model.mesh.field.add("Threshold", 2)
     gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "LcMin", 0.1 * args.resolution * scale_x)
+    gmsh.model.mesh.field.setNumber(2, "LcMin", args.resolution * scale_x/20)
     gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution * scale_x)
     gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5 * scale_x)
     gmsh.model.mesh.field.setNumber(2, "DistMax", 1 * scale_x)
