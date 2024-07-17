@@ -72,6 +72,7 @@ if __name__ == '__main__':
     parser.add_argument('--resolution', help=f'max resolution resolution', nargs='?', const=1, default=1, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?', const=1, default='CONTACT_LOSS_SCALING', type=str)
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="contact_loss_lma")
+    parser.add_argument("--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
     start_time = timeit.default_timer()
     Lx, Ly, Lz = [int(v) for v in args.dimensions.split("-")]
@@ -98,8 +99,9 @@ if __name__ == '__main__':
 
     gmsh.initialize()
     gmsh.model.add('area')
-    # gmsh.option.setNumber('Mesh.MeshSizeMin', args.resolution)
-    # gmsh.option.setNumber('Mesh.MeshSizeMax', args.resolution)
+    if not args.refine:
+        gmsh.option.setNumber('Mesh.MeshSizeMin', args.resolution/10)
+        gmsh.option.setNumber('Mesh.MeshSizeMax', args.resolution)
     gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
@@ -275,39 +277,31 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
 
     # refinement
-    gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "FacesList", [insulatedtag, lefttag, righttag])
+    if args.refine:
+        gmsh.model.mesh.field.add("Distance", 1)
+        gmsh.model.mesh.field.setNumbers(1, "FacesList", [insulatedtag, lefttag, righttag])
 
-    gmsh.model.mesh.field.add("Threshold", 2)
-    gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "LcMin", args.resolution * scale_x/20)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution * scale_x)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5 * scale_x)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 1 * scale_x)
+        gmsh.model.mesh.field.add("Threshold", 2)
+        gmsh.model.mesh.field.setNumber(2, "IField", 1)
+        gmsh.model.mesh.field.setNumber(2, "LcMin", args.resolution * scale_x/20)
+        gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution * scale_x)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5 * scale_x)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", 1 * scale_x)
 
-    gmsh.model.mesh.field.add("Max", 5)
-    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    gmsh.model.mesh.field.setAsBackgroundMesh(5)
-    gmsh.model.occ.synchronize()
+        gmsh.model.mesh.field.add("Max", 5)
+        gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+        gmsh.model.mesh.field.setAsBackgroundMesh(5)
+        gmsh.model.occ.synchronize()
     gmsh.model.occ.synchronize()
     print("Generating mesh..")
     gmsh.model.mesh.generate(3)
     gmsh.write(f"{mshpath}")
     gmsh.finalize()
-    # write to file
-    # scale_factor = [scale_x, scale_y, scale_z]
-    # msh = meshio.read(f"{mshpath}")
-
-    # tria_mesh_unscaled = geometry.create_mesh(msh, cell_types.triangle)
-    # tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, cell_types.triangle, scale_factor=scale_factor)
-    # tria_mesh_scaled.write(os.path.join(outdir, 'tria.xdmf'))
-    # tetr_mesh_unscaled = geometry.create_mesh(msh, cell_types.tetra)
-    # tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, cell_types.tetra, scale_factor=scale_factor)
-    # tetr_mesh_scaled.write(os.path.join(outdir, 'tetr.xdmf'))
     geometry_metadata = {
         "max_resolution": args.resolution,
         "dimensions": args.dimensions,
         "scaling": args.scaling,
+        "refine": args.refine,
     }
     with open(geometry_metafile, "w", encoding='utf-8') as f:
         json.dump(geometry_metadata, f, ensure_ascii=False, indent=4)
