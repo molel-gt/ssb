@@ -205,8 +205,8 @@ if __name__ == '__main__':
     I_insulated = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(current_h, n)) * ds(markers.insulated))), op=MPI.SUM)
     volume = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * dx(domain))), op=MPI.SUM)
 
-    u_avg_left = domain.comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.left))), op=MPI.SUM) / area_left
-    u_avg_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.right))), op=MPI.SUM) / area_right
+    u_avg_left = domain.comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.left))), op=MPI.SUM) / area_left_cc
+    u_avg_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.right))), op=MPI.SUM) / area_right_cc
 
     u_var_left = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_left_cc) * (u - u_avg_left) ** 2 * ds(markers.left))))
     u_var_right = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_right_cc) * (u - u_avg_right) ** 2 * ds(markers.right))))
