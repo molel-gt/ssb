@@ -72,7 +72,7 @@ if __name__ == '__main__':
     ds = ufl.Measure("ds", domain=domain, subdomain_data=surf_meshtags)
 
     # Dirichlet BCs
-    V = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 2))
+    V = dolfinx.fem.functionspace(domain, ("Lagrange", 2))
     u0 = dolfinx.fem.Function(V)
     with u0.vector.localForm() as u0_loc:
         u0_loc.set(voltage)
@@ -124,7 +124,7 @@ if __name__ == '__main__':
     # Post-processing: Compute derivatives
     grad_u = ufl.grad(uh)
 
-    W = dolfinx.fem.FunctionSpace(domain, ("Lagrange", 1))
+    W = dolfinx.fem.functionspace(domain, ("Lagrange", 1))
     current_expr = dolfinx.fem.Expression(kappa_0 * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
     current_h = dolfinx.fem.Function(W)
     current_h.interpolate(current_expr)

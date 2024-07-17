@@ -107,7 +107,7 @@ if __name__ == '__main__':
     ds = ufl.Measure("ds", domain=domain, subdomain_data=meshtags)
     dS = ufl.Measure("dS", domain=domain, subdomain_data=meshtags)
 
-    V = fem.FunctionSpace(domain, ("DG", 1))
+    V = fem.functionspace(domain, ("DG", 1))
     u = fem.Function(V)
     v = ufl.TestFunction(V)
     n = ufl.FacetNormal(domain)
@@ -207,7 +207,7 @@ if __name__ == '__main__':
     u.name = 'potential'
 
     # results to file
-    V_CG1 = fem.FunctionSpace(domain, ("CG", 1))
+    V_CG1 = fem.functionspace(domain, ("CG", 1))
 
     u_cg = fem.Function(V_CG1)
     u_cg.name = 'potential'

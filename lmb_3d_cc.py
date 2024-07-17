@@ -113,7 +113,7 @@ if __name__ == '__main__':
     h_avg = avg(h)
 
     # trial/test function spaces
-    V = fem.FunctionSpace(domain, ("DG", 1))
+    V = fem.functionspace(domain, ("DG", 1))
     u = fem.Function(V)
     δu = ufl.TestFunction(V)
 
@@ -190,12 +190,12 @@ if __name__ == '__main__':
     solver.solve(u)
     u.name = 'potential'
 
-    V_CG1 = fem.FunctionSpace(domain, ("CG", 1))
+    V_CG1 = fem.functionspace(domain, ("CG", 1))
     u_cg = fem.Function(V_CG1)
     u_cg.name = 'potential'
     u_cg.interpolate(u)
 
-    V_CG1 = fem.FunctionSpace(domain, ("CG", 1))
+    V_CG1 = fem.functionspace(domain, ("CG", 1))
 
     u_cg = fem.Function(V_CG1)
     u_cg.name = 'potential'
@@ -291,7 +291,7 @@ if __name__ == '__main__':
     tdim = positive_am_domain.topology.dim
     fdim = tdim - 1
 
-    Q = fem.FunctionSpace(positive_am_domain, ("CG", 1))
+    Q = fem.functionspace(positive_am_domain, ("CG", 1))
     c_n = fem.Function(Q)
     c_n.name = "c_n"
     c_n.interpolate(lambda x:  x[0] - x[0] + C_INIT)

@@ -64,7 +64,7 @@ if __name__ == '__main__':
     l_right_cc = fem.assemble_scalar(fem.form(1 * ds(markers.right_cc)))
     l_left_cc = fem.assemble_scalar(fem.form(1 * ds(markers.left_cc)))
     i0 = KAPPA * R * T / (l_left_cc * faraday_const * args.Wa)
-    V = fem.FunctionSpace(domain, ("Lagrange", 2))
+    V = fem.functionspace(domain, ("Lagrange", 2))
     # u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
     v = ufl.TestFunction(V)
     u = fem.Function(V)

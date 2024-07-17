@@ -73,7 +73,7 @@ if __name__ == '__main__':
         ft = xdmf.read_meshtags(domain, name="Grid")
 
     P1 = ufl.FiniteElement("Lagrange", domain.ufl_cell(), 1)
-    ME = fem.FunctionSpace(domain, P1 * P1)
+    ME = fem.functionspace(domain, P1 * P1)
     x = ufl.SpatialCoordinate(domain)
     n = ufl.FacetNormal(domain)
 

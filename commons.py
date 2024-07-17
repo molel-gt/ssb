@@ -105,6 +105,10 @@ class Markers:
         return 18
 
     @property
+    def three_d_cc_well(self):
+        return 19
+
+    @property
     def external(self):
         return 111
 

@@ -78,7 +78,7 @@ if __name__ == '__main__':
 
     x = ufl.SpatialCoordinate(domain)
     n = ufl.FacetNormal(domain)
-    Q = fem.FunctionSpace(domain, ("DG", 0))
+    Q = fem.functionspace(domain, ("DG", 0))
     kappa = fem.Function(Q)
     sigma = fem.Function(Q)
     d_eff = fem.Function(Q)
@@ -96,7 +96,7 @@ if __name__ == '__main__':
     g = fem.Constant(domain, PETSc.ScalarType(0.0))
     g_left_cc = fem.Constant(domain, PETSc.ScalarType(i_superficial))
 
-    V = fem.FunctionSpace(domain, ("CG", 1))
+    V = fem.functionspace(domain, ("CG", 1))
     u = ufl.TrialFunction(V)
     uh = fem.Function(V)
     v = ufl.TestFunction(V)
@@ -186,7 +186,7 @@ if __name__ == '__main__':
     i_left_cc = (1/area_left_cc) * fem.assemble_scalar(fem.form((kappa + sigma) * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.left_cc)))
     i_right_cc = (1/area_right_cc) * fem.assemble_scalar(fem.form(sigma * ufl.sqrt(ufl.inner(grad_u, grad_u)) * ds(markers.right_cc)))
 
-    W = fem.FunctionSpace(domain, ("Lagrange", 1))
+    W = fem.functionspace(domain, ("Lagrange", 1))
     current_expr = fem.Expression((kappa + sigma) * ufl.sqrt(ufl.inner(grad_u, grad_u)), W.element.interpolation_points())
     current_h = fem.Function(W)
     current_h.interpolate(current_expr)

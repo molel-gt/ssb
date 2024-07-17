@@ -137,7 +137,7 @@ if __name__ == '__main__':
     dx = ufl.Measure("dx", domain=domain, subdomain_data=domaintags)
     ds = ufl.Measure("ds", domain=domain, subdomain_data=meshtags)
     dS = ufl.Measure("dS", domain=domain, subdomain_data=meshtags)
-    V = fem.FunctionSpace(domain, ("DG", 1))
+    V = fem.functionspace(domain, ("DG", 1))
     u = fem.Function(V)
     u.name = "potential"
     v = ufl.TestFunction(V)

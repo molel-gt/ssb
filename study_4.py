@@ -86,7 +86,7 @@ if __name__ == '__main__':
     ds = ufl.Measure("ds", domain=domain, subdomain_data=meshtags)
 
     # Dirichlet BCs
-    V = fem.FunctionSpace(domain, ("Lagrange", 2))
+    V = fem.functionspace(domain, ("Lagrange", 2))
     u0 = fem.Function(V)
     with u0.vector.localForm() as u0_loc:
         u0_loc.set(voltage)

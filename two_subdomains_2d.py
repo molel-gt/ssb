@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
 
 import gmsh
@@ -16,7 +17,7 @@ warnings.simplefilter('ignore')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
-    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="lithium_metal_3d_cc_2d")
+    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="lmb_planar")
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid',  nargs='?', const=1, default='150-40-0')
     parser.add_argument('--particle_radius', help='radius of particle in pixel units', nargs='?', const=1, default=10, type=float)
     parser.add_argument('--well_depth', help='depth of well in pixel units', nargs='?', const=1, default=20, type=float)
@@ -36,9 +37,10 @@ if __name__ == '__main__':
     name_of_study = args.name_of_study
     dimensions = args.dimensions
     dimensions_ii = f'{int(step_width1/micron)}-{int(step_width2/micron)}-{int(step_length/micron)}'
-    workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, dimensions_ii, str(resolution))
+    workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, dimensions_ii, f'{resolution:.1e}')
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(workdir, 'mesh.msh')
+    output_metafile = os.path.join(workdir, 'geometry.json')
 
     markers = commons.Markers()
     points = [
@@ -54,8 +56,9 @@ if __name__ == '__main__':
 
     gmsh.initialize()
     gmsh.model.add('full-cell')
-    # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.1 * micron)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", resolution)
+    gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
+    gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
     for idx, p in enumerate(points):
         gpoints.append(
             gmsh.model.occ.addPoint(*p)
@@ -100,14 +103,14 @@ if __name__ == '__main__':
 
     if args.refine:
         gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "EdgesList", [lines[idx] for idx in [-1, -2, 0, 1, 2, 3, 4, 5, 6]])
+        gmsh.model.mesh.field.setNumbers(1, "CurvesList", [lines[idx] for idx in [-1]])#[-2, 0, 1, 2, 3, 4, 5, 6]])
         
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
-        gmsh.model.mesh.field.setNumber(2, "LcMin", 0.1 * micron)
-        gmsh.model.mesh.field.setNumber(2, "LcMax", 1 * micron)
-        gmsh.model.mesh.field.setNumber(2, "DistMin", 0.1 * micron)
-        gmsh.model.mesh.field.setNumber(2, "DistMax", 1 * micron)
+        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution/10)
+        gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", resolution)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", 5 * resolution)
         
         gmsh.model.mesh.field.add("Max", 5)
         gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
@@ -115,13 +118,24 @@ if __name__ == '__main__':
         gmsh.model.occ.synchronize()
 
     gmsh.model.mesh.generate(2)
-
-    _, eleTags , _ = gmsh.model.mesh.getElements(dim=2)
-    q = gmsh.model.mesh.getElementQualities(eleTags[0], "angleShape")
+    surfs = gmsh.model.getEntities(2)
     angles = []
-    for vv in zip(eleTags[0], q):
-        angles.append(vv[1])
-    print(np.average(angles), np.min(angles), np.max(angles), np.std(angles))
-
+    for surf in surfs:
+        _, _triangles, _nodes = gmsh.model.mesh.getElements(surf[0], surf[1])
+        triangles = _triangles[0]
+        nodes = _nodes[0].reshape(triangles.shape[0], 3)
+        for idx in range(triangles.shape[0]):
+            p1, p2, p3 = [gmsh.model.mesh.getNode(nodes[idx, i])[0] for i in range(3)]
+            _angles = utils.compute_angles_in_triangle(p1, p2, p3)
+            angles += _angles
+    print(f"Minimum angle in triangles is {np.rad2deg(min(angles)):.2f} degrees")
     gmsh.write(output_meshfile)
     gmsh.finalize()
+
+    metadata = {
+        "resolution": resolution,
+        "minimum triangle angle (rad)": min(angles),
+        "adaptive refine": args.refine,
+    }
+    with open(output_metafile, "w", encoding='utf-8') as f:
+        json.dump(metadata, f, ensure_ascii=False, indent=4)

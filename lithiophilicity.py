@@ -196,7 +196,7 @@ if __name__ == '__main__':
     tdim = pam_domain.topology.dim
     fdim = tdim - 1
 
-    Q = fem.FunctionSpace(pam_domain, ("CG", 2))
+    Q = fem.functionspace(pam_domain, ("CG", 2))
     c_n = fem.Function(Q)
     c_n.name = "c_n"
     c_n.interpolate(lambda x:  x[0] - x[0] + c_init)

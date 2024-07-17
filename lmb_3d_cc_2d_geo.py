@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import os
 import warnings
 
 import gmsh
+import meshio
 import numpy as np
 
 import commons, configs, geometry, utils
@@ -58,9 +60,11 @@ if __name__ == '__main__':
     name_of_study = args.name_of_study
     dimensions = args.dimensions
     dimensions_ii = f'{int(step_width1/micron)}-{int(step_width2/micron)}-{int(step_length/micron)}'
-    workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, dimensions_ii, str(resolution))
+    workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, dimensions_ii, f"{resolution:.1e}")
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(workdir, 'mesh.msh')
+    lines_xdmffile = os.path.join(workdir, 'lines.xdmf')
+    output_metafile = os.path.join(workdir, 'geometry.json')
 
     markers = commons.Markers()
     points_left = [
@@ -127,15 +131,13 @@ if __name__ == '__main__':
 
     gmsh.initialize()
     gmsh.model.add('lithium-metal')
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", resolution)
-    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
-    gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 1)
+    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
+    gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
-    gmsh.option.setNumber('Mesh.ColorCarousel', 2)
-    gmsh.option.setNumber('Mesh.Optimize', 1)
-    gmsh.option.setNumber('Mesh.Algorithm', 6)
-    gmsh.option.setNumber('Mesh.OptimizeThreshold', 0.75)
-    gmsh.option.setNumber('Mesh.AllowSwapAngle', 30)
+    # gmsh.option.setNumber('Mesh.Optimize', 1)
+    # gmsh.option.setNumber('Mesh.Algorithm', 6)
+    # gmsh.option.setNumber('Mesh.OptimizeThreshold', 0.75)
+    # gmsh.option.setNumber('Mesh.AllowSwapAngle', 30)
 
     # points_corners.append(gmsh.model.occ.addPoint(*points_left[0]))
     # points_corners.append(gmsh.model.occ.addPoint(*points_left[1]))
@@ -227,14 +229,15 @@ if __name__ == '__main__':
 
     if args.refine:
         gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "EdgesList", [lines[1]] + interface_lines1 + interface_lines2 + lines[4:6] + lines[6:8])
+        # gmsh.model.mesh.field.setNumbers(1, "CurvesList", [lines[1]] + interface_lines1 + interface_lines2 + lines[4:6] + lines[6:8])
+        gmsh.model.mesh.field.setNumbers(1, "CurvesList", interface_lines1 + interface_lines2 + [lines[1]] + lines[4:8])
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
-        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution/20)
+        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution/5)
         gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
-        gmsh.model.mesh.field.setNumber(2, "DistMin", 0.01 * micron)
-        gmsh.model.mesh.field.setNumber(2, "DistMax", 2 * micron)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", resolution)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", 5 * resolution)
 
         gmsh.model.mesh.field.add("Max", 5)
         gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
@@ -242,23 +245,28 @@ if __name__ == '__main__':
         gmsh.model.occ.synchronize()
 
     gmsh.model.mesh.generate(2)
-    # elementType = gmsh.model.mesh.getElementType("triangle", 2)
-    # elementTypes = gmsh.model.mesh.getElementTypes(dim=2)
-    # print(elementType, elementTypes)
-    # print(gmsh.model.mesh.getElementQualities(elementTypes, qualityName='angleShape'))
-    
-    _, eleTags , _ = gmsh.model.mesh.getElements(dim=2)
-    # q = gmsh.model.mesh.getElementQualities(eleTags[0], "minSICN")
-    q = gmsh.model.mesh.getElementQualities(eleTags[0], "angleShape")
-    angles = []
-    for vv in zip(eleTags[0], q):
-        angles.append(vv[1])
-    print(np.average(angles), np.min(angles), np.max(angles), np.std(angles))
-    # gmsh.plugin.setNumber("AnalyseMeshQuality", "ICNMeasure", 1.)
-    # gmsh.plugin.setNumber("AnalyseMeshQuality", "CreateView", 1.)
-    # t = gmsh.plugin.run("AnalyseMeshQuality")
-    # dataType, tags, data, time, numComp = gmsh.view.getModelData(t, 0)
-    # print('ICN for element {0} = {1}'.format(tags[0], data[0]))
-
     gmsh.write(output_meshfile)
+    # write lines
+    msh = meshio.read(output_meshfile)
+    line_mesh = geometry.create_mesh(msh, "line")
+    line_mesh.write(lines_xdmffile)
+
+    surfs = gmsh.model.getEntities(2)
+    angles = []
+    for surf in surfs:
+        _, _triangles, _nodes = gmsh.model.mesh.getElements(surf[0], surf[1])
+        triangles = _triangles[0]
+        nodes = _nodes[0].reshape(triangles.shape[0], 3)
+        for idx in range(triangles.shape[0]):
+            p1, p2, p3 = [gmsh.model.mesh.getNode(nodes[idx, i])[0] for i in range(3)]
+            _angles = utils.compute_angles_in_triangle(p1, p2, p3)
+            angles += _angles
+    print(f"Minimum angle in triangles is {np.rad2deg(min(angles)):.2f} degrees")
     gmsh.finalize()
+    metadata = {
+        "resolution": resolution,
+        "minimum triangle angle (rad)": min(angles),
+        "adaptive refine": args.refine,
+    }
+    with open(output_metafile, "w", encoding='utf-8') as f:
+        json.dump(metadata, f, ensure_ascii=False, indent=4)
