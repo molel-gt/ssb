@@ -83,7 +83,7 @@ if __name__ == '__main__':
     Lx = Lx * scale_x
     Ly = Ly * scale_y
     Lz = Lz * scale_z
-    outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), str(args.resolution))
+    outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), str(int(args.resolution)))
     utils.make_dir_if_missing(outdir)
     mshpath = os.path.join(f"{outdir}", "mesh.msh")
     geometry_metafile = os.path.join(outdir, "geometry.json")
@@ -94,15 +94,14 @@ if __name__ == '__main__':
         (0, Ly, 0)
     ]
 
-    min_resolution = (1/5) * args.resolution * scale_x
-    min_dist = 5e-5 * Lz
+    resolution = args.resolution * 1e-6
 
     gmsh.initialize()
     gmsh.model.add('area')
     if not args.refine:
-        gmsh.option.setNumber('Mesh.MeshSizeMin', args.resolution/10)
-        gmsh.option.setNumber('Mesh.MeshSizeMax', args.resolution)
-    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
+        gmsh.option.setNumber('Mesh.MeshSizeMin', resolution/10)
+        gmsh.option.setNumber('Mesh.MeshSizeMax', resolution)
+    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
     z0_points = [
@@ -259,15 +258,20 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
     print("Generating surface tags..")
     if len(np.unique(img)) == 1 and np.isclose(np.unique(img)[0], 1):
-        lefttag = gmsh.model.addPhysicalGroup(2, [6], markers.left)
-        righttag = gmsh.model.addPhysicalGroup(2, [1], markers.right)
-        insulatedtag = gmsh.model.addPhysicalGroup(2, [2, 3, 4, 5], markers.insulated)
+        left_surf = [6]
+        right_surf = [1]
+        gmsh.model.addPhysicalGroup(2, left_surf, markers.left, "left")
+        gmsh.model.addPhysicalGroup(2, right_surf, markers.right, "right")
+        insulated = [2, 3, 4, 5]
+        gmsh.model.addPhysicalGroup(2, insulated, markers.insulated, "insulated")
         surfaces = list(range(1, 7))
     else:
         left_surfs = [vv[1] for vv in gmsh.model.occ.getEntities(2) if vv[1] >= 7]
-        lefttag = gmsh.model.addPhysicalGroup(2, left_surfs, markers.left)
-        righttag = gmsh.model.addPhysicalGroup(2, [1], markers.right)
-        insulatedtag = gmsh.model.addPhysicalGroup(2, [2, 3, 4, 5, 6], markers.insulated)
+        gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "left")
+        right_surf = [1]
+        gmsh.model.addPhysicalGroup(2, right_surf, markers.right, "right")
+        insulated_surf = [2, 3, 4, 5, 6]
+        gmsh.model.addPhysicalGroup(2, insulated_surf, markers.insulated, "insulated")
         surfaces = tuple(left + insulated + right)
 
     gmsh.model.occ.synchronize()
@@ -279,14 +283,14 @@ if __name__ == '__main__':
     # refinement
     if args.refine:
         gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "FacesList", [insulatedtag, lefttag, righttag])
+        gmsh.model.mesh.field.setNumbers(1, "FacesList", surfaces)
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
-        gmsh.model.mesh.field.setNumber(2, "LcMin", args.resolution * scale_x/20)
-        gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution * scale_x)
-        gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5 * scale_x)
-        gmsh.model.mesh.field.setNumber(2, "DistMax", 1 * scale_x)
+        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution /20)
+        gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", 1e-6)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", 5e-6)
 
         gmsh.model.mesh.field.add("Max", 5)
         gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
