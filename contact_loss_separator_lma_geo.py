@@ -296,8 +296,8 @@ if __name__ == '__main__':
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
-        gmsh.model.mesh.field.setNumber(2, "SizeMin", resolution / 20)
-        gmsh.model.mesh.field.setNumber(2, "SizeMax", resolution)
+        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution / 20)
+        gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
         gmsh.model.mesh.field.setNumber(2, "DistMin", 1e-6)
         gmsh.model.mesh.field.setNumber(2, "DistMax", 5e-6)
 
