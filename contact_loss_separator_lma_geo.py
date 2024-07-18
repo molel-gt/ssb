@@ -283,7 +283,7 @@ if __name__ == '__main__':
     # refinement
     if args.refine:
         gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "FacesList", surfaces)
+        gmsh.model.mesh.field.setNumbers(1, "CurvesList", side_loops)
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
