@@ -37,7 +37,9 @@ if __name__ == '__main__':
     parser.add_argument("--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
     start_time = timeit.default_timer()
-    Lx, Ly, _ = [int(v) for v in args.dimensions.split("-")]
+    Lx, Ly, Lz = [int(v) for v in args.dimensions.split("-")]
+    if Lz != (args.lsep + args.lcat):
+        raise ValueError("Cannot resolve dimensions, please check lsep and lcat")
     scaling = configs.get_configs()[args.scaling]
     scale_x = float(scaling['x'])
     scale_y = float(scaling['y'])
