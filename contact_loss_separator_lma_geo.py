@@ -282,13 +282,22 @@ if __name__ == '__main__':
 
     # refinement
     if args.refine:
+        # def meshSizeCallback(dim, tag, x, y, z, lc):
+        #     if z >= 1e-6:
+        #         return resolution
+        #     elif z <= 0.1:
+        #         return 0.1 * resolution
+        #     else:
+        #         return z / 1e-6 * resolution
+
+        # gmsh.model.mesh.setSizeCallback(meshSizeCallback)
         gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "CurvesList", side_loops)
+        gmsh.model.mesh.field.setNumbers(1, "FacesList", left_surfs)
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
-        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution /20)
-        gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
+        gmsh.model.mesh.field.setNumber(2, "SizeMin", resolution / 20)
+        gmsh.model.mesh.field.setNumber(2, "SizeMax", resolution)
         gmsh.model.mesh.field.setNumber(2, "DistMin", 1e-6)
         gmsh.model.mesh.field.setNumber(2, "DistMax", 5e-6)
 
