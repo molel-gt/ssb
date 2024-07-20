@@ -151,7 +151,7 @@ if __name__ == '__main__':
         opts["mg_levels_ksp_chebyshev_esteig_steps"] = 10
 
         # Create PETSc Krylov solver and turn convergence monitoring on
-        solver = PETSc.KSP().create(msh.comm)  # type: ignore
+        solver = PETSc.KSP().create(comm)
         solver.setFromOptions()
 
         # Set matrix operator
