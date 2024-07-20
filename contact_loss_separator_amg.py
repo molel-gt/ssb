@@ -63,10 +63,10 @@ def build_nullspace(V):
     la.orthonormalize(basis)
 
     basis_petsc = [
-        PETSc.Vec().createWithArray(x[: bs * length0], bsize=3, comm=V.mesh.comm)  # type: ignore
+        PETSc.Vec().createWithArray(x[: bs * length0], bsize=3, comm=V.mesh.comm)
         for x in b
     ]
-    return PETSc.NullSpace().create(vectors=basis_petsc)  # type: ignore
+    return PETSc.NullSpace().create(vectors=basis_petsc)
 
 
 if __name__ == '__main__':
