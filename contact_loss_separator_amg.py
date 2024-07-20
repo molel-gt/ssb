@@ -140,7 +140,6 @@ if __name__ == '__main__':
         # Set solver options
         opts = PETSc.Options()  # type: ignore
         opts["ksp_type"] = "cg"
-        opts["ksp_atol"] = 1.0e-14
         opts["ksp_rtol"] = 1.0e-9
         opts["pc_type"] = "gamg"
 
