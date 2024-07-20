@@ -262,7 +262,6 @@ if __name__ == '__main__':
         right_surf = [1]
         gmsh.model.addPhysicalGroup(2, left_surf, markers.left, "left")
         gmsh.model.addPhysicalGroup(2, right_surf, markers.right, "right")
-        insulated = [2, 3, 4, 5]
         gmsh.model.addPhysicalGroup(2, insulated, markers.insulated, "insulated")
         surfaces = list(range(1, 7))
     else:
@@ -270,8 +269,7 @@ if __name__ == '__main__':
         gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "left")
         right_surf = [1]
         gmsh.model.addPhysicalGroup(2, right_surf, markers.right, "right")
-        insulated_surf = [2, 3, 4, 5, 6]
-        gmsh.model.addPhysicalGroup(2, insulated_surf, markers.insulated, "insulated")
+        gmsh.model.addPhysicalGroup(2, insulated, markers.insulated, "insulated")
         surfaces = tuple(left + insulated + right)
 
     gmsh.model.occ.synchronize()
@@ -292,14 +290,14 @@ if __name__ == '__main__':
 
         # gmsh.model.mesh.setSizeCallback(meshSizeCallback)
         gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "FacesList", left_surfs)
+        gmsh.model.mesh.field.setNumbers(1, "FacesList", left_surfs + right + insulated)
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
         gmsh.model.mesh.field.setNumber(2, "LcMin", resolution / 20)
         gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
         gmsh.model.mesh.field.setNumber(2, "DistMin", 1e-6)
-        gmsh.model.mesh.field.setNumber(2, "DistMax", 5e-6)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", 10e-6)
 
         gmsh.model.mesh.field.add("Max", 5)
         gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
