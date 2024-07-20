@@ -99,7 +99,6 @@ if __name__ == '__main__':
     gmsh.initialize()
     gmsh.model.add('area')
     if not args.refine:
-        gmsh.option.setNumber('Mesh.MeshSizeMin', resolution/10)
         gmsh.option.setNumber('Mesh.MeshSizeMax', resolution)
     gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
