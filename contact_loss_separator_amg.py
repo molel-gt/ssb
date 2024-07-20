@@ -107,7 +107,7 @@ if __name__ == '__main__':
     dx = ufl.Measure("dx", domain=domain, subdomain_data=ct)
 
     # Define variational problem
-    u = ufl.TrialFunction(V, name='potential')
+    u = ufl.TrialFunction(V)
     v = ufl.TestFunction(V)
 
     # bulk conductivity [S.m-1]
