@@ -100,7 +100,7 @@ if __name__ == '__main__':
     logger.debug("done\n")
 
     # Dirichlet BCs
-    V = fem.functionspace(domain, ("CG", 1))
+    V = fem.functionspace(domain, ("CG", 3))
     
     n = ufl.FacetNormal(domain)
     ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
@@ -140,7 +140,8 @@ if __name__ == '__main__':
         # Set solver options
         opts = PETSc.Options()  # type: ignore
         opts["ksp_type"] = "cg"
-        opts["ksp_rtol"] = 1.0e-8
+        opts["ksp_rtol"] = 1.0e-15
+        opts["ksp_rtol"] = 1.0e-12
         opts["pc_type"] = "gamg"
 
         # Use Chebyshev smoothing for multigrid
