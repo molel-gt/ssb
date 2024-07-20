@@ -131,7 +131,7 @@ if __name__ == '__main__':
         bcs = [left_bc, right_bc]
         A = petsc.assemble_matrix(a, bcs=bcs)
         A.assemble()
-        b = assemble_vector(L)
+        b = petsc.assemble_vector(L)
         petsc.apply_lifting(b, [a], bcs=[bcs])
         b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
         petsc.set_bc(b, bcs)
