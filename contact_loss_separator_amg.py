@@ -179,7 +179,7 @@ if __name__ == '__main__':
         # Set solver options
         opts = PETSc.Options()  # type: ignore
         opts["ksp_type"] = "cg"
-        opts["ksp_rtol"] = 1.0e-9
+        opts["ksp_rtol"] = 1.0e-8
         opts["pc_type"] = "gamg"
 
         # Use Chebyshev smoothing for multigrid
