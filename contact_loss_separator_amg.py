@@ -172,8 +172,8 @@ if __name__ == '__main__':
         b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
         petsc.set_bc(b, bcs)
 
-        ns = build_nullspace(V)
-        A.setNearNullSpace(ns)
+        # ns = build_nullspace(V)
+        # A.setNearNullSpace(ns)
         A.setOption(PETSc.Mat.Option.SPD, True)
 
         # Set solver options
