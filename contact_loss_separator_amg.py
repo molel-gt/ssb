@@ -156,7 +156,7 @@ if __name__ == '__main__':
 
         # Set matrix operator
         solver.setOperators(A)
-        uh = Function(V)
+        uh = fem.Function(V)
 
         # Set a monitor, solve linear system, and display the solver
         # configuration
