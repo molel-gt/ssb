@@ -255,6 +255,7 @@ if __name__ == '__main__':
         insulated += [gmsh.model.occ.addPlaneSurface((loops[0], ))]
     else:
         insulated += [gmsh.model.occ.addPlaneSurface((loops[0], *side_loops))]
+        insulated += [2, 3, 4, 5, 6]
 
     gmsh.model.occ.healShapes()
     gmsh.model.occ.synchronize()
