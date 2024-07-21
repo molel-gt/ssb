@@ -83,9 +83,10 @@ if __name__ == '__main__':
     Lx = Lx * scale_x
     Ly = Ly * scale_y
     Lz = Lz * scale_z
-    # refine_key = "refined" is args.refine else "unrefined"
-    # outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), refine_key, str(int(args.resolution)))
-    outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), str(int(args.resolution)))
+    if not args.refine:
+        outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), "unrefined", str(int(args.resolution)))
+    else:
+        outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), str(int(args.resolution)))
     utils.make_dir_if_missing(outdir)
     mshpath = os.path.join(f"{outdir}", "mesh.msh")
     geometry_metafile = os.path.join(outdir, "geometry.json")
