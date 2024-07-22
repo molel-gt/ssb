@@ -127,7 +127,7 @@ if __name__ == '__main__':
         right_bc = fem.dirichletbc(dtype(voltage), right_dofs, V)
 
         a = inner(kappa * grad(u), grad(v)) * dx
-        L -= inner(f, v) * dx + inner(g, v) * ds(markers.insulated)
+        L = inner(f, v) * dx + inner(g, v) * ds(markers.insulated)
         logger.debug(f'Solving problem..')
         # problem = petsc.NonlinearProblem(F, u, bcs=[left_bc, right_bc])
         # solver = petsc_nls.NewtonSolver(comm, problem)
