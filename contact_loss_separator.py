@@ -107,7 +107,7 @@ if __name__ == '__main__':
     dx = ufl.Measure("dx", domain=domain, subdomain_data=ct)
 
     # Define variational problem
-    u = fem.Function(V, name='potential')
+    u = ufl.TrialFunction(V)
     v = ufl.TestFunction(V)
 
     # bulk conductivity [S.m-1]
@@ -126,25 +126,27 @@ if __name__ == '__main__':
         left_bc = fem.dirichletbc(dtype(0), left_dofs, V)
         right_bc = fem.dirichletbc(dtype(voltage), right_dofs, V)
 
-        F = inner(kappa * grad(u), grad(v)) * dx
-        F -= inner(f, v) * dx + inner(g, v) * ds(markers.insulated)
+        a = inner(kappa * grad(u), grad(v)) * dx
+        L -= inner(f, v) * dx + inner(g, v) * ds(markers.insulated)
         logger.debug(f'Solving problem..')
-        problem = petsc.NonlinearProblem(F, u, bcs=[left_bc, right_bc])
-        solver = petsc_nls.NewtonSolver(comm, problem)
-        solver.convergence_criterion = "residual"
-        solver.maximum_iterations = 100
-        solver.atol = np.finfo(float).eps
-        solver.rtol = np.finfo(float).eps * 10
+        # problem = petsc.NonlinearProblem(F, u, bcs=[left_bc, right_bc])
+        # solver = petsc_nls.NewtonSolver(comm, problem)
+        problem = petsc.LinearProblem(a, L, bcs=[left_bc, right_bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
+        uh = problem.solve()
+        # solver.convergence_criterion = "residual"
+        # solver.maximum_iterations = 100
+        # solver.atol = np.finfo(float).eps
+        # solver.rtol = np.finfo(float).eps * 10
 
-        ksp = solver.krylov_solver
-        opts = PETSc.Options()
-        option_prefix = ksp.getOptionsPrefix()
-        opts[f"{option_prefix}ksp_type"] = "gmres"
-        opts[f"{option_prefix}pc_type"] = "hypre"
-        ksp.setFromOptions()
-        n_iters, converged = solver.solve(u)
-        logger.info(f"Converged in {n_iters} iterations")
-        u.x.scatter_forward()
+        # ksp = solver.krylov_solver
+        # opts = PETSc.Options()
+        # option_prefix = ksp.getOptionsPrefix()
+        # opts[f"{option_prefix}ksp_type"] = "gmres"
+        # opts[f"{option_prefix}pc_type"] = "hypre"
+        # ksp.setFromOptions()
+        # n_iters, converged = solver.solve(u)
+        # logger.info(f"Converged in {n_iters} iterations")
+        # u.x.scatter_forward()
 
     max_iters = 100
     its = 0
@@ -186,7 +188,7 @@ if __name__ == '__main__':
 
     logger.debug("Post-process calculations")
     W = fem.functionspace(domain, ("CG", 1, (3,)))
-    current_expr = fem.Expression(-kappa * ufl.grad(u), W.element.interpolation_points())
+    current_expr = fem.Expression(-kappa * ufl.grad(uh), W.element.interpolation_points())
     current_h = fem.Function(W, name='current_density')
     tol_fun = fem.Function(V)
     tol_fun_left = fem.Function(V)
@@ -205,11 +207,11 @@ if __name__ == '__main__':
     I_insulated = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(current_h, n)) * ds(markers.insulated))), op=MPI.SUM)
     volume = domain.comm.allreduce(fem.assemble_scalar(fem.form(1 * dx(domain))), op=MPI.SUM)
 
-    u_avg_left = domain.comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.left))), op=MPI.SUM) / area_left_cc
-    u_avg_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.right))), op=MPI.SUM) / area_right_cc
+    u_avg_left = domain.comm.allreduce(fem.assemble_scalar(fem.form(uh * ds(markers.left))), op=MPI.SUM) / area_left_cc
+    u_avg_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(uh * ds(markers.right))), op=MPI.SUM) / area_right_cc
 
-    u_var_left = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_left_cc) * (u - u_avg_left) ** 2 * ds(markers.left))))
-    u_var_right = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_right_cc) * (u - u_avg_right) ** 2 * ds(markers.right))))
+    u_var_left = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_left_cc) * (uh - u_avg_left) ** 2 * ds(markers.left))))
+    u_var_right = domain.comm.allreduce(fem.assemble_scalar(fem.form((1 / area_right_cc) * (uh - u_avg_right) ** 2 * ds(markers.right))))
 
     i_right_cc = I_right_cc / area_right_cc
     i_left_cc = I_left_cc / area_left_cc
