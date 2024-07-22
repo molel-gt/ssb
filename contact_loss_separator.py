@@ -183,7 +183,7 @@ if __name__ == '__main__':
             curr_converged = True
         voltage *= target_cd / curr_cd
 
-    with VTXWriter(comm, output_potential_path, [u], engine="BP5") as vtx:
+    with VTXWriter(comm, output_potential_path, [uh], engine="BP5") as vtx:
         vtx.write(0.0)
 
     logger.debug("Post-process calculations")
