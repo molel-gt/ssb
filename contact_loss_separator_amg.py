@@ -179,15 +179,16 @@ if __name__ == '__main__':
         # Set solver options
         opts = PETSc.Options()  # type: ignore
         opts["ksp_type"] = "cg"
-        opts["ksp_rtol"] = 1.0e-8
-        opts["pc_type"] = "gamg"
+        opts["ksp_rtol"] = 1.0e-15
+        opts["ksp_rtol"] = 1.0e-14
+        opts["pc_type"] = "hypre"
 
-        # Use Chebyshev smoothing for multigrid
-        opts["mg_levels_ksp_type"] = "chebyshev"
-        opts["mg_levels_pc_type"] = "jacobi"
+        # # Use Chebyshev smoothing for multigrid
+        # opts["mg_levels_ksp_type"] = "chebyshev"
+        # opts["mg_levels_pc_type"] = "jacobi"
 
-        # Improve estimate of eigenvalues for Chebyshev smoothing
-        opts["mg_levels_ksp_chebyshev_esteig_steps"] = 10
+        # # Improve estimate of eigenvalues for Chebyshev smoothing
+        # opts["mg_levels_ksp_chebyshev_esteig_steps"] = 10
 
         # Create PETSc Krylov solver and turn convergence monitoring on
         solver = PETSc.KSP().create(comm)
