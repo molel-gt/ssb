@@ -247,7 +247,7 @@ if __name__ == '__main__':
     total_area = area_left_cc + area_right_cc + insulated_area
     error = max([np.abs(I_left_cc), np.abs(I_right_cc)]) / min([np.abs(I_left_cc), np.abs(I_right_cc)])
     kappa_eff = abs(I_left_cc) / A0 * Lz / voltage
-    insulated_ratio = I_insulated / max(abs(I_left_cc), abs(I_right_cc))
+    insulated_ratio = I_insulated / min(abs(I_left_cc), abs(I_right_cc))
 
     if args.compute_distribution:
         logger.debug("Cumulative distribution lines of current density at terminals")
@@ -324,7 +324,7 @@ if __name__ == '__main__':
             "Bulk conductivity [S.m-1]": constants.KAPPA0,
             "Effective conductivity [S.m-1]": f"{kappa_eff:.4e}",
             "Max electrode current over min electrode current (error)": error,
-            "Insulated current over max electrode current (error)": insulated_ratio,
+            "Insulated current over min electrode current (error)": insulated_ratio,
             "Simulation time (seconds)": f"{int(timeit.default_timer() - start_time):,}",
             "Voltage drop [V]": voltage,
             "Electrolyte volume fraction": f"{volume_fraction:.4f}",
