@@ -301,7 +301,7 @@ if __name__ == '__main__':
         "Positive Overpotential [V]": f"{eta_p:.2e}",
         "Open Circuit Potential (OCP) [V]": f"{args.u_ocv:.2e}",
         "Voltage": voltage,
-        "dimensions": args.dimensions,
+        "dimensions": dimensions,
         "interior penalty (gamma)": args.gamma,
         "interior penalty kr-modified (gamma)": gamma,
         "ionic to electronic conductivity ratio (kr)": args.kr,
