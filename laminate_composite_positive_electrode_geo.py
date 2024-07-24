@@ -33,7 +33,7 @@ if __name__ == '__main__':
     parser.add_argument('--eps_am', help=f'positive active material volume fraction', type=float, required=True)
     parser.add_argument('--resolution', help=f'max resolution resolution (microns)', nargs='?', const=1, default=1, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?', const=1, default="CONTACT_LOSS_SCALING")
-    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="contact_loss_lma")
+    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="reaction_distribution")
     parser.add_argument("--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
     start_time = timeit.default_timer()
@@ -53,7 +53,10 @@ if __name__ == '__main__':
     LZ = (args.lcat + args.lsep) * scale_x
 
     df = scale_x * 470 * pd.read_csv(f'centers/{args.eps_am}.csv')
-    outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, f'{args.lsep}-{args.lcat}', str(args.img_id), str(args.eps_am), str(args.resolution))
+    if ars.refine:
+        outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, f'{args.lsep}-{args.lcat}', str(args.img_id), str(args.eps_am), str(args.resolution))
+else:
+        outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, f'{args.lsep}-{args.lcat}', str(args.img_id), str(args.eps_am), "unrefined", str(args.resolution))
     utils.make_dir_if_missing(outdir)
     mshpath = os.path.join(f"{outdir}", "mesh.msh")
     geometry_metafile = os.path.join(outdir, "geometry.json")
@@ -72,7 +75,6 @@ if __name__ == '__main__':
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
     if not args.refine:
-        gmsh.option.setNumber('Mesh.MeshSizeMin', resolution/10)
         gmsh.option.setNumber('Mesh.MeshSizeMax', resolution)
     z0_points = [
         (0, 0, 0),
