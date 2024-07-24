@@ -55,9 +55,7 @@ def read_node_ids_for_marker(h5_file_obj, marker):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='3D Current Collector.')
-    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="lithium_metal_3d_cc_2d")
-    parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
+    parser = argparse.ArgumentParser(description='secondary current distribution')
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1.0, type=float)
     parser.add_argument("--u_ocv", help="open-circuit potential", nargs='?', const=1, default=0, type=float)
@@ -78,7 +76,8 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     encoding = io.XDMFFile.Encoding.HDF5
     micron = 1e-6
-    LX, LY, LZ = [float(vv) * micron for vv in args.dimensions.split("-")]
+    dimensions = utils.extract_dimensions_from_meshfolder(args.mesh_folder)
+    LX, LY, LZ = [float(vv) * micron for vv in dimensions.split("-")]
     workdir = os.path.join(args.mesh_folder, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), str(args.gamma))
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(args.mesh_folder, 'mesh.msh')
