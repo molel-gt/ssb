@@ -1,4 +1,5 @@
 import os
+import re
 
 import numpy as np
 import ufl
@@ -76,3 +77,10 @@ def arcsinh(x):
 
 def cot(x):
     return 1 / np.tan(x)
+
+
+def extract_dimensions_from_meshfolder(mesh_folder):
+    parts = mesh_folder.split("/")
+    dimensions = [part for part in parts if re.findall(r"\b\d+-\d+-\d+\b", part)]
+
+    return dimensions[0]

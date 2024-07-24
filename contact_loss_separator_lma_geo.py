@@ -70,8 +70,9 @@ if __name__ == '__main__':
     parser.add_argument('--img_id', help='contact area image index', required=True, type=int)
     parser.add_argument("--dimensions", help="integer representation of Lx-Ly-Lz of the grid", required=True)
     parser.add_argument('--resolution', help=f'max resolution resolution', nargs='?', const=1, default=1, type=float)
-    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', type=str, required=True)
+    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?', const=1, default='CONTACT_LOSS_SCALING', type=str)
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="contact_loss_lma")
+    parser.add_argument("--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
     start_time = timeit.default_timer()
     Lx, Ly, Lz = [int(v) for v in args.dimensions.split("-")]
@@ -82,7 +83,10 @@ if __name__ == '__main__':
     Lx = Lx * scale_x
     Ly = Ly * scale_y
     Lz = Lz * scale_z
-    outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), str(args.resolution))
+    if not args.refine:
+        outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), "unrefined", str(int(args.resolution)))
+    else:
+        outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), str(int(args.resolution)))
     utils.make_dir_if_missing(outdir)
     mshpath = os.path.join(f"{outdir}", "mesh.msh")
     geometry_metafile = os.path.join(outdir, "geometry.json")
@@ -93,14 +97,13 @@ if __name__ == '__main__':
         (0, Ly, 0)
     ]
 
-    min_resolution = (1/5) * args.resolution * scale_x
-    min_dist = 5e-5 * Lz
+    resolution = args.resolution * 1e-6
 
     gmsh.initialize()
     gmsh.model.add('area')
-    # gmsh.option.setNumber('Mesh.MeshSizeMin', args.resolution)
-    # gmsh.option.setNumber('Mesh.MeshSizeMax', args.resolution)
-    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
+    if not args.refine:
+        gmsh.option.setNumber('Mesh.MeshSizeMax', resolution)
+    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
     z0_points = [
@@ -252,20 +255,24 @@ if __name__ == '__main__':
         insulated += [gmsh.model.occ.addPlaneSurface((loops[0], ))]
     else:
         insulated += [gmsh.model.occ.addPlaneSurface((loops[0], *side_loops))]
+        insulated += [2, 3, 4, 5, 6]
 
     gmsh.model.occ.healShapes()
     gmsh.model.occ.synchronize()
     print("Generating surface tags..")
     if len(np.unique(img)) == 1 and np.isclose(np.unique(img)[0], 1):
-        lefttag = gmsh.model.addPhysicalGroup(2, [6], markers.left)
-        righttag = gmsh.model.addPhysicalGroup(2, [1], markers.right)
-        insulatedtag = gmsh.model.addPhysicalGroup(2, [2, 3, 4, 5], markers.insulated)
+        left_surf = [6]
+        right_surf = [1]
+        gmsh.model.addPhysicalGroup(2, left_surf, markers.left, "left")
+        gmsh.model.addPhysicalGroup(2, right_surf, markers.right, "right")
+        gmsh.model.addPhysicalGroup(2, insulated, markers.insulated, "insulated")
         surfaces = list(range(1, 7))
     else:
         left_surfs = [vv[1] for vv in gmsh.model.occ.getEntities(2) if vv[1] >= 7]
-        lefttag = gmsh.model.addPhysicalGroup(2, left_surfs, markers.left)
-        righttag = gmsh.model.addPhysicalGroup(2, [1], markers.right)
-        insulatedtag = gmsh.model.addPhysicalGroup(2, [2, 3, 4, 5, 6], markers.insulated)
+        gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "left")
+        right_surf = [1]
+        gmsh.model.addPhysicalGroup(2, right_surf, markers.right, "right")
+        gmsh.model.addPhysicalGroup(2, insulated, markers.insulated, "insulated")
         surfaces = tuple(left + insulated + right)
 
     gmsh.model.occ.synchronize()
@@ -275,39 +282,40 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
 
     # refinement
-    gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "FacesList", [insulatedtag, lefttag, righttag])
+    if args.refine:
+        # def meshSizeCallback(dim, tag, x, y, z, lc):
+        #     if z >= 1e-6:
+        #         return resolution
+        #     elif z <= 0.1:
+        #         return 0.1 * resolution
+        #     else:
+        #         return z / 1e-6 * resolution
 
-    gmsh.model.mesh.field.add("Threshold", 2)
-    gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "LcMin", 0.1 * args.resolution * scale_x)
-    gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution * scale_x)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5 * scale_x)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 1 * scale_x)
+        # gmsh.model.mesh.setSizeCallback(meshSizeCallback)
+        gmsh.model.mesh.field.add("Distance", 1)
+        gmsh.model.mesh.field.setNumbers(1, "FacesList", left_surfs + right + insulated)
 
-    gmsh.model.mesh.field.add("Max", 5)
-    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-    gmsh.model.mesh.field.setAsBackgroundMesh(5)
-    gmsh.model.occ.synchronize()
+        gmsh.model.mesh.field.add("Threshold", 2)
+        gmsh.model.mesh.field.setNumber(2, "IField", 1)
+        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution / 20)
+        gmsh.model.mesh.field.setNumber(2, "LcMax", max(0.5 * Lz, resolution))
+        gmsh.model.mesh.field.setNumber(2, "DistMin", min(0.5 * Lz, 1e-6))
+        gmsh.model.mesh.field.setNumber(2, "DistMax", min(Lz, 10e-6))
+
+        gmsh.model.mesh.field.add("Max", 5)
+        gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+        gmsh.model.mesh.field.setAsBackgroundMesh(5)
+        gmsh.model.occ.synchronize()
     gmsh.model.occ.synchronize()
     print("Generating mesh..")
     gmsh.model.mesh.generate(3)
     gmsh.write(f"{mshpath}")
     gmsh.finalize()
-    # write to file
-    # scale_factor = [scale_x, scale_y, scale_z]
-    # msh = meshio.read(f"{mshpath}")
-
-    # tria_mesh_unscaled = geometry.create_mesh(msh, cell_types.triangle)
-    # tria_mesh_scaled = geometry.scale_mesh(tria_mesh_unscaled, cell_types.triangle, scale_factor=scale_factor)
-    # tria_mesh_scaled.write(os.path.join(outdir, 'tria.xdmf'))
-    # tetr_mesh_unscaled = geometry.create_mesh(msh, cell_types.tetra)
-    # tetr_mesh_scaled = geometry.scale_mesh(tetr_mesh_unscaled, cell_types.tetra, scale_factor=scale_factor)
-    # tetr_mesh_scaled.write(os.path.join(outdir, 'tetr.xdmf'))
     geometry_metadata = {
         "max_resolution": args.resolution,
         "dimensions": args.dimensions,
         "scaling": args.scaling,
+        "refine": args.refine,
     }
     with open(geometry_metafile, "w", encoding='utf-8') as f:
         json.dump(geometry_metadata, f, ensure_ascii=False, indent=4)
