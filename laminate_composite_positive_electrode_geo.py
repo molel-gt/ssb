@@ -26,29 +26,34 @@ markers = commons.Markers()
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument('--img_id', help='contact area image index', required=True, type=int)
-    parser.add_argument("--dimensions", help="integer representation of LX-LY-LZ of the grid", required=True)
-    parser.add_argument('--lsep', help=f'integer representation of separator thickness', type=int, required=True)
-    parser.add_argument('--radius', help=f'integer representation of +AM particle radius', type=int, required=True)
+    parser.add_argument("--dimensions", help="integer unscaled of LX-LY-LZ of the grid", nargs='?', const=1, default='470-470-45')
+    parser.add_argument('--lcat', help=f'integer unscaled +ve electrode thickness', type=int, nargs='?', const=1, default=30)
+    parser.add_argument('--lsep', help=f'integer unscaled of separator thickness', type=int, nargs='?', const=1, default=15)
+    parser.add_argument('--radius', help=f'integer unscaled +AM particle radius', nargs='?', const=1, default=6, type=int)
     parser.add_argument('--eps_am', help=f'positive active material volume fraction', type=float, required=True)
     parser.add_argument('--resolution', help=f'max resolution resolution (microns)', nargs='?', const=1, default=1, type=float)
-    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', type=str, required=True)
+    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?', const=1, default="CONTACT_LOSS_SCALING")
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="contact_loss_lma")
     parser.add_argument("--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
     start_time = timeit.default_timer()
     Lx, Ly, Lz = [int(v) for v in args.dimensions.split("-")]
+    if Lz != (args.lsep + args.lcat):
+        raise ValueError("Cannot resolve dimensions, please check lsep and lcat")
     scaling = configs.get_configs()[args.scaling]
     scale_x = float(scaling['x'])
     scale_y = float(scaling['y'])
     scale_z = float(scaling['z'])
     LX = Lx * scale_x
     LY = Ly * scale_y
-    LZ = Lz * scale_z
+
     Rp = args.radius * scale_x
     Lsep = args.lsep * scale_x
-    Lcat = LZ - Lsep
-    df = scale_x * 470 * pd.read_csv('data/laminate.csv')
-    outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), str(args.eps_am), str(args.resolution))
+    Lcat = args.lcat * scale_x
+    LZ = (args.lcat + args.lsep) * scale_x
+
+    df = scale_x * 470 * pd.read_csv(f'centers/{args.eps_am}.csv')
+    outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, f'{args.lsep}-{args.lcat}', str(args.img_id), str(args.eps_am), str(args.resolution))
     utils.make_dir_if_missing(outdir)
     mshpath = os.path.join(f"{outdir}", "mesh.msh")
     geometry_metafile = os.path.join(outdir, "geometry.json")
@@ -245,8 +250,8 @@ if __name__ == '__main__':
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
         gmsh.model.mesh.field.setNumber(2, "SizeMin", resolution / 10)
         gmsh.model.mesh.field.setNumber(2, "SizeMax", resolution)
-        gmsh.model.mesh.field.setNumber(2, "DistMin", 2e-6)
-        gmsh.model.mesh.field.setNumber(2, "DistMax", 5e-6)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", 1e-6)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", 2e-6)
 
         gmsh.model.mesh.field.add("Max", 5)
         gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])

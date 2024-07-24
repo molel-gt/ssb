@@ -60,6 +60,7 @@ if __name__ == '__main__':
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1.0, type=float)
+    parser.add_argument("--u_ocv", help="open-circuit potential", nargs='?', const=1, default=0, type=float)
     parser.add_argument("--Wa_n", help="Wagna number for negative electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e-3, type=float)
     parser.add_argument("--Wa_p", help="Wagna number for positive electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
     parser.add_argument("--kr", help="ratio of ionic to electronic conductivity", nargs='?', const=1, default=1, type=float)
@@ -199,7 +200,7 @@ if __name__ == '__main__':
     i0_n = kappa_elec * R * T / (Wa_n * faraday_const * LX)
     i0_p = kappa_elec * R * T / (Wa_p * faraday_const * LX)
 
-    u_ocv = 0.15
+    u_ocv = args.u_ocv
     V_left = 0
 
     alpha = 100#args.gamma
@@ -299,6 +300,7 @@ if __name__ == '__main__':
         "Positive Wagner Number": f"{Wa_p:.1e}",
         "Negative Overpotential [V]": f"{eta_n:.2e}",
         "Positive Overpotential [V]": f"{eta_p:.2e}",
+        "Open Circuit Potential (OCP) [V]": f"{args.u_ocv:.2e}",
         "Voltage": voltage,
         "dimensions": args.dimensions,
         "interior penalty (gamma)": args.gamma,

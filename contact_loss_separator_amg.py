@@ -14,7 +14,7 @@ import ufl
 from basix.ufl import element
 from collections import defaultdict
 
-from dolfinx import cpp, default_scalar_type, fem, io, mesh
+from dolfinx import cpp, default_scalar_type, fem, io, la, mesh
 from dolfinx.fem import petsc
 from dolfinx.geometry import bb_tree, compute_collisions_points, compute_colliding_cells
 from dolfinx.io import gmshio, VTXWriter
@@ -31,6 +31,42 @@ faraday_constant = 96485  # [C/mol]
 R = 8.314  # [J/K/mol]
 T = 298  # [K]
 dtype = PETSc.ScalarType
+
+
+def build_nullspace(V):
+    """Build PETSc nullspace for 3D elasticity"""
+
+    # Create vectors that will span the nullspace
+    bs = V.dofmap.index_map_bs
+    length0 = V.dofmap.index_map.size_local
+    basis = [la.vector(V.dofmap.index_map, bs=bs, dtype=dtype) for i in range(6)]
+    b = [b.array for b in basis]
+
+    # Get dof indices for each subspace (x, y and z dofs)
+    dofs = [V.sub(i).dofmap.list.flatten() for i in range(3)]
+
+    # Set the three translational rigid body modes
+    for i in range(3):
+        b[i][dofs[i]] = 1.0
+
+    # Set the three rotational rigid body modes
+    x = V.tabulate_dof_coordinates()
+    dofs_block = V.dofmap.list.flatten()
+    x0, x1, x2 = x[dofs_block, 0], x[dofs_block, 1], x[dofs_block, 2]
+    b[3][dofs[0]] = -x1
+    b[3][dofs[1]] = x0
+    b[4][dofs[0]] = x2
+    b[4][dofs[2]] = -x0
+    b[5][dofs[2]] = x1
+    b[5][dofs[1]] = -x2
+
+    la.orthonormalize(basis)
+
+    basis_petsc = [
+        PETSc.Vec().createWithArray(x[: bs * length0], bsize=3, comm=V.mesh.comm)
+        for x in b
+    ]
+    return PETSc.NullSpace().create(vectors=basis_petsc)
 
 
 if __name__ == '__main__':
@@ -68,7 +104,7 @@ if __name__ == '__main__':
     Lx = Lx * scale_x
     Ly = Ly * scale_y
     Lz = Lz * scale_z
-    results_dir = os.path.join(args.mesh_folder, f"{args.Wa}")
+    results_dir = os.path.join(args.mesh_folder, f"{args.Wa}", "amg")
     utils.make_dir_if_missing(results_dir)
     output_meshfile_path = os.path.join(args.mesh_folder, 'mesh.msh')
     output_current_path = os.path.join(results_dir, 'current.bp')
@@ -100,7 +136,7 @@ if __name__ == '__main__':
     logger.debug("done\n")
 
     # Dirichlet BCs
-    V = fem.functionspace(domain, ("CG", 1))
+    V = fem.functionspace(domain, ("CG", 2))
     
     n = ufl.FacetNormal(domain)
     ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
@@ -126,62 +162,51 @@ if __name__ == '__main__':
         left_bc = fem.dirichletbc(dtype(0), left_dofs, V)
         right_bc = fem.dirichletbc(dtype(voltage), right_dofs, V)
 
-        a = inner(kappa * grad(u), grad(v)) * dx
-        L = inner(f, v) * dx + inner(g, v) * ds(markers.insulated)
-        logger.debug(f'Solving problem..')
-        # problem = petsc.NonlinearProblem(F, u, bcs=[left_bc, right_bc])
-        # solver = petsc_nls.NewtonSolver(comm, problem)
-        problem = petsc.LinearProblem(a, L, bcs=[left_bc, right_bc], petsc_options={"ksp_type": "preonly", "pc_type": "lu"})
-        uh = problem.solve()
-        # solver.convergence_criterion = "residual"
-        # solver.maximum_iterations = 100
-        # solver.atol = np.finfo(float).eps
-        # solver.rtol = np.finfo(float).eps * 10
+        a = fem.form(inner(kappa * grad(u), grad(v)) * dx)
+        L = fem.form(inner(f, v) * dx + inner(g, v) * ds(markers.insulated))
+        bcs = [left_bc, right_bc]
+        A = petsc.assemble_matrix(a, bcs=bcs)
+        A.assemble()
+        b = petsc.assemble_vector(L)
+        petsc.apply_lifting(b, [a], bcs=[bcs])
+        b.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
+        petsc.set_bc(b, bcs)
 
-        # ksp = solver.krylov_solver
-        # opts = PETSc.Options()
-        # option_prefix = ksp.getOptionsPrefix()
-        # opts[f"{option_prefix}ksp_type"] = "gmres"
-        # opts[f"{option_prefix}pc_type"] = "hypre"
-        # ksp.setFromOptions()
-        # n_iters, converged = solver.solve(u)
-        # logger.info(f"Converged in {n_iters} iterations")
-        # u.x.scatter_forward()
+        # ns = build_nullspace(V)
+        # A.setNearNullSpace(ns)
+        A.setOption(PETSc.Mat.Option.SPD, True)
 
-    max_iters = 100
-    its = 0
+        # Set solver options
+        opts = PETSc.Options()  # type: ignore
+        opts["ksp_type"] = "cg"
+        opts["ksp_rtol"] = 1.0e-15
+        opts["ksp_rtol"] = 1.0e-14
+        opts["pc_type"] = "hypre"
 
-    while args.galvanostatic and not curr_converged and its < max_iters:
-        its += 1
-        left_dofs = fem.locate_dofs_topological(V, 2, left_boundary)
-        right_dofs = fem.locate_dofs_topological(V, 2, right_boundary)
-        left_bc = fem.dirichletbc(dtype(0), left_dofs, V)
-        right_bc = fem.dirichletbc(dtype(voltage), right_dofs, V)
+        # # Use Chebyshev smoothing for multigrid
+        # opts["mg_levels_ksp_type"] = "chebyshev"
+        # opts["mg_levels_pc_type"] = "jacobi"
 
-        F = inner(kappa * grad(u), grad(v)) * dx
-        F -= inner(f, v) * dx + inner(g, v) * ds(markers.insulated)
-        logger.debug(f'Iteration {its}: Solving problem..')
-        problem = petsc.NonlinearProblem(F, u, bcs=[left_bc, right_bc])
-        solver = petsc_nls.NewtonSolver(comm, problem)
-        solver.convergence_criterion = "residual"
-        solver.maximum_iterations = 100
-        solver.atol = np.finfo(float).eps
-        solver.rtol = np.finfo(float).eps * 10
+        # # Improve estimate of eigenvalues for Chebyshev smoothing
+        # opts["mg_levels_ksp_chebyshev_esteig_steps"] = 10
 
-        ksp = solver.krylov_solver
-        opts = PETSc.Options()
-        option_prefix = ksp.getOptionsPrefix()
-        opts[f"{option_prefix}ksp_type"] = "preonly"
-        opts[f"{option_prefix}pc_type"] = "lu"
-        ksp.setFromOptions()
-        n_iters, converged = solver.solve(u)
-        logger.info(f"Converged in {n_iters} iterations")
-        u.x.scatter_forward()
-        curr_cd = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(-kappa * ufl.grad(u), n)) * ds(markers.right))), op=MPI.SUM) / A0
-        logger.info(f"Iteration: {its}, current: {curr_cd}, target: {target_cd}")
-        if np.isclose(curr_cd, target_cd, atol=0.01):
-            curr_converged = True
-        voltage *= target_cd / curr_cd
+        # Create PETSc Krylov solver and turn convergence monitoring on
+        solver = PETSc.KSP().create(comm)
+        solver.setFromOptions()
+
+        # Set matrix operator
+        solver.setOperators(A)
+        uh = fem.Function(V)
+
+        # Set a monitor, solve linear system, and display the solver
+        # configuration
+        solver.setMonitor(lambda _, its, rnorm: print(f"Iteration: {its}, rel. residual: {rnorm}"))
+        solver.solve(b, uh.x.petsc_vec)
+        solver.view()
+
+        # Scatter forward the solution vector to update ghost values
+        uh.x.scatter_forward()
+
 
     with VTXWriter(comm, output_potential_path, [uh], engine="BP5") as vtx:
         vtx.write(0.0)
