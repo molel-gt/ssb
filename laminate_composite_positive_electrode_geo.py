@@ -53,9 +53,9 @@ if __name__ == '__main__':
     LZ = (args.lcat + args.lsep) * scale_x
 
     df = scale_x * 470 * pd.read_csv(f'centers/{args.eps_am}.csv')
-    if ars.refine:
+    if args.refine:
         outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, f'{args.lsep}-{args.lcat}', str(args.img_id), str(args.eps_am), str(args.resolution))
-else:
+    else:
         outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, f'{args.lsep}-{args.lcat}', str(args.img_id), str(args.eps_am), "unrefined", str(args.resolution))
     utils.make_dir_if_missing(outdir)
     mshpath = os.path.join(f"{outdir}", "mesh.msh")
