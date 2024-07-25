@@ -37,6 +37,8 @@ du -sh * | sort -h
 # directory size
 du -s ssb/ --block-size=MB
 
+du -sh * | sort -hr
+
 # install from requirements
 conda install --file requirements.txt
 
