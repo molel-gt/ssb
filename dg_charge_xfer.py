@@ -30,7 +30,7 @@ from petsc4py import PETSc
 from ufl import (Circumradius, FacetNormal, SpatialCoordinate, TrialFunction, TestFunction,
                  dot, div, dx, ds, dS, grad, inner, grad, avg, jump)
 
-import commons, configs, geometry, solvers, utils
+import commons, configs, geometry, utils
 
 warnings.simplefilter('ignore')
 
@@ -242,44 +242,27 @@ if __name__ == '__main__':
     # F += - gamma * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.left)
     # F -= - gamma * h * 2 * i0_n * ufl.sinh(0.5 * faraday_const / R / T * (V_left - u - 0)) * inner(grad(v), n) * ds(markers.left)
 
-    # problem = petsc.NonlinearProblem(F, u)
-    # solver = petsc_nls.NewtonSolver(comm, problem)
-    # solver.convergence_criterion = "residual"
-    # solver.maximum_iterations = 100
-    # solver.rtol = args.rtol
-    # solver.atol = args.atol
+    problem = petsc.NonlinearProblem(F, u)
+    solver = petsc_nls.NewtonSolver(comm, problem)
+    solver.convergence_criterion = "residual"
+    solver.maximum_iterations = 100
+    solver.rtol = args.rtol
+    solver.atol = args.atol
 
-    # ksp = solver.krylov_solver
+    ksp = solver.krylov_solver
 
-    # opts = PETSc.Options()
-    # ksp.setMonitor(lambda _, it, residual: print(it, residual))
-    # option_prefix = ksp.getOptionsPrefix()
-    # opts[f"{option_prefix}ksp_type"] = "cg"
-    # opts[f"{option_prefix}pc_type"] = "lu"
-    # opts[f"{option_prefix}pc_factor_type"] = "superlu_dist"
+    opts = PETSc.Options()
+    ksp.setMonitor(lambda _, it, residual: print(it, residual))
+    option_prefix = ksp.getOptionsPrefix()
+    opts[f"{option_prefix}ksp_type"] = "cg"
+    opts[f"{option_prefix}pc_type"] = "lu"
+    opts[f"{option_prefix}pc_factor_type"] = "superlu_dist"
 
-    # ksp.setFromOptions()
-    # n_iters, converged = solver.solve(u)
-    # u.x.scatter_forward()
-    # if converged:
-    #     print(f"Converged in {n_iters} iterations")
-
-    jac = ufl.derivative(F, u)
-    J = [[fem.form(jac)]]
-    F0 = [fem.form(F)]
-    solver = solvers.NewtonSolver(
-        F0,
-        J,
-        [u],
-        bcs=[],
-        max_iterations=5,
-        petsc_options={
-        "ksp_type": "cg",
-        "pc_type": "lu",
-        "pc_factor_mat_solver_type": "superlu_dist",
-        },
-        )
-    solver.solve(1e-6)
+    ksp.setFromOptions()
+    n_iters, converged = solver.solve(u)
+    u.x.scatter_forward()
+    if converged:
+        print(f"Converged in {n_iters} iterations")
 
     current_expr = fem.Expression(-kappa * grad(u), W.element.interpolation_points())
     current_h.interpolate(current_expr)
