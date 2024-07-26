@@ -78,6 +78,7 @@ if __name__ == '__main__':
     micron = 1e-6
     dimensions = utils.extract_dimensions_from_meshfolder(args.mesh_folder)
     LX, LY, LZ = [float(vv) * micron for vv in dimensions.split("-")]
+    characteristic_length = min([val for val in [LX, LY, LZ] if val > 0])
     workdir = os.path.join(args.mesh_folder, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), str(args.gamma))
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(args.mesh_folder, 'mesh.msh')
@@ -196,8 +197,8 @@ if __name__ == '__main__':
     with u_right.vector.localForm() as u1_loc:
         u1_loc.set(voltage)
 
-    i0_n = kappa_elec * R * T / (Wa_n * faraday_const * LX)
-    i0_p = kappa_elec * R * T / (Wa_p * faraday_const * LX)
+    i0_n = kappa_elec * R * T / (Wa_n * faraday_const * characteristic_length)
+    i0_p = kappa_elec * R * T / (Wa_p * faraday_const * characteristic_length)
 
     u_ocv = args.u_ocv
     V_left = 0
