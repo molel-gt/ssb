@@ -18,7 +18,7 @@ import subprocess
 import ufl
 import warnings
 
-from dolfinx import cpp, default_real_type, default_scalar_type, fem, io, la, mesh, nls, plot
+from dolfinx import cpp, default_real_type, default_scalar_type, fem, io, la, log, mesh, nls, plot
 from dolfinx.fem import petsc
 from dolfinx.io import gmshio, VTXWriter, XDMFFile
 from dolfinx.nls import petsc as petsc_nls
@@ -91,6 +91,8 @@ if __name__ == '__main__':
     simulation_metafile = os.path.join(workdir, "simulation.json")
 
     markers = commons.Markers()
+
+    log.set_log_level(log.LogLevel.INFO)
 
     # ### Read input geometry
     partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
