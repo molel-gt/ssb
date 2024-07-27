@@ -92,7 +92,7 @@ if __name__ == '__main__':
 
     markers = commons.Markers()
 
-    log.set_log_level(log.LogLevel.INFO)
+    log.set_log_level(log.LogLevel.WARNING)
 
     # ### Read input geometry
     partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
