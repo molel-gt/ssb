@@ -260,7 +260,6 @@ if __name__ == '__main__':
     option_prefix = ksp.getOptionsPrefix()
     opts[f"{option_prefix}ksp_type"] = "cg"
     opts[f"{option_prefix}pc_type"] = "lu"
-    opts[f"{option_prefix}pc_factor_type"] = "superlu_dist"
 
     ksp.setFromOptions()
     n_iters, converged = solver.solve(u)
