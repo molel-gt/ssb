@@ -256,6 +256,7 @@ if __name__ == '__main__':
 
     opts = PETSc.Options()
     ksp.setMonitor(lambda _, it, residual: print(it, residual))
+    ksp.setErrorIfNotConverged(True)
     option_prefix = ksp.getOptionsPrefix()
     opts[f"{option_prefix}ksp_type"] = "cg"
     opts[f"{option_prefix}pc_type"] = "lu"
