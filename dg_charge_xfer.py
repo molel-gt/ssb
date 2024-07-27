@@ -321,6 +321,7 @@ if __name__ == '__main__':
         "stdev i positive charge transfer (normalized)": f"{std_dev_i_pos_am_norm:.2e}",
         "solver atol": args.atol,
         "solver rtol": args.rtol,
+        "Total resistance [Ω.cm2]": voltage / (np.abs(I_right) / (area_right * 1e4)),
 
     }
     # visualization
