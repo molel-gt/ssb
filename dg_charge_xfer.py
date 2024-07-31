@@ -68,7 +68,7 @@ def get_surface_overpotential(kappa, i0, u, kinetics_type="butler_volmer"):
     elif kinetics_type == "linear":
         return R * T * i_loc / (i0 * faraday_const)
     elif kinetics_type == "tafel":
-        return ufl.sgn(i_loc) * R * T / (0.5 * faraday_const) * ufl.ln(np.abs(i_loc)/i_0)
+        return ufl.sign(i_loc) * R * T / (0.5 * faraday_const) * ufl.ln(np.abs(i_loc)/i_0)
 
 
 if __name__ == '__main__':
