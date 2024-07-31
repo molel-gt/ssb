@@ -40,6 +40,13 @@ kappa_pos_am = 0.1
 faraday_const = 96485
 R = 8.3145
 T = 298
+kinetics = ("linear", "tafel", "butler_volmer")
+
+
+def check_kinetics(val):
+    if val not in kinetics:
+        raise ValueError(f"Invalid kinetics, allowed values are {kinetics.__repr__()}")
+    return True
 
 
 def ocv(sod, L=1, k=2):
@@ -52,6 +59,16 @@ def read_node_ids_for_marker(h5_file_obj, marker):
     nodes = sorted(list(set(list(itertools.chain.from_iterable(lines.reshape(-1, 1).tolist())))))
 
     return nodes
+
+
+def get_surface_overpotential(kappa, i0, u, kinetics_type="butler_volmer"):
+    i_loc = -inner((kappa * grad(u))('+'), n("+"))
+    if kinetics_type == "butler_volmer":
+        return 2 * ufl.ln(0.5 * i_loc/i0 + ufl.sqrt((0.5 * i_loc/i0)**2 + 1)) * (R * T / faraday_const)
+    elif kinetics_type == "linear":
+        return R * T * i_loc / (i0 * faraday_const)
+    elif kinetics_type == "tafel":
+        return ufl.sgn(i_loc) * R * T / (0.5 * faraday_const) * ufl.ln(np.abs(i_loc)/i_0)
 
 
 if __name__ == '__main__':
@@ -67,6 +84,8 @@ if __name__ == '__main__':
     parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-9, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='MICRON_TO_METER', type=str)
+    parser.add_argument('--kinetics', help='kinetics type', nargs='?', const=1, default='butler_volmer', type=str, choices=kinetics)
+
 
     args = parser.parse_args()
     start_time = timeit.default_timer()
@@ -79,7 +98,7 @@ if __name__ == '__main__':
     dimensions = utils.extract_dimensions_from_meshfolder(args.mesh_folder)
     LX, LY, LZ = [float(vv) * micron for vv in dimensions.split("-")]
     characteristic_length = min([val for val in [LX, LY, LZ] if val > 0])
-    workdir = os.path.join(args.mesh_folder, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), str(args.gamma))
+    workdir = os.path.join(args.mesh_folder, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), str(args.gamma))
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(args.mesh_folder, 'mesh.msh')
     lines_h5file = os.path.join(args.mesh_folder, 'lines.h5')
@@ -208,7 +227,7 @@ if __name__ == '__main__':
     alpha = 100#args.gamma
     gamma = 100#args.gamma
     i_loc = -inner((kappa * grad(u))('+'), n("+"))
-    u_jump = 2 * ufl.ln(0.5 * i_loc/i0_p + ufl.sqrt((0.5 * i_loc/i0_p)**2 + 1)) * (R * T / faraday_const)
+    u_jump = get_surface_overpotential(kappa, i0_p, u) #2 * ufl.ln(0.5 * i_loc/i0_p + ufl.sqrt((0.5 * i_loc/i0_p)**2 + 1)) * (R * T / faraday_const)
 
     F = kappa * inner(grad(u), grad(v)) * dx - f * v * dx - kappa * inner(grad(u), n) * v * ds
 
