@@ -316,7 +316,7 @@ if __name__ == '__main__':
         "dimensions": args.dimensions,
         "scaling": args.scaling,
         "refine": args.refine,
+        "time elapsed (s)": int(timeit.default_timer() - start_time),
     }
     with open(geometry_metafile, "w", encoding='utf-8') as f:
         json.dump(geometry_metadata, f, ensure_ascii=False, indent=4)
-    print(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
