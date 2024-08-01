@@ -19,6 +19,7 @@ openpyxl
 pandas
 pybamm
 python-gmsh
+python-igraph
 pyvista
 pyvistaqt
 scipy
