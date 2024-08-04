@@ -256,7 +256,7 @@ if __name__ == '__main__':
         num_points = 10000
         cd_space = np.linspace(min_cd, max_cd, num=num_points)
         cdf_values = []
-        freq_values = [None] * (num_points - 1)
+        freq_values = [{}] * (num_points - 1)
         EPS = 1e-30
 
         def frequency_condition(values, vleft, vright):
