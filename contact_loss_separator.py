@@ -228,7 +228,7 @@ if __name__ == '__main__':
     def get_chunk(rank, size, n_points):
         chunk_size = int(np.ceil(n_points / size))
         if rank + 1 == size:
-            return int(chunk_size) * rank, num_points
+            return int(chunk_size) * rank, n_points
         else:
             return int(chunk_size) * rank, int(chunk_size * (rank+1)) + 1
 
@@ -263,7 +263,7 @@ if __name__ == '__main__':
             tol_fun_right.interpolate(lambda x: vright * (x[0] + EPS) / (x[0] + EPS))
             return ufl.conditional(ufl.ge(values, tol_fun_left), 1, 0) * ufl.conditional(ufl.lt(values, tol_fun_right), 1, 0)
 
-        c_size = get_chunk(rank, size, n_points)
+        c_size = get_chunk(rank, size, num_points)
 
         for idx in range(c_size[0], c_size[1]-1):
             vleft = cd_space[idx]
