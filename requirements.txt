@@ -13,6 +13,7 @@ libptscotch
 libscotch
 matplotlib
 meshio
+nanobind
 nb_conda_kernels
 numpy
 openpyxl
