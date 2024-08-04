@@ -47,7 +47,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     voltage = args.voltage
     comm = MPI.COMM_WORLD
-    rank = comm.rank
+    rank = comm.Get_rank()
+    size = comm.Get_size()
     start_time = timeit.default_timer()
     scaling = configs.get_configs()[args.scaling]
     scale_x = float(scaling['x'])
@@ -224,6 +225,13 @@ if __name__ == '__main__':
     kappa_eff = abs(I_left_cc) / A0 * Lz / voltage
     insulated_ratio = I_insulated / min(abs(I_left_cc), abs(I_right_cc))
 
+    def get_chunk(rank, size, n_points):
+        chunk_size = int(np.ceil(n_points / size))
+        if rank + 1 == size:
+            return int(chunk_size) * rank, num_points
+        else:
+            return int(chunk_size) * rank, int(chunk_size * (rank+1)) + 1
+
     if args.compute_distribution:
         logger.debug("Cumulative distribution lines of current density at terminals")
         cd_lims = defaultdict(lambda : [0, 25])
@@ -244,9 +252,10 @@ if __name__ == '__main__':
         else:
             min_cd = 0
             max_cd = min(abs(I_left_cc/A0) * 5, cd_lims[int(dimensions.split("-")[-1])][-1])
-        cd_space = np.linspace(min_cd, max_cd, num=10000)
+        num_points = 10000
+        cd_space = np.linspace(min_cd, max_cd, num=num_points)
         cdf_values = []
-        freq_values = []
+        freq_values = [None] * num_points
         EPS = 1e-30
 
         def frequency_condition(values, vleft, vright):
@@ -254,18 +263,14 @@ if __name__ == '__main__':
             tol_fun_right.interpolate(lambda x: vright * (x[0] + EPS) / (x[0] + EPS))
             return ufl.conditional(ufl.ge(values, tol_fun_left), 1, 0) * ufl.conditional(ufl.lt(values, tol_fun_right), 1, 0)
 
-        for i, vleft in enumerate(list(cd_space)[:-1]):
-            vright = cd_space[i+1]
-            freql = domain.comm.allreduce(
-                fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(markers.left))),
-                op=MPI.SUM
-            )
-            freqr = domain.comm.allreduce(
-                fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(
-                    markers.right))),
-                op=MPI.SUM
-            )
-            freq_values.append({"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql": freql / A0, "freqr": freqr / A0})
+        c_size = get_chunk(rank, size, n_points)
+
+        for idx in range(c_size[0], c_size[1]-1):
+            vleft = cd_space[idx]
+            vright = cd_space[idx+1]
+            freql = fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(markers.left)))
+            freqr = fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(markers.right)))
+            freq_values[idx] = {"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql": freql / A0, "freqr": freqr / A0}
         if domain.comm.rank == 0:
             with open(frequency_path, "w") as fp:
                 writer = csv.DictWriter(fp, fieldnames=["vleft [A/m2]", "vright [A/m2]", "freql", "freqr"])
