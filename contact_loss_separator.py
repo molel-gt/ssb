@@ -33,6 +33,14 @@ T = 298  # [K]
 dtype = PETSc.ScalarType
 
 
+def get_chunk(rank, size, n_points):
+        chunk_size = int(np.ceil(n_points / size))
+        if rank + 1 == size:
+            return int(chunk_size) * rank, n_points
+        else:
+            return int(chunk_size) * rank, int(chunk_size * (rank+1)) + 1
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="contact_loss_lma")
@@ -224,13 +232,6 @@ if __name__ == '__main__':
     error = max([np.abs(I_left_cc), np.abs(I_right_cc)]) / min([np.abs(I_left_cc), np.abs(I_right_cc)])
     kappa_eff = abs(I_left_cc) / A0 * Lz / voltage
     insulated_ratio = I_insulated / min(abs(I_left_cc), abs(I_right_cc))
-
-    def get_chunk(rank, size, n_points):
-        chunk_size = int(np.ceil(n_points / size))
-        if rank + 1 == size:
-            return int(chunk_size) * rank, n_points
-        else:
-            return int(chunk_size) * rank, int(chunk_size * (rank+1)) + 1
 
     if args.compute_distribution:
         logger.debug("Cumulative distribution lines of current density at terminals")
