@@ -283,7 +283,8 @@ if __name__ == '__main__':
             if val < np.finfo(float).eps:
                 return 1
             return 0
-        area_zero_curr = comm.allreduce(fem.assemble_scalar(fem.form(less_than_zero(np.abs(ufl.inner(current_h, n))) * ds(markers.right))), op=MPI.SUM)
+        tol_fun_right.interpolate(lambda x: x[0] + EPS)
+        area_zero_curr = comm.allreduce(fem.assemble_scalar(fem.form(ufl.conditional(ufl.lt(np.abs(ufl.inner(current_h, n)), tol_fun_right), 1, 0) * ds(markers.right))), op=MPI.SUM)
     if domain.comm.rank == 0:
         logger.debug("Writing summary information..")
         simulation_metadata = {
