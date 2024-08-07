@@ -230,9 +230,11 @@ if __name__ == '__main__':
     cylinders = []
     spheres = []
     # for generating contact loss between se and +ve am
-    pieces = np.linspace(args.lsep, Lz - args.radius, num=11)
+    pieces = np.linspace(args.lsep, Lz - args.radius, num=3)
+    print(pieces)
     se_am_contact = []
-
+    se_am_no_contact = []
+    print("Generating cylinders..")
     for idx in range(df.shape[0]):
         x, y = df.loc[idx, :]
         if (x + Rp) >= LX or (y + Rp) >= LY:
@@ -243,31 +245,40 @@ if __name__ == '__main__':
             cyl = gmsh.model.occ.addCylinder(x, y, Lsep, 0, 0, Lcat - Rp, Rp)
             cylinders.append((3, cyl))
         else:
-            cyl, se_am_contact_spot = create_stacked_cylinders(x, y, Rp, [scale_x, scale_y, scale_z], args.se_pos_am_area_frac, pieces, gmsh.model)
-            cylinders.append((3, cyl))
-            se_am_contact.extend(se_am_contact_spot)
-            # for cidx, start_pos in enumerate(pieces[:-1]):
-            #     start_idx = cidx
-            #     end_idx = cidx + 1
-            #     start_l = pieces[start_idx]
-            #     middle_l = pieces[start_idx] + args.se_pos_am_area_frac * (pieces[end_idx] - pieces[start_idx])
-            #     end_l = pieces[end_idx]
-            #     cyl1 = gmsh.model.occ.addCylinder(x, y, start_l * scale_z, 0, 0, middle_l * scale_z, Rp)
-            #     cyl2 = gmsh.model.occ.addCylinder(x, y, middle_l * scale_z, 0, 0, end_l * scale_z, Rp)
-            #     cylinders.append((3, cyl1))
-            #     cylinders.append((3, cyl2))
-            #     se_am_contact.append(0.5*(start_l + middle_l))
-            #     se_am_no_contact.append(0.5*(middle_l + end_l))
+            # cyl, se_am_contact_spot = create_stacked_cylinders(x, y, Rp, [scale_x, scale_y, scale_z], args.se_pos_am_area_frac, pieces, gmsh.model)
+            # cylinders.append((3, cyl))
+            # se_am_contact.extend(se_am_contact_spot)
+            cyls = []
+            for cidx, start_pos in enumerate(pieces[:-1]):
+                start_idx = cidx
+                end_idx = cidx + 1
+                start_l = pieces[start_idx]
+                middle_l = pieces[start_idx] + (1 - args.se_pos_am_area_frac) * (pieces[end_idx] - pieces[start_idx])
+                h_0 = (1 - args.se_pos_am_area_frac) * (pieces[end_idx] - pieces[start_idx])
+                h_1 = args.se_pos_am_area_frac * (pieces[end_idx] - pieces[start_idx])
+                end_l = pieces[end_idx]
+                cyl1 = gmsh.model.occ.addCylinder(x, y, start_l * scale_z, 0, 0, h_0 * scale_z, Rp)
+                cyl2 = gmsh.model.occ.addCylinder(x, y, middle_l * scale_z, 0, 0, h_1 * scale_z, Rp)
+                cyls.append((3, cyl1))
+                cyls.append((3, cyl2))
+                se_am_contact.append(middle_l + 0.5 * h_1)
+                se_am_no_contact.append(start_l + 0.5 * h_0)
+            cyl = gmsh.model.occ.fuse([cyls[0]], cyls[1:], removeTool=False, removeObject=False)
+            cylinders.append(cyl[0][0])
+    print("Generating detailed geometry..")
+    print("Merging AM slice to cylinders..")
     merged = gmsh.model.occ.fuse([(3, box_am)], cylinders)
-    gmsh.model.occ.cut([(3, box_se)], merged[0], removeTool=False)
-    
+    print("Finished merging.")
+    print("Cutting +ve AM from whole domain..")
+    volz = gmsh.model.occ.cut([(3, box_se)], merged[0], removeTool=False)
+    print("Finished cutting")
 
     gmsh.model.occ.synchronize()
-    vols = gmsh.model.occ.getEntities(3)
+    vols = [v[1] for v in gmsh.model.occ.getEntities(3)]
 
-    gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.electrolyte, "electrolyte")
+    gmsh.model.addPhysicalGroup(3, [vols[0]], markers.electrolyte, "electrolyte")
     gmsh.model.occ.synchronize()
-    gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.positive_am, "positive_am")
+    gmsh.model.addPhysicalGroup(3, vols[1:], markers.positive_am, "positive_am")
     gmsh.model.occ.synchronize()
     print("Generating surface tags..")
     left_surfs = []
@@ -295,10 +306,16 @@ if __name__ == '__main__':
             if np.isclose(args.se_pos_am_area_frac, 1):
                 interface.append(surf[1])
             else:
-                if np.any(np.isclose(se_am_contact, z)):
+                if np.isclose(z, Lz - args.radius):
                     interface.append(surf[1])
-                else:
+                elif np.any(np.isclose(se_am_contact, z)):
+                    interface.append(surf[1])
+                elif np.any(np.isclose(se_am_no_contact, z)):
                     insulated_am.append(surf[1])
+                else:
+                    pass
+                    # print(x, y, z)
+                    # insulated_am.append(surf[1])
 
     gmsh.model.addPhysicalGroup(2, left_surfs[1:], markers.left, "left")
     insulated_se.append(left_surfs[0])
@@ -333,6 +350,7 @@ if __name__ == '__main__':
         "max_resolution": args.resolution,
         "dimensions": args.dimensions,
         "scaling": args.scaling,
+        "Time elapsed (s)": int(timeit.default_timer() - start_time),
     }
     with open(geometry_metafile, "w", encoding='utf-8') as f:
         json.dump(geometry_metadata, f, ensure_ascii=False, indent=4)
