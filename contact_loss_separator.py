@@ -232,7 +232,7 @@ if __name__ == '__main__':
     error = max([np.abs(I_left_cc), np.abs(I_right_cc)]) / min([np.abs(I_left_cc), np.abs(I_right_cc)])
     kappa_eff = abs(I_left_cc) / A0 * Lz / voltage
     insulated_ratio = I_insulated / min(abs(I_left_cc), abs(I_right_cc))
-
+    EPS = 1e-30
     if args.compute_distribution:
         logger.debug("Cumulative distribution lines of current density at terminals")
         cd_lims = defaultdict(lambda : [0, 25])
@@ -257,7 +257,6 @@ if __name__ == '__main__':
         cd_space = np.linspace(min_cd, max_cd, num=num_points)
         cdf_values = []
         freq_values = [{}] * (num_points - 1)
-        EPS = 1e-30
 
         def frequency_condition(values, vleft, vright):
             tol_fun_left.interpolate(lambda x: vleft * (x[0] + EPS) / (x[0] + EPS))
