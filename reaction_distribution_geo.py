@@ -258,7 +258,7 @@ if __name__ == '__main__':
     middle_lines = [gmsh.model.occ.addLine(mid_points[i], mid_points[i+1]) for i in range(-1, 3)]
     middle_loop = gmsh.model.occ.addCurveLoop(middle_lines)
     middle_plane = gmsh.model.occ.addPlaneSurface([middle_loop] + circle_loops)
-    ov1, ovv1 = gmsh.model.occ.fragment([(3, box_se)], cyl_surfs + [(2, middle_plane)])
+    ov1, ovv1 = gmsh.model.occ.fragment([(3, box_se)], cyl_surfs + [(2, middle_plane)] + [(1, c) for c in all_circles])
     gmsh.model.occ.synchronize()
     print("Merging AM slice to cylinders..")
     print("Finished merging.")
