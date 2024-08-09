@@ -109,7 +109,7 @@ if __name__ == '__main__':
     logger.debug("done\n")
 
     # Dirichlet BCs
-    V = fem.functionspace(domain, ("CG", 1))
+    V = fem.functionspace(domain, ("CG", 2))
     
     n = ufl.FacetNormal(domain)
     ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
