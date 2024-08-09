@@ -299,7 +299,6 @@ if __name__ == '__main__':
         elif np.isclose(com[2], LZ - 0.5 * Rp) and is_on_the_walls(x, y, z):
             insulated_am.append(surf[1])
         else:
-            # print(surf)
             if np.isclose(args.se_pos_am_area_frac, 1):
                 interface.append(surf[1])
             else:
