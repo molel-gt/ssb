@@ -47,11 +47,11 @@ def create_stacked_cylinders(x, y, radius, scale, se_pos_am_area_frac, pieces, m
     # circular planes
     beg_surf = model.occ.addPlaneSurface([circle_loop_beg])
     # end_surf = model.occ.addPlaneSurface([circle_loop_end])
-    side_surf_1 = model.occ.extrude([(1, c) for c in circles_start], 0, 0, step_z0)
-    side_surf_2 = model.occ.extrude([(1, c) for c in circles_mid], 0, 0, step_z1)
-    surfs = [(2, beg_surf)] + [c for c in side_surf_1 if c[0] == 2] + [c for c in side_surf_2 if c[0] == 2]
+    side_surf_1 = model.occ.extrude([(1, c) for c in circles_start[:1]], 0, 0, scale_z * (pieces[-1] - pieces[0]))
+    # side_surf_2 = model.occ.extrude([(1, c) for c in circles_mid], 0, 0, step_z1)
+    surfs = [(2, beg_surf)] + [c for c in side_surf_1 if c[0] == 2]
 
-    return surfs, circle_loop_end, se_am_contact_spot, se_am_no_contact_spot
+    return surfs, circle_loop_end, circles_start[1:] + circles_mid, se_am_contact_spot, se_am_no_contact_spot
 
 
 if __name__ == '__main__':
@@ -232,6 +232,7 @@ if __name__ == '__main__':
     se_am_no_contact = []
     print("Generating cylinders..")
     cyl_surfs = []
+    circle_loops = []
     all_circles = []
     for idx in range(df.shape[0]):
         x, y = df.loc[idx, :]
@@ -239,9 +240,10 @@ if __name__ == '__main__':
             continue
         if (x - Rp) <= 0 or (y - Rp) <= 0:
             continue
-        surfs_label, circle_end, se_am_contact_spot, se_am_no_contact_spot = create_stacked_cylinders(x, y, Rp, [scale_x, scale_y, scale_z], args.se_pos_am_area_frac, pieces, gmsh.model)
+        surfs_label, circle_end, circles, se_am_contact_spot, se_am_no_contact_spot = create_stacked_cylinders(x, y, Rp, [scale_x, scale_y, scale_z], args.se_pos_am_area_frac, pieces, gmsh.model)
         se_am_contact.extend(se_am_contact_spot)
-        all_circles.append(circle_end)
+        circle_loops.append(circle_end)
+        all_circles.extend(circles)
         se_am_no_contact.extend(se_am_no_contact_spot)
         cyl_surfs.extend(surfs_label)
 
@@ -255,22 +257,22 @@ if __name__ == '__main__':
     mid_points = [gmsh.model.occ.addPoint(*p) for p in points_mid]
     middle_lines = [gmsh.model.occ.addLine(mid_points[i], mid_points[i+1]) for i in range(-1, 3)]
     middle_loop = gmsh.model.occ.addCurveLoop(middle_lines)
-    middle_plane = gmsh.model.occ.addPlaneSurface([middle_loop] + all_circles)
-    # box_am = gmsh.model.occ.addBox(0, 0, LZ - Rp, LX, LY, Rp)
+    middle_plane = gmsh.model.occ.addPlaneSurface([middle_loop] + circle_loops)
     ov1, ovv1 = gmsh.model.occ.fragment([(3, box_se)], cyl_surfs + [(2, middle_plane)])
-    print(ov1)
     gmsh.model.occ.synchronize()
     print("Merging AM slice to cylinders..")
-    # merged, _ = gmsh.model.occ.fragment([(3, box_se)], cyl_surfs)
     print("Finished merging.")
     print("Cutting +ve AM from whole domain..")
-    # volz = gmsh.model.occ.cut([(3, box_se)], merged, removeTool=False)
     print("Finished cutting")
 
     gmsh.model.occ.synchronize()
     vols = [v[1] for v in gmsh.model.occ.getEntities(3)]
-    print(vols)
-
+    
+    # els = gmsh.model.occ.getSurfaceLoops(vols[1])
+    # curved_surf = [s for s in els[1][0]]
+    # ov2, ovv2 = gmsh.model.occ.fragment([(3, vols[1])] + [(2, s) for s in curved_surf], [(1, c) for c in all_circles])
+    # print(ov2)
+    gmsh.model.occ.synchronize()
     gmsh.model.addPhysicalGroup(3, [vols[0]], markers.electrolyte, "electrolyte")
     gmsh.model.occ.synchronize()
     gmsh.model.addPhysicalGroup(3, vols[1:], markers.positive_am, "positive_am")
