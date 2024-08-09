@@ -46,9 +46,7 @@ def create_stacked_cylinders(x, y, radius, scale, se_pos_am_area_frac, pieces, m
     circle_loop_beg = model.occ.addCurveLoop([circles_start[0]])
     # circular planes
     beg_surf = model.occ.addPlaneSurface([circle_loop_beg])
-    # end_surf = model.occ.addPlaneSurface([circle_loop_end])
     side_surf_1 = model.occ.extrude([(1, c) for c in circles_start[:1]], 0, 0, scale_z * (pieces[-1] - pieces[0]))
-    # side_surf_2 = model.occ.extrude([(1, c) for c in circles_mid], 0, 0, step_z1)
     surfs = [(2, beg_surf)] + [c for c in side_surf_1 if c[0] == 2]
 
     return surfs, circle_loop_end, circles_start[1:] + circles_mid, se_am_contact_spot, se_am_no_contact_spot
@@ -107,7 +105,7 @@ if __name__ == '__main__':
     # gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     # gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
     # if not args.refine:
-    #     gmsh.option.setNumber('Mesh.MeshSizeMax', resolution)
+    #     gmsh.option.setNumber('Mesh.CharacteristicLengthMax', resolution)
     z0_points = [
         (0, 0, 0),
         (LX, 0, 0),
@@ -194,6 +192,7 @@ if __name__ == '__main__':
     image[-1, :] = 0
     image[:, 0] = 0
     image[:, -1] = 0
+    active_surfs_com = []
     boundary_pieces, count, points, points_view = geometry.get_phase_boundary_pieces(image)
     for hull in boundary_pieces:
         hull_arr = np.asarray(hull)
@@ -210,6 +209,8 @@ if __name__ == '__main__':
         idx = gmsh.model.occ.addCurveLoop(hull_lines)
         side_loops.append(idx)
         idx2 = gmsh.model.occ.addPlaneSurface((idx, ))
+        com = gmsh.model.occ.getCenterOfMass(2, idx2)
+        active_surfs_com.append([com[0], com[1]])
         left.append(idx2)
 
     middle = [gmsh.model.occ.addPlaneSurface((loops[1], ))]
@@ -218,10 +219,9 @@ if __name__ == '__main__':
         idx = gmsh.model.occ.addPlaneSurface((vv, ))
         insulated.append(idx)
 
-    insulated += [gmsh.model.occ.addPlaneSurface((loops[0], *side_loops))]
+    gmsh.model.occ.addPlaneSurface((loops[0], *side_loops))
 
     gmsh.model.occ.healShapes()
-    surfaces_1 = tuple(left + insulated + middle)
     box_se = gmsh.model.occ.getEntities(3)[0][1]
 
     cylinders = []
@@ -260,12 +260,6 @@ if __name__ == '__main__':
     middle_plane = gmsh.model.occ.addPlaneSurface([middle_loop] + circle_loops)
     ov1, ovv1 = gmsh.model.occ.fragment([(3, box_se)], cyl_surfs + [(2, middle_plane)] + [(1, c) for c in all_circles])
     gmsh.model.occ.synchronize()
-    print("Merging AM slice to cylinders..")
-    print("Finished merging.")
-    print("Cutting +ve AM from whole domain..")
-    print("Finished cutting")
-
-    gmsh.model.occ.synchronize()
     vols = gmsh.model.occ.getEntities(3)
     gmsh.model.occ.synchronize()
     for v in vols:
@@ -277,20 +271,25 @@ if __name__ == '__main__':
             gmsh.model.addPhysicalGroup(3, [v[1]], markers.positive_am, "positive_am")
             gmsh.model.occ.synchronize()
     print("Generating surface tags..")
-    left_surfs = []
 
     def is_on_the_walls(x, y, z):
         y_planes = np.isclose(y, 0) or np.isclose(y, Ly)
         x_planes = np.isclose(x, 0) or np.isclose(x, Lx)
         return x_planes or y_planes
 
+    active_left = []
+    inactive_left = []
+    left_com_arr = np.array(active_surfs_com)
     for surf in gmsh.model.occ.getEntities(2):
         com = gmsh.model.occ.getCenterOfMass(surf[0], surf[1])
         x = com[0] / scale_x
         y = com[1] / scale_y
         z = com[2] / scale_z
         if np.isclose(z, 0, atol=1):
-            left_surfs.append(surf[1])
+            if np.any(np.all(np.isclose([com[0], com[1]], left_com_arr, atol=1e-9), axis=1)):
+                active_left.append(surf[1])
+            else:
+                inactive_left.append(surf[1])
             continue
         elif np.isclose(com[2], LZ):
             right.append(surf[1])
@@ -315,8 +314,8 @@ if __name__ == '__main__':
                 else:
                     pass
 
-    gmsh.model.addPhysicalGroup(2, left_surfs[1:], markers.left, "left")
-    insulated_se.append(left_surfs[0])
+    gmsh.model.addPhysicalGroup(2, active_left, markers.left, "left")
+    insulated_se.extend(inactive_left)
     gmsh.model.addPhysicalGroup(2, insulated_se, markers.insulated_electrolyte, "insulated_electrolyte")
     gmsh.model.addPhysicalGroup(2, right, markers.right, "right")
     gmsh.model.addPhysicalGroup(2, insulated_am, markers.insulated_positive_am, "insulated_am")
