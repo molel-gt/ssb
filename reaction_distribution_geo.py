@@ -266,17 +266,16 @@ if __name__ == '__main__':
     print("Finished cutting")
 
     gmsh.model.occ.synchronize()
-    vols = [v[1] for v in gmsh.model.occ.getEntities(3)]
-    
-    # els = gmsh.model.occ.getSurfaceLoops(vols[1])
-    # curved_surf = [s for s in els[1][0]]
-    # ov2, ovv2 = gmsh.model.occ.fragment([(3, vols[1])] + [(2, s) for s in curved_surf], [(1, c) for c in all_circles])
-    # print(ov2)
+    vols = gmsh.model.occ.getEntities(3)
     gmsh.model.occ.synchronize()
-    gmsh.model.addPhysicalGroup(3, [vols[0]], markers.electrolyte, "electrolyte")
-    gmsh.model.occ.synchronize()
-    gmsh.model.addPhysicalGroup(3, vols[1:], markers.positive_am, "positive_am")
-    gmsh.model.occ.synchronize()
+    for v in vols:
+        com = gmsh.model.occ.getCenterOfMass(*v)
+        if com[2] / scale_z < 0.5 * (args.lsep + Lz - args.radius):
+            gmsh.model.addPhysicalGroup(3, [v[1]], markers.electrolyte, "electrolyte")
+            gmsh.model.occ.synchronize()
+        else:
+            gmsh.model.addPhysicalGroup(3, [v[1]], markers.positive_am, "positive_am")
+            gmsh.model.occ.synchronize()
     print("Generating surface tags..")
     left_surfs = []
 
