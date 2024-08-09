@@ -227,7 +227,7 @@ if __name__ == '__main__':
     cylinders = []
     spheres = []
     # for generating contact loss between se and +ve am
-    pieces = np.linspace(args.lsep, Lz - args.radius, num=3)
+    pieces = np.linspace(args.lsep, Lz - args.radius, num=11)
     se_am_contact = []
     se_am_no_contact = []
     print("Generating cylinders..")
