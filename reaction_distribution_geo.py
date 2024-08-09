@@ -304,24 +304,17 @@ if __name__ == '__main__':
                 interface.append(surf[1])
             else:
                 if np.isclose(z, args.lsep):
-                    # area = gmsh.model.occ.getMass(*surf)
-                    # print(area)
                     interface.append(surf[1])
                 elif np.isclose(z, Lz - args.radius):
                     area = gmsh.model.occ.getMass(*surf)
                     if not np.isclose(area, np.pi * Rp ** 2, atol=1e-9):
                         interface.append(surf[1])
-                    else:
-                        print(area)
                 elif np.any(np.isclose(se_am_contact, z)):
                     interface.append(surf[1])
                 elif np.any(np.isclose(se_am_no_contact, z)):
                     insulated_am.append(surf[1])
                 else:
-                    area = gmsh.model.occ.getMass(*surf)
-                    print(z, surf, area)
-                    # print(x, y, z)
-                    # insulated_am.append(surf)
+                    pass
 
     gmsh.model.addPhysicalGroup(2, left_surfs[1:], markers.left, "left")
     insulated_se.append(left_surfs[0])
