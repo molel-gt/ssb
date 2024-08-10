@@ -106,10 +106,10 @@ if __name__ == '__main__':
     gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
-    gmsh.option.setNumber("Mesh.Algorithm3D", 10)
+    # gmsh.option.setNumber("Mesh.Algorithm3D", 10)
     # gmsh.option.setNumber("General.NumThreads", 16)
-    gmsh.option.setNumber("Mesh.MaxNumThreads2D", 12)
-    gmsh.option.setNumber("Mesh.MaxNumThreads3D", 12)
+    # gmsh.option.setNumber("Mesh.MaxNumThreads2D", 12)
+    # gmsh.option.setNumber("Mesh.MaxNumThreads3D", 12)
     z0_points = [
         (0, 0, 0),
         (Lx, 0, 0),
