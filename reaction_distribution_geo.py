@@ -24,32 +24,47 @@ markers = commons.Markers()
 
 
 def create_stacked_cylinders(x, y, radius, scale, se_pos_am_area_frac, pieces, model):
-    circles_start = []
-    circles_mid = []
     _, _, scale_z = scale
     se_am_contact_spot = []
     se_am_no_contact_spot = []
-    step_z0 = (1 - se_pos_am_area_frac) * (pieces[1] - pieces[0])
-    step_z1 = se_pos_am_area_frac * (pieces[1] - pieces[0])
+
+    # for contact loss between se and am
+    circle_positions = pieces[1:-1].tolist()
+    h = pieces[1] - pieces[0]
+    for pos in pieces[1:]:
+        circle_positions.append(pos - se_pos_am_area_frac * h)
+    circle_positions.sort()
+
+    # curved surfaces
+    circle_end = model.occ.addCircle(x, y, pieces[-1] * scale_z, radius)
+    circle_loop_end = model.occ.addCurveLoop([circle_end])
+    curved_surf = model.occ.extrude([(1, circle_end)], 0, 0, -scale_z * (pieces[-1] - pieces[0]))
+    surfs = []
+    for c in curved_surf:
+        if c[0] == 2:
+            surfs.append(c)
+            continue
+        com = gmsh.model.occ.getCenterOfMass(*c)
+        if np.isclose(com[2]/scale_z, pieces[0], atol=1e-9):
+            cloop = gmsh.model.occ.addCurveLoop([c[1]])
+
+    disk = gmsh.model.occ.addPlaneSurface([cloop])
+    surfs.append((2, disk))
+
+    circles = []
+    for c in circle_positions:
+        circles.append(gmsh.model.occ.addCircle(x, y, c, radius))
+
     for cidx, start_pos in enumerate(pieces[:-1]):
         start_idx = cidx
         end_idx = cidx + 1
         start_l = pieces[start_idx]
         middle_l = pieces[start_idx] + (1 - se_pos_am_area_frac) * (pieces[end_idx] - pieces[start_idx])
         end_l = pieces[end_idx]
-        circles_start.append(model.occ.addCircle(x, y, start_l * scale_z, radius))
-        circles_mid.append(model.occ.addCircle(x, y, middle_l * scale_z, radius))
         se_am_contact_spot.append(0.5*(end_l + middle_l))
         se_am_no_contact_spot.append(0.5*(start_l + middle_l))
-    circle_end = model.occ.addCircle(x, y, pieces[-1] * scale_z, radius)
-    circle_loop_end = model.occ.addCurveLoop([circle_end])
-    circle_loop_beg = model.occ.addCurveLoop([circles_start[0]])
-    # circular planes
-    beg_surf = model.occ.addPlaneSurface([circle_loop_beg])
-    side_surf_1 = model.occ.extrude([(1, c) for c in circles_start[:1]], 0, 0, scale_z * (pieces[-1] - pieces[0]))
-    surfs = [(2, beg_surf)] + [c for c in side_surf_1 if c[0] == 2]
 
-    return surfs, circle_loop_end, circles_start[1:] + circles_mid, se_am_contact_spot, se_am_no_contact_spot
+    return surfs, circle_loop_end, circles, se_am_contact_spot, se_am_no_contact_spot
 
 
 if __name__ == '__main__':
@@ -66,6 +81,8 @@ if __name__ == '__main__':
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="reaction_distribution")
     parser.add_argument("--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
+    if np.isclose(args.se_pos_am_area_frac, 1):
+        raise ValueError("Not implemented for no contact loss")
     start_time = timeit.default_timer()
     Lx, Ly, Lz = [int(v) for v in args.dimensions.split("-")]
     if Lz != (args.lsep + args.lcat):
@@ -104,6 +121,7 @@ if __name__ == '__main__':
     gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
+    # gmsh.option.setNumber("Mesh.Algorithm", 5)
     gmsh.option.setNumber("Mesh.Algorithm3D", 10)
     gmsh.option.setNumber("Mesh.MaxNumThreads2D", 12)
     gmsh.option.setNumber("Mesh.MaxNumThreads3D", 12)
@@ -261,6 +279,7 @@ if __name__ == '__main__':
     middle_lines = [gmsh.model.occ.addLine(mid_points[i], mid_points[i+1]) for i in range(-1, 3)]
     middle_loop = gmsh.model.occ.addCurveLoop(middle_lines)
     middle_plane = gmsh.model.occ.addPlaneSurface([middle_loop] + circle_loops)
+    gmsh.model.occ.synchronize()
     ov1, ovv1 = gmsh.model.occ.fragment([(3, box_se)], cyl_surfs + [(2, middle_plane)] + [(1, c) for c in all_circles])
     gmsh.model.occ.synchronize()
     vols = gmsh.model.occ.getEntities(3)
@@ -301,21 +320,18 @@ if __name__ == '__main__':
         elif np.isclose(com[2], LZ - 0.5 * Rp) and is_on_the_walls(x, y, z):
             insulated_am.append(surf[1])
         else:
-            if np.isclose(args.se_pos_am_area_frac, 1):
+            if np.isclose(z, args.lsep):
                 interface.append(surf[1])
+            elif np.isclose(z, Lz - args.radius):
+                area = gmsh.model.occ.getMass(*surf)
+                if not np.isclose(area, np.pi * Rp ** 2, atol=1e-9):
+                    interface.append(surf[1])
+            elif np.any(np.isclose(se_am_contact, z)):
+                interface.append(surf[1])
+            elif np.any(np.isclose(se_am_no_contact, z)):
+                insulated_am.append(surf[1])
             else:
-                if np.isclose(z, args.lsep):
-                    interface.append(surf[1])
-                elif np.isclose(z, Lz - args.radius):
-                    area = gmsh.model.occ.getMass(*surf)
-                    if not np.isclose(area, np.pi * Rp ** 2, atol=1e-9):
-                        interface.append(surf[1])
-                elif np.any(np.isclose(se_am_contact, z)):
-                    interface.append(surf[1])
-                elif np.any(np.isclose(se_am_no_contact, z)):
-                    insulated_am.append(surf[1])
-                else:
-                    pass
+                pass
 
     gmsh.model.addPhysicalGroup(2, active_left, markers.left, "left")
     insulated_se.extend(inactive_left)
