@@ -74,6 +74,15 @@ if __name__ == '__main__':
 
     gmsh.initialize()
     gmsh.model.add('area')
+    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
+    gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
+    gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
+    # gmsh.option.setNumber("Mesh.Algorithm", 5)
+    # gmsh.option.setNumber("Mesh.Algorithm3D", 10)
+    # gmsh.option.setNumber("Mesh.MaxNumThreads2D", 12)
+    # gmsh.option.setNumber("Mesh.MaxNumThreads3D", 12)
+    if not args.refine:
+        gmsh.option.setNumber('Mesh.CharacteristicLengthMax', resolution)
     box = gmsh.model.occ.addBox(0, 0, 0, LX, LY, LZ)
 
     _, box_surfs = gmsh.model.occ.getSurfaceLoops(box)
@@ -234,6 +243,22 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, right, markers.right, "right")
     gmsh.model.addPhysicalGroup(2, insulated_am, markers.insulated_positive_am, "insulated_am")
     gmsh.model.addPhysicalGroup(2, interface, markers.electrolyte_v_positive_am, "electrolyte_positive_am_interface")
+    # refinement
+    if args.refine:
+        gmsh.model.mesh.field.add("Distance", 1)
+        gmsh.model.mesh.field.setNumbers(1, "FacesList", active_left + interface + right + insulated_se + insulated_am)
+
+        gmsh.model.mesh.field.add("Threshold", 2)
+        gmsh.model.mesh.field.setNumber(2, "IField", 1)
+        gmsh.model.mesh.field.setNumber(2, "SizeMin", resolution / 10)
+        gmsh.model.mesh.field.setNumber(2, "SizeMax", resolution)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", 1e-6)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", 2e-6)
+
+        gmsh.model.mesh.field.add("Max", 5)
+        gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+        gmsh.model.mesh.field.setAsBackgroundMesh(5)
+        gmsh.model.occ.synchronize()
     print("Generating mesh..")
     gmsh.model.mesh.generate(3)
     gmsh.write(mshpath)
