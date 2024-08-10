@@ -31,6 +31,7 @@ if __name__ == '__main__':
     parser.add_argument('--lsep', help=f'integer unscaled of separator thickness', type=int, nargs='?', const=1, default=15)
     parser.add_argument('--radius', help=f'integer unscaled +AM particle radius', nargs='?', const=1, default=6, type=int)
     parser.add_argument('--eps_am', help=f'positive active material volume fraction', type=float, required=True)
+    parser.add_argument('--se_pos_am_area_frac', help=f'se/+ve am contact fraction', nargs='?', const=1, default=1, type=float)
     parser.add_argument('--resolution', help=f'max resolution resolution (microns)', nargs='?', const=1, default=1, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?', const=1, default="CONTACT_LOSS_SCALING")
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="reaction_distribution")
@@ -40,6 +41,9 @@ if __name__ == '__main__':
     Lx, Ly, Lz = [int(v) for v in args.dimensions.split("-")]
     if Lz != (args.lsep + args.lcat):
         raise ValueError("Cannot resolve dimensions, please check lsep and lcat")
+
+    if not np.isclose(args.se_pos_am_area_frac, 1):
+        raise ValueError("Does not handle contact loss between SE and Positive AM")
     scaling = configs.get_configs()[args.scaling]
     scale_x = float(scaling['x'])
     scale_y = float(scaling['y'])
@@ -54,9 +58,9 @@ if __name__ == '__main__':
 
     df = scale_x * 470 * pd.read_csv(f'centers/{args.eps_am}.csv')
     if args.refine:
-        outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, f'{args.lsep}-{args.lcat}', str(args.img_id), str(args.eps_am), str(args.resolution))
+        outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, f'{args.lsep}-{args.lcat}', str(args.img_id), str(args.eps_am), str(args.se_pos_am_area_frac), str(args.resolution))
     else:
-        outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, f'{args.lsep}-{args.lcat}', str(args.img_id), str(args.eps_am), "unrefined", str(args.resolution))
+        outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, f'{args.lsep}-{args.lcat}', str(args.img_id), str(args.eps_am), str(args.se_pos_am_area_frac), "unrefined", str(args.resolution))
     utils.make_dir_if_missing(outdir)
     mshpath = os.path.join(f"{outdir}", "mesh.msh")
     geometry_metafile = os.path.join(outdir, "geometry.json")
