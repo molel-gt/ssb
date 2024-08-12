@@ -133,6 +133,8 @@ if __name__ == '__main__':
     ft = mesh.meshtags(domain, fdim, indices, values)
     ct = mesh.meshtags(domain, tdim, ct.indices, ct.values)
 
+    print("Finished reading mesh and setting cell and facet tags")
+
     dx = ufl.Measure("dx", domain=domain, subdomain_data=ct, metadata={"quadrature_degree": 4})
     ds = ufl.Measure("ds", domain=domain, subdomain_data=ft, metadata={"quadrature_degree": 4})
 
