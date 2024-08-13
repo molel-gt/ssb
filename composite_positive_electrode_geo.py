@@ -304,6 +304,7 @@ if __name__ == '__main__':
         "max_resolution": args.resolution,
         "dimensions": args.dimensions,
         "scaling": args.scaling,
+        "Time elapsed (s)": int(timeit.default_timer() - start_time),
     }
     with open(geometry_metafile, "w", encoding='utf-8') as f:
         json.dump(geometry_metadata, f, ensure_ascii=False, indent=4)
