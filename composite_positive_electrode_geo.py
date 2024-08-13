@@ -79,6 +79,7 @@ if __name__ == '__main__':
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
     gmsh.option.setNumber('Mesh.AngleToleranceFacetOverlap', 0.075)
+    gmsh.option.setNumber("General.Verbosity", 3)
     if not args.refine:
         gmsh.option.setNumber('Mesh.CharacteristicLengthMax', resolution)
     z0_points = [
@@ -271,7 +272,6 @@ if __name__ == '__main__':
             interface.append(surf[1])
         else:
             interface.append(surf[1])
-
     gmsh.model.addPhysicalGroup(2, left_surfs[1:], markers.left, "left")
     insulated_se.append(left_surfs[0])
     gmsh.model.addPhysicalGroup(2, insulated_se, markers.insulated_electrolyte, "insulated_electrolyte")
