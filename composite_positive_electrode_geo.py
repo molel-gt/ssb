@@ -78,8 +78,9 @@ if __name__ == '__main__':
     gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
+    gmsh.option.setNumber('Mesh.AngleToleranceFacetOverlap', 0.075)
     if not args.refine:
-        gmsh.option.setNumber('Mesh.MeshSizeMax', resolution)
+        gmsh.option.setNumber('Mesh.CharacteristicLengthMax', resolution)
     z0_points = [
         (0, 0, 0),
         (LX, 0, 0),
