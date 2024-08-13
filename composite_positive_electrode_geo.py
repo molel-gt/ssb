@@ -75,9 +75,10 @@ if __name__ == '__main__':
 
     gmsh.initialize()
     gmsh.model.add('area')
-    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
-    gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
-    gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
+    gmsh.option.setNumber('Mesh.CharacteristicLengthFromCurvature', resolution)
+    gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', 10)
+    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
+    gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 1)
     gmsh.option.setNumber('Mesh.AngleToleranceFacetOverlap', 0.075)
     gmsh.option.setNumber("General.Verbosity", 3)
     if not args.refine:
@@ -287,8 +288,8 @@ if __name__ == '__main__':
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
-        gmsh.model.mesh.field.setNumber(2, "SizeMin", resolution / 10)
-        gmsh.model.mesh.field.setNumber(2, "SizeMax", resolution)
+        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution / 10)
+        gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
         gmsh.model.mesh.field.setNumber(2, "DistMin", 1e-6)
         gmsh.model.mesh.field.setNumber(2, "DistMax", 2e-6)
 
@@ -309,4 +310,5 @@ if __name__ == '__main__':
     }
     with open(geometry_metafile, "w", encoding='utf-8') as f:
         json.dump(geometry_metadata, f, ensure_ascii=False, indent=4)
+    print(f"Wrote {mshpath}")
     print(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")
