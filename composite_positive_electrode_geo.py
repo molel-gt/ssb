@@ -75,10 +75,8 @@ if __name__ == '__main__':
 
     gmsh.initialize()
     gmsh.model.add('area')
-    gmsh.option.setNumber('Mesh.CharacteristicLengthFromCurvature', resolution)
-    gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', 10)
     gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
-    gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 1)
+    gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 20)
     gmsh.option.setNumber('Mesh.AngleToleranceFacetOverlap', 0.075)
     gmsh.option.setNumber("General.Verbosity", 3)
     if not args.refine:
