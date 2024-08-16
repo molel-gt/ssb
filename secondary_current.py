@@ -283,6 +283,7 @@ if __name__ == '__main__':
     opts[f"{option_prefix}pc_type"] = "lu"
 
     ksp.setFromOptions()
+    print(f"Secondary current distribution: Wa = {args.Wa_p}, kappa/sigma = {args.kr}")
     n_iters, converged = solver.solve(u)
     u.x.scatter_forward()
     if converged:
