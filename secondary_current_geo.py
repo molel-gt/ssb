@@ -20,7 +20,10 @@ if __name__ == '__main__':
     parser.add_argument('--resolution', help=f'max resolution (units of microns)', nargs='?', const=1, default=1, type=np.float16)
     parser.add_argument("--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
-    workdir = os.path.join("output", args.name_of_study, args.dimensions, str(args.resolution))
+    if args.refine:
+        workdir = os.path.join("output", args.name_of_study, args.dimensions, str(args.resolution))
+    else:
+        workdir = os.path.join("output", args.name_of_study, args.dimensions, "unrefined", str(args.resolution))
     utils.make_dir_if_missing(workdir)
     mshpath = os.path.join(workdir, "mesh.msh")
     geometry_metafile = os.path.join(workdir, "geometry.json")
