@@ -71,7 +71,7 @@ if __name__ == '__main__':
         elif np.isclose(com[2], 0.5 * (65 + 75) * 1e-6, atol=1e-6):
             insulated_am.append(surf[1])
         elif np.isclose(com[2], 0.5 * 65e-6, atol=1e-6):
-            insulated_am.append(surf[1])
+            insulated_se.append(surf[1])
         else:
             interface.append(surf[1])
     gmsh.model.addPhysicalGroup(2, left, markers.left, "left")
