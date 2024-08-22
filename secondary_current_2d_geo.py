@@ -16,7 +16,7 @@ warnings.simplefilter('ignore')
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="reaction_distribution")
-    parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid',  nargs='?', const=1, default='150-40-0')
+    parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid',  nargs='?', const=1, default='75-40-0')
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='MICRON_TO_METER', type=str)
     parser.add_argument('--resolution', help=f'max resolution resolution', nargs='?', const=1, default=1, type=float)
@@ -39,8 +39,8 @@ if __name__ == '__main__':
 
     markers = commons.Markers()
     points_left = [
-    (10 * micron, 0, 0),
-    (10 * micron, LY, 0)
+    (0, 0, 0),
+    (0 * micron, LY, 0)
     ]
     points_right = [
     (LX, 0, 0),
@@ -48,25 +48,25 @@ if __name__ == '__main__':
     ]
 
     interface_2 = [
-        (14 * particle_radius * micron, 0, 0),
+        (6.5 * particle_radius * micron, 0, 0),
 
-        (14 * particle_radius * micron, 1 * particle_radius * micron - micron, 0),
-        (14 * particle_radius * micron - micron, 1 * particle_radius * micron - micron, 0),
-        (14 * particle_radius * micron - micron, 1 * particle_radius * micron, 0),
+        (6.5 * particle_radius * micron, 1 * particle_radius * micron - micron, 0),
+        (6.5 * particle_radius * micron - micron, 1 * particle_radius * micron - micron, 0),
+        (6.5 * particle_radius * micron - micron, 1 * particle_radius * micron, 0),
 
-        (7.5 * particle_radius * micron + micron, 1 * particle_radius * micron, 0),
-        (7.5 * particle_radius * micron + micron, 1 * particle_radius * micron + micron, 0),
-        (7.5 * particle_radius * micron, 1 * particle_radius * micron + micron, 0),
+        (2.5 * particle_radius * micron + micron, 1 * particle_radius * micron, 0),
+        (2.5 * particle_radius * micron + micron, 1 * particle_radius * micron + micron, 0),
+        (2.5 * particle_radius * micron, 1 * particle_radius * micron + micron, 0),
 
-        (7.5 * particle_radius * micron, 3 * particle_radius * micron - micron, 0),
-        (7.5 * particle_radius * micron + micron, 3 * particle_radius * micron - micron, 0),
-        (7.5 * particle_radius * micron + micron, 3 * particle_radius * micron, 0),
+        (2.5 * particle_radius * micron, 3 * particle_radius * micron - micron, 0),
+        (2.5 * particle_radius * micron + micron, 3 * particle_radius * micron - micron, 0),
+        (2.5 * particle_radius * micron + micron, 3 * particle_radius * micron, 0),
 
-        (14 * particle_radius * micron - micron, 3 * particle_radius * micron, 0),
-        (14 * particle_radius * micron - micron, 3 * particle_radius * micron + micron, 0),
-        (14 * particle_radius * micron, 3 * particle_radius * micron + micron, 0),
+        (6.5 * particle_radius * micron - micron, 3 * particle_radius * micron, 0),
+        (6.5 * particle_radius * micron - micron, 3 * particle_radius * micron + micron, 0),
+        (6.5 * particle_radius * micron, 3 * particle_radius * micron + micron, 0),
 
-        (14 * particle_radius * micron, 4 * particle_radius * micron, 0),
+        (6.5 * particle_radius * micron, 4 * particle_radius * micron, 0),
         ]
     interface_points1 = []
     interface_points2 = []
@@ -118,7 +118,7 @@ if __name__ == '__main__':
 
     gmsh.model.occ.synchronize()
 
-    gmsh.model.addPhysicalGroup(1, [lines[0]], markers.left, "negative_cc_v_negative_am")
+    gmsh.model.addPhysicalGroup(1, [lines[0]], markers.left, "left")
     gmsh.model.addPhysicalGroup(1, [lines[1]], markers.right, "right")
     gmsh.model.addPhysicalGroup(1, lines[4:], markers.insulated_positive_am, "insulated_positive_am")
     gmsh.model.addPhysicalGroup(1, lines[2:4], markers.insulated_electrolyte, "insulated_electrolyte")
@@ -135,7 +135,7 @@ if __name__ == '__main__':
 
     if args.refine:
         gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "CurvesList", lines[:2] + interface_lines2)
+        gmsh.model.mesh.field.setNumbers(1, "CurvesList", lines + interface_lines2)
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
