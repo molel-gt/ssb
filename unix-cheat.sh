@@ -44,3 +44,7 @@ conda install --file requirements.txt
 
 # remove conda env
 mamba remove --name paraview --all
+
+# send output of find to copy
+
+find output/reaction_distribution/75-40-0/ -name "*.png" | xargs cp -t figures/secondary_current
