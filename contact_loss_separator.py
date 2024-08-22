@@ -34,11 +34,11 @@ dtype = PETSc.ScalarType
 
 
 def get_chunk(rank, size, n_points):
-        chunk_size = int(np.ceil(n_points / size))
-        if rank + 1 == size:
-            return int(chunk_size) * rank, n_points
-        else:
-            return int(chunk_size) * rank, int(chunk_size * (rank+1)) + 1
+    chunk_size = int(np.ceil(n_points / size))
+    if rank + 1 == size:
+        return int(chunk_size) * rank, n_points
+    else:
+        return int(chunk_size) * rank, int(chunk_size * (rank+1)) + 1
 
 
 if __name__ == '__main__':
