@@ -56,7 +56,7 @@ def transfer_meshtags_to_submesh(
                         child_markers[child_facet] = value
                         facet_found = True
                         sub_to_parent_entity_map[child_facet] = facet
-    tags = dolfinx.domain.meshtags(
+    tags = dolfinx.mesh.meshtags(
         submesh,
         entity_tag.dim,
         np.arange(num_child_entities, dtype=np.int32),
