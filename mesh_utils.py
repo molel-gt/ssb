@@ -67,7 +67,7 @@ def transfer_meshtags_to_submesh(
     return tags, sub_to_parent_entity_map
 
 
-def transfer_meshtags(domain, submesh, ft):
+def transfer_meshtags(domain, submesh, entity_map, ft):
     tdim = domain.topology.dim
     fdim = tdim - 1
     c_to_f = domain.topology.connectivity(tdim, fdim)
