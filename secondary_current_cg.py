@@ -242,7 +242,7 @@ if __name__ == '__main__':
     voltage = args.voltage
     Wa_n = args.Wa_n
     Wa_p = args.Wa_p
-    gamma = 100.0
+    gamma = args.gamma
 
     markers = commons.Markers()
     comm = MPI.COMM_WORLD
