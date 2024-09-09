@@ -308,19 +308,19 @@ if __name__ == '__main__':
 
     ft = mesh.meshtags(domain, fdim, facets, values)
 
-    submesh_b, submesh_b_to_mesh, b_v_map = dolfinx.mesh.create_submesh(
+    submesh_electrolyte, submesh_electrolyte_to_mesh, b_v_map = mesh.create_submesh(
         domain, tdim, ct.find(markers.electrolyte)
     )[0:3]
-    submesh_t, submesh_t_to_mesh, t_v_map = dolfinx.mesh.create_submesh(
+    submesh_positive_am, submesh_positive_am_to_mesh, t_v_map = mesh.create_submesh(
         domain, tdim, ct.find(markers.positive_am)
     )[0:3]
-    parent_to_sub_b = np.full(num_facets_local, -1, dtype=np.int32)
-    parent_to_sub_b[submesh_b_to_mesh] = np.arange(len(submesh_b_to_mesh), dtype=np.int32)
-    parent_to_sub_t = np.full(num_facets_local, -1, dtype=np.int32)
-    parent_to_sub_t[submesh_t_to_mesh] = np.arange(len(submesh_t_to_mesh), dtype=np.int32)
+    parent_to_sub_electrolyte = np.full(num_facets_local, -1, dtype=np.int32)
+    parent_to_sub_electrolyte[submesh_electrolyte_to_mesh] = np.arange(len(submesh_electrolyte_to_mesh), dtype=np.int32)
+    parent_to_sub_positive_am = np.full(num_facets_local, -1, dtype=np.int32)
+    parent_to_sub_positive_am[submesh_positive_am_to_mesh] = np.arange(len(submesh_positive_am_to_mesh), dtype=np.int32)
 
-    ft_b = mesh_utils.transfer_meshtags(domain, submesh_b, submesh_b_to_mesh, ft)
-    ft_t = mesh_utils.transfer_meshtags(domain, submesh_t, submesh_t_to_mesh, ft)
+    ft_electrolyte = mesh_utils.transfer_meshtags(domain, submesh_electrolyte, submesh_electrolyte_to_mesh, ft)
+    ft_positive_am = mesh_utils.transfer_meshtags(domain, submesh_positive_am, submesh_positive_am_to_mesh, ft)
 
 
     # Hack, as we use one-sided restrictions, pad dS integral with the same entity from the same cell on both sides
@@ -330,17 +330,17 @@ if __name__ == '__main__':
     for facet in ft.find(markers.electrolyte_v_positive_am):
         cells = f_to_c.links(facet)
         assert len(cells) == 2
-        b_map = parent_to_sub_b[cells]
-        t_map = parent_to_sub_t[cells]
-        parent_to_sub_b[cells] = max(b_map)
-        parent_to_sub_t[cells] = max(t_map)
+        b_map = parent_to_sub_electrolyte[cells]
+        t_map = parent_to_sub_positive_am[cells]
+        parent_to_sub_electrolyte[cells] = max(b_map)
+        parent_to_sub_positive_am[cells] = max(t_map)
 
-    # entity_maps = {submesh_b: parent_to_sub_b, submesh_t: parent_to_sub_t}
-    entity_maps = {submesh_b._cpp_object: parent_to_sub_b, submesh_t._cpp_object: parent_to_sub_t}
+    # entity_maps = {submesh_electrolyte: parent_to_sub_electrolyte, submesh_positive_am: parent_to_sub_positive_am}
+    entity_maps = {submesh_electrolyte._cpp_object: parent_to_sub_electrolyte, submesh_positive_am._cpp_object: parent_to_sub_positive_am}
 
 
-    u_0, F_00, m_to_b = define_interior_eq(domain, 2, submesh_b, submesh_b_to_mesh, 0.0, kappa)
-    u_1, F_11, m_to_t = define_interior_eq(domain, 2, submesh_t, submesh_t_to_mesh, 0.0, kappa)
+    u_0, F_00, m_to_elec = define_interior_eq(domain, 2, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa)
+    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 2, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa)
     u_0.name = "u_b"
     u_1.name = "u_t"
 
@@ -428,25 +428,25 @@ if __name__ == '__main__':
         fem.form(F_0, entity_maps=entity_maps),
         fem.form(F_1, entity_maps=entity_maps),
     ]
-    b_bc = fem.Function(u_0.function_space)
-    b_bc.x.array[:] = 0.1
-    submesh_b.topology.create_connectivity(
-        submesh_b.topology.dim - 1, submesh_b.topology.dim
+    left_bc = fem.Function(u_0.function_space)
+    left_bc.x.array[:] = 0
+    submesh_electrolyte.topology.create_connectivity(
+        submesh_electrolyte.topology.dim - 1, submesh_electrolyte.topology.dim
     )
-    bc_b = fem.dirichletbc(
-        b_bc, fem.locate_dofs_topological(u_0.function_space, fdim, ft_b.find(markers.left))
+    bc_left = fem.dirichletbc(
+        left_bc, fem.locate_dofs_topological(u_0.function_space, fdim, ft_electrolyte.find(markers.left))
     )
 
 
-    t_bc = fem.Function(u_1.function_space)
-    t_bc.x.array[:] = 0
-    submesh_t.topology.create_connectivity(
-        submesh_t.topology.dim - 1, submesh_t.topology.dim
+    right_bc = fem.Function(u_1.function_space)
+    right_bc.x.array[:] = args.voltage
+    submesh_positive_am.topology.create_connectivity(
+        submesh_positive_am.topology.dim - 1, submesh_positive_am.topology.dim
     )
-    bc_t = fem.dirichletbc(
-        t_bc, fem.locate_dofs_topological(u_1.function_space, fdim, ft_t.find(markers.right))
+    bc_right = fem.dirichletbc(
+        right_bc, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right))
     )
-    bcs = [bc_b, bc_t]
+    bcs = [bc_left, bc_right]
 
 
     solver = NewtonSolver(
