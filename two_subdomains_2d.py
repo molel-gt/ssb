@@ -37,7 +37,7 @@ if __name__ == '__main__':
     name_of_study = args.name_of_study
     dimensions = args.dimensions
     dimensions_ii = f'{int(step_width1/micron)}-{int(step_width2/micron)}-{int(step_length/micron)}'
-    workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, dimensions_ii, f'{resolution:.1e}')
+    workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, dimensions_ii, f'{args.resolution:.1f}')
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(workdir, 'mesh.msh')
     output_metafile = os.path.join(workdir, 'geometry.json')
