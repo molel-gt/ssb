@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: MIT
-
+import argparse
 import os
+import timeit
 
 
 import dolfinx
@@ -9,7 +10,7 @@ import dolfinx.fem.petsc
 import ufl
 import numpy as np
 
-from dolfinx import fem, io, mesh
+from dolfinx import cpp, fem, io, mesh
 from mpi4py import MPI
 from petsc4py import PETSc
 from ufl import dot, grad, inner
@@ -21,11 +22,14 @@ R = 8.314
 T = 298
 faraday_const = 96485
 kappa_pos_am = 0.1
+kinetics = ('linear', 'tafel', 'butler_volmer')
+micron = 1e-6
+kappa = 0.1
 
 
 class NewtonSolver:
     max_iterations: int
-    bcs: list[dolfinx.fem.DirichletBC]
+    bcs: list[fem.DirichletBC]
     A: PETSc.Mat
     b: PETSc.Vec
     J: dolfinx.fem.Form
@@ -34,23 +38,23 @@ class NewtonSolver:
 
     def __init__(
         self,
-        F: list[dolfinx.fem.form],
-        J: list[list[dolfinx.fem.form]],
-        w: list[dolfinx.fem.Function],
-        bcs: list[dolfinx.fem.DirichletBC] | None = None,
+        F: list[fem.form],
+        J: list[list[fem.form]],
+        w: list[fem.Function],
+        bcs: list[fem.DirichletBC] | None = None,
         max_iterations: int = 5,
         petsc_options: dict[str, str | float | int | None] = None,
         problem_prefix="newton",
     ):
         self.max_iterations = max_iterations
         self.bcs = [] if bcs is None else bcs
-        self.b = dolfinx.fem.petsc.create_vector_block(F)
+        self.b = fem.petsc.create_vector_block(F)
         self.F = F
         self.J = J
-        self.A = dolfinx.fem.petsc.create_matrix_block(J)
+        self.A = fem.petsc.create_matrix_block(J)
         self.dx = self.A.createVecLeft()
         self.w = w
-        self.x = dolfinx.fem.petsc.create_vector_block(F)
+        self.x = fem.petsc.create_vector_block(F)
 
         # Set PETSc options
         opts = PETSc.Options()
@@ -71,7 +75,7 @@ class NewtonSolver:
         i = 0
 
         while i < self.max_iterations:
-            dolfinx.cpp.la.petsc.scatter_local_vectors(
+            cpp.la.petsc.scatter_local_vectors(
                 self.x,
                 [si.x.petsc_vec.array_r for si in self.w],
                 [
@@ -89,7 +93,7 @@ class NewtonSolver:
             # Assemble F(u_{i-1}) - J(u_D - u_{i-1}) and set du|_bc= u_D - u_{i-1}
             with self.b.localForm() as b_local:
                 b_local.set(0.0)
-            dolfinx.fem.petsc.assemble_vector_block(
+            fem.petsc.assemble_vector_block(
                 self.b, self.F, self.J, bcs=self.bcs, x0=self.x, scale=-1.0
             )
             self.b.ghostUpdate(
@@ -99,7 +103,7 @@ class NewtonSolver:
 
             # Assemble Jacobian
             self.A.zeroEntries()
-            dolfinx.fem.petsc.assemble_matrix_block(self.A, self.J, bcs=self.bcs)
+            fem.petsc.assemble_matrix_block(self.A, self.J, bcs=self.bcs)
             self.A.assemble()
 
             self._solver.solve(self.b, self.dx)
@@ -221,6 +225,16 @@ def mixed_term(u, v, n):
     return ufl.dot(ufl.grad(u), n) * v
 
 
+def surface_overpotential(kappa, u, n, i0, kinetics_type='linear'):
+    i_loc = -inner((kappa * grad(u)), n)
+    if kinetics_type == "butler_volmer":
+        return 2 * ufl.ln(0.5 * i_loc/i0 + ufl.sqrt((0.5 * i_loc/i0)**2 + 1)) * (R * T / faraday_const)
+    elif kinetics_type == "linear":
+        return R * T * i_loc / (i0 * faraday_const)
+    elif kinetics_type == "tafel":
+        return ufl.sign(i_loc) * R * T / (0.5 * faraday_const) * ufl.ln(np.abs(i_loc)/i_0)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='secondary current distribution')
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
@@ -249,12 +263,17 @@ if __name__ == '__main__':
 
     dimensions = utils.extract_dimensions_from_meshfolder(args.mesh_folder)
     LX, LY, LZ = [float(vv) * micron for vv in dimensions.split("-")]
-    characteristic_length = min([val for val in [LX, LY, LZ] if val > 0])
+
+    characteristic_length = LZ 
+    if np.isclose(LZ, 0):
+        characteristic_length = LX
 
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
     results_dir = os.path.join(args.mesh_folder, "results")
     utils.make_dir_if_missing(results_dir)
     output_potential_file = os.path.join(results_dir, "potential.bp")
+    elec_potential_file = os.path.join(results_dir, "electrolyte_potential.bp")
+    positive_am_potential_file = os.path.join(results_dir, "positive_am_potential.bp")
     output_current_file = os.path.join(results_dir, "current.bp")
 
     # load mesh
@@ -374,8 +393,8 @@ if __name__ == '__main__':
     kappa_elec = args.kr * kappa_pos_am
     i0_n = kappa_elec * R * T / (Wa_n * faraday_const * characteristic_length)
     i0_p = kappa_elec * R * T / (Wa_p * faraday_const * characteristic_length)
-    
-    jump_u = -(R * T / i0 / faraday_const) * 0.5 * kappa * ufl.inner(ufl.grad(u_b) + ufl.grad(u_t), n_t)
+
+    jump_u = surface_overpotential(kappa_pos_am, u_t, n_t, i0_p, kinetics_type=args.kinetics)
 
     F_0 = (
         -0.5 * mixed_term(kappa * (u_b + u_t), v_b, n_b) * dInterface
@@ -398,34 +417,34 @@ if __name__ == '__main__':
 
     jac10 = ufl.derivative(F_1, u_0)
     jac11 = ufl.derivative(F_1, u_1)
-    J00 = dolfinx.fem.form(jac00, entity_maps=entity_maps)
+    J00 = fem.form(jac00, entity_maps=entity_maps)
 
 
-    J01 = dolfinx.fem.form(jac01, entity_maps=entity_maps)
-    J10 = dolfinx.fem.form(jac10, entity_maps=entity_maps)
+    J01 = fem.form(jac01, entity_maps=entity_maps)
+    J10 = fem.form(jac10, entity_maps=entity_maps)
     J11 = dolfinx.fem.form(jac11, entity_maps=entity_maps)
     J = [[J00, J01], [J10, J11]]
     F = [
-        dolfinx.fem.form(F_0, entity_maps=entity_maps),
-        dolfinx.fem.form(F_1, entity_maps=entity_maps),
+        fem.form(F_0, entity_maps=entity_maps),
+        fem.form(F_1, entity_maps=entity_maps),
     ]
-    b_bc = dolfinx.fem.Function(u_0.function_space)
+    b_bc = fem.Function(u_0.function_space)
     b_bc.x.array[:] = 0.1
     submesh_b.topology.create_connectivity(
         submesh_b.topology.dim - 1, submesh_b.topology.dim
     )
-    bc_b = dolfinx.fem.dirichletbc(
-        b_bc, dolfinx.fem.locate_dofs_topological(u_0.function_space, fdim, ft_b.find(markers.left))
+    bc_b = fem.dirichletbc(
+        b_bc, fem.locate_dofs_topological(u_0.function_space, fdim, ft_b.find(markers.left))
     )
 
 
-    t_bc = dolfinx.fem.Function(u_1.function_space)
+    t_bc = fem.Function(u_1.function_space)
     t_bc.x.array[:] = 0
     submesh_t.topology.create_connectivity(
         submesh_t.topology.dim - 1, submesh_t.topology.dim
     )
-    bc_t = dolfinx.fem.dirichletbc(
-        t_bc, dolfinx.fem.locate_dofs_topological(u_1.function_space, fdim, ft_t.find(markers.right))
+    bc_t = fem.dirichletbc(
+        t_bc, fem.locate_dofs_topological(u_1.function_space, fdim, ft_t.find(markers.right))
     )
     bcs = [bc_b, bc_t]
 
@@ -443,9 +462,8 @@ if __name__ == '__main__':
         },
     )
     solver.solve(1e-5)
-    bp = dolfinx.io.VTXWriter(comm, "u_b.bp", [u_0], engine="BP4")
-    bp.write(0)
-    bp.close()
-    bp = dolfinx.io.VTXWriter(comm, "u_t.bp", [u_1], engine="BP4")
-    bp.write(0)
-    bp.close()
+    with io.VTXWriter(comm, elec_potential_file, [u_0], engine="BP5") as vtx:
+        vtx.write(0)
+
+    with io.VTXWriter(comm, positive_am_potential_file, [u_1], engine="BP5") as vtx:
+        vtx.write(0)
