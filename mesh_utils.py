@@ -65,3 +65,30 @@ def transfer_meshtags_to_submesh(
     tags.name = entity_tag.name
 
     return tags, sub_to_parent_entity_map
+
+
+def transfer_meshtags(domain, submesh, ft):
+    tdim = domain.topology.dim
+    fdim = tdim - 1
+    c_to_f = domain.topology.connectivity(tdim, fdim)
+    f_map = domain.topology.index_map(fdim)
+    all_facets = f_map.size_local + f_map.num_ghosts
+    all_values = np.zeros(all_facets, dtype=np.int32)
+    all_values[ft.indices] = ft.values
+
+    submesh.topology.create_entities(fdim)
+    subf_map = submesh.topology.index_map(fdim)
+    submesh.topology.create_connectivity(tdim, fdim)
+    c_to_f_sub = submesh.topology.connectivity(tdim, fdim)
+    num_sub_facets = subf_map.size_local + subf_map.num_ghosts
+    sub_values = np.empty(num_sub_facets, dtype=np.int32)
+    for i, entity in enumerate(entity_map):
+        parent_facets = c_to_f.links(entity)
+        child_facets = c_to_f_sub.links(i)
+        for child, parent in zip(child_facets, parent_facets):
+            sub_values[child] = all_values[parent]
+    submesh_ft = dolfinx.mesh.meshtags(submesh, submesh.topology.dim - 1, np.arange(
+        num_sub_facets, dtype=np.int32), sub_values)
+    submesh.topology.create_connectivity(submesh.topology.dim - 1, submesh.topology.dim)
+
+    return submesh_ft
