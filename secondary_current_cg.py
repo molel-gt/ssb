@@ -17,6 +17,12 @@ from ufl import dot, grad, inner
 import commons, constants, mesh_utils, solvers, utils 
 
 
+R = 8.314
+T = 298
+faraday_const = 96485
+kappa_pos_am = 0.1
+
+
 class NewtonSolver:
     max_iterations: int
     bcs: list[dolfinx.fem.DirichletBC]
@@ -216,17 +222,37 @@ def mixed_term(u, v, n):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='secondary current distribution')
+    parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
+    parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1.0, type=float)
+    parser.add_argument("--u_ocv", help="open-circuit potential", nargs='?', const=1, default=0, type=float)
+    parser.add_argument("--Wa_n", help="Wagna number for negative electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e-3, type=float)
+    parser.add_argument("--Wa_p", help="Wagna number for positive electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
+    parser.add_argument("--kr", help="ratio of ionic to electronic conductivity", nargs='?', const=1, default=1, type=float)
+    parser.add_argument("--gamma", help="interior penalty parameter", nargs='?', const=1, default=15, type=float)
+    parser.add_argument("--atol", help="solver absolute tolerance", nargs='?', const=1, default=1e-12, type=float)
+    parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-9, type=float)
+    parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
+                        const=1, default='MICRON_TO_METER', type=str)
+    parser.add_argument('--kinetics', help='kinetics type', nargs='?', const=1, default='butler_volmer', type=str, choices=kinetics)
+    parser.add_argument("--plot", help="whether to plot results", default=False, action=argparse.BooleanOptionalAction)
+
+    args = parser.parse_args()
+    start_time = timeit.default_timer()
+    voltage = args.voltage
+    Wa_n = args.Wa_n
+    Wa_p = args.Wa_p
     gamma = 100.0
-    R = 8.314
-    T = 298
-    faraday_const = 96485
-    i0 = 1e-3
-    kappa = 0.1
+
     markers = commons.Markers()
     comm = MPI.COMM_WORLD
-    mesh_folder = "output/secondary_current/75-40-0/5.0/"
-    output_meshfile = os.path.join(mesh_folder, "mesh.msh")
-    results_dir = os.path.join(mesh_folder, "results")
+
+    dimensions = utils.extract_dimensions_from_meshfolder(args.mesh_folder)
+    LX, LY, LZ = [float(vv) * micron for vv in dimensions.split("-")]
+    characteristic_length = min([val for val in [LX, LY, LZ] if val > 0])
+
+    output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
+    results_dir = os.path.join(args.mesh_folder, "results")
     utils.make_dir_if_missing(results_dir)
     output_potential_file = os.path.join(results_dir, "potential.bp")
     output_current_file = os.path.join(results_dir, "current.bp")
@@ -238,7 +264,7 @@ if __name__ == '__main__':
     fdim = tdim - 1
     domain.topology.create_connectivity(tdim, fdim)
     domain.topology.create_connectivity(tdim, tdim)
-    # domain.topology.create_connectivity(fdim, fdim)
+    domain.topology.create_connectivity(fdim, fdim)
 
     # tag internal facets as 0
     ft_imap = domain.topology.index_map(fdim)
@@ -272,26 +298,16 @@ if __name__ == '__main__':
     parent_to_sub_b = np.full(num_facets_local, -1, dtype=np.int32)
     parent_to_sub_b[submesh_b_to_mesh] = np.arange(len(submesh_b_to_mesh), dtype=np.int32)
     parent_to_sub_t = np.full(num_facets_local, -1, dtype=np.int32)
-    parent_to_sub_t[submesh_t_to_mesh] = np.arange(len(submesh_t_to_mesh), dtype=np.int32)    
+    parent_to_sub_t[submesh_t_to_mesh] = np.arange(len(submesh_t_to_mesh), dtype=np.int32)
 
-    # We need to modify the cell maps, as for `dS` integrals of interfaces between submeshes, there is no entity to map to.
-    # We use the entity on the same side to fix this (as all restrictions are one-sided)
-
-    # Transfer meshtags to submesh
-    ft_b, b_facet_to_parent = transfer_meshtags_to_submesh(
-        domain, ft, submesh_b, b_v_map, submesh_b_to_mesh
-    )
-    ft_t, t_facet_to_parent = transfer_meshtags_to_submesh(
-        domain, ft, submesh_t, t_v_map, submesh_t_to_mesh
-    )
-
-    t_parent_to_facet = np.full(num_facets_local, -1)
-    t_parent_to_facet[t_facet_to_parent] = np.arange(len(t_facet_to_parent), dtype=np.int32)
+    ft_b = mesh_utils.transfer_meshtags(domain, submesh_b, submesh_b_to_mesh, ft)
+    ft_t = mesh_utils.transfer_meshtags(domain, submesh_t, submesh_t_to_mesh, ft)
 
 
     # Hack, as we use one-sided restrictions, pad dS integral with the same entity from the same cell on both sides
     domain.topology.create_connectivity(fdim, tdim)
     f_to_c = domain.topology.connectivity(fdim, tdim)
+
     for facet in ft.find(markers.electrolyte_v_positive_am):
         cells = f_to_c.links(facet)
         assert len(cells) == 2
@@ -353,6 +369,11 @@ if __name__ == '__main__':
     cr = ufl.Circumradius(domain)
     h_b = 2 * cr(b_res)
     h_t = 2 * cr(t_res)
+
+    # exchange current densities
+    kappa_elec = args.kr * kappa_pos_am
+    i0_n = kappa_elec * R * T / (Wa_n * faraday_const * characteristic_length)
+    i0_p = kappa_elec * R * T / (Wa_p * faraday_const * characteristic_length)
     
     jump_u = -(R * T / i0 / faraday_const) * 0.5 * kappa * ufl.inner(ufl.grad(u_b) + ufl.grad(u_t), n_t)
 
