@@ -27,119 +27,6 @@ micron = 1e-6
 kappa = 0.1
 
 
-class NewtonSolver:
-    max_iterations: int
-    bcs: list[fem.DirichletBC]
-    A: PETSc.Mat
-    b: PETSc.Vec
-    J: dolfinx.fem.Form
-    b: dolfinx.fem.Form
-    dx: PETSc.Vec
-
-    def __init__(
-        self,
-        F: list[fem.form],
-        J: list[list[fem.form]],
-        w: list[fem.Function],
-        bcs: list[fem.DirichletBC] | None = None,
-        max_iterations: int = 5,
-        petsc_options: dict[str, str | float | int | None] = None,
-        problem_prefix="newton",
-    ):
-        self.max_iterations = max_iterations
-        self.bcs = [] if bcs is None else bcs
-        self.b = fem.petsc.create_vector_block(F)
-        self.F = F
-        self.J = J
-        self.A = fem.petsc.create_matrix_block(J)
-        self.dx = self.A.createVecLeft()
-        self.w = w
-        self.x = fem.petsc.create_vector_block(F)
-
-        # Set PETSc options
-        opts = PETSc.Options()
-        if petsc_options is not None:
-            for k, v in petsc_options.items():
-                opts[k] = v
-
-        # Define KSP solver
-        self._solver = PETSc.KSP().create(self.b.getComm().tompi4py())
-        self._solver.setOperators(self.A)
-        self._solver.setFromOptions()
-
-        # Set matrix and vector PETSc options
-        self.A.setFromOptions()
-        self.b.setFromOptions()
-
-    def solve(self, tol=1e-6, beta=1.0):
-        i = 0
-
-        while i < self.max_iterations:
-            cpp.la.petsc.scatter_local_vectors(
-                self.x,
-                [si.x.petsc_vec.array_r for si in self.w],
-                [
-                    (
-                        si.function_space.dofmap.index_map,
-                        si.function_space.dofmap.index_map_bs,
-                    )
-                    for si in self.w
-                ],
-            )
-            self.x.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-            )
-
-            # Assemble F(u_{i-1}) - J(u_D - u_{i-1}) and set du|_bc= u_D - u_{i-1}
-            with self.b.localForm() as b_local:
-                b_local.set(0.0)
-            fem.petsc.assemble_vector_block(
-                self.b, self.F, self.J, bcs=self.bcs, x0=self.x, scale=-1.0
-            )
-            self.b.ghostUpdate(
-                PETSc.InsertMode.INSERT_VALUES, PETSc.ScatterMode.FORWARD
-            )
-
-
-            # Assemble Jacobian
-            self.A.zeroEntries()
-            fem.petsc.assemble_matrix_block(self.A, self.J, bcs=self.bcs)
-            self.A.assemble()
-
-            self._solver.solve(self.b, self.dx)
-            # self._solver.view()
-            assert (
-                self._solver.getConvergedReason() > 0
-            ), "Linear solver did not converge"
-            offset_start = 0
-            for s in self.w:
-                num_sub_dofs = (
-                    s.function_space.dofmap.index_map.size_local
-                    * s.function_space.dofmap.index_map_bs
-                )
-                s.x.petsc_vec.array_w[:num_sub_dofs] -= (
-                    beta * self.dx.array_r[offset_start : offset_start + num_sub_dofs]
-                )
-                s.x.petsc_vec.ghostUpdate(
-                    addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-                )
-                offset_start += num_sub_dofs
-            # Compute norm of update
-
-            correction_norm = self.dx.norm(0)
-            print(f"Iteration {i}: Correction norm {correction_norm}")
-            if correction_norm < tol:
-                break
-            i += 1
-
-    def __del__(self):
-        self.A.destroy()
-        self.b.destroy()
-        self.dx.destroy()
-        self._solver.destroy()
-        self.x.destroy()
-
-
 def define_interior_eq(domain, degree,  submesh, submesh_to_mesh, value, kappa):
     # Compute map from parent entity to submesh cell
     codim = domain.topology.dim - submesh.topology.dim
@@ -427,7 +314,7 @@ if __name__ == '__main__':
     bcs = [bc_left, bc_right]
 
 
-    solver = NewtonSolver(
+    solver = solvers.NewtonSolver(
         F,
         J,
         [u_0, u_1, c],
@@ -449,7 +336,7 @@ if __name__ == '__main__':
         cvtx.write(time)
         I_left = fem.assemble_scalar(fem.form(inner(kappa_elec * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps))
         I_right = fem.assemble_scalar(fem.form(inner(kappa_pos_am * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps))
-        I_interface = fem.assemble_scalar(fem.form(inner(faraday_const * D * grad(c), n) * ds(markers.electrolyte_v_positive_am), entity_maps=entity_maps))
+        I_interface = fem.assemble_scalar(fem.form(inner(faraday_const * D * grad(c)(r_res), n_r) * dInterface, entity_maps=entity_maps))
         print(f"Current left: {I_left:.3e} [A]")
         print(f"Current interface: {I_interface:.3e} [A]")
         print(f"Current right: {I_right:.3e} [A]")
