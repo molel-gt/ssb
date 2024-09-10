@@ -269,7 +269,7 @@ if __name__ == '__main__':
         characteristic_length = LX
 
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
-    results_dir = os.path.join(args.mesh_folder, "results")
+    results_dir = os.path.join(args.mesh_folder, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), str(args.gamma))
     utils.make_dir_if_missing(results_dir)
     output_potential_file = os.path.join(results_dir, "potential.bp")
     elec_potential_file = os.path.join(results_dir, "electrolyte_potential.bp")
@@ -373,40 +373,40 @@ if __name__ == '__main__':
 
     dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
     # dInterface = ufl.Measure("dS", domain=domain, subdomain_data=ft, subdomain_id=markers.electrolyte_v_positive_am)
-    b_res = "+"
-    t_res = "-"
+    l_res = "+"
+    r_res = "-"
 
-    v_b = ufl.TestFunction(u_0.function_space)(b_res)
-    v_t = ufl.TestFunction(u_1.function_space)(t_res)
-    u_b = u_0(b_res)
-    u_t = u_1(t_res)
+    v_l = ufl.TestFunction(u_0.function_space)(l_res)
+    v_r = ufl.TestFunction(u_1.function_space)(r_res)
+    u_l = u_0(l_res)
+    u_r = u_1(r_res)
 
 
     n = ufl.FacetNormal(domain)
-    n_b = n(b_res)
-    n_t = n(t_res)
+    n_l = n(l_res)
+    n_r = n(r_res)
     cr = ufl.Circumradius(domain)
-    h_b = 2 * cr(b_res)
-    h_t = 2 * cr(t_res)
+    h_l = 2 * cr(l_res)
+    h_r = 2 * cr(r_res)
 
     # exchange current densities
     kappa_elec = args.kr * kappa_pos_am
     i0_n = kappa_elec * R * T / (Wa_n * faraday_const * characteristic_length)
     i0_p = kappa_elec * R * T / (Wa_p * faraday_const * characteristic_length)
 
-    jump_u = surface_overpotential(kappa_pos_am, u_t, n_t, i0_p, kinetics_type=args.kinetics)
+    jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics)
 
     F_0 = (
-        -0.5 * mixed_term(kappa * (u_b + u_t), v_b, n_b) * dInterface
-        - 0.5 * mixed_term(kappa * v_b, (u_t - u_b - jump_u), n_b) * dInterface
+        -0.5 * mixed_term(kappa * (u_l + u_r), v_l, n_l) * dInterface
+        - 0.5 * mixed_term(kappa * v_l, (u_r - u_l - jump_u), n_l) * dInterface
     )
 
     F_1 = (
-        +0.5 * mixed_term(kappa * (u_b + u_t), v_t, n_b) * dInterface
-        - 0.5 * mixed_term(kappa * v_t, (u_t - u_b - jump_u), n_b) * dInterface
+        +0.5 * mixed_term(kappa * (u_l + u_r), v_r, n_l) * dInterface
+        - 0.5 * mixed_term(kappa * v_r, (u_r - u_l - jump_u), n_l) * dInterface
     )
-    F_0 += 2 * gamma / (h_b + h_t) * kappa * (u_t - u_b - jump_u) * v_b * dInterface
-    F_1 += -2 * gamma / (h_b + h_t) * kappa * (u_t - u_b - jump_u) * v_t * dInterface
+    F_0 += 2 * gamma / (h_l + h_r) * kappa * (u_r - u_l - jump_u) * v_l * dInterface
+    F_1 += -2 * gamma / (h_l + h_r) * kappa * (u_r - u_l - jump_u) * v_r * dInterface
 
     F_0 += F_00
     F_1 += F_11
