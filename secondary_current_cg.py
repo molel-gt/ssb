@@ -422,7 +422,7 @@ if __name__ == '__main__':
 
     J01 = fem.form(jac01, entity_maps=entity_maps)
     J10 = fem.form(jac10, entity_maps=entity_maps)
-    J11 = dolfinx.fem.form(jac11, entity_maps=entity_maps)
+    J11 = fem.form(jac11, entity_maps=entity_maps)
     J = [[J00, J01], [J10, J11]]
     F = [
         fem.form(F_0, entity_maps=entity_maps),
