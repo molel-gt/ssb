@@ -94,6 +94,8 @@ if __name__ == '__main__':
     Wa_p = args.Wa_p
     gamma = args.gamma
     kappa_elec = args.kr * kappa_pos_am
+    dt = 1e-3
+    D = 1e-15
 
     markers = commons.Markers()
     comm = MPI.COMM_WORLD
@@ -173,8 +175,8 @@ if __name__ == '__main__':
         parent_to_sub_electrolyte[cells] = max(b_map)
         parent_to_sub_positive_am[cells] = max(t_map)
 
-    # entity_maps = {submesh_electrolyte: parent_to_sub_electrolyte, submesh_positive_am: parent_to_sub_positive_am}
-    entity_maps = {submesh_electrolyte._cpp_object: parent_to_sub_electrolyte, submesh_positive_am._cpp_object: parent_to_sub_positive_am}
+    entity_maps = {submesh_electrolyte: parent_to_sub_electrolyte, submesh_positive_am: parent_to_sub_positive_am}
+    # entity_maps = {submesh_electrolyte._cpp_object: parent_to_sub_electrolyte, submesh_positive_am._cpp_object: parent_to_sub_positive_am}
 
 
     u_0, F_00, m_to_elec = define_interior_eq(domain, 2, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec)
@@ -209,8 +211,8 @@ if __name__ == '__main__':
             int_facet_domain.append(local_f_0)
     int_facet_domains = [(markers.electrolyte_v_positive_am, int_facet_domain)]
 
-    # dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
-    dInterface = ufl.Measure("dS", domain=domain, subdomain_data=ft, subdomain_id=markers.electrolyte_v_positive_am)
+    dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
+    # dInterface = ufl.Measure("dS", domain=domain, subdomain_data=ft, subdomain_id=markers.electrolyte_v_positive_am)
     l_res = "+"
     r_res = "-"
 
@@ -235,9 +237,12 @@ if __name__ == '__main__':
     VC = fem.functionspace(submesh_positive_am, ("CG", 2))
     c, q = fem.Function(VC), ufl.TestFunction(VC)
     c0 = fem.Function(VC)
-    cmax = 27000#/faraday_const
+    cmax = 27000
     c0.interpolate(lambda x: x[0] - x[0] + 0.75*cmax)
     c.interpolate(c0)
+    q_r = ufl.TestFunction(c.function_space)(r_res)
+    q_l = ufl.TestFunction(c.function_space)(l_res)
+    c_r = c(r_res)
 
     jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics) + ocv(c(r_res), cmax=cmax)
 
@@ -258,10 +263,9 @@ if __name__ == '__main__':
 
     dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
     ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
+    ds_r = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
 
-    dt = 1e-6
-    D = 1e-15
-    F_2 = (c - c0) * q * dx_r - dt * D * inner(ufl.grad(c), ufl.grad(q)) * dx_r - dt * kappa_pos_am/faraday_const * inner(ufl.grad(u_r), n_r) * q(r_res) * dInterface
+    F_2 = (c - c0) * q * dx_r + dt * D * inner(ufl.grad(c), ufl.grad(q)) * dx_r - dt * kappa_pos_am / faraday_const * inner(ufl.grad(u_r), n_r) * q_r * dInterface
 
     jac00 = ufl.derivative(F_0, u_0)
     jac01 = ufl.derivative(F_0, u_1)
@@ -323,7 +327,7 @@ if __name__ == '__main__':
         petsc_options={
             "ksp_type": "preonly",
             "pc_type": "lu",
-            "pc_factor_mat_solver_type": "mumps",
+            "pc_factor_mat_solver_type": "superlu_dist",
         },
     )
     time = 0
@@ -334,9 +338,9 @@ if __name__ == '__main__':
         solver.solve(5e-3)
         c0.x.array[:] = c.x.array[:]
         cvtx.write(time)
-        I_left = fem.assemble_scalar(fem.form(inner(kappa_elec * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps))
-        I_right = fem.assemble_scalar(fem.form(inner(kappa_pos_am * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps))
-        I_interface = fem.assemble_scalar(fem.form(inner(faraday_const * D * grad(c)(r_res), n_r) * dInterface, entity_maps=entity_maps))
+        I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
+        I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
+        I_interface = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * grad(c_r), n_r) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
         print(f"Current left: {I_left:.3e} [A]")
         print(f"Current interface: {I_interface:.3e} [A]")
         print(f"Current right: {I_right:.3e} [A]")
