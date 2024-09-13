@@ -48,3 +48,6 @@ mamba remove --name paraview --all
 # send output of find to copy
 
 find output/reaction_distribution/75-40-0/ -name "*.png" | xargs cp -t figures/secondary_current
+
+# docker share current directory
+docker run -ti -v $(pwd):/root/shared -w /root/shared  dolfinx/dolfinx:nightly
