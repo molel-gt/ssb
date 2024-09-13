@@ -297,8 +297,20 @@ if __name__ == '__main__':
 
     I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
     I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
+
+    V = fem.functionspace(domain, ("DG", 1))
+    u = fem.Function(V)
+
+    # interpolate
+    u.interpolate(u_0, cells1=submesh_electrolyte_to_mesh, cells0=np.arange(len(submesh_electrolyte_to_mesh)))
+    u.interpolate(u_1, cells1=submesh_positive_am_to_mesh, cells0=np.arange(len(submesh_positive_am_to_mesh)))
+    u.x.scatter_forward()
+
     print(f"Current left: {I_left:.3e} [A]")
     print(f"Current right: {I_right:.3e} [A]")
+    with io.VTXWriter(comm, output_potential_file, [u], engine="BP5") as vtx:
+        vtx.write(0)
+
     with io.VTXWriter(comm, elec_potential_file, [u_0], engine="BP5") as vtx:
         vtx.write(0)
 
