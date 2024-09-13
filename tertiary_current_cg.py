@@ -213,6 +213,9 @@ if __name__ == '__main__':
 
     dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
     # dInterface = ufl.Measure("dS", domain=domain, subdomain_data=ft, subdomain_id=markers.electrolyte_v_positive_am)
+    dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
+    ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
+    ds_r = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
     l_res = "+"
     r_res = "-"
 
@@ -260,10 +263,6 @@ if __name__ == '__main__':
 
     F_0 += F_00
     F_1 += F_11
-
-    dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
-    ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
-    ds_r = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
 
     F_2 = (c - c0) * q * dx_r + dt * D * inner(ufl.grad(c), ufl.grad(q)) * dx_r - dt * kappa_pos_am / faraday_const * inner(ufl.grad(u_r), n_r) * q_r * dInterface
 
