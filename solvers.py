@@ -7,7 +7,7 @@ import warnings
 from basix.ufl import element
 from dolfinx import cpp, default_scalar_type, fem, graph, io, mesh, nls, plot
 from dolfinx.fem import petsc
-from dolfinx.graph import partitioner_parmetis
+# from dolfinx.graph import partitioner_parmetis
 from dolfinx.io import gmshio, VTXWriter
 from dolfinx.nls import petsc as petsc_nls
 from dolfinx.geometry import bb_tree, compute_collisions_points, compute_colliding_cells
