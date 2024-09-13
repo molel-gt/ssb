@@ -27,179 +27,6 @@ micron = 1e-6
 kappa = 0.1
 
 
-class NewtonSolver:
-    max_iterations: int
-    bcs: list[fem.DirichletBC]
-    A: PETSc.Mat
-    b: PETSc.Vec
-    J: dolfinx.fem.Form
-    b: dolfinx.fem.Form
-    dx: PETSc.Vec
-
-    def __init__(
-        self,
-        F: list[fem.form],
-        J: list[list[fem.form]],
-        w: list[fem.Function],
-        bcs: list[fem.DirichletBC] | None = None,
-        max_iterations: int = 5,
-        petsc_options: dict[str, str | float | int | None] = None,
-        problem_prefix="newton",
-    ):
-        self.max_iterations = max_iterations
-        self.bcs = [] if bcs is None else bcs
-        self.b = fem.petsc.create_vector_block(F)
-        self.F = F
-        self.J = J
-        self.A = fem.petsc.create_matrix_block(J)
-        self.dx = self.A.createVecLeft()
-        self.w = w
-        self.x = fem.petsc.create_vector_block(F)
-
-        # Set PETSc options
-        opts = PETSc.Options()
-        if petsc_options is not None:
-            for k, v in petsc_options.items():
-                opts[k] = v
-
-        # Define KSP solver
-        self._solver = PETSc.KSP().create(self.b.getComm().tompi4py())
-        self._solver.setOperators(self.A)
-        self._solver.setFromOptions()
-
-        # Set matrix and vector PETSc options
-        self.A.setFromOptions()
-        self.b.setFromOptions()
-
-    def solve(self, tol=1e-6, beta=1.0):
-        i = 0
-
-        while i < self.max_iterations:
-            cpp.la.petsc.scatter_local_vectors(
-                self.x,
-                [si.x.petsc_vec.array_r for si in self.w],
-                [
-                    (
-                        si.function_space.dofmap.index_map,
-                        si.function_space.dofmap.index_map_bs,
-                    )
-                    for si in self.w
-                ],
-            )
-            self.x.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-            )
-
-            # Assemble F(u_{i-1}) - J(u_D - u_{i-1}) and set du|_bc= u_D - u_{i-1}
-            with self.b.localForm() as b_local:
-                b_local.set(0.0)
-            fem.petsc.assemble_vector_block(
-                self.b, self.F, self.J, bcs=self.bcs, x0=self.x, scale=-1.0
-            )
-            self.b.ghostUpdate(
-                PETSc.InsertMode.INSERT_VALUES, PETSc.ScatterMode.FORWARD
-            )
-
-
-            # Assemble Jacobian
-            self.A.zeroEntries()
-            fem.petsc.assemble_matrix_block(self.A, self.J, bcs=self.bcs)
-            self.A.assemble()
-
-            self._solver.solve(self.b, self.dx)
-            # self._solver.view()
-            assert (
-                self._solver.getConvergedReason() > 0
-            ), "Linear solver did not converge"
-            offset_start = 0
-            for s in self.w:
-                num_sub_dofs = (
-                    s.function_space.dofmap.index_map.size_local
-                    * s.function_space.dofmap.index_map_bs
-                )
-                s.x.petsc_vec.array_w[:num_sub_dofs] -= (
-                    beta * self.dx.array_r[offset_start : offset_start + num_sub_dofs]
-                )
-                s.x.petsc_vec.ghostUpdate(
-                    addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
-                )
-                offset_start += num_sub_dofs
-            # Compute norm of update
-
-            correction_norm = self.dx.norm(0)
-            print(f"Iteration {i}: Correction norm {correction_norm}")
-            if correction_norm < tol:
-                break
-            i += 1
-
-    def __del__(self):
-        self.A.destroy()
-        self.b.destroy()
-        self.dx.destroy()
-        self._solver.destroy()
-        self.x.destroy()
-
-
-def transfer_meshtags_to_submesh(
-    mesh, entity_tag, submesh, sub_vertex_to_parent, sub_cell_to_parent
-):
-    """
-    Transfer a meshtag from a parent mesh to a sub-mesh.
-    """
-
-    tdim = mesh.topology.dim
-    cell_imap = mesh.topology.index_map(tdim)
-    num_cells = cell_imap.size_local + cell_imap.num_ghosts
-    mesh_to_submesh = np.full(num_cells, -1)
-    mesh_to_submesh[sub_cell_to_parent] = np.arange(
-        len(sub_cell_to_parent), dtype=np.int32
-    )
-    sub_vertex_to_parent = np.asarray(sub_vertex_to_parent)
-
-    submesh.topology.create_connectivity(entity_tag.dim, 0)
-
-    num_child_entities = (
-        submesh.topology.index_map(entity_tag.dim).size_local
-        + submesh.topology.index_map(entity_tag.dim).num_ghosts
-    )
-    submesh.topology.create_connectivity(submesh.topology.dim, entity_tag.dim)
-
-    c_c_to_e = submesh.topology.connectivity(submesh.topology.dim, entity_tag.dim)
-    c_e_to_v = submesh.topology.connectivity(entity_tag.dim, 0)
-
-    child_markers = np.full(num_child_entities, 0, dtype=np.int32)
-
-    mesh.topology.create_connectivity(entity_tag.dim, 0)
-    mesh.topology.create_connectivity(entity_tag.dim, mesh.topology.dim)
-    p_f_to_v = mesh.topology.connectivity(entity_tag.dim, 0)
-    p_f_to_c = mesh.topology.connectivity(entity_tag.dim, mesh.topology.dim)
-    sub_to_parent_entity_map = np.full(num_child_entities, -1, dtype=np.int32)
-    for facet, value in zip(entity_tag.indices, entity_tag.values):
-        facet_found = False
-        for cell in p_f_to_c.links(facet):
-            if facet_found:
-                break
-            if (child_cell := mesh_to_submesh[cell]) != -1:
-                for child_facet in c_c_to_e.links(child_cell):
-                    child_vertices = c_e_to_v.links(child_facet)
-                    child_vertices_as_parent = sub_vertex_to_parent[child_vertices]
-                    is_facet = np.isin(
-                        child_vertices_as_parent, p_f_to_v.links(facet)
-                    ).all()
-                    if is_facet:
-                        child_markers[child_facet] = value
-                        facet_found = True
-                        sub_to_parent_entity_map[child_facet] = facet
-    tags = dolfinx.mesh.meshtags(
-        submesh,
-        entity_tag.dim,
-        np.arange(num_child_entities, dtype=np.int32),
-        child_markers,
-    )
-    tags.name = entity_tag.name
-    return tags, sub_to_parent_entity_map
-
-
 def define_interior_eq(domain, degree,  submesh, submesh_to_mesh, value, kappa):
     # Compute map from parent entity to submesh cell
     codim = domain.topology.dim - submesh.topology.dim
@@ -257,6 +84,8 @@ if __name__ == '__main__':
     Wa_n = args.Wa_n
     Wa_p = args.Wa_p
     gamma = args.gamma
+    kappa_elec = args.kr * kappa_pos_am
+    kappa_avg = 0.5 * (kappa_elec + kappa_pos_am)
 
     markers = commons.Markers()
     comm = MPI.COMM_WORLD
@@ -335,12 +164,12 @@ if __name__ == '__main__':
         parent_to_sub_electrolyte[cells] = max(b_map)
         parent_to_sub_positive_am[cells] = max(t_map)
 
-    # entity_maps = {submesh_electrolyte: parent_to_sub_electrolyte, submesh_positive_am: parent_to_sub_positive_am}
-    entity_maps = {submesh_electrolyte._cpp_object: parent_to_sub_electrolyte, submesh_positive_am._cpp_object: parent_to_sub_positive_am}
+    entity_maps = {submesh_electrolyte: parent_to_sub_electrolyte, submesh_positive_am: parent_to_sub_positive_am}
+    # entity_maps = {submesh_electrolyte._cpp_object: parent_to_sub_electrolyte, submesh_positive_am._cpp_object: parent_to_sub_positive_am}
 
 
-    u_0, F_00, m_to_elec = define_interior_eq(domain, 2, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa)
-    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 2, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa)
+    u_0, F_00, m_to_elec = define_interior_eq(domain, 2, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec)
+    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 2, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am)
     u_0.name = "u_b"
     u_1.name = "u_t"
 
@@ -373,6 +202,9 @@ if __name__ == '__main__':
 
     dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
     # dInterface = ufl.Measure("dS", domain=domain, subdomain_data=ft, subdomain_id=markers.electrolyte_v_positive_am)
+    dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
+    ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
+    ds_r = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
     l_res = "+"
     r_res = "-"
 
@@ -390,23 +222,22 @@ if __name__ == '__main__':
     h_r = 2 * cr(r_res)
 
     # exchange current densities
-    kappa_elec = args.kr * kappa_pos_am
     i0_n = kappa_elec * R * T / (Wa_n * faraday_const * characteristic_length)
     i0_p = kappa_elec * R * T / (Wa_p * faraday_const * characteristic_length)
 
     jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics)
 
     F_0 = (
-        -0.5 * mixed_term(kappa * (u_l + u_r), v_l, n_l) * dInterface
-        - 0.5 * mixed_term(kappa * v_l, (u_r - u_l - jump_u), n_l) * dInterface
+        -0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
+        - 0.5 * mixed_term(kappa_avg * v_l, (u_r - u_l - jump_u), n_l) * dInterface
     )
 
     F_1 = (
-        +0.5 * mixed_term(kappa * (u_l + u_r), v_r, n_l) * dInterface
-        - 0.5 * mixed_term(kappa * v_r, (u_r - u_l - jump_u), n_l) * dInterface
+        +0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, n_l) * dInterface
+        - 0.5 * mixed_term(kappa_avg * v_r, (u_r - u_l - jump_u), n_l) * dInterface
     )
-    F_0 += 2 * gamma / (h_l + h_r) * kappa * (u_r - u_l - jump_u) * v_l * dInterface
-    F_1 += -2 * gamma / (h_l + h_r) * kappa * (u_r - u_l - jump_u) * v_r * dInterface
+    F_0 += 2 * gamma / (h_l + h_r) * kappa_avg * (u_r - u_l - jump_u) * v_l * dInterface
+    F_1 += -2 * gamma / (h_l + h_r) * kappa_avg * (u_r - u_l - jump_u) * v_r * dInterface
 
     F_0 += F_00
     F_1 += F_11
@@ -448,8 +279,9 @@ if __name__ == '__main__':
     )
     bcs = [bc_left, bc_right]
 
+    print("Solving..")
 
-    solver = NewtonSolver(
+    solver = solvers.NewtonSolver(
         F,
         J,
         [u_0, u_1],
@@ -458,10 +290,15 @@ if __name__ == '__main__':
         petsc_options={
             "ksp_type": "preonly",
             "pc_type": "lu",
-            "pc_factor_mat_solver_type": "mumps",
+            "pc_factor_mat_solver_type": "superlu_dist",
         },
     )
     solver.solve(1e-5)
+
+    I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
+    I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
+    print(f"Current left: {I_left:.3e} [A]")
+    print(f"Current right: {I_right:.3e} [A]")
     with io.VTXWriter(comm, elec_potential_file, [u_0], engine="BP5") as vtx:
         vtx.write(0)
 
