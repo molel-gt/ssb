@@ -1,5 +1,4 @@
 #include <petsc.h>
-#include "petscmat.h" 
 
 int main(int argc, char **argv)
 {
