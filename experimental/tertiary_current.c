@@ -49,19 +49,6 @@ int main(int argc, char **argv)
     }
     MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY); MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
 
-    // FILE *fid;
-    // fid = fopen("datafile.dat", "w");
-    // double *abb;
-
-    // VecGetArray(b, &abb);
-
-    // for (int i=0; i <4; i++)
-    // {
-    //     fprintf(fid, "%d: %lf\n", i, abb[i]);
-
-    // }
-    // fclose(fid);
-    // VecRestoreArray(b, &abb);
     VecDuplicate(b, &x);
     KSPCreate(PETSC_COMM_WORLD, &ksp);
     
@@ -69,6 +56,24 @@ int main(int argc, char **argv)
     KSPSetFromOptions(ksp);
     KSPSolve(ksp, b, x);
     VecView(x, PETSC_VIEWER_STDOUT_WORLD);
+
+    // write to file
+    FILE *fid;
+    fid = fopen("datafile.csv", "w");
+    double *abb;
+
+    VecGetArray(x, &abb);
+    fprintf(fid, "x,u\n");
+    fprintf(fid, "%lf,%f\n", 0.0, 0.0);
+
+    for (int i=0; i < N; i++)
+    {
+        fprintf(fid, "%lf,%lf\n", (i+1)*h, abb[i]);
+
+    }
+    fprintf(fid, "%lf,%f\n", 1.0, 1.0);
+    fclose(fid);
+    VecRestoreArray(x, &abb);
 
     MatDestroy(&A);
     VecDestroy(&b);
