@@ -9,7 +9,7 @@ petscvec: petsc_vec.o chkopts
 	-${CLINKER} -o petsc_vec petsc_vec.o ${PETSC_LIB}
 	${RM} petsc_vec.o
 
-ksp_prob: ksp_problem.o chkopts
+ksp_prob: ksp_problem.o
 	-${CLINKER} -o ksp_problem ksp_problem.o ${PETSC_LIB}
 	${RM} ksp_problem.o
 
@@ -20,3 +20,7 @@ laplace_prob: laplace_ksp.o chkopts
 poisson_prob: poisson_ksp.o chkopts
 	-${CLINKER} -o poisson_ksp laplace_ksp.o ${PETSC_LIB}
 	${RM} poisson_ksp.o
+
+tertiary_current: tertiary_current.o
+	-${CLINKER} -o tertiary_current tertiary_current.o ${PETSC_LIB}
+	${RM} tertiary_current.o
