@@ -40,9 +40,11 @@ double get_k(double h, double L){
     double c = 1.0;
     double _kprime;
     double _Kk, _Kkprime;
+    double gamma = 0.5;
 
     while (error > tol && iters < max_iters){
-        knew = k - get_F(a, b, c, k, h, L) / get_Fprime(a, b, c, k);
+        knew = k - gamma * get_F(a, b, c, k, h, L) / get_Fprime(a, b, c, k);
+        knew = fmin(knew, 1.0 - 1e-23);
         _kprime = get_kprime(knew);
         _Kk = M_PI_2 * gsl_sf_hyperg_2F1(a, b, c, pow(knew, 2));
         _Kkprime = M_PI_2 * gsl_sf_hyperg_2F1(a, b, c, pow(_kprime, 2));
@@ -56,7 +58,7 @@ double get_k(double h, double L){
 
 int main(int argc, char **argv){
     double k;
-    k = get_k(1.0, 5.0);
+    k = get_k(1.0, 10.0);
     printf("Optimized k is: %lf\n", k);
     return 0;
 }
