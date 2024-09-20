@@ -1,5 +1,6 @@
 include ${PETSC_DIR}/lib/petsc/conf/variables
 include ${PETSC_DIR}/lib/petsc/conf/rules
+# include ${HOME}/lib/gsl
 
 exp: eapprox.o chkopts
 	-${CLINKER} -o eapprox eapprox.o ${PETSC_LIB}
@@ -24,3 +25,18 @@ poisson_prob: poisson_ksp.o chkopts
 tertiary_current: tertiary_current.o
 	-${CLINKER} -o tertiary_current tertiary_current.o ${PETSC_LIB}
 	${RM} tertiary_current.o
+
+conduit_flow: conduit_flow.o
+	-${CLINKER} -o conduit_flow conduit_flow.o -L${HOME}/opt/lib -lgsl -lblas -lm
+	${RM} conduit_flow.o
+
+# all: conduit_flow
+
+# conduit_flow: conduit_flow.o
+# 	gcc -g -o conduit_flow conduit_flow.o -lgsl -lm -lblas
+
+# conduit_flow.o: conduit_flow.c
+# 	gcc -c conduit_flow.c -L${HOME}/opt/lib
+
+# clean:
+# 	rm conduit_flow.o conduit_flow
