@@ -1,6 +1,7 @@
 include ${PETSC_DIR}/lib/petsc/conf/variables
 include ${PETSC_DIR}/lib/petsc/conf/rules
 # include ${HOME}/lib/gsl
+include ${SLEPC_DIR}/lib/slepc/conf/slepc_common
 
 exp: eapprox.o chkopts
 	-${CLINKER} -o eapprox eapprox.o ${PETSC_LIB}
@@ -22,8 +23,12 @@ poisson_prob: poisson_ksp.o chkopts
 	-${CLINKER} -o poisson_ksp laplace_ksp.o ${PETSC_LIB}
 	${RM} poisson_ksp.o
 
+secondary_current: secondary_current.o
+	-${CLINKER} -o secondary_current secondary_current.o ${PETSC_LIB}
+	${RM} secondary_current.o
+
 tertiary_current: tertiary_current.o
-	-${CLINKER} -o tertiary_current tertiary_current.o ${PETSC_LIB}
+	-${CLINKER} -o tertiary_current tertiary_current.o ${PETSC_LIB} ${SLEPC_EPS_LIB}
 	${RM} tertiary_current.o
 
 conduit_flow: conduit_flow.o

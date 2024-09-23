@@ -1,5 +1,4 @@
 #include <petsc.h>
-#include <slepc.h>
 
 int main(int argc, char **argv)
 {
@@ -7,11 +6,14 @@ int main(int argc, char **argv)
     Vec b, x;
     KSP ksp;
     int Nel = 10;
-    int N = Nel - 1; // remove rows corresponding to dirichlet bc
+    /* remove rows corresponding to dirichlet bc,
+        then add extra DoF due to discontinuity */
+    int N = Nel - 1 + 1;
     double h = 1.0 / Nel; 
     int i;
     double ab[1] = {1.0/h};
     int j[1] = {N - 1};
+    double gamma = 10;
 
     PetscInitialize(&argc, &argv, NULL, "ksp problem solution");
     VecCreate(PETSC_COMM_WORLD, &b);
@@ -39,6 +41,20 @@ int main(int argc, char **argv)
             double entries[2] = {-1.0 / h, 2.0 / h};
             MatSetValues(A, 1, &i, num_entries, j, entries, INSERT_VALUES);
         }
+        else if (i == 5){
+            /* inner(grad(u), grad(v)) */
+            num_entries = 2;
+            int j[2] = {i-1, i};
+            double entries[2] = {-1.0 / h, 1.0 / h};
+            MatSetValues(A, 1, &i, num_entries, j, entries, INSERT_VALUES);
+        }
+        else if (i == 6){
+            /* inner(grad(u), grad(v)) */
+            num_entries = 2;
+            int j[2] = {i, i+1};
+            double entries[2] = {1.0 / h, -1.0 / h};
+            MatSetValues(A, 1, &i, num_entries, j, entries, INSERT_VALUES);
+        }
         else {
             num_entries = 3;
             int j[3] = {i-1, i, i+1};
@@ -50,27 +66,6 @@ int main(int argc, char **argv)
     }
     MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY); MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
 
-    // calculation of condition number
-    PetscInt nconv, ii;
-    EPS eps;  // eigensolver context
-    Vec xr, xi; // eigen vectors
-    PetscScalar kr, ki; // eigenvalues
-    PetscCall(SlepcInitialize(&argc,&argv,(char*)0,NULL));
-    PetscCall(MatCreateVecs(A, NULL, &xr));
-    PetscCall(MatCreateVecs(A, NULL, &xi));
-    PetscCall(EPSCreate(PETSC_COMM_WORLD, &eps));
-    PetscCall(EPSSetOperators(eps, A, NULL));
-    PetscCall(EPSSetProblemType(eps, EPS_HEP));
-    PetscCall(EPSSetFromOptions(eps));
-    PetscCall(EPSSolve(eps));
-    PetscCall(EPSGetConverged(eps, &nconv));
-    for (ii = 0; ii < nconv; ii++){
-        PetscCall(EPSGetEigenpair(eps, ii, &kr, &ki, xr, xi));
-    }
-    // PetscCall(PetscPrintf(PETSC_COMM_WORLD, "           k          ||Ax-kx||/||kx||\n"
-    //     "   ----------------- ------------------\n"));
-    EPSDestroy(&eps);
-
     VecDuplicate(b, &x);
     KSPCreate(PETSC_COMM_WORLD, &ksp);
     
@@ -81,7 +76,7 @@ int main(int argc, char **argv)
 
     // write to file
     FILE *fid;
-    fid = fopen("datafile.csv", "w");
+    fid = fopen("secondary_current.csv", "w");
     double *abb;
 
     VecGetArray(x, &abb);
