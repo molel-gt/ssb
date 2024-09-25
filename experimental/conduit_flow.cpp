@@ -1,6 +1,10 @@
 #include <stdio.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_sf_hyperg.h>
+#include <fstream>
+#include <iostream>
+using namespace std;
+
 
 double get_kprime(double k){
     return sqrt(1 - pow(k, 2));
@@ -56,9 +60,26 @@ double get_k(double h, double L){
     return k;
 }
 
+// double integrate_q(double a, double b, double x){
+//     double k = a/b;
+//     double var = asin(x/a);
+//     return a * sqrt(1 - pow(x, 2)/pow(a, 2)) * sqrt(pow(b, 2) - pow(x, 2)) * gsl_sf_ellint_Ecomp(k)/(sqrt(pow(x, 2) - pow(a, 2))*sqrt(1 - pow(x, 2)/pow(b, 2)));
+// }
+
+// double q_avg(double a, double b){
+//     return integrate_q(a, b, 1) - integrate_q(a, b, a);
+// }
+
 int main(int argc, char **argv){
     double k;
-    k = get_k(1.0, 10.0);
+    fstream fin;
+    fin.open("aspect-ratios.txt", ios::in);
+    fin.close();
+    k = get_k(0.1, 1.0);
+    // double a = 0.875;
+    double b = 1/k;
+    // double average_q = q_avg(a, b);
+    // printf("Average flow rate: %lf\n", average_q);
     printf("Optimized k is: %lf\n", k);
     return 0;
 }
