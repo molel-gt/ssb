@@ -32,7 +32,7 @@ tertiary_current: tertiary_current.o
 	${RM} tertiary_current.o
 
 conduit_flow: conduit_flow.o
-	-${CLINKER} -o conduit_flow conduit_flow.o -L${HOME}/opt/lib -lgsl -lblas -lm
+	-${CLINKER} -o conduit_flow conduit_flow.o -L${HOME}/opt/lib -lgsl -lblas -lm -lstdc++
 	${RM} conduit_flow.o
 
 # all: conduit_flow
