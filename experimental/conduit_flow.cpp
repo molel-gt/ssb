@@ -62,7 +62,6 @@ double get_k(double h, double L){
 
         // error if new k is greater than 1.0
         if (knew < min_k || knew > max_k) {
-            // printf("%lf, %lf,%lf\n", h, k, knew);
             knew = k;
             gamma *= 0.5;
         }
@@ -77,16 +76,6 @@ double get_k(double h, double L){
     printf("Error is: %lf after %d iterations\n", error, iters);
     if (error > tol) { throw std::invalid_argument("Could not converge\n"); } else { return k; }
 }
-
-// double integrate_q(double a, double b, double x){
-//     double k = a/b;
-//     double var = asin(x/a);
-//     return a * sqrt(1 - pow(x, 2)/pow(a, 2)) * sqrt(pow(b, 2) - pow(x, 2)) * gsl_sf_ellint_Ecomp(k)/(sqrt(pow(x, 2) - pow(a, 2))*sqrt(1 - pow(x, 2)/pow(b, 2)));
-// }
-
-// double q_avg(double a, double b){
-//     return integrate_q(a, b, 1) - integrate_q(a, b, a);
-// }
 
 int main(int argc, char **argv){
     double k, b;
@@ -118,11 +107,5 @@ int main(int argc, char **argv){
     }
     fout.close();
 
-    //k = get_k(0.1, 1.0);
-    // double a = 0.875;
-    //double b = 1/k;
-    // double average_q = q_avg(a, b);
-    // printf("Average flow rate: %lf\n", average_q);
-    //printf("Optimized k is: %lf\n", k);
     return 0;
 }
