@@ -98,7 +98,7 @@ class NewtonSolver:
 
             self._solver.solve(self.b, self.dx)
             # self._solver.view()
-            self._solver.setMonitor(lambda _, it, residual: print(it, residual))
+            # self._solver.setMonitor(lambda _, it, residual: print(it, residual))
             assert (
                 self._solver.getConvergedReason() > 0
             ), "Linear solver did not converge"
