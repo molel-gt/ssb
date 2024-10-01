@@ -37,8 +37,17 @@ du -sh * | sort -h
 # directory size
 du -s ssb/ --block-size=MB
 
+du -sh * | sort -hr
+
 # install from requirements
 conda install --file requirements.txt
 
 # remove conda env
 mamba remove --name paraview --all
+
+# send output of find to copy
+
+find output/reaction_distribution/75-40-0/ -name "*.png" | xargs cp -t figures/secondary_current
+
+# docker share current directory
+docker run -ti -v $(pwd):/root/shared -w /root/shared  dolfinx/dolfinx:nightly

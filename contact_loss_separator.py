@@ -33,6 +33,14 @@ T = 298  # [K]
 dtype = PETSc.ScalarType
 
 
+def get_chunk(rank, size, n_points):
+    chunk_size = int(np.ceil(n_points / size))
+    if rank + 1 == size:
+        return int(chunk_size) * rank, n_points
+    else:
+        return int(chunk_size) * rank, int(chunk_size * (rank+1)) + 1
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
     parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="contact_loss_lma")
@@ -47,7 +55,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     voltage = args.voltage
     comm = MPI.COMM_WORLD
-    rank = comm.rank
+    rank = comm.Get_rank()
+    size = comm.Get_size()
     start_time = timeit.default_timer()
     scaling = configs.get_configs()[args.scaling]
     scale_x = float(scaling['x'])
@@ -100,7 +109,7 @@ if __name__ == '__main__':
     logger.debug("done\n")
 
     # Dirichlet BCs
-    V = fem.functionspace(domain, ("CG", 1))
+    V = fem.functionspace(domain, ("CG", 2))
     
     n = ufl.FacetNormal(domain)
     ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
@@ -223,7 +232,7 @@ if __name__ == '__main__':
     error = max([np.abs(I_left_cc), np.abs(I_right_cc)]) / min([np.abs(I_left_cc), np.abs(I_right_cc)])
     kappa_eff = abs(I_left_cc) / A0 * Lz / voltage
     insulated_ratio = I_insulated / min(abs(I_left_cc), abs(I_right_cc))
-
+    EPS = 1e-30
     if args.compute_distribution:
         logger.debug("Cumulative distribution lines of current density at terminals")
         cd_lims = defaultdict(lambda : [0, 25])
@@ -244,28 +253,24 @@ if __name__ == '__main__':
         else:
             min_cd = 0
             max_cd = min(abs(I_left_cc/A0) * 5, cd_lims[int(dimensions.split("-")[-1])][-1])
-        cd_space = np.linspace(min_cd, max_cd, num=10000)
+        num_points = 10000
+        cd_space = np.linspace(min_cd, max_cd, num=num_points)
         cdf_values = []
-        freq_values = []
-        EPS = 1e-30
+        freq_values = [{}] * (num_points - 1)
 
         def frequency_condition(values, vleft, vright):
             tol_fun_left.interpolate(lambda x: vleft * (x[0] + EPS) / (x[0] + EPS))
             tol_fun_right.interpolate(lambda x: vright * (x[0] + EPS) / (x[0] + EPS))
             return ufl.conditional(ufl.ge(values, tol_fun_left), 1, 0) * ufl.conditional(ufl.lt(values, tol_fun_right), 1, 0)
 
-        for i, vleft in enumerate(list(cd_space)[:-1]):
-            vright = cd_space[i+1]
-            freql = domain.comm.allreduce(
-                fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(markers.left))),
-                op=MPI.SUM
-            )
-            freqr = domain.comm.allreduce(
-                fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(
-                    markers.right))),
-                op=MPI.SUM
-            )
-            freq_values.append({"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql": freql / A0, "freqr": freqr / A0})
+        c_size = get_chunk(rank, size, num_points)
+
+        for idx in range(c_size[0], c_size[1]-1):
+            vleft = cd_space[idx]
+            vright = cd_space[idx+1]
+            freql = fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(markers.left)))
+            freqr = fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), vleft, vright) * ds(markers.right)))
+            freq_values[idx] = {"vleft [A/m2]": vleft, "vright [A/m2]": vright, "freql": freql / A0, "freqr": freqr / A0}
         if domain.comm.rank == 0:
             with open(frequency_path, "w") as fp:
                 writer = csv.DictWriter(fp, fieldnames=["vleft [A/m2]", "vright [A/m2]", "freql", "freqr"])
@@ -273,6 +278,12 @@ if __name__ == '__main__':
                 for row in freq_values:
                     writer.writerow(row)
         logger.debug(f"Wrote frequency stats in {frequency_path}")
+        def less_than_zero(val):
+            if val < np.finfo(float).eps:
+                return 1
+            return 0
+    tol_fun_right.interpolate(lambda x: x[0] + EPS)
+    area_zero_curr = comm.allreduce(fem.assemble_scalar(fem.form(ufl.conditional(ufl.lt(np.abs(ufl.inner(current_h, n)), tol_fun_right), 1, 0) * ds(markers.right))), op=MPI.SUM)
     if domain.comm.rank == 0:
         logger.debug("Writing summary information..")
         simulation_metadata = {
@@ -304,6 +315,7 @@ if __name__ == '__main__':
             "Voltage drop [V]": voltage,
             "Electrolyte volume fraction": f"{volume_fraction:.4f}",
             "Electrolyte volume [cu. m]": f"{volume:.4e}",
+            "Fraction less than zero at right electrode": area_zero_curr / A0,
             "Total resistance [Ω.cm2]": voltage / (np.abs(I_right_cc) / (A0 * 1e4)),
         }
         with open(simulation_metafile, "w", encoding='utf-8') as f:

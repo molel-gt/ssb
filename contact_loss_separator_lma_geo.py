@@ -84,9 +84,9 @@ if __name__ == '__main__':
     Ly = Ly * scale_y
     Lz = Lz * scale_z
     if not args.refine:
-        outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), "unrefined", str(int(args.resolution)))
+        outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), "unrefined", f"{args.resolution}")
     else:
-        outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), str(int(args.resolution)))
+        outdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, str(args.img_id), f"{args.resolution}")
     utils.make_dir_if_missing(outdir)
     mshpath = os.path.join(f"{outdir}", "mesh.msh")
     geometry_metafile = os.path.join(outdir, "geometry.json")
@@ -102,10 +102,14 @@ if __name__ == '__main__':
     gmsh.initialize()
     gmsh.model.add('area')
     if not args.refine:
-        gmsh.option.setNumber('Mesh.MeshSizeMax', resolution)
+        gmsh.option.setNumber('Mesh.CharacteristicLengthMax', resolution)
     gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
     gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
+    # gmsh.option.setNumber("Mesh.Algorithm3D", 10)
+    # gmsh.option.setNumber("General.NumThreads", 16)
+    # gmsh.option.setNumber("Mesh.MaxNumThreads2D", 12)
+    # gmsh.option.setNumber("Mesh.MaxNumThreads3D", 12)
     z0_points = [
         (0, 0, 0),
         (Lx, 0, 0),
@@ -316,7 +320,7 @@ if __name__ == '__main__':
         "dimensions": args.dimensions,
         "scaling": args.scaling,
         "refine": args.refine,
+        "time elapsed (s)": int(timeit.default_timer() - start_time),
     }
     with open(geometry_metafile, "w", encoding='utf-8') as f:
         json.dump(geometry_metadata, f, ensure_ascii=False, indent=4)
-    print(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")

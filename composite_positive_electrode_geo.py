@@ -42,8 +42,8 @@ if __name__ == '__main__':
     if Lz != (args.lsep + args.lcat):
         raise ValueError("Cannot resolve dimensions, please check lsep and lcat")
 
-    if not np.isclose(args.se_pos_am_area_frac, 1):
-        raise ValueError("Does not handle contact loss between SE and Positive AM")
+    # if not np.isclose(args.se_pos_am_area_frac, 1):
+    #     raise ValueError("Does not handle contact loss between SE and Positive AM")
     scaling = configs.get_configs()[args.scaling]
     scale_x = float(scaling['x'])
     scale_y = float(scaling['y'])
@@ -75,11 +75,12 @@ if __name__ == '__main__':
 
     gmsh.initialize()
     gmsh.model.add('area')
-    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 0)
-    gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 0)
-    gmsh.option.setNumber('Mesh.MeshSizeFromPoints', 0)
+    gmsh.option.setNumber('Mesh.MeshSizeExtendFromBoundary', 1)
+    gmsh.option.setNumber('Mesh.MeshSizeFromCurvature', 20)
+    gmsh.option.setNumber('Mesh.AngleToleranceFacetOverlap', 0.075)
+    gmsh.option.setNumber("General.Verbosity", 3)
     if not args.refine:
-        gmsh.option.setNumber('Mesh.MeshSizeMax', resolution)
+        gmsh.option.setNumber('Mesh.CharacteristicLengthMax', resolution)
     z0_points = [
         (0, 0, 0),
         (LX, 0, 0),
@@ -200,19 +201,42 @@ if __name__ == '__main__':
     cylinders = []
     spheres = []
 
+    centers = []
+
     for idx in range(df.shape[0]):
         x, y = df.loc[idx, :]
         if (x + Rp) >= LX or (y + Rp) >= LY:
             continue
         if (x - Rp) <= 0 or (y - Rp) <= 0:
             continue
+        centers.append((x, y, LZ - Rp))
         cyl = gmsh.model.occ.addCylinder(x, y, Lsep, 0, 0, Lcat - Rp, Rp)
         cylinders.append((3, cyl))
 
     merged = gmsh.model.occ.fuse([(3, box_am)], cylinders)
     gmsh.model.occ.cut([(3, box_se)], merged[0], removeTool=False)
-    
+    gmsh.model.occ.synchronize()
+    pieces = np.linspace(args.lsep, Lz - args.radius, num=11)
+    circle_pos = []
+    h = scale_z * (pieces[1]  - pieces[0])
+    se_am_contact = []
+    se_am_no_contact = []
+    for idx, piece in enumerate(pieces[:-1]):
+        next_mid = piece * scale_z + (1 - args.se_pos_am_area_frac) * h
+        circle_pos.append(next_mid)
+        se_am_no_contact.append(0.5 * (scale_z * piece + next_mid))
+        next_mid2 = pieces[idx+1] * scale_z
+        se_am_contact.append(0.5 * (next_mid + next_mid2))
+        if idx != 0:
+            circle_pos.append(piece * scale_z)
 
+    vols = gmsh.model.occ.getEntities(3)
+    circles = []
+    for center in centers:
+        x, y, _ = center
+        for pos in circle_pos:
+            circles.append((1, gmsh.model.occ.addCircle(x, y, pos, Rp)))
+    ov, ovv = gmsh.model.occ.fragment(vols, circles)
     gmsh.model.occ.synchronize()
     vols = gmsh.model.occ.getEntities(3)
 
@@ -222,6 +246,11 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
     print("Generating surface tags..")
     left_surfs = []
+    def is_on_the_walls(x, y, z):
+        y_planes = np.isclose(y, 0) or np.isclose(y, Ly)
+        x_planes = np.isclose(x, 0) or np.isclose(x, Lx)
+        return x_planes or y_planes
+
     for surf in gmsh.model.occ.getEntities(2):
         com = gmsh.model.occ.getCenterOfMass(surf[0], surf[1])
         x = com[0] / scale_x
@@ -232,13 +261,16 @@ if __name__ == '__main__':
             continue
         elif np.isclose(com[2], LZ):
             right.append(surf[1])
-        elif np.isclose(com[2], 0.5*(LZ - Rp)):
+        elif np.isclose(com[2], 0.5*(LZ - Rp)) and is_on_the_walls(x, y, z):
             insulated_se.append(surf[1])
-        elif np.isclose(com[2], LZ - 0.5 * Rp):
+        elif np.isclose(com[2], LZ - 0.5 * Rp) and is_on_the_walls(x, y, z):
             insulated_am.append(surf[1])
+        elif np.any(np.isclose(com[2], se_am_no_contact, atol=1e-9)):
+            insulated_am.append(surf[1])
+        elif np.any(np.isclose(com[2], se_am_contact, atol=1e-9)):
+            interface.append(surf[1])
         else:
             interface.append(surf[1])
-
     gmsh.model.addPhysicalGroup(2, left_surfs[1:], markers.left, "left")
     insulated_se.append(left_surfs[0])
     gmsh.model.addPhysicalGroup(2, insulated_se, markers.insulated_electrolyte, "insulated_electrolyte")
@@ -254,8 +286,8 @@ if __name__ == '__main__':
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
-        gmsh.model.mesh.field.setNumber(2, "SizeMin", resolution / 10)
-        gmsh.model.mesh.field.setNumber(2, "SizeMax", resolution)
+        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution / 10)
+        gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
         gmsh.model.mesh.field.setNumber(2, "DistMin", 1e-6)
         gmsh.model.mesh.field.setNumber(2, "DistMax", 2e-6)
 
@@ -272,7 +304,9 @@ if __name__ == '__main__':
         "max_resolution": args.resolution,
         "dimensions": args.dimensions,
         "scaling": args.scaling,
+        "Time elapsed (s)": int(timeit.default_timer() - start_time),
     }
     with open(geometry_metafile, "w", encoding='utf-8') as f:
         json.dump(geometry_metadata, f, ensure_ascii=False, indent=4)
+    print(f"Wrote {mshpath}")
     print(f"Time elapsed                                    : {int(timeit.default_timer() - start_time):3.5f}s")

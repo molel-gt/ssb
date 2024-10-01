@@ -85,7 +85,7 @@ if __name__ == '__main__':
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='MICRON_TO_METER', type=str)
     parser.add_argument('--kinetics', help='kinetics type', nargs='?', const=1, default='butler_volmer', type=str, choices=kinetics)
-
+    parser.add_argument("--plot", help="whether to plot results", default=False, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
     start_time = timeit.default_timer()
@@ -283,6 +283,7 @@ if __name__ == '__main__':
     opts[f"{option_prefix}pc_type"] = "lu"
 
     ksp.setFromOptions()
+    print(f"Secondary current distribution: Wa = {args.Wa_p}, kappa/sigma = {args.kr}")
     n_iters, converged = solver.solve(u)
     u.x.scatter_forward()
     if converged:
@@ -345,87 +346,80 @@ if __name__ == '__main__':
 
     }
     # visualization
-    # if comm.size == 1:
-    #     h5obj = h5py.File(lines_h5file, 'r')
-    #     coords = np.asarray(h5obj['data0'])
-    #     nodes = read_node_ids_for_marker(h5obj, markers.electrolyte_v_positive_am)
-    #     points = coords[nodes, :]#.T
-        
-    #     points = points[np.where(np.logical_and(np.logical_and(points[:, 0] > 75e-6, points[:, 0] < 140e-6), points[:, 1] > 20e-6))].T
-    #     normals = np.zeros(points.shape)
-    #     # print(points.shape)
-    #     bb_trees = bb_tree(domain, domain.topology.dim)
-    #     fig, ax = plt.subplots()
-    #     u_values = []
-    #     cells = []
-    #     points_on_proc = []
-    #     # Find cells whose bounding-box collide with the the points
-    #     cell_candidates = compute_collisions_points(bb_trees, points.T)
-    #     # Choose one of the cells that contains the point
-    #     colliding_cells = compute_colliding_cells(domain, cell_candidates, points.T)
-    #     for i, point in enumerate(points.T):
-    #         if len(colliding_cells.links(i)) > 0:
-    #             if np.isclose(point[0], 75e-6) or np.isclose(point[0], 140e-6):
-    #                 normals[:, i] = (-1, 0, 0)
-    #             elif np.isclose(point[1], 10e-6):
-    #                 normals[:, i] = (0, 1, 0)
-    #             elif np.isclose(point[1], 30e-6):
-    #                 normals[:, i] = (0, -1, 0)
-    #             points_on_proc.append(point)
-    #             cells.append(colliding_cells.links(i)[0])
-    #     points_on_proc = np.array(points_on_proc, dtype=np.float64)
-    #     current_values = current_h.eval(points_on_proc, cells)
-    #     print(current_values.shape, normals.shape)
-    #     ax.plot(points_on_proc[:, 0] / micron, np.abs(np.sum(current_values * normals.T, axis=1)), 'r+', linewidth=0.5)
-    #     ax.grid(True)
-    #     # ax.legend()
-    #     # ax.set_xlim([75, 140])
-    #     # ax.set_ylim([0, voltage])
-    #     ax.set_ylabel(r'$i_n$ [Am$^{-2}$]', rotation=90, labelpad=0, fontsize='xx-large')
-    #     ax.set_xlabel(r'[$\mu$m]')
-    #     ax.set_title(r'$\mathrm{Wa}$ = ' + f'{args.Wa_p}' + ',' + r'$\frac{\kappa}{\sigma}$ = ' + f'{args.kr}')
-    #     plt.tight_layout()
-    #     plt.savefig(reaction_dist_file)
-    #     subprocess.check_call('mkdir -p figures/sipdg/complex', shell=True)
-    #     subprocess.check_call(f'cp {reaction_dist_file} figures/sipdg/complex', shell=True)
+    if args.plot and comm.Get_size() == 1:
+        n_points = 10000
+        y_pos = [0.125, 0.5, 0.875]
+        tol = 1e-14  # Avoid hitting the outside of the domain
+        bb_trees = bb_tree(domain, domain.topology.dim)
 
-    # n_points = 10000
-    # y_pos = [0.125, 0.5, 0.875]
-    # tol = 1e-14  # Avoid hitting the outside of the domain
-    # bb_trees = bb_tree(domain, domain.topology.dim)
-    # x = np.linspace(tol, LX - tol, n_points)
-    # points = np.zeros((3, n_points))
-    # points[0] = x
-    # styles = ['r', 'b', 'g']
-    # fig, ax = plt.subplots()
-    # for idx, pos in enumerate(y_pos):
-    #     y = np.ones(n_points) * pos * LY  # midline
-    #     points[1] = y
-    #     u_values = []
-    #     cells = []
-    #     points_on_proc = []
-    #     # Find cells whose bounding-box collide with the the points
-    #     cell_candidates = compute_collisions_points(bb_trees, points.T)
-    #     # Choose one of the cells that contains the point
-    #     colliding_cells = compute_colliding_cells(domain, cell_candidates, points.T)
-    #     for i, point in enumerate(points.T):
-    #         if len(colliding_cells.links(i)) > 0:
-    #             points_on_proc.append(point)
-    #             cells.append(colliding_cells.links(i)[0])
-    #     points_on_proc = np.array(points_on_proc, dtype=np.float64)
-    #     current_values = current_h.eval(points_on_proc, cells)
-        
-    #     ax.plot(points_on_proc[:, 0] / micron, np.linalg.norm(current_values, axis=1), styles[idx], label=f'{pos:.3f}' + r'$L_y$', linewidth=1)
-    # ax.grid(True)
-    # ax.legend()
-    # ax.set_xlim([0, LX / micron])
-    # # ax.set_ylim([0, voltage])
-    # ax.set_ylabel(r'$\Vert i \Vert$ [Am$^{-2}$]', rotation=90, labelpad=0, fontsize='xx-large')
-    # ax.set_xlabel(r'[$\mu$m]')
-    # ax.set_title(r'$\mathrm{Wa}$ = ' + f'{args.Wa_p}' + ',' + r'$\frac{\kappa}{\sigma}$ = ' + f'{args.kr}')
-    # plt.tight_layout()
-    # plt.savefig(current_dist_file)
-        # plt.show()
+        x = np.linspace(tol, LX - tol, n_points)
+        points_top = np.zeros((3, n_points))
+        points_mid = np.zeros((3, n_points))
+        points_bot = np.zeros((3, n_points))
+
+        points_top[0] = x
+        points_top[1] = np.ones(n_points) * 0.875 * LY
+        points_mid[0] = x
+        points_mid[1] = np.ones(n_points) * 0.5 * LY
+        points_bot[0] = x
+        points_bot[1] = np.ones(n_points) * 0.125 * LY
+        styles = ['r', 'b', 'g']
+        # obtain values to plot
+        u_values = []
+        cells_top = []
+        cells_mid = []
+        cells_bot = []
+        points_on_proc_top = []
+        points_on_proc_mid = []
+        points_on_proc_bot = []
+        # Find cells whose bounding-box collide with the the points
+        cell_candidates_top = compute_collisions_points(bb_trees, points_top.T)
+        cell_candidates_mid = compute_collisions_points(bb_trees, points_mid.T)
+        cell_candidates_bot = compute_collisions_points(bb_trees, points_bot.T)
+        # Choose one of the cells that contains the point
+        colliding_cells_top = compute_colliding_cells(domain, cell_candidates_top, points_top.T)
+        colliding_cells_mid = compute_colliding_cells(domain, cell_candidates_mid, points_mid.T)
+        colliding_cells_bot = compute_colliding_cells(domain, cell_candidates_bot, points_bot.T)
+
+        for i in range(n_points):
+            point_top = points_top.T[i]
+            point_mid = points_mid.T[i]
+            point_bot = points_bot.T[i]
+            if len(colliding_cells_top.links(i)) > 0:
+                points_on_proc_top.append(point_top)
+                cells_top.append(colliding_cells_top.links(i)[0])
+
+            if len(colliding_cells_mid.links(i)) > 0:
+                points_on_proc_mid.append(point_mid)
+                cells_mid.append(colliding_cells_mid.links(i)[0])
+
+            if len(colliding_cells_bot.links(i)) > 0:
+                points_on_proc_bot.append(point_bot)
+                cells_bot.append(colliding_cells_bot.links(i)[0])
+
+        points_on_proc_top = np.array(points_on_proc_top, dtype=np.float64)
+        current_values_top = current_h.eval(points_on_proc_top, cells_top)
+
+        points_on_proc_mid = np.array(points_on_proc_mid, dtype=np.float64)
+        current_values_mid = current_h.eval(points_on_proc_mid, cells_mid)
+
+        points_on_proc_bot = np.array(points_on_proc_bot, dtype=np.float64)
+        current_values_bot = current_h.eval(points_on_proc_bot, cells_bot)
+
+        fig, ax = plt.subplots(figsize=(5, 4.5))
+        ax.plot(points_on_proc_top[:, 0] / micron, np.linalg.norm(current_values_top, axis=1), styles[2], label='0.875' + r'$L_y$', linewidth=1)
+        ax.plot(points_on_proc_mid[:, 0] / micron, np.linalg.norm(current_values_mid, axis=1), styles[1], label='0.5' + r'$L_y$', linewidth=1)
+        ax.plot(points_on_proc_bot[:, 0] / micron, np.linalg.norm(current_values_bot, axis=1), styles[0], label='0.125' + r'$L_y$', linewidth=1)
+        ax.grid(True)
+        ax.legend()
+        ax.set_xlim([0, LX / micron])
+        # ax.set_ylim([0, voltage])
+        ax.set_ylabel(r'$\Vert i \Vert$ [Am$^{-2}$]', rotation=90, labelpad=0, fontsize='xx-large')
+        ax.set_xlabel(r'[$\mu$m]')
+        ax.set_title(r'$\mathrm{Wa}$ = ' + f'{args.Wa_p}' + ',' + r'$\frac{\kappa}{\sigma}$ = ' + f'{args.kr}')
+        plt.tight_layout()
+        plt.savefig(current_dist_file)
+        plt.show()
     if comm.rank == 0:
         utils.print_dict(simulation_metadata, padding=50)
         with open(simulation_metafile, "w", encoding='utf-8') as f:
