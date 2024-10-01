@@ -132,7 +132,7 @@ int main(int argc, char **argv){
         }
         catch (const std::invalid_argument& e) {
             fout << element << "," << "-\n";
-            std::cout << "Could not converge for h/L = " << element << "\n" ;
+            std::cout << "Could not converge for h/L = " << element << "\n";
         }
 
         for (auto & element : w_over_L)
@@ -144,7 +144,9 @@ int main(int argc, char **argv){
                     printf("w/L: %lf, a: %lf, b: %lf\n", w_L, a, b);
                     fout2 << std::setprecision(16) << k << "," << std::setprecision(16) << b << "," << std::setprecision(16) << a << "," << std::setprecision(16) << h_L << "," << std::setprecision(16) << w_L << "\n";
             }
-            catch (const std::invalid_argument& e) {std::cout << "Could not converge for w/L = " << w_L << " and for k = " << k << "\n" ;} 
+            catch (const std::invalid_argument& e) {
+                std::cout << "Could not converge for w/L = " << w_L << " and for k = " << k << "\n";
+            } 
         }
     }
     fout.close();
