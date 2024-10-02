@@ -19,7 +19,7 @@ You will need to have Python 3 and FEniCSx installed to be able to run these scr
   - study_4_geo.py
   - study_5.py
   - study_5_geo.py
-#### E. L. Molel and T. F. Fuller, Effects of Contact Loss at Electrolyte/Negative Electrode Interface on Current Density Distribution in Solid-State Batteries. Journal of the Electrochemical Society
+#### E. L. Molel,..., and T. F. Fuller, Effects of Contact Loss at Electrolyte/Negative Electrode Interface on Current Density Distribution in Solid-State Batteries. Journal of the Electrochemical Society
 ##### Contact loss model script
   - contact_loss_separator.py
 ##### Geometry preparation
