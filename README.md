@@ -6,7 +6,7 @@ the relevant aspects of the published works. In any case, the usage of scripts c
 You will need to have Python 3 and FEniCSx installed to be able to run these scripts. Installation instructions can be found at https://github.com/FEniCS/dolfinx. Additional packages required can be found at [requirements.txt](requirements.text). If you notice any errors and omissions, feel free to create a pull request and address the issue. No promise is made that the codes will be kept up to date across changing versions of the input software packages.
 
 ### Publications and Scripts
-#### Leshinka Molel and Thomas F. Fuller, Application of Open-Source Python-Based Tools for the Simulation of Electrochemical Systems. Journal of Electrochemical Society (Under Revision)
+#### E. L. Molel and T. F. Fuller, Application of Open-Source Python-Based Tools for the Simulation of Electrochemical Systems. Journal of the Electrochemical Society
 ##### Hull Cell Demo
   - hull-cell.py
 ##### Relative Feature Size
@@ -19,3 +19,9 @@ You will need to have Python 3 and FEniCSx installed to be able to run these scr
   - study_4_geo.py
   - study_5.py
   - study_5_geo.py
+#### E. L. Molel,..., and T. F. Fuller, Effects of Contact Loss at Electrolyte/Negative Electrode Interface on Current Density Distribution in Solid-State Batteries. Journal of the Electrochemical Society
+##### Contact loss model script
+  - contact_loss_separator.py
+##### Geometry preparation
+  - contact_loss_separator_lma_geo.py
+  - contact_loss_separator_ref_geo.py

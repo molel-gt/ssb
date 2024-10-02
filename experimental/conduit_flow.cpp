@@ -104,6 +104,8 @@ double get_a(double w_over_L, double k){
 int main(int argc, char **argv){
     std::vector<double> w_over_L = {0.49, 0.45, 0.4, 0.35, 0.3, 0.25, 0.2, 0.15, 0.1, 0.05, 0.01};
     double k, b, h_L, w_L;
+    mode_t prec_mode = GSL_PREC_DOUBLE;
+    double eps = std::numeric_limits<double>::epsilon();
     fstream fin;
     fin.open("aspect-ratios.txt", ios::in);
 
@@ -121,30 +123,40 @@ int main(int argc, char **argv){
     ofstream fout, fout2;
     fout.open("geometric-ratios.csv");
     fout2.open("geometric-factors.csv");
-    fout2 << "k,b,a,h_over_L,w_over_L\n";
+    fout2 << "A,L,h,w,k,b,a,h_over_L,w_over_L\n";
     fout  << "aspect_ratio,b\n";
     for (auto & element : aspectratios){
+        h_L = element;
         try {
             k = get_k(element, 1.0);
             b = 1.0/k;
             fout << element << "," << std::setprecision(16) << b << "\n";
-            h_L = element;
         }
         catch (const std::invalid_argument& e) {
+            k = 1;
+            b = 1 / k;
             fout << element << "," << "-\n";
-            std::cout << "Could not converge for h/L = " << element << "\n" ;
+            std::cout << "Could not converge for h/L = " << element << "\n";
         }
 
         for (auto & element : w_over_L)
             {
                 try
                 {
-                    w_L = element;
-                    double a = get_a(w_L, k);
-                    printf("w/L: %lf, a: %lf, b: %lf\n", w_L, a, b);
-                    fout2 << std::setprecision(16) << k << "," << std::setprecision(16) << b << "," << std::setprecision(16) << a << "," << std::setprecision(16) << h_L << "," << std::setprecision(16) << w_L << "\n";
+                    if (fabs(k - 1) > eps){
+                        double kprime = get_kprime(k);
+                        double h = gsl_sf_ellint_Kcomp(kprime, prec_mode);
+                        w_L = element;
+                        double L = 2 * gsl_sf_ellint_Kcomp(k, prec_mode);
+                        double a = get_a(w_L, k);
+                        double w = 0.5 * L - gsl_sf_ellint_F(asin(a), k, prec_mode);
+                        printf("w/L: %lf, a: %lf, b: %lf\n", w_L, a, b);
+                        fout2 << std::setprecision(16) << 1/L << "," << std::setprecision(16) << L << ","<< std::setprecision(16) << h << "," << std::setprecision(16) << w << "," << std::setprecision(16) << k << "," << std::setprecision(16) << b << "," << std::setprecision(16) << a << "," << std::setprecision(16) << h_L << "," << std::setprecision(16) << w_L << "\n";
+                }
             }
-            catch (const std::invalid_argument& e) {std::cout << "Could not converge for w/L = " << w_L << " and for k = " << k << "\n" ;} 
+            catch (const std::invalid_argument& e) {
+                std::cout << "Could not converge for w/L = " << w_L << " and for k = " << k << "\n";
+            } 
         }
     }
     fout.close();
