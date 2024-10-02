@@ -49,5 +49,9 @@ mamba remove --name paraview --all
 
 find output/reaction_distribution/75-40-0/ -name "*.png" | xargs cp -t figures/secondary_current
 
+# stop docker from requiring sudo
+sudo usermod -aG docker $USER
+sudo setfacl -m user:$USER:rw /var/run/docker.sock
+
 # docker share current directory
 docker run -ti -v $(pwd):/root/shared -w /root/shared  dolfinx/dolfinx:nightly
