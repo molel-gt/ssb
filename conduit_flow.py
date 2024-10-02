@@ -80,14 +80,7 @@ if __name__ == '__main__':
 
     output_current_path = os.path.join(workdir, 'current.bp')
     output_potential_path = os.path.join(workdir, 'potential.bp')
-    frequency_path = os.path.join(workdir, 'frequency.csv')
     simulation_metafile = os.path.join(workdir, 'simulation.json')
-    left_values_path = os.path.join(workdir, 'left_values')
-    right_values_path = os.path.join(workdir, 'right_values')
-
-    left_cc_marker = markers.left
-    right_cc_marker = markers.right
-    insulated_marker = markers.insulated
 
     print("Loading mesh..")
     partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
@@ -111,8 +104,6 @@ if __name__ == '__main__':
     u = ufl.TrialFunction(V)
     v = ufl.TestFunction(V)
 
-    # bulk conductivity [S.m-1]
-    kappa = fem.Constant(domain, dtype(constants.KAPPA0))
     f = fem.Constant(domain, dtype(0.0))
     g = fem.Constant(domain, dtype(0.0))
 
@@ -121,7 +112,7 @@ if __name__ == '__main__':
     left_bc = fem.dirichletbc(dtype(args.p_in), inlet_dofs, V)
     right_bc = fem.dirichletbc(dtype(args.p_out), outlet_dofs, V)
 
-    a_vv = inner(kappa * grad(u), grad(v)) * dx
+    a_vv = inner(grad(u), grad(v)) * dx
     L_v = inner(f, v) * dx + inner(g, v) * ds(markers.insulated)
     print(f'Solving problem..')
 
@@ -132,7 +123,7 @@ if __name__ == '__main__':
         vtx.write(0.0)
 
     print("Post-process calculations")
-    W = fem.functionspace(domain, ("CG", 1, (3,)))
+    W = fem.functionspace(domain, ("CG", 2, (3,)))
     q_expr = fem.Expression(-(args.k / args.mu) * ufl.grad(uh), W.element.interpolation_points())
     q_h = fem.Function(W, name='current_density')
     q_h.interpolate(q_expr)
