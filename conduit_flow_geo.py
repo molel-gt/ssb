@@ -43,7 +43,7 @@ class Labels:
 
 
 
-def create_mesh(output_meshfile, markers, L=1, w_over_L=0.1, h_over_L=0.1, resolution=0.01, refine=True, **kwargs):
+def create_mesh(output_meshfile, markers, L=1, w_over_L=0.1, h_over_L=0.1, resolution=0.1, refine=True):
     """
     """
     points_bottom = [
@@ -83,7 +83,7 @@ def create_mesh(output_meshfile, markers, L=1, w_over_L=0.1, h_over_L=0.1, resol
     gmsh.model.addPhysicalGroup(1, [lines[3]], markers.outlet, "outlet")
     gmsh.model.addPhysicalGroup(1, [lines[4]], markers.inlet_outlet_separation, "inlet-outlet separation")
     gmsh.model.addPhysicalGroup(1, [lines[-1]], markers.inlet, "inlet")
-    gmsh.model.addPhysicalGroup(1, lines[:-3] + [lines[-2]], markers.insulated, "insulated")
+    gmsh.model.addPhysicalGroup(1, lines[:-3] + [lines[-2], lines[0], lines[1], lines[2]], markers.insulated, "insulated")
 
     if refine:
         gmsh.model.mesh.field.add("Distance", 1)
@@ -91,10 +91,10 @@ def create_mesh(output_meshfile, markers, L=1, w_over_L=0.1, h_over_L=0.1, resol
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
-        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution/5)
-        gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
-        gmsh.model.mesh.field.setNumber(2, "DistMin", resolution)
-        gmsh.model.mesh.field.setNumber(2, "DistMax", 5 * resolution)
+        gmsh.model.mesh.field.setNumber(2, "LcMin", L * resolution/5)
+        gmsh.model.mesh.field.setNumber(2, "LcMax", L * resolution)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", L * resolution)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", 5 * L * resolution)
 
         gmsh.model.mesh.field.add("Max", 5)
         gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
@@ -112,10 +112,11 @@ if __name__ == '__main__':
     parser.add_argument("--Lc", help="characteristic length", nargs='?', const=1, default=1.0, type=np.float16)
     parser.add_argument("--h_over_L", help="aspect ratio", nargs='?', const=1, default=0.1, type=np.float16)
     parser.add_argument("--w_over_L", help="aspect ratio of inlet/outlet", nargs='?', const=1, default=0.1, type=np.float16)
+    parser.add_argument("--resolution_lc", help="resolution relative to characteristic length", nargs='?', const=1, default=0.1, type=np.float16)
     args = parser.parse_args()
     mesh_folder = os.path.join("output", "conduit_flow")
     workdir = os.path.join(args.mesh_folder, str(args.Lc), str(args.h_over_L), str(args.w_over_L))
     utils.make_dir_if_missing(workdir)
     output_meshfile_path = os.path.join(workdir, "mesh.msh")
     markers = Labels()
-    create_mesh(output_meshfile_path, markers, L=args.Lc, h_over_L=args.h_over_L, w_over_L=args.w_over_L)
+    create_mesh(output_meshfile_path, markers, L=args.Lc, resolution=args.resolution_lc, h_over_L=args.h_over_L, w_over_L=args.w_over_L)

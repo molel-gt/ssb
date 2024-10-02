@@ -95,13 +95,7 @@ if __name__ == '__main__':
     tdim = domain.topology.dim
     fdim = tdim - 1
     domain.topology.create_connectivity(tdim, fdim)
-    # ft_imap = domain.topology.index_map(fdim)
-    # num_facets = ft_imap.size_local + ft_imap.num_ghosts
-    # indices = np.arange(0, num_facets)
-    # values = np.zeros(indices.shape, dtype=np.intc)  # all facets are tagged with zero
-    # values[ft.indices] = ft.values
-    # ft = mesh.meshtags(domain, fdim, indices, values)
-    # ct = mesh.meshtags(domain, domain.topology.dim, ct.indices, ct.values)
+
     inlet_boundary = ft.find(markers.inlet)
     outlet_boundary = ft.find(markers.outlet)
     print("done\n")
@@ -121,11 +115,7 @@ if __name__ == '__main__':
     kappa = fem.Constant(domain, dtype(constants.KAPPA0))
     f = fem.Constant(domain, dtype(0.0))
     g = fem.Constant(domain, dtype(0.0))
-    # curr_converged = False
-    # curr_cd = 0
-    # target_cd = 10  # A/m2
 
-    # A0 = Lx * Ly
     inlet_dofs = fem.locate_dofs_topological(V, fdim, inlet_boundary)
     outlet_dofs = fem.locate_dofs_topological(V, fdim, outlet_boundary)
     left_bc = fem.dirichletbc(dtype(args.p_in), inlet_dofs, V)
@@ -147,13 +137,17 @@ if __name__ == '__main__':
     q_h = fem.Function(W, name='current_density')
     q_h.interpolate(q_expr)
     norm_factor = (args.mu/args.k)*(args.Lc/np.abs(args.p_in - args.p_out))
-    q_tilde_in =  comm.allreduce(fem.assemble_scalar(fem.form(inner(q_h, n) * ds(markers.left))), op=MPI.SUM) * norm_factor
-    q_tilde_out =  comm.allreduce(fem.assemble_scalar(fem.form(inner(q_h, n) * ds(markers.right))), op=MPI.SUM) * norm_factor
+    deltaP = np.abs(args.p_in - args.p_out)
+    w = args.w_over_L * args.Lc
+    Q_in =  np.abs(comm.allreduce(fem.assemble_scalar(fem.form(inner(q_h, n) * ds(markers.inlet))), op=MPI.SUM))
+    Q_out =  np.abs(comm.allreduce(fem.assemble_scalar(fem.form(inner(q_h, n) * ds(markers.outlet))), op=MPI.SUM))
+    r_tilde_in = (args.k/args.mu) / (Q_in * args.Lc * deltaP)
+    r_tilde_out = (args.k/args.mu) / (Q_out * args.Lc * deltaP)
     simulation_metadata = {
-        "qtilde in": q_tilde_in,
-        "qtilde out": q_tilde_out,
-        "rtilde in": 1/q_tilde_in,
-        "rtilde out": 1/q_tilde_out,
+        "Q in": Q_in,
+        "Q out": Q_out,
+        "rtilde in": r_tilde_in,
+        "rtilde out": r_tilde_out,
         "h/L": args.h_over_L,
         "w/L": args.w_over_L,
         "Lc": args.Lc,
