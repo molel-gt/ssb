@@ -24,7 +24,6 @@ faraday_const = 96485
 kappa_pos_am = 0.1
 kinetics = ('linear', 'tafel', 'butler_volmer')
 micron = 1e-6
-kappa = 0.1
 
 
 def define_interior_eq(domain, degree,  submesh, submesh_to_mesh, value, kappa):
@@ -69,6 +68,10 @@ def arctanh(y):
 def ocv(c, cmax=35000):
     xi = 2 * (c - 0.5 * cmax) / cmax
     return 3.25 - 0.5 * arctanh(xi)
+
+
+def ocv_simple(c, cmax=35000):
+    return 4.2 * (1 - c/cmax) ** 2
 
 
 if __name__ == '__main__':
@@ -226,6 +229,7 @@ if __name__ == '__main__':
 
 
     n = ufl.FacetNormal(domain)
+    n2 = ufl.FacetNormal(submesh_positive_am)
     n_l = n(l_res)
     n_r = n(r_res)
     cr = ufl.Circumradius(domain)
@@ -242,20 +246,21 @@ if __name__ == '__main__':
     c0 = fem.Function(VC)
     cmax = 27000
     c0.interpolate(lambda x: x[0] - x[0] + 0.75*cmax)
-    c.interpolate(c0)
+    # c.interpolate(lambda x: x[0] - x[0] + 0.25 * cmax)
+    # c.interpolate(c0)
     q_r = ufl.TestFunction(c.function_space)(r_res)
     q_l = ufl.TestFunction(c.function_space)(l_res)
     c_r = c(r_res)
 
-    jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics) + ocv(c(r_res), cmax=cmax)
+    jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics) + ocv_simple(c(r_res), cmax=cmax)
 
     F_0 = (
-        -0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
+        -1/2 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
         - 0.5 * mixed_term(0.5 * (kappa_elec + kappa_pos_am) * v_l, (u_r - u_l - jump_u), n_l) * dInterface
     )
 
     F_1 = (
-        +0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, n_l) * dInterface
+        +1/2 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, n_l) * dInterface
         - 0.5 * mixed_term(0.5 * (kappa_elec + kappa_pos_am) * v_r, (u_r - u_l - jump_u), n_l) * dInterface
     )
     F_0 += 2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
@@ -264,7 +269,12 @@ if __name__ == '__main__':
     F_0 += F_00
     F_1 += F_11
 
-    F_2 = (c - c0) * q * dx_r + dt * D * inner(ufl.grad(c), ufl.grad(q)) * dx_r - dt * kappa_pos_am / faraday_const * inner(ufl.grad(u_r), n_r) * q_r * dInterface
+    F_2 = (c - c0)/dt * q * dx_r + D * inner(0.5 * ufl.grad(c + c0), ufl.grad(q)) * dx_r
+    # F_2 += inner(i0_p/(R * T) * (u_r - u_l - ocv_simple(c(r_res), cmax=cmax)), q_r) * dInterface
+    # F_2 += 1/faraday_const * inner(kappa_pos_am * grad(u_r), n_r) * q_r * dInterface
+    # F_2 += -inner(D*grad(c(r_res)), n_r) * q_r * dInterface + i0_p/(R * T) * (u_r - u_l - ocv_simple(c(r_res), cmax=cmax)) * q_r * dInterface
+    # F_2 += - gamma * h_r * inner(inner(D * grad(c(r_res)), n_r), inner(grad(q_r), n_r)) * dInterface
+    # F_2 -= - gamma * h_r *  i0_p/(R * T) * (u_r - u_l - ocv_simple(c(r_res), cmax=cmax)) * inner(grad(q_r), n_r) * dInterface
 
     jac00 = ufl.derivative(F_0, u_0)
     jac01 = ufl.derivative(F_0, u_1)
@@ -322,7 +332,7 @@ if __name__ == '__main__':
         J,
         [u_0, u_1, c],
         bcs=bcs,
-        max_iterations=100,
+        max_iterations=1000,
         petsc_options={
             "ksp_type": "preonly",
             "pc_type": "lu",
@@ -331,19 +341,32 @@ if __name__ == '__main__':
     )
     time = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
-    for i in range(10):
+    for i in range(1):
         time += dt
         print(time)
-        solver.solve(5e-3)
-        c0.x.array[:] = c.x.array[:]
+        solver.solve(tol=1e-6, beta=0.5)
+        c0.x.array[:] = c.x.array
         cvtx.write(time)
         I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
         I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
-        I_interface = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * grad(c_r), n_r) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+        I_interface = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * grad(c(r_res)), n_r) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+        # I_interface2 = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * grad(c), n2) * ds_r(markers.electrolyte_v_positive_am))), op=MPI.SUM)
         print(f"Current left: {I_left:.3e} [A]")
         print(f"Current interface: {I_interface:.3e} [A]")
+        # print(f"Current interface2: {I_interface2:.3e} [A]")
         print(f"Current right: {I_right:.3e} [A]")
     cvtx.close()
+
+    # interpolate
+    V = fem.functionspace(domain, ("DG", 1))
+    u = fem.Function(V)
+    u.interpolate(u_0, cells1=submesh_electrolyte_to_mesh, cells0=np.arange(len(submesh_electrolyte_to_mesh)))
+    u.interpolate(u_1, cells1=submesh_positive_am_to_mesh, cells0=np.arange(len(submesh_positive_am_to_mesh)))
+    u.x.scatter_forward()
+
+    with io.VTXWriter(comm, output_potential_file, [u], engine="BP5") as vtx:
+        vtx.write(0)
+
     with io.VTXWriter(comm, elec_potential_file, [u_0], engine="BP5") as vtx:
         vtx.write(0)
 

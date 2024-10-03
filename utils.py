@@ -84,3 +84,13 @@ def extract_dimensions_from_meshfolder(mesh_folder):
     dimensions = [part for part in parts if re.findall(r"\b\d+-\d+-\d+\b", part)]
 
     return dimensions[0]
+
+
+def get_surface_overpotential(kappa, i0, u, n, kinetics_type="butler_volmer"):
+    i_loc = -ufl.inner((kappa * ufl.grad(u))('+'), n("+"))
+    if kinetics_type == "butler_volmer":
+        return 2 * ufl.ln(0.5 * i_loc/i0 + ufl.sqrt((0.5 * i_loc/i0)**2 + 1)) * (R * T / faraday_const)
+    elif kinetics_type == "linear":
+        return R * T * i_loc / (i0 * faraday_const)
+    elif kinetics_type == "tafel":
+        return ufl.sign(i_loc) * R * T / (0.5 * faraday_const) * ufl.ln(np.abs(i_loc)/i_0)
