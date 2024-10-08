@@ -205,14 +205,10 @@ if __name__ == '__main__':
 
     inlet_boundary = ft.find(markers.inlet)
     outlet_boundary = ft.find(markers.outlet)
-
-    markers = commons.Markers()
     rank = comm.rank
     dtype = PETSc.ScalarType
     results_dir = os.path.join(mesh_folder, "hdg")
     utils.make_dir_if_missing(results_dir)
-    output_meshfile = os.path.join(mesh_folder, 'mesh.msh')
-    lines_h5file = os.path.join(mesh_folder, 'lines.h5')
     potential_resultsfile = os.path.join(results_dir, "potential.bp")
     u_resultsfile = os.path.join(results_dir, "u.bp")
     ubar_resultsfile = os.path.join(results_dir, "ubar.bp")
@@ -221,13 +217,13 @@ if __name__ == '__main__':
     simulation_metafile = os.path.join(results_dir, "simulation.json")
 
 
-    partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
-    domain, ct, ft = gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)
-    tdim = domain.topology.dim
-    fdim = tdim - 1
-    domain.topology.create_connectivity(tdim, fdim)
-    domain.topology.create_connectivity(tdim, tdim)
-    domain.topology.create_connectivity(fdim, fdim)
+    # partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
+    # domain, ct, ft = gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)
+    # tdim = domain.topology.dim
+    # fdim = tdim - 1
+    # domain.topology.create_connectivity(tdim, fdim)
+    # domain.topology.create_connectivity(tdim, tdim)
+    # domain.topology.create_connectivity(fdim, fdim)
 
     # tag internal facets as 0
     ft_imap = domain.topology.index_map(fdim)
@@ -241,74 +237,6 @@ if __name__ == '__main__':
 
     f_to_c = domain.topology.connectivity(fdim, tdim)
     c_to_f = domain.topology.connectivity(tdim, fdim)
-    charge_xfer_facets = ft.find(markers.electrolyte_v_positive_am)
-
-    int_facet_domain = []
-    for f in charge_xfer_facets:
-        if f >= ft_imap.size_local or len(f_to_c.links(f)) != 2:
-            continue
-        c_0, c_1 = f_to_c.links(f)[0], f_to_c.links(f)[1]
-        subdomain_0, subdomain_1 = ct.values[[c_0, c_1]]
-        local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
-        local_f_1 = np.where(c_to_f.links(c_1) == f)[0][0]
-        if subdomain_0 > subdomain_1:
-            int_facet_domain.append(c_0)
-            int_facet_domain.append(local_f_0)
-            int_facet_domain.append(c_1)
-            int_facet_domain.append(local_f_1)
-        else:
-            int_facet_domain.append(c_1)
-            int_facet_domain.append(local_f_1)
-            int_facet_domain.append(c_0)
-            int_facet_domain.append(local_f_0)
-
-    # other_internal_facets = np.hstack((ft.find(0), ft.find(markers.left), ft.find(markers.right), ft.find(markers.insulated)))
-    # other_internal_facet_domains = []
-    # for f in other_internal_facets:
-    #     # if f >= ft_imap.size_local or len(f_to_c.links(f)) != 2:
-    #     #     continue
-    #     if f >= ft_imap.size_local:
-    #         continue
-    #     else:
-    #          if len(f_to_c.links(f)) != 2:
-    #             c_0 = f_to_c.links(f)[0]
-    #             local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
-    #             other_internal_facet_domains.append(c_0)
-    #             other_internal_facet_domains.append(local_f_0)
-    #             continue
-    #     c_0, c_1 = f_to_c.links(f)[0], f_to_c.links(f)[1]
-    #     subdomain_0, subdomain_1 = ct.values[[c_0, c_1]]
-    #     local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
-    #     local_f_1 = np.where(c_to_f.links(c_1) == f)[0][0]
-    #     other_internal_facet_domains.append(c_0)
-    #     other_internal_facet_domains.append(local_f_0)
-    #     other_internal_facet_domains.append(c_1)
-    #     other_internal_facet_domains.append(local_f_1)
-    int_facet_domains = [(markers.electrolyte_v_positive_am, int_facet_domain)]  #, (0, other_internal_facet_domains)]
-
-    dS = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains)
-
-    phase1 = markers.electrolyte
-    phase2 = markers.positive_am
-    phase1_facets = compute_cell_boundary_facets(domain, ct, phase1)
-    phase1_interface_facets = compute_interface_cell_boundary_facets(domain, ct, ft, markers.electrolyte, markers.electrolyte_v_positive_am)
-    phase2_facets = compute_cell_boundary_facets(domain, ct, phase2)
-    phase2_interface_facets = compute_interface_cell_boundary_facets(domain, ct, ft, markers.positive_am, markers.electrolyte_v_positive_am)
-
-
-    out_arr1 = delete_numpy_rows(phase1_facets, phase1_interface_facets)
-    out_arr2 = delete_numpy_rows(phase2_facets, phase2_interface_facets)
-    print(out_arr1.shape)
-    print(out_arr2.shape)
-    phase_1_facets = out_arr1.flatten()
-    phase_1_interface_facets = np.array(phase1_interface_facets).flatten()
-    phase_2_facets = out_arr2.flatten()
-    # non_charge_xfer_facets = np.vstack([out_arr1, out_arr2])
-    # print(non_charge_xfer_facets.shape)
-    # non_charge_xfer_facets = non_charge_xfer_facets.flatten()
-    phase_2_interface_facets = np.array(phase2_interface_facets).flatten()
-    # ds_c = ufl.Measure("ds", subdomain_data=[(1, non_charge_xfer_facets), (2, phase1_interface_facets), (3, phase2_interface_facets)], domain=domain)
-
 
     # # # Create the sub-mesh
     facet_mesh, facet_mesh_to_mesh, _, _ = mesh.create_submesh(domain, fdim, ft.indices)
@@ -316,15 +244,7 @@ if __name__ == '__main__':
     mesh_to_facet_mesh[facet_mesh_to_mesh] = np.arange(len(facet_mesh_to_mesh))
     entity_maps = {facet_mesh: mesh_to_facet_mesh}
 
-    # properties
-    Q = fem.functionspace(domain, ('DG', 0))
-    kappa = fem.Function(Q)
-    cells_elec = ct.find(markers.electrolyte)
-    kappa.x.array[cells_elec] = np.full_like(cells_elec, kappa_elec, dtype=dtype)
-
-    kappa_pos_am = kappa_elec / kr
-    cells_pos_am = ct.find(markers.positive_am)
-    kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, kappa_pos_am, dtype=dtype)
+    kappa = 1
 
     # function spaces
     k = 3
@@ -344,9 +264,6 @@ if __name__ == '__main__':
     # Cell boundaries
     # We need to define an integration measure to integrate around the
     # boundary of each cell.
-
-    ds_c = ufl.Measure("ds", subdomain_data=[(1, np.hstack((phase_1_facets, phase2, phase_2_facets))), (2, phase_1_interface_facets), (3, phase_2_interface_facets)], domain=domain)
-    # ds_c = ufl.Measure("ds", subdomain_data=[(phase1, phase_1_facets), (phase2, phase_2_facets)], domain=domain)
     dS = ufl.Measure("dS", domain=domain, subdomain_data=ft)
     ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
     # Create a cell integral measure over the facet mesh
@@ -359,8 +276,8 @@ if __name__ == '__main__':
 
     x = ufl.SpatialCoordinate(domain)
 
-    left_boundary = ft.find(markers.left)
-    right_boundary = ft.find(markers.right)
+    left_boundary = ft.find(markers.outlet)
+    right_boundary = ft.find(markers.inlet)
 
     # Since the boundary condition is enforced in the facet space, we must
     # use the mesh_to_facet_mesh map to get the corresponding facets in
@@ -371,25 +288,21 @@ if __name__ == '__main__':
     facet_mesh.topology.create_connectivity(fdim, fdim)
     left_dofs = fem.locate_dofs_topological(Vbar, fdim, left_facet_mesh_boundary_facets)
     right_dofs = fem.locate_dofs_topological(Vbar, fdim, right_facet_mesh_boundary_facets)
-    left_bc = fem.dirichletbc(dtype(0.0), left_dofs, Vbar)
-    right_bc = fem.dirichletbc(dtype(voltage), right_dofs, Vbar)
+    left_bc = fem.dirichletbc(dtype(args.p_out), left_dofs, Vbar)
+    right_bc = fem.dirichletbc(dtype(args.p_in), right_dofs, Vbar)
     bcs = [left_bc, right_bc]
 
 
     F0 = kappa * inner(grad(u), grad(v)) * dx_c
-    F0 += - kappa * inner(u - ubar, inner(grad(v), n)) * ds_c(1)#(ds_c(phase1) + ds_c(phase2))
+    F0 += - kappa * inner(u - ubar, inner(grad(v), n)) * ds
 
-    F0 += + kappa * inner(grad(u), n) * v * ds_c(1)#(ds_c(phase1) + ds_c(phase2))
+    F0 += + kappa * inner(grad(u), n) * v * ds
 
-    F0 += + gamma * kappa * inner(u - ubar, v) * ds_c(1)#(ds_c(phase1) + ds_c(phase2))
+    F0 += + gamma * kappa * inner(u - ubar, v) * ds
 
-    F1 = kappa * inner(grad(u), n) * vbar * ds_c(1)#(ds_c(phase1) + ds_c(phase2))
+    F1 = kappa * inner(grad(u), n) * vbar * ds
 
-    F1 += - gamma * kappa * inner(u - ubar, vbar) * ds_c(1)#(ds_c(phase1) + ds_c(phase2))
-
-
-    # In[20]:
-
+    F1 += - gamma * kappa * inner(u - ubar, vbar) * ds
 
     jac00 = ufl.derivative(F0, u)
     jac01 = ufl.derivative(F0, ubar)
@@ -441,12 +354,12 @@ if __name__ == '__main__':
     current_cg = fem.Function(W_CG)
     current_expr = fem.Expression(-grad(u_dg), W_CG.element.interpolation_points())
     current_cg.interpolate(current_expr)
-    I_left = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-kappa * grad(u_dg), n) * ds(markers.left))), op=MPI.SUM)
-    I_middle = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-(kappa * grad(u_dg))('+'), n('+')) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
-    I_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-kappa * grad(u_dg), n) * ds(markers.right))), op=MPI.SUM)
+    I_left = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-kappa * grad(u_dg), n) * ds(markers.inlet))), op=MPI.SUM)
+    # I_middle = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-(kappa * grad(u_dg))('+'), n('+')) * dsS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
+    I_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-kappa * grad(u_dg), n) * ds(markers.outlet))), op=MPI.SUM)
     I_insulated = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(-kappa * grad(u_dg), n)) * ds(markers.insulated))), op=MPI.SUM)
     print(f"I_left       : {np.abs(I_left):.4e} A")
-    print(f"I_middle     : {np.abs(I_middle):.4e} A")
+    # print(f"I_middle     : {np.abs(I_middle):.4e} A")
     print(f"I_right      : {np.abs(I_right):.4e} A")
     print(f"I_insulated  : {np.abs(I_insulated):.4e} A")
     with VTXWriter(domain.comm, potential_resultsfile, u_dg, "bp5") as f:
