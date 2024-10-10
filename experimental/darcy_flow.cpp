@@ -174,7 +174,7 @@ int main(int argc, char** argv){
    - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
     PetscCall(VecGetArray(x, &xx));
     xx[0] = 2.0;
-    xx[1] = 1.25;
+    xx[1] = 0.75;
     xx[2] = 1.5;
     PetscCall(VecRestoreArray(x, &xx));
   /*
@@ -213,6 +213,9 @@ PetscErrorCode FormFunction(SNES snes, Vec x, Vec f, void *ctx){
     double A = xx[0];
     double a = xx[1];
     double b = xx[2];
+    PetscCall(PetscPrintf(PETSC_COMM_WORLD, "A: %f\n", A));
+    PetscCall(PetscPrintf(PETSC_COMM_WORLD, "a: %f\n", a));
+    PetscCall(PetscPrintf(PETSC_COMM_WORLD, "b: %f\n", b));
     
     double L = parameters->L;
     double w = parameters->w;
@@ -240,6 +243,10 @@ PetscErrorCode FormFunction(SNES snes, Vec x, Vec f, void *ctx){
 PetscErrorCode FormJacobian(SNES snes, Vec x, Mat jac, Mat B, void *ctx){
     gsl_mode_t precision = GSL_PREC_DOUBLE;
     const PetscScalar *xx;
+
+    PetscFunctionBeginUser;
+
+    PetscCall(VecGetArrayRead(x, &xx));
     double A = xx[0];
     double a = xx[1];
     double b = xx[2];
@@ -252,9 +259,6 @@ PetscErrorCode FormJacobian(SNES snes, Vec x, Mat jac, Mat B, void *ctx){
     PetscScalar M[9];
     PetscInt idx[3] = {0, 1, 2};
 
-    PetscFunctionBeginUser;
-
-    PetscCall(VecGetArrayRead(x, &xx));
     /*
         Form Jacobian
     */
