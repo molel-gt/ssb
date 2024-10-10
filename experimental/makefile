@@ -35,6 +35,10 @@ conduit_flow: conduit_flow.o
 	-${CLINKER} -o conduit_flow conduit_flow.o -L${HOME}/opt/lib -lgsl -lblas -lm -lstdc++
 	${RM} conduit_flow.o
 
+darcy_flow: darcy_flow.o
+	-${CLINKER} -o darcy_flow darcy_flow.o ${PETSC_LIB} -L${HOME}/opt/lib -lgsl -lblas -lm -lstdc++ -lboost_program_options
+	${RM} darcy_flow.o
+
 # all: conduit_flow
 
 # conduit_flow: conduit_flow.o
