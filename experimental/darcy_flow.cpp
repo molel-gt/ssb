@@ -70,13 +70,12 @@ double dkprime_dk(double k){
 
 extern PetscErrorCode FormFunction(SNES, Vec, Mat, Mat, void *);
 extern PetscErrorCode FormJacobian(SNES, Vec, Mat, Mat, void *);
-typedef struct {
-    double L;
-    double h;
-    double w;
-} AppCtx;
 
-PetscErrorCode InitializeProblem(AppCtx *, double L, double h, double w);
+typedef struct {
+    PetscReal L;
+    PetscReal h;
+    PetscReal w;
+} AppCtx;
 
 int main(int argc, char** argv){
     // Declare the supported options.
@@ -95,11 +94,16 @@ int main(int argc, char** argv){
         return 1;
     }
     // struct Parameters *parameters;
-    AppCtx parameters;
+    AppCtx *parameters;
     
     double L = vm["L"].as<double>();
     double w = L / (2 + vm["s_w"].as<double>());
     double h = w * vm["h_w"].as<double>();
+    PetscCall(PetscCalloc1(1, &parameters));
+
+    parameters->L = L;
+    parameters->h = h;
+    parameters->w = w;
     
     SNES        snes; /* nonlinear solver context */
     KSP         ksp;  /* linear solver context */
@@ -112,7 +116,7 @@ int main(int argc, char** argv){
     PetscFunctionBeginUser;
     PetscCall(PetscInitialize(&argc, &argv, NULL, "Newton method to compute A, a, and b given L s/w and h/w."));
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &size));
-    PetscCall(InitializeProblem(&parameters, L, h, w));
+    // PetscCall(InitializeProblem(&parameters, L, h, w));
     //PetscCheck(size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "Example is only for sequential runs");
 
     /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -140,8 +144,8 @@ int main(int argc, char** argv){
     PetscCall(MatSetSizes(J, PETSC_DECIDE, PETSC_DECIDE, 3, 3));
     PetscCall(MatSetFromOptions(J));
     PetscCall(MatSetUp(J));
-    PetscCall(SNESSetFunction(snes, r, FormFunction, (void *) &parameters));
-    PetscCall(SNESSetJacobian(snes, J, J, FormJacobian, (void *) &parameters));
+    PetscCall(SNESSetFunction(snes, r, FormFunction, parameters));
+    PetscCall(SNESSetJacobian(snes, J, J, FormJacobian, parameters));
 
   /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
      Customize nonlinear solver; set runtime options
@@ -191,19 +195,13 @@ int main(int argc, char** argv){
   PetscCall(VecDestroy(&r));
   PetscCall(MatDestroy(&J));
   PetscCall(SNESDestroy(&snes));
+  PetscCall(PetscFree(parameters));
   PetscCall(PetscFinalize());
   return 0;
 }
 
-PetscErrorCode InitializeProblem(AppCtx *ctx, double L, double h, double w){
-    PetscFunctionBeginUser;
-    ctx->L = L;
-    ctx->h = h;
-    ctx->w = w;
-    PetscFunctionReturn(PETSC_SUCCESS);
-}
-
 PetscErrorCode FormFunction(SNES snes, Vec x, Vec f, void *ctx){
+    AppCtx *parameters = (AppCtx *)ctx;
     PetscFunctionBeginUser;
 
     gsl_mode_t precision = GSL_PREC_DOUBLE;
@@ -212,7 +210,7 @@ PetscErrorCode FormFunction(SNES snes, Vec x, Vec f, void *ctx){
     double A = xx[0];
     double a = xx[1];
     double b = xx[2];
-    AppCtx *parameters = (AppCtx *)ctx;
+    
     double L = parameters->L;
     double w = parameters->w;
     double h = parameters->h;
