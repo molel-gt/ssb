@@ -273,7 +273,8 @@ PetscErrorCode FormJacobian(SNES snes, Vec x, Mat jac, Mat B, void *ctx){
 
     M[6] = k * gsl_sf_ellint_F(phi, k, precision);
     M[7] = A * k / sqrt((1 - pow(a, 2)) * (pow(b, 2) - pow(a, 2)));
-    M[8] = -pow(k, 2) * gsl_sf_ellint_Kcomp(k, precision - pow(k, 3) * dFphik_dk(k, phi, precision));
+    // M[8] = -pow(k, 2) * gsl_sf_ellint_Kcomp(k, precision - pow(k, 3) * dFphik_dk(k, phi, precision));
+    M[8] = -2*pow(k, 3) * (gsl_sf_ellint_E(phi, k, precision)/(2*(1 - pow(k, 2))*pow(k, 2)) - gsl_sf_ellint_F(phi, k, precision)/(2*pow(k, 2)) - sin(2*phi)/(4*(1 - pow(k, 2))*sqrt(1 - pow(k*sin(phi), 2))));
 
     PetscCall(MatSetValues(B, 3, idx, 3, idx, M, INSERT_VALUES));
     PetscCall(VecRestoreArrayRead(x, &xx));
