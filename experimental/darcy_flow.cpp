@@ -68,7 +68,7 @@ double dkprime_dk(double k){
 //     return parameters;
 // }
 
-extern PetscErrorCode FormFunction(SNES, Vec, Mat, Mat, void *);
+extern PetscErrorCode FormFunction(SNES, Vec, Vec, void *);
 extern PetscErrorCode FormJacobian(SNES, Vec, Mat, Mat, void *);
 
 typedef struct {
@@ -207,6 +207,9 @@ PetscErrorCode FormFunction(SNES snes, Vec x, Vec f, void *ctx){
     gsl_mode_t precision = GSL_PREC_DOUBLE;
     const PetscScalar *xx;
     PetscScalar       *ff;
+    PetscCall(VecGetArrayRead(x, &xx));
+    PetscCall(VecGetArray(f, &ff));
+
     double A = xx[0];
     double a = xx[1];
     double b = xx[2];
@@ -220,10 +223,6 @@ PetscErrorCode FormFunction(SNES snes, Vec x, Vec f, void *ctx){
     double phi = asin(a);
     double kprime = sqrt(1 - pow(k, 2));
 
-    
-
-    PetscCall(VecGetArrayRead(x, &xx));
-    PetscCall(VecGetArray(f, &ff));
     /*
     Compute Function
     */
