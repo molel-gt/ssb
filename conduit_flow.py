@@ -3,7 +3,6 @@ import argparse
 import json
 import os
 import gmsh
-import matplotlib.pyplot as plt
 import numpy as np
 import ufl
 
