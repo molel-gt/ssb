@@ -39,6 +39,10 @@ darcy_flow: darcy_flow.o
 	-${CLINKER} -o darcy_flow darcy_flow.o ${PETSC_LIB} -L${HOME}/opt/lib -lgsl -lblas -lm -lstdc++ -lboost_program_options
 	${RM} darcy_flow.o
 
+schwarz_christoffel: schwarz_christoffel.o
+	-${CLINKER} -o schwarz_christoffel schwarz_christoffel.o ${PETSC_LIB} -L${HOME}/opt/lib -lgsl -lblas -lm -lstdc++ -lboost_program_options
+	${RM} schwarz_christoffel.o
+
 # all: conduit_flow
 
 # conduit_flow: conduit_flow.o
