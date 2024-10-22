@@ -14,24 +14,25 @@
 #include <string>
 #include <vector>
 
+const int N = 4;  // default number of vertices
 using namespace std;
 
 struct Parameters {
     gsl_complex A;
-    std::pair<double, double> coefs[];
+    std::pair<gsl_complex, double> coefs[N];
     // double angles[]; // multiples of pi
     // double prevertices[];
 };
 
 gsl_complex dz_dt(gsl_complex t, void *p){
     struct Parameters *params = (struct Parameters *)p;
-    int n = sizeof(params->coefs) / (sizeof(params->coefs[0].first));
+    // int n = sizeof(params->coefs) / (sizeof(params->coefs[0].first));
     gsl_complex res = params->A;
-    for (int i=0; i < n; i++){
+    for (int i=0; i < N; i++){
         res = gsl_complex_mul(res,
-                              gsl_complex_pow(
-                                              gsl_complex_add_real(gsl_complex_div(-1* t, params->coefs[i][0]), 1),
-                                              params->coefs[i][1])
+                              gsl_complex_pow_real(
+                                              gsl_complex_add_real(gsl_complex_div(gsl_complex_negative(t), params->coefs[i].first), 1),
+                                              params->coefs[i].second)
                               );
     }
     return res;
