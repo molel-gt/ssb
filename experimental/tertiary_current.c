@@ -10,9 +10,11 @@ typedef struct {
     PetscReal T; // temperature [K]
     PetscReal F;  // Faraday constant [C/mol]
     PetscReal h;     /* mesh spacing */
-    PetscMPIInt rank;
+    // PetscMPIInt rank;
     PetscMPIInt size;
+    PetscMPIInt N;
     // DM da; // distributed array
+    PetscReal gamma;
 } AppCtx;
 
 int main(int argc, char **argv)
@@ -29,8 +31,9 @@ int main(int argc, char **argv)
 
     PetscFunctionBeginUser;
     PetscInitialize(&argc, &argv, NULL, help);
-    PetscCallMPI(MPI_Comm_rank(PETSC_COMM_WORLD, &ctx.rank));
+    // PetscCallMPI(MPI_Comm_rank(PETSC_COMM_WORLD, &ctx.rank));
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &ctx.size));
+    PetscCheck(ctx.size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "Example is only for sequential runs");
     PetscCall(PetscOptionsGetInt(NULL, NULL, "-n", &Nel, NULL));
     ctx.h = 1.0 / Nel;
     N = Nel; // discontinuity at midpoint with dirichlet bc at both ends
@@ -40,6 +43,8 @@ int main(int argc, char **argv)
     PetscInt j[1] = {N - 1};
 
     PetscCall(SNESCreate(PETSC_COMM_WORLD, &snes));
+    PetscCall(SNESSetType(snes, SNESNEWTONLS));
+    PetscCall(SNESSetOptionsPrefix(snes, "mysolver_"));
     // PetscCall(DMDACreate1d(PETSC_COMM_WORLD, DM_BOUNDARY_NONE, N, 1, 1, NULL, &ctx.da));
     // PetscCall(DMSetFromOptions(ctx.da));
     // PetscCall(DMSetUp(ctx.da))
@@ -106,17 +111,46 @@ int main(int argc, char **argv)
     fclose(fid);
     VecRestoreArray(x, &abb);
 
-    MatDestroy(&A);
-    VecDestroy(&b);
-    VecDestroy(&x);
-    KSPDestroy(&ksp);
+    PetscCall(MatDestroy(&A));
+    PetscCall(VecDestroy(&b));
+    PetscCall(VecDestroy(&x));
+    PetscCall(KSPDestroy(&ksp));
+    PetscCall(MatDestroy(&J));
+    PetscCall(SNESDestroy(&snes));
     return PetscFinalize();
 }
 
 PetscErrorCode FormFunction(SNES snes, Vec x, Vec f, void *ctx){
     AppCtx *user = (AppCtx *)ctx;
+    const PetscScalar *xx;
+    PetscScalar *ff;
+    PetscReal gamma = ctx->gamma;
+    PetscReal h = ctx->h;
+    PetscInt nl = 1.0;
+    PetscInt nr = -1.0;
+
     PetscFunctionBeginUser;
 
+    for (i = 0; i < user->N; i++){
+        if (i == 0){
+            ff[i] = 2.0/h * xx[i] - 1.0/h*xx[i+1];
+        }
+        else if(1 <= i <= 3 || 6 <= i <= 9){
+            ff[i] = -1/h * xx[i-1] + 2/h * xx[i] -1 ** xx[i+1];
+        }
+        else if(i == 4){// left of discontinuity
+            ff[i] = -0.5 * (1.0/h * xx[i] + 1.0/h * xx[i+1])*nl - 0.5 * (1.0/h*xx[i+1] - 1.0/h*xx[i])*nl + 2 * gamma/h*(1.0/h*xx[i+1] - 1.0/h*xx[i])*nl;
+        }
+        else if(i == 5){// right of discontinuity
+            ff[i] = 0.5 * (1.0/h * xx[i-1] + 1.0/h * xx[i])*nr - 0.5 * (1.0/h*xx[i] - 1.0/h*xx[i-1])*nr - 2 * gamma/h * (1.0/h*xx[i] - 1.0/h*xx[i-1])*nr;
+        }
+        else{
+            ff[i] = -1.0/h * xx[i-1] + 2.0/h ** xx[i] - (ctx->N - 1)
+        }
+    }
+
+    PetscCall(VecRestoreArrayRead(x, &xx));
+    PetscCall(VecRestoreArray(f, &ff));
     PetscFunctionReturn(PETSC_SUCCESS);
 }
 
