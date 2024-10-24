@@ -1,7 +1,7 @@
 #include <petsc.h>
 
-extern PetscErrorCode formJacobian(SNES, Vec, Mat, Mat, void *);
-extern PetscErrorCode formFunction(SNES, Vec, Vec, void *);
+extern PetscErrorCode FormJacobian(SNES, Vec, Mat, Mat, void *);
+extern PetscErrorCode FormFunction(SNES, Vec, Vec, void *);
 
 typedef struct {
     PetscReal R;
