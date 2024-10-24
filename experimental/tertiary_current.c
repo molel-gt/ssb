@@ -1,27 +1,49 @@
 #include <petsc.h>
 
-extern PetscErrorCode FormJacobian(SNES, Vec, Mat, Mat, void *);
+static char help[] = "Tertiary current distribution\n";
+
 extern PetscErrorCode FormFunction(SNES, Vec, Vec, void *);
+extern PetscErrorCode FormJacobian(SNES, Vec, Mat, Mat, void *);
 
 typedef struct {
-    PetscReal R;
-    PetscReal T;
-    PetscReal F;
+    PetscReal R; // gas constant [J/K/mol]
+    PetscReal T; // temperature [K]
+    PetscReal F;  // Faraday constant [C/mol]
+    PetscReal h;     /* mesh spacing */
+    PetscMPIInt rank;
+    PetscMPIInt size;
+    // DM da; // distributed array
 } AppCtx;
 
 int main(int argc, char **argv)
 {
+    SNES snes;
+    SNESLineSearch linesearch;
+    PC pc;
     Mat A;
-    Vec b, x;
+    Mat J; // Jacobian matrix
+    Vec b, x, r;
     KSP ksp;
-    int Nel = 10;
-    int N = Nel - 1; // remove rows corresponding to dirichlet bc
-    double h = 1.0 / Nel; 
-    int i;
-    double ab[1] = {1.0/h};
-    int j[1] = {N - 1};
+    AppCtx ctx;
+    PetscInt N, Nel; // Number of nodes, Number of elements
 
-    PetscInitialize(&argc, &argv, NULL, "ksp problem solution");
+    PetscFunctionBeginUser;
+    PetscInitialize(&argc, &argv, NULL, help);
+    PetscCallMPI(MPI_Comm_rank(PETSC_COMM_WORLD, &ctx.rank));
+    PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &ctx.size));
+    PetscCall(PetscOptionsGetInt(NULL, NULL, "-n", &Nel, NULL));
+    ctx.h = 1.0 / Nel;
+    N = Nel; // discontinuity at midpoint with dirichlet bc at both ends
+    PetscReal ab[1] = {1.0/h}; // because of dirichlet bc at right boundary
+    // row and col indices
+    PetscInt i;
+    PetscInt j[1] = {N - 1};
+
+    PetscCall(SNESCreate(PETSC_COMM_WORLD, &snes));
+    // PetscCall(DMDACreate1d(PETSC_COMM_WORLD, DM_BOUNDARY_NONE, N, 1, 1, NULL, &ctx.da));
+    // PetscCall(DMSetFromOptions(ctx.da));
+    // PetscCall(DMSetUp(ctx.da))
+    
     VecCreate(PETSC_COMM_WORLD, &b);
     VecSetSizes(b, PETSC_DECIDE, N);
     VecSetFromOptions(b);
@@ -89,4 +111,18 @@ int main(int argc, char **argv)
     VecDestroy(&x);
     KSPDestroy(&ksp);
     return PetscFinalize();
+}
+
+PetscErrorCode FormFunction(SNES snes, Vec x, Vec f, void *ctx){
+    AppCtx *user = (AppCtx *)ctx;
+    PetscFunctionBeginUser;
+
+    PetscFunctionReturn(PETSC_SUCCESS);
+}
+
+PetscErrorCode FormJacobian(SNES snes, Vec x, Mat jac, Mat B, void *ctx){
+    AppCtx *user = (AppCtx *)ctx;
+    PetscFunctionBeginUser;
+
+    PetscFunctionReturn(PETSC_SUCCESS);
 }
