@@ -28,7 +28,7 @@ secondary_current: secondary_current.o
 	${RM} secondary_current.o
 
 tertiary_current: tertiary_current.o
-	-${CLINKER} -o tertiary_current tertiary_current.o ${PETSC_LIB} ${SLEPC_EPS_LIB}
+	-${CLINKER} -o tertiary_current tertiary_current.o ${PETSC_LIB}
 	${RM} tertiary_current.o
 
 conduit_flow: conduit_flow.o
