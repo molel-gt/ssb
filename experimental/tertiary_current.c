@@ -1,5 +1,13 @@
 #include <petsc.h>
-#include <slepc.h>
+
+extern PetscErrorCode formJacobian(SNES, Vec, Mat, Mat, void *);
+extern PetscErrorCode formFunction(SNES, Vec, Vec, void *);
+
+typedef struct {
+    PetscReal R;
+    PetscReal T;
+    PetscReal F;
+} AppCtx;
 
 int main(int argc, char **argv)
 {
@@ -49,27 +57,6 @@ int main(int argc, char **argv)
 
     }
     MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY); MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
-
-    // calculation of condition number
-    PetscInt nconv, ii;
-    EPS eps;  // eigensolver context
-    Vec xr, xi; // eigen vectors
-    PetscScalar kr, ki; // eigenvalues
-    PetscCall(SlepcInitialize(&argc,&argv,(char*)0,NULL));
-    PetscCall(MatCreateVecs(A, NULL, &xr));
-    PetscCall(MatCreateVecs(A, NULL, &xi));
-    PetscCall(EPSCreate(PETSC_COMM_WORLD, &eps));
-    PetscCall(EPSSetOperators(eps, A, NULL));
-    PetscCall(EPSSetProblemType(eps, EPS_HEP));
-    PetscCall(EPSSetFromOptions(eps));
-    PetscCall(EPSSolve(eps));
-    PetscCall(EPSGetConverged(eps, &nconv));
-    for (ii = 0; ii < nconv; ii++){
-        PetscCall(EPSGetEigenpair(eps, ii, &kr, &ki, xr, xi));
-    }
-    // PetscCall(PetscPrintf(PETSC_COMM_WORLD, "           k          ||Ax-kx||/||kx||\n"
-    //     "   ----------------- ------------------\n"));
-    EPSDestroy(&eps);
 
     VecDuplicate(b, &x);
     KSPCreate(PETSC_COMM_WORLD, &ksp);
