@@ -6,9 +6,9 @@ extern PetscErrorCode FormFunction(SNES, Vec, Vec, void *);
 extern PetscErrorCode FormJacobian(SNES, Vec, Mat, Mat, void *);
 
 typedef struct {
-    PetscReal R; // gas constant [J/K/mol]
-    PetscReal T; // temperature [K]
-    PetscReal F;  // Faraday constant [C/mol]
+    // PetscReal R; // gas constant [J/K/mol]
+    // PetscReal T; // temperature [K]
+    // PetscReal F;  // Faraday constant [C/mol]
     PetscReal h;     /* mesh spacing */
     // PetscMPIInt rank;
     PetscMPIInt size;
@@ -27,7 +27,7 @@ int main(int argc, char **argv)
     Vec x, r;
     KSP ksp;
     AppCtx ctx;
-    PetscInt N, Nel; // Number of nodes, Number of elements
+    PetscInt N; // Number of nodes/elements
     PetscScalar *xx;
 
     PetscFunctionBeginUser;
@@ -35,9 +35,12 @@ int main(int argc, char **argv)
     // PetscCallMPI(MPI_Comm_rank(PETSC_COMM_WORLD, &ctx.rank));
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &ctx.size));
     PetscCheck(ctx.size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "Example is only for sequential runs");
-    PetscCall(PetscOptionsGetInt(NULL, NULL, "-n", &Nel, NULL));
-    ctx.h = 1.0 / Nel;
-    N = Nel; // discontinuity at midpoint with dirichlet bc at both ends
+    PetscCall(PetscOptionsGetInt(NULL, NULL, "-n", &ctx.N, NULL));
+    
+    N = ctx.N; // discontinuity at midpoint with dirichlet bc at both ends
+    ctx.h = 1.0 / N;
+    ctx.gamma = 15.0;
+    // ctx.N = N;
     // PetscReal ab[1] = {1.0/ctx.h}; // because of dirichlet bc at right boundary
     // row and col indices
     // PetscInt i;
@@ -61,8 +64,8 @@ int main(int argc, char **argv)
     PetscCall(MatSetUp(J));
 
     /* set utility functions */
-    PetscCall(SNESSetFunction(snes, r, FormFunction, NULL));
-    PetscCall(SNESSetJacobian(snes, J, J, FormJacobian, NULL));
+    PetscCall(SNESSetFunction(snes, r, FormFunction, &ctx));
+    PetscCall(SNESSetJacobian(snes, J, J, FormJacobian, &ctx));
 
     PetscCall(SNESGetKSP(snes, &ksp));
     PetscCall(KSPGetPC(ksp, &pc));
