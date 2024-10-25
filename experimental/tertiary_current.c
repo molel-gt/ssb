@@ -20,45 +20,40 @@ typedef struct {
 int main(int argc, char **argv)
 {
     SNES snes;
-    // SNESLineSearch linesearch;
     PC pc;
-    // Mat A;
     Mat J; // Jacobian matrix
     Vec x, r;
     KSP ksp;
     AppCtx ctx;
     PetscInt N; // Number of nodes/elements
     PetscScalar *xx;
+    MPI_Comm comm;
 
     PetscFunctionBeginUser;
     PetscInitialize(&argc, &argv, NULL, help);
     // PetscCallMPI(MPI_Comm_rank(PETSC_COMM_WORLD, &ctx.rank));
+    comm = PETSC_COMM_WORLD;
     PetscCallMPI(MPI_Comm_size(PETSC_COMM_WORLD, &ctx.size));
-    PetscCheck(ctx.size == 1, PETSC_COMM_WORLD, PETSC_ERR_WRONG_MPI_SIZE, "Example is only for sequential runs");
+    PetscCheck(ctx.size == 1, comm, PETSC_ERR_WRONG_MPI_SIZE, "Example is only for sequential runs");
     PetscCall(PetscOptionsGetInt(NULL, NULL, "-n", &ctx.N, NULL));
     
     N = ctx.N; // discontinuity at midpoint with dirichlet bc at both ends
-    ctx.h = 1.0 / N;
+    ctx.h = 1.0 / (N - 1);
     ctx.gamma = 15.0;
-    // ctx.N = N;
-    // PetscReal ab[1] = {1.0/ctx.h}; // because of dirichlet bc at right boundary
-    // row and col indices
-    // PetscInt i;
-    // PetscInt j[1] = {N - 1};
 
-    PetscCall(SNESCreate(PETSC_COMM_WORLD, &snes));
-    PetscCall(SNESSetType(snes, SNESNEWTONLS));
+    PetscCall(SNESCreate(comm, &snes));
+    PetscCall(SNESSetType(snes, SNESNCG));
     PetscCall(SNESSetOptionsPrefix(snes, "mysolver_"));
 
     /*create required vectors and matrices*/
-    PetscCall(VecCreate(PETSC_COMM_WORLD, &x));
+    PetscCall(VecCreate(comm, &x));
     PetscCall(VecSetSizes(x, PETSC_DECIDE, ctx.N));
     PetscCall(VecSetFromOptions(x));
     PetscCall(VecDuplicate(x, &r));
 
     /* create jacobian matrix structure */
 
-    PetscCall(MatCreate(PETSC_COMM_WORLD, &J));
+    PetscCall(MatCreate(comm, &J));
     PetscCall(MatSetSizes(J, PETSC_DECIDE, PETSC_DECIDE, ctx.N, ctx.N));
     PetscCall(MatSetFromOptions(J));
     PetscCall(MatSetUp(J));
@@ -70,15 +65,15 @@ int main(int argc, char **argv)
     PetscCall(SNESGetKSP(snes, &ksp));
     PetscCall(KSPGetPC(ksp, &pc));
     PetscCall(PCSetType(pc, PCNONE));
-    PetscCall(KSPSetTolerances(ksp, 1.e-4, PETSC_CURRENT, PETSC_CURRENT, 20));
-
+    PetscCall(KSPSetTolerances(ksp, 1.e-8, PETSC_CURRENT, PETSC_CURRENT, 20));
+    PetscCall(KSPSetFromOptions(ksp));
     PetscCall(SNESSetFromOptions(snes));
 
 
     /* initial guess */
     PetscCall(VecGetArray(x, &xx));
     for (PetscInt i=0; i<ctx.N; i++){
-        xx[i] = i * ctx.h;
+        xx[i] = 0.5;//i * ctx.h;
     }
     /* solve */
     PetscCall(SNESSolve(snes, NULL, x));
@@ -91,12 +86,18 @@ int main(int argc, char **argv)
     double *abb;
 
     VecGetArray(x, &abb);
+    VecView(x, PETSC_VIEWER_STDOUT_WORLD);
     fprintf(fid, "x,u\n");
     fprintf(fid, "%lf,%f\n", 0.0, 0.0);
 
     for (int i=0; i < N; i++)
     {
-        fprintf(fid, "%lf,%lf\n", (i+1)*ctx.h, abb[i]);
+        if(i < 5) {
+            fprintf(fid, "%lf,%lf\n", (i+1)*ctx.h, abb[i]);
+        }
+        else {
+            fprintf(fid, "%lf,%lf\n", (i)*ctx.h, abb[i]);
+        }
 
     }
     fprintf(fid, "%lf,%f\n", 1.0, 1.0);
@@ -139,7 +140,7 @@ PetscErrorCode FormFunction(SNES snes, Vec x, Vec f, void *ctx){
             ff[i] = 1.0/h*xx[i] + 0.5 * (1.0/h * xx[i-1] + 1.0/h * xx[i])*nr - 0.5 * (1.0/h*xx[i] - 1.0/h*xx[i-1])*nr - 1 * gamma/h * (1.0/h*xx[i] - 1.0/h*xx[i-1])*nr;
         }
         else{
-            ff[i] = -1.0/h * xx[i-1] + 2.0/h * xx[i] - (N - 1);
+            ff[i] = -1.0/h * xx[i-1] + 2.0/h * xx[i] + 1.0/h;
         }
     }
 
