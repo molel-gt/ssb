@@ -22,7 +22,7 @@ int main(int argc, char **argv)
     SNES snes;
     PC pc;
     Mat J; // Jacobian matrix
-    Vec x, r;
+    Vec b, x, r;
     KSP ksp;
     AppCtx ctx;
     PetscInt N; // Number of nodes/elements
@@ -39,10 +39,10 @@ int main(int argc, char **argv)
     
     N = ctx.N; // discontinuity at midpoint with dirichlet bc at both ends
     ctx.h = 1.0 / (N - 1);
-    ctx.gamma = 15.0;
+    ctx.gamma = 25.0;
 
     PetscCall(SNESCreate(comm, &snes));
-    PetscCall(SNESSetType(snes, SNESNCG));
+    PetscCall(SNESSetType(snes, SNESNEWTONLS));
     PetscCall(SNESSetOptionsPrefix(snes, "mysolver_"));
 
     /*create required vectors and matrices*/
@@ -50,6 +50,15 @@ int main(int argc, char **argv)
     PetscCall(VecSetSizes(x, PETSC_DECIDE, ctx.N));
     PetscCall(VecSetFromOptions(x));
     PetscCall(VecDuplicate(x, &r));
+    /* create rhs */
+    double ab[1] = {1.0/ctx.h};
+    int j[1] = {N - 1};
+    VecCreate(PETSC_COMM_WORLD, &b);
+    VecSetSizes(b, PETSC_DECIDE, N);
+    VecSetFromOptions(b);
+    VecZeroEntries(b);
+    VecSetValues(b, 1, j, ab, INSERT_VALUES);
+    VecAssemblyBegin(b); VecAssemblyEnd(b);
 
     /* create jacobian matrix structure */
 
@@ -64,19 +73,20 @@ int main(int argc, char **argv)
 
     PetscCall(SNESGetKSP(snes, &ksp));
     PetscCall(KSPGetPC(ksp, &pc));
-    PetscCall(PCSetType(pc, PCNONE));
-    PetscCall(KSPSetTolerances(ksp, 1.e-8, PETSC_CURRENT, PETSC_CURRENT, 20));
+    PetscCall(KSPSetType(ksp, KSPPREONLY));
+    PetscCall(PCSetType(pc, PCLU));
+    PetscCall(KSPSetTolerances(ksp, 1.e-8, 1e-6, PETSC_CURRENT, 50));
     PetscCall(KSPSetFromOptions(ksp));
     PetscCall(SNESSetFromOptions(snes));
 
 
     /* initial guess */
     PetscCall(VecGetArray(x, &xx));
-    for (PetscInt i=0; i<ctx.N; i++){
-        xx[i] = 0.5;//i * ctx.h;
+    for (int i=0; i<ctx.N; i++){
+        xx[i] = 1.0;//i * ctx.h;
     }
     /* solve */
-    PetscCall(SNESSolve(snes, NULL, x));
+    PetscCall(SNESSolve(snes, b, x));
 
     PetscCall(VecRestoreArray(x, &xx));
 
@@ -131,16 +141,18 @@ PetscErrorCode FormFunction(SNES snes, Vec x, Vec f, void *ctx){
             ff[i] = 2.0/h * xx[i] - 1.0/h*xx[i+1];
         }
         else if((i > 0 && i < 4) || (i > 5 && i < N-1)){
-            ff[i] = -1/h * xx[i-1] + 2/h * xx[i] -1 * xx[i+1];
+            ff[i] = -1.0/h * xx[i-1] + 2.0/h * xx[i] -1.0 * xx[i+1];
         }
         else if(i == 4){// left of discontinuity
-            ff[i] = 1.0/h*xx[i] - 0.5 * (1.0/h * xx[i] + 1.0/h * xx[i+1])*nl - 0.5 * (1.0/h*xx[i+1] - 1.0/h*xx[i])*nl + 1 * gamma/h*(1.0/h*xx[i+1] - 1.0/h*xx[i])*nl;
+            // ff[i] = 1.0/h*xx[i] - 0.5 * 1.0/h * (xx[i] - xx[i+1])*nl - 0.5 * 1.0/h * (xx[i+1] - xx[i])*nl + 1.0 * gamma/h*1.0/h * (xx[i+1] - xx[i])*nl;
+            ff[i] = -1.0/h*xx[i-1] + 1.0/h*xx[i] + 1.0 * gamma/h * 1.0/h * (xx[i+1] - xx[i]) * nl;
         }
         else if(i == 5){// right of discontinuity
-            ff[i] = 1.0/h*xx[i] + 0.5 * (1.0/h * xx[i-1] + 1.0/h * xx[i])*nr - 0.5 * (1.0/h*xx[i] - 1.0/h*xx[i-1])*nr - 1 * gamma/h * (1.0/h*xx[i] - 1.0/h*xx[i-1])*nr;
+            // ff[i] = 1.0/h*xx[i] + 0.5 * 1.0/h * (xx[i-1] + xx[i])*nr + 0.5 * 1.0/h * (xx[i] - xx[i-1])*nr - 1.0 * gamma/h * 1.0/h * (xx[i] - xx[i-1])*nr;
+            ff[i] = -1.0/h*xx[i+1] + 1.0/h*xx[i] - 1.0 * gamma/h * 1.0/h * (xx[i] - xx[i-1])*nr;
         }
         else{
-            ff[i] = -1.0/h * xx[i-1] + 2.0/h * xx[i] + 1.0/h;
+            ff[i] = -1.0/h * xx[i-1] + 2.0/h * xx[i];
         }
     }
 
@@ -173,14 +185,16 @@ PetscErrorCode FormJacobian(SNES snes, Vec x, Mat jac, Mat B, void *ctx){
             PetscCall(MatSetValues(B, 1, rows, 3, cols, A, INSERT_VALUES));
         }
         else if(i == 4){// left of discontinuity
-            PetscInt cols[2] = {i, i+1};
-            PetscScalar A[2] = {1.0/h + gamma/h*(-1.0/h*nl), -1.0/h*nl + gamma/h*(1.0/h*nl)};
-            PetscCall(MatSetValues(B, 1, rows, 2, cols, A, INSERT_VALUES));
+            PetscInt cols[3] = {i-1, i, i+1};
+            // PetscScalar A[2] = {1.0/h * (1.0 - gamma/h * nl), 1.0/h * (1.0 + gamma/h) * nl};
+            PetscScalar A[3] = {-1.0/h, 1.0/h*(1.0 - gamma/h * nl), 1.0/h*gamma/h*nl};
+            PetscCall(MatSetValues(B, 1, rows, 3, cols, A, INSERT_VALUES));
         }
         else if(i == 5){// right of discontinuity
-            PetscInt cols[2] = {i-1, i};
-            PetscScalar A[2] = {1.0/h + gamma/h*(-1.0/h*nr), 1.0/h*nr + gamma/h*(1.0/h*nr)};
-            PetscCall(MatSetValues(B, 1, rows, 2, cols, A, INSERT_VALUES));
+            PetscInt cols[3] = {i-1, i, i+1};
+            // PetscScalar A[2] = {1.0/h * (1.0 + gamma/h) * nr, 1.0/h * (1.0 - gamma/h * nr)};
+            PetscScalar A[3] = {1.0/h*gamma/h*nr, 1.0/h*(1.0 - gamma/h * nr), -1.0/h};
+            PetscCall(MatSetValues(B, 1, rows, 3, cols, A, INSERT_VALUES));
         }
         else{
             PetscInt cols[2] = {i-1, i};
