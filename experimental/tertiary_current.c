@@ -129,7 +129,7 @@ PetscErrorCode FormFunction(SNES snes, Vec x, Vec f, void *ctx){
         if (i == 0){
             ff[i] = 2.0/h * xx[i] - 1.0/h*xx[i+1];
         }
-        else if((i > 0 && i < 4) || (i > 5 && i < 10)){
+        else if((i > 0 && i < 4) || (i > 5 && i < N-1)){
             ff[i] = -1/h * xx[i-1] + 2/h * xx[i] -1 * xx[i+1];
         }
         else if(i == 4){// left of discontinuity
@@ -166,7 +166,7 @@ PetscErrorCode FormJacobian(SNES snes, Vec x, Mat jac, Mat B, void *ctx){
             PetscScalar A[2] = {2.0/h, -1.0/h};
             PetscCall(MatSetValues(B, 1, rows, 2, cols, A, INSERT_VALUES));
         }
-        else if((i > 0 && i < 4) || (i > 5 && i < 10)){
+        else if((i > 0 && i < 4) || (i > 5 && i < N - 1)){
             PetscInt cols[3] = {i-1, i, i+1};
             PetscScalar A[3] = {1.0/h, 2.0/h, -1.0/h};
             PetscCall(MatSetValues(B, 1, rows, 3, cols, A, INSERT_VALUES));
