@@ -86,10 +86,10 @@ int main(int argc, char **argv)
     /* initial guess */
     PetscCall(VecGetArray(x, &xx));
     for (int i=0; i<ctx.N; i++){
-        xx[i] = 0.0;//i * ctx.h;
+        xx[i] = 1.0;//i * ctx.h;
     }
     /* solve */
-    PetscCall(SNESSolve(snes, b, x));
+    PetscCall(SNESSolve(snes, NULL, x));
 
     PetscCall(VecRestoreArray(x, &xx));
 
@@ -139,10 +139,17 @@ PetscErrorCode FormFunction(SNES snes, Vec x, Vec f, void *ctx){
 
     for (int i = 0; i < N; i++){
         if (i == 0){
-            ff[i] = 1.0/h * (xx[i] - xx[i+1]);
+            ff[i] = xx[i]; //1.0/h * (xx[i] - xx[i+1]);
+        }
+        else if (i == 1){
+            PetscPrintf(user->comm, "%d\n", i);
+            ff[i] = 2.0/h*xx[i] - 1.0/h * xx[i+1];
         }
         else if(i == N-1){
-            ff[i] = 1.0/h * (-xx[i-1] + xx[i]);
+            ff[i] = -1.0/h*xx[i-1] + 1.0/h;//1.0/h * (-xx[i-1] + xx[i]);
+        }
+        else if(i == N-2){
+            ff[i] = -1.0/h*xx[i-1] + 2.0/h*xx[i] - 1.0/h;//1.0/h * (-xx[i-1] + xx[i]);
         }
         else if (i == (N/2 - 2)){// node before discontinuity
             ff[i] = -1.0/h * xx[i-1] + 2.0/h * xx[i] - 1.5/h * xx[i+1] + 0.5/h * xx[i+2];
@@ -151,13 +158,13 @@ PetscErrorCode FormFunction(SNES snes, Vec x, Vec f, void *ctx){
             ff[i] = -0.5/h * xx[i-1] + 1.0/h * (1.0 - gamma) * xx[i] + gamma/h * xx[i+1] - 0.5/h * xx[i+2];
         }
         else if(i == N/2){// right of discontinuity
-            ff[i] = -0.5/h * xx[i-2] + gamma/h * xx[i-1] + 1.0/h * (1 - gamma) * xx[i] - 0.5/h * xx[i+1];
+            ff[i] = -0.5/h * xx[i-2] + gamma/h * xx[i-1] + 1.0/h * (1.0 - gamma) * xx[i] - 0.5/h * xx[i+1];
         }
         else if (i == (N/2 + 1)){// node after discontinuity
             ff[i] = 0.5/h * xx[i-2] - 1.5/h * xx[i-1] + 2.0/h * xx[i] - 1.0/h * xx[i+1];
         }
         else {
-            ff[i] = -1.0/h * xx[i-1] + 2.0/h * xx[i] -1.0 * xx[i+1];
+            ff[i] = -1.0/h * xx[i-1] + 2.0/h * xx[i] -1.0/h * xx[i+1];
         }
     }
 
@@ -206,7 +213,7 @@ PetscErrorCode FormJacobian(SNES snes, Vec x, Mat jac, Mat B, void *ctx){
         }
         else if (i == (N/2 + 1)){// node after discontinuity
             PetscInt cols[4] = {i-2, i-1, i, i+1};
-            PetscScalar A[4] = {0.5/h, -1.5/h, -0.5/h, 2.0/h, -1.0/h};
+            PetscScalar A[4] = {0.5/h, -1.5/h, 2.0/h, -1.0/h};
             PetscCall(MatSetValues(B, 1, rows, 4, cols, A, INSERT_VALUES));
         }
         else {
