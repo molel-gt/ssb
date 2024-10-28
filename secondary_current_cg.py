@@ -8,11 +8,13 @@ import dolfinx
 
 import dolfinx.fem.petsc
 import ufl
+import matplotlib.pyplot as plt
 import numpy as np
-
+from matspy import spy
 from dolfinx import cpp, fem, io, mesh
 from mpi4py import MPI
 from petsc4py import PETSc
+from slepc4py import SLEPc
 from ufl import dot, grad, inner
 
 import commons, constants, mesh_utils, solvers, utils 
@@ -168,8 +170,8 @@ if __name__ == '__main__':
     # entity_maps = {submesh_electrolyte._cpp_object: parent_to_sub_electrolyte, submesh_positive_am._cpp_object: parent_to_sub_positive_am}
 
 
-    u_0, F_00, m_to_elec = define_interior_eq(domain, 2, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec)
-    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 2, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am)
+    u_0, F_00, m_to_elec = define_interior_eq(domain, 1, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec)
+    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 1, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am)
     u_0.name = "u_b"
     u_1.name = "u_t"
 
@@ -227,6 +229,11 @@ if __name__ == '__main__':
 
     jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics)
 
+    print(fem.assemble_vector(fem.form(v_l*dInterface, entity_maps=entity_maps)).array)
+    print(fem.assemble_vector(fem.form(ufl.derivative(dot(grad(u_r+u_l), n_l)*v_l*dInterface, u_0), entity_maps=entity_maps)).array)
+    print(fem.assemble_vector(fem.form(v_r*dInterface, entity_maps=entity_maps)).array)
+    print(fem.assemble_vector(fem.form(inner(grad(v_r), n_r)*dInterface, entity_maps=entity_maps)).array)
+
     F_0 = (
         -0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
         - 0.5 * mixed_term(kappa_avg * v_l, (u_r - u_l - jump_u), n_l) * dInterface
@@ -255,6 +262,58 @@ if __name__ == '__main__':
     J10 = fem.form(jac10, entity_maps=entity_maps)
     J11 = fem.form(jac11, entity_maps=entity_maps)
     J = [[J00, J01], [J10, J11]]
+
+    J_view = fem.petsc.assemble_matrix_block(J)
+    J_view.assemble()
+    # viewer = PETSc.Viewer().DRAW(comm)
+    J_view.view()
+    A = [[fem.form(F_0, entity_maps=entity_maps)], [fem.form(F_1, entity_maps=entity_maps)]]
+    A_view = fem.petsc.assemble_matrix_block(A)
+
+    # eigen values
+    E = SLEPc.EPS()
+    E.create()
+    E.setOperators(J_view)
+    E.setProblemType(SLEPc.EPS.ProblemType.HEP)
+    E.setFromOptions()
+    E.solve()
+    Print = PETSc.Sys.Print
+    Print()
+    Print("******************************")
+    Print("*** SLEPc Solution Results ***")
+    Print("******************************")
+    Print()
+
+    its = E.getIterationNumber()
+    Print("Number of iterations of the method: %d" % its)
+
+    eps_type = E.getType()
+    Print("Solution method: %s" % eps_type)
+
+    nev, ncv, mpd = E.getDimensions()
+    Print("Number of requested eigenvalues: %d" % nev)
+
+    tol, maxit = E.getTolerances()
+    Print("Stopping condition: tol=%.4g, maxit=%d" % (tol, maxit))
+    nconv = E.getConverged()
+    Print("Number of converged eigenpairs %d" % nconv)
+    if nconv > 0:
+        # Create the results vectors
+        vr, wr = J_view.getVecs()
+        vi, wi = J_view.getVecs()
+        #
+        Print()
+        Print("        k          ||Ax-kx||/||kx|| ")
+        Print("----------------- ------------------")
+        for i in range(nconv):
+            k = E.getEigenpair(i, vr, vi)
+            error = E.computeError(i)
+            if k.imag != 0.0:
+                Print(" %9f%+9f j %12g" % (k.real, k.imag, error))
+            else:
+                Print(" %12f      %12g" % (k.real, error))
+        Print()
+
     F = [
         fem.form(F_0, entity_maps=entity_maps),
         fem.form(F_1, entity_maps=entity_maps),

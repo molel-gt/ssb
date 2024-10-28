@@ -13,6 +13,7 @@ import numpy as np
 from dolfinx import cpp, fem, io, mesh
 from mpi4py import MPI
 from petsc4py import PETSc
+from slepc4py import SLEPc
 from ufl import dot, grad, inner
 
 import commons, constants, mesh_utils, solvers, utils 
@@ -270,7 +271,7 @@ if __name__ == '__main__':
     F_1 += F_11
 
     F_2 = (c - c0)/dt * q * dx_r + D * inner(0.5 * ufl.grad(c + c0), ufl.grad(q)) * dx_r
-    # F_2 += inner(i0_p/(R * T) * (u_r - u_l - ocv_simple(c(r_res), cmax=cmax)), q_r) * dInterface
+    F_2 += inner(i0_p/(R * T) * (u_r - u_l - ocv_simple(c(r_res), cmax=cmax)), q_r) * dInterface
     # F_2 += 1/faraday_const * inner(kappa_pos_am * grad(u_r), n_r) * q_r * dInterface
     # F_2 += -inner(D*grad(c(r_res)), n_r) * q_r * dInterface + i0_p/(R * T) * (u_r - u_l - ocv_simple(c(r_res), cmax=cmax)) * q_r * dInterface
     # F_2 += - gamma * h_r * inner(inner(D * grad(c(r_res)), n_r), inner(grad(q_r), n_r)) * dInterface
@@ -301,6 +302,58 @@ if __name__ == '__main__':
     J22 = fem.form(jac22, entity_maps=entity_maps)
     
     J = [[J00, J01, J02], [J10, J11, J12], [J20, J21, J22]]
+
+    ############### determination of condition number ##########################
+    J_view = fem.petsc.assemble_matrix_block(J)
+    J_view.assemble()
+    # viewer = PETSc.Viewer().DRAW(comm)
+    # J_view.view()
+
+    # eigen values
+    E = SLEPc.EPS()
+    E.create()
+    E.setOperators(J_view)
+    E.setProblemType(SLEPc.EPS.ProblemType.HEP)
+    E.setFromOptions()
+    E.solve()
+    Print = PETSc.Sys.Print
+    Print()
+    Print("******************************")
+    Print("*** SLEPc Solution Results ***")
+    Print("******************************")
+    Print()
+
+    its = E.getIterationNumber()
+    Print("Number of iterations of the method: %d" % its)
+
+    eps_type = E.getType()
+    Print("Solution method: %s" % eps_type)
+
+    nev, ncv, mpd = E.getDimensions()
+    Print("Number of requested eigenvalues: %d" % nev)
+
+    tol, maxit = E.getTolerances()
+    Print("Stopping condition: tol=%.4g, maxit=%d" % (tol, maxit))
+    nconv = E.getConverged()
+    Print("Number of converged eigenpairs %d" % nconv)
+    if nconv > 0:
+        # Create the results vectors
+        vr, wr = J_view.getVecs()
+        vi, wi = J_view.getVecs()
+        #
+        Print()
+        Print("        k          ||Ax-kx||/||kx|| ")
+        Print("----------------- ------------------")
+        for i in range(nconv):
+            k = E.getEigenpair(i, vr, vi)
+            error = E.computeError(i)
+            if k.imag != 0.0:
+                Print(" %9f%+9f j %12g" % (k.real, k.imag, error))
+            else:
+                Print(" %12f      %12g" % (k.real, error))
+        Print()
+
+    ############################################################################
     F = [
         fem.form(F_0, entity_maps=entity_maps),
         fem.form(F_1, entity_maps=entity_maps),
