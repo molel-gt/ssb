@@ -271,7 +271,7 @@ if __name__ == '__main__':
     F_1 += F_11
 
     F_2 = (c - c0)/dt * q * dx_r + D * inner(0.5 * ufl.grad(c + c0), ufl.grad(q)) * dx_r
-    F_2 += inner(0.5*kappa_pos_am/faraday_const*grad(u_r + u_l), n_r) * q_r * dInterface
+    F_2 += -inner(0.5*kappa_pos_am/faraday_const*grad(u_r + u_l), n_r) * q_r * dInterface
     # F_2 += 1/faraday_const * inner(kappa_pos_am * grad(u_r), n_r) * q_r * dInterface
     # F_2 += -inner(D*grad(c(r_res)), n_r) * q_r * dInterface + i0_p/(R * T) * (u_r - u_l - ocv_simple(c(r_res), cmax=cmax)) * q_r * dInterface
     # F_2 += - gamma * h_r * inner(inner(D * grad(c(r_res)), n_r), inner(grad(q_r), n_r)) * dInterface
@@ -397,7 +397,7 @@ if __name__ == '__main__':
     for i in range(1):
         time += dt
         print(time)
-        solver.solve(tol=1e-6, beta=0.5)
+        solver.solve(tol=1e-6, beta=0.25)
         c0.x.array[:] = c.x.array
         cvtx.write(time)
         I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
