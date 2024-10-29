@@ -98,7 +98,7 @@ if __name__ == '__main__':
     Wa_p = args.Wa_p
     gamma = args.gamma
     kappa_elec = args.kr * kappa_pos_am
-    dt = 1e-3
+    dt = 1e-2
     D = 1e-15
 
     markers = commons.Markers()
@@ -270,7 +270,7 @@ if __name__ == '__main__':
     F_0 += F_00
     F_1 += F_11
 
-    F_2 = (c - c0)/dt * q * dx_r + D * inner(0.5 * ufl.grad(c + c0), ufl.grad(q)) * dx_r
+    F_2 = (c - c0)/dt * q * dx_r + D * inner(ufl.grad(c), ufl.grad(q)) * dx_r
     F_2 += -inner(0.5*kappa_pos_am/faraday_const*grad(u_r + u_l), n_r) * q_r * dInterface
 
     jac00 = ufl.derivative(F_0, u_0)
@@ -390,9 +390,9 @@ if __name__ == '__main__':
     )
     time = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
-    for i in range(1):
+    for i in range(10):
         time += dt
-        print(time)
+        print("Time: {time:.2f}")
         solver.solve(tol=1e-6, beta=0.25)
         c0.x.array[:] = c.x.array
         cvtx.write(time)
