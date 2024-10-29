@@ -272,10 +272,6 @@ if __name__ == '__main__':
 
     F_2 = (c - c0)/dt * q * dx_r + D * inner(0.5 * ufl.grad(c + c0), ufl.grad(q)) * dx_r
     F_2 += -inner(0.5*kappa_pos_am/faraday_const*grad(u_r + u_l), n_r) * q_r * dInterface
-    # F_2 += 1/faraday_const * inner(kappa_pos_am * grad(u_r), n_r) * q_r * dInterface
-    # F_2 += -inner(D*grad(c(r_res)), n_r) * q_r * dInterface + i0_p/(R * T) * (u_r - u_l - ocv_simple(c(r_res), cmax=cmax)) * q_r * dInterface
-    # F_2 += - gamma * h_r * inner(inner(D * grad(c(r_res)), n_r), inner(grad(q_r), n_r)) * dInterface
-    # F_2 -= - gamma * h_r *  i0_p/(R * T) * (u_r - u_l - ocv_simple(c(r_res), cmax=cmax)) * inner(grad(q_r), n_r) * dInterface
 
     jac00 = ufl.derivative(F_0, u_0)
     jac01 = ufl.derivative(F_0, u_1)
