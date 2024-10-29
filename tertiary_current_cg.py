@@ -183,8 +183,8 @@ if __name__ == '__main__':
     # entity_maps = {submesh_electrolyte._cpp_object: parent_to_sub_electrolyte, submesh_positive_am._cpp_object: parent_to_sub_positive_am}
 
 
-    u_0, F_00, m_to_elec = define_interior_eq(domain, 2, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec)
-    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 2, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am)
+    u_0, F_00, m_to_elec = define_interior_eq(domain, 1, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec)
+    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 1, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am)
     u_0.name = "u_b"
     u_1.name = "u_t"
 
@@ -220,8 +220,8 @@ if __name__ == '__main__':
     dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
     ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
     ds_r = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
-    l_res = "+"
-    r_res = "-"
+    l_res = "-"
+    r_res = "+"
 
     v_l = ufl.TestFunction(u_0.function_space)(l_res)
     v_r = ufl.TestFunction(u_1.function_space)(r_res)
@@ -242,7 +242,7 @@ if __name__ == '__main__':
     i0_p = kappa_elec * R * T / (Wa_p * faraday_const * characteristic_length)
 
     # concentration problem
-    VC = fem.functionspace(submesh_positive_am, ("CG", 2))
+    VC = fem.functionspace(submesh_positive_am, ("CG", 1))
     c, q = fem.Function(VC), ufl.TestFunction(VC)
     c0 = fem.Function(VC)
     cmax = 27000
@@ -271,7 +271,7 @@ if __name__ == '__main__':
     F_1 += F_11
 
     F_2 = (c - c0)/dt * q * dx_r + D * inner(0.5 * ufl.grad(c + c0), ufl.grad(q)) * dx_r
-    F_2 += inner(i0_p/(R * T) * (u_r - u_l - ocv_simple(c(r_res), cmax=cmax)), q_r) * dInterface
+    F_2 += inner(0.5*kappa_pos_am/faraday_const*grad(u_r + u_l), n_r) * q_r * dInterface
     # F_2 += 1/faraday_const * inner(kappa_pos_am * grad(u_r), n_r) * q_r * dInterface
     # F_2 += -inner(D*grad(c(r_res)), n_r) * q_r * dInterface + i0_p/(R * T) * (u_r - u_l - ocv_simple(c(r_res), cmax=cmax)) * q_r * dInterface
     # F_2 += - gamma * h_r * inner(inner(D * grad(c(r_res)), n_r), inner(grad(q_r), n_r)) * dInterface
@@ -313,7 +313,7 @@ if __name__ == '__main__':
     E = SLEPc.EPS()
     E.create()
     E.setOperators(J_view)
-    E.setProblemType(SLEPc.EPS.ProblemType.HEP)
+    E.setProblemType(SLEPc.EPS.ProblemType.NHEP)
     E.setFromOptions()
     E.solve()
     Print = PETSc.Sys.Print
@@ -402,7 +402,7 @@ if __name__ == '__main__':
         cvtx.write(time)
         I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
         I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
-        I_interface = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * grad(c(r_res)), n_r) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+        I_interface = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * grad(c(l_res)), n_r) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
         # I_interface2 = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * grad(c), n2) * ds_r(markers.electrolyte_v_positive_am))), op=MPI.SUM)
         print(f"Current left: {I_left:.3e} [A]")
         print(f"Current interface: {I_interface:.3e} [A]")
@@ -425,6 +425,3 @@ if __name__ == '__main__':
 
     with io.VTXWriter(comm, positive_am_potential_file, [u_1], engine="BP5") as vtx:
         vtx.write(0)
-
-    # with io.VTXWriter(comm, concentration_file, [c], engine="BP5") as vtx:
-    #     vtx.write(0)
