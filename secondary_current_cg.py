@@ -207,8 +207,8 @@ if __name__ == '__main__':
     dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
     ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
     ds_r = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
-    l_res = "+"
-    r_res = "-"
+    l_res = "-"
+    r_res = "+"
 
     v_l = ufl.TestFunction(u_0.function_space)(l_res)
     v_r = ufl.TestFunction(u_1.function_space)(r_res)
@@ -228,11 +228,6 @@ if __name__ == '__main__':
     i0_p = kappa_elec * R * T / (Wa_p * faraday_const * characteristic_length)
 
     jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics)
-
-    print(fem.assemble_vector(fem.form(v_l*dInterface, entity_maps=entity_maps)).array)
-    print(fem.assemble_vector(fem.form(ufl.derivative(dot(grad(u_r+u_l), n_l)*v_l*dInterface, u_0), entity_maps=entity_maps)).array)
-    print(fem.assemble_vector(fem.form(v_r*dInterface, entity_maps=entity_maps)).array)
-    print(fem.assemble_vector(fem.form(inner(grad(v_r), n_r)*dInterface, entity_maps=entity_maps)).array)
 
     F_0 = (
         -0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
@@ -267,8 +262,6 @@ if __name__ == '__main__':
     J_view.assemble()
     # viewer = PETSc.Viewer().DRAW(comm)
     J_view.view()
-    A = [[fem.form(F_0, entity_maps=entity_maps)], [fem.form(F_1, entity_maps=entity_maps)]]
-    A_view = fem.petsc.assemble_matrix_block(A)
 
     # eigen values
     E = SLEPc.EPS()
