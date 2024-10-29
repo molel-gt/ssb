@@ -392,7 +392,7 @@ if __name__ == '__main__':
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
     for i in range(10):
         time += dt
-        print("Time: {time:.2f}")
+        print(f"Time: {time:.2f}")
         solver.solve(tol=1e-6, beta=0.25)
         c0.x.array[:] = c.x.array
         cvtx.write(time)
