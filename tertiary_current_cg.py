@@ -5,10 +5,11 @@ import timeit
 
 
 import dolfinx
-
 import dolfinx.fem.petsc
-import ufl
+import matspy
 import numpy as np
+import scipy
+import ufl
 
 from dolfinx import cpp, fem, io, mesh
 from mpi4py import MPI
@@ -67,8 +68,9 @@ def arctanh(y):
 
 
 def ocv(c, cmax=35000):
-    xi = 2 * (c - 0.5 * cmax) / cmax
-    return 3.25 - 0.5 * arctanh(xi)
+    # xi = 2 * (c - 0.5 * cmax) / cmax
+    # return 3.25 - 0.5 * arctanh(xi)
+    return 3.25 - 0.25 * ufl.ln((1 + 2 * (c - 0.5 * cmax) / cmax) / (1 - 2 * (c - 0.5 * cmax) / cmax))
 
 
 def ocv_simple(c, cmax=35000):
@@ -98,7 +100,7 @@ if __name__ == '__main__':
     Wa_p = args.Wa_p
     gamma = args.gamma
     kappa_elec = args.kr * kappa_pos_am
-    dt = 1e-2
+    dt_ = 1e-2
     D = 1e-15
 
     markers = commons.Markers()
@@ -242,13 +244,14 @@ if __name__ == '__main__':
     i0_p = kappa_elec * R * T / (Wa_p * faraday_const * characteristic_length)
 
     # concentration problem
+    dt = fem.Constant(submesh_positive_am, dt_)
     VC = fem.functionspace(submesh_positive_am, ("CG", 1))
+    V_RK = fem.functionspace(submesh_positive_am, ("CG", 1))
     c, q = fem.Function(VC), ufl.TestFunction(VC)
     c0 = fem.Function(VC)
     cmax = 27000
     c0.interpolate(lambda x: x[0] - x[0] + 0.75*cmax)
-    # c.interpolate(lambda x: x[0] - x[0] + 0.25 * cmax)
-    # c.interpolate(c0)
+
     q_r = ufl.TestFunction(c.function_space)(r_res)
     q_l = ufl.TestFunction(c.function_space)(l_res)
     c_r = c(r_res)
@@ -270,6 +273,15 @@ if __name__ == '__main__':
     F_0 += F_00
     F_1 += F_11
 
+    # Runge-Kutta 4th order time integration
+    dc1 = fem.Function(VC)
+    dc2 = fem.Function(VC)
+    dc3 = fem.Function(VC)
+    dc4 = fem.Function(VC)
+    c_rk = fem.Function(VC)
+    c_rk.interpolate(c0)
+
+    # F_2 = (c - c_rk)/dt * q * dx_r + D * inner(ufl.grad(c_rk), ufl.grad(q)) * dx_r
     F_2 = (c - c0)/dt * q * dx_r + D * inner(ufl.grad(c), ufl.grad(q)) * dx_r
     F_2 += -inner(0.5*kappa_pos_am/faraday_const*grad(u_r + u_l), n_r) * q_r * dInterface
 
@@ -302,52 +314,56 @@ if __name__ == '__main__':
     ############### determination of condition number ##########################
     J_view = fem.petsc.assemble_matrix_block(J)
     J_view.assemble()
+    # ai, aj, av = J_view.getValuesCSR()
+    # Asp = scipy.sparse.csr_matrix((av, aj, ai))
+    # fig, ax = matspy.spy_to_mpl(Asp)
+    # fig.savefig(os.path.join(results_dir, "jacobian-sparsity.eps"), bbox_inches='tight')
     # viewer = PETSc.Viewer().DRAW(comm)
     # J_view.view()
 
-    # eigen values
-    E = SLEPc.EPS()
-    E.create()
-    E.setOperators(J_view)
-    E.setProblemType(SLEPc.EPS.ProblemType.NHEP)
-    E.setFromOptions()
-    E.solve()
-    Print = PETSc.Sys.Print
-    Print()
-    Print("******************************")
-    Print("*** SLEPc Solution Results ***")
-    Print("******************************")
-    Print()
+    # # eigen values
+    # E = SLEPc.EPS()
+    # E.create()
+    # E.setOperators(J_view)
+    # E.setProblemType(SLEPc.EPS.ProblemType.NHEP)
+    # E.setFromOptions()
+    # E.solve()
+    # Print = PETSc.Sys.Print
+    # Print()
+    # Print("******************************")
+    # Print("*** SLEPc Solution Results ***")
+    # Print("******************************")
+    # Print()
 
-    its = E.getIterationNumber()
-    Print("Number of iterations of the method: %d" % its)
+    # its = E.getIterationNumber()
+    # Print("Number of iterations of the method: %d" % its)
 
-    eps_type = E.getType()
-    Print("Solution method: %s" % eps_type)
+    # eps_type = E.getType()
+    # Print("Solution method: %s" % eps_type)
 
-    nev, ncv, mpd = E.getDimensions()
-    Print("Number of requested eigenvalues: %d" % nev)
+    # nev, ncv, mpd = E.getDimensions()
+    # Print("Number of requested eigenvalues: %d" % nev)
 
-    tol, maxit = E.getTolerances()
-    Print("Stopping condition: tol=%.4g, maxit=%d" % (tol, maxit))
-    nconv = E.getConverged()
-    Print("Number of converged eigenpairs %d" % nconv)
-    if nconv > 0:
-        # Create the results vectors
-        vr, wr = J_view.getVecs()
-        vi, wi = J_view.getVecs()
-        #
-        Print()
-        Print("        k          ||Ax-kx||/||kx|| ")
-        Print("----------------- ------------------")
-        for i in range(nconv):
-            k = E.getEigenpair(i, vr, vi)
-            error = E.computeError(i)
-            if k.imag != 0.0:
-                Print(" %9f%+9f j %12g" % (k.real, k.imag, error))
-            else:
-                Print(" %12f      %12g" % (k.real, error))
-        Print()
+    # tol, maxit = E.getTolerances()
+    # Print("Stopping condition: tol=%.4g, maxit=%d" % (tol, maxit))
+    # nconv = E.getConverged()
+    # Print("Number of converged eigenpairs %d" % nconv)
+    # if nconv > 0:
+    #     # Create the results vectors
+    #     vr, wr = J_view.getVecs()
+    #     vi, wi = J_view.getVecs()
+    #     #
+    #     Print()
+    #     Print("        k          ||Ax-kx||/||kx|| ")
+    #     Print("----------------- ------------------")
+    #     for i in range(nconv):
+    #         k = E.getEigenpair(i, vr, vi)
+    #         error = E.computeError(i)
+    #         if k.imag != 0.0:
+    #             Print(" %9f%+9f j %12g" % (k.real, k.imag, error))
+    #         else:
+    #             Print(" %12f      %12g" % (k.real, error))
+    #     Print()
 
     ############################################################################
     F = [
@@ -383,18 +399,46 @@ if __name__ == '__main__':
         bcs=bcs,
         max_iterations=1000,
         petsc_options={
-            "ksp_type": "preonly",
+            "ksp_type": "gmres",
             "pc_type": "lu",
-            "pc_factor_mat_solver_type": "superlu_dist",
+            "pc_factor_mat_solver_type": "mumps",
         },
     )
     time = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
+    runge_steps = np.array([1, 2, 3, 4], dtype=int)
     for i in range(10):
-        time += dt
+        time += dt.value
         print(f"Time: {time:.2f}")
+        # for i_rk in runge_steps:
+        #     print(i_rk)
+        #     if i_rk == 1:
+        #         solver.solve(tol=1e-5, beta=0.25)
+        #         dc1.x.array[:] = c.x.array - c0.x.array
+        #         c_rk.x.array[:] = c0.x.array + 0.5 * dc1.x.array
+        #     elif i_rk == 2:
+        #         dt.value = 0.5 * dt_
+        #         solver.solve(tol=1e-5, beta=0.25)
+        #         dc2.x.array[:] = c.x.array - c_rk.x.array
+        #         c_rk.x.array[:] = c0.x.array + 0.5 * dc2.x.array
+        #     elif i_rk == 3:
+        #         dt.value = 0.5 * dt_
+        #         solver.solve(tol=1e-5, beta=0.25)
+        #         dc3.x.array[:] = c.x.array - c_rk.x.array
+        #         c_rk.x.array[:] = c0.x.array + dc3.x.array
+        #     elif i_rk == 4:
+        #         dt.value = dt_
+        #         solver.solve(tol=1e-5, beta=0.25)
+        #         dc4.x.array[:] = c.x.array - c_rk.x.array
+        #         c_rk.x.array[:] = c0.x.array + 0.5 * dc3.x.array
         solver.solve(tol=1e-6, beta=0.25)
+        # change time step
+        # c.x.array[:] = c0.x.array + 1/6 * (dc1.x.array + 2*dc2.x.array + 2*dc3.x.array + dc4.x.array)
         c0.x.array[:] = c.x.array
+        # c_rk.x.array[:] = c.x.array
+        if i == 0:
+            dt_ = 0.1
+            dt.value = dt_
         cvtx.write(time)
         I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
         I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
