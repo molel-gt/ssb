@@ -24,28 +24,32 @@ if __name__ == '__main__':
         workdir = os.path.join("output", args.name_of_study, args.dimensions, str(args.resolution))
     else:
         workdir = os.path.join("output", args.name_of_study, args.dimensions, "unrefined", str(args.resolution))
+    Lx, Ly, Lz = [int(val) for val in args.dimensions.split("-")]
+    LX = Lx / Lz
+    LY = Ly / Lz
+    LZ = Lz / Lz
     utils.make_dir_if_missing(workdir)
     mshpath = os.path.join(workdir, "mesh.msh")
     geometry_metafile = os.path.join(workdir, "geometry.json")
     start_time = timeit.default_timer()
-    resolution = args.resolution * 1e-6
+    resolution = args.resolution
     gmsh.initialize()
     gmsh.model.add('cell')
     if not args.refine:
         gmsh.option.setNumber("Mesh.CharacteristicLengthMax", resolution)
-    cyl = gmsh.model.occ.addCylinder(0, 0, 0, 0, 0, 75e-6, 20e-6)
-    circle = gmsh.model.occ.addCircle(0, 0, 65e-6, 10e-6)
-    curved_surf = gmsh.model.occ.extrude([(1, circle)], 0, 0, -40e-6)
+    cyl = gmsh.model.occ.addCylinder(0, 0, 0, 0, 0, 75/Lz, 20/Lz)
+    circle = gmsh.model.occ.addCircle(0, 0, 65/Lz, 10/Lz)
+    curved_surf = gmsh.model.occ.extrude([(1, circle)], 0, 0, -40/Lz)
     final_circle = [c for c in curved_surf if c[0] == 1]
     curved_surfaces = [c for c in curved_surf if c[0] == 2]
 
     for c in final_circle:
         com = gmsh.model.occ.getCenterOfMass(*c)
-        if np.isclose(com[2], 25e-6):
+        if np.isclose(com[2], 25/Lz):
             final_disk = gmsh.model.occ.addPlaneSurface([gmsh.model.occ.addCurveLoop([c[1]])])
     start_disk = gmsh.model.occ.addPlaneSurface([gmsh.model.occ.addCurveLoop([circle])])
     copy = gmsh.model.occ.copy([(1, circle)])
-    gmsh.model.occ.dilate(copy, 0, 0, 65e-6, 2, 2, 0)
+    gmsh.model.occ.dilate(copy, 0, 0, 65/Lz, 2, 2, 0)
     main_disk = gmsh.model.occ.addPlaneSurface([gmsh.model.occ.addCurveLoop([copy[0][1]])])
     ring, _ = gmsh.model.occ.cut([(2, main_disk)], [(2, start_disk)])
     vols, _ = gmsh.model.occ.fragment([(3, cyl)], [(2, final_disk)] + curved_surfaces + ring)
@@ -53,7 +57,7 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
     for c in volumes:
         com = gmsh.model.occ.getCenterOfMass(3, c)
-        if np.isclose(gmsh.model.getBoundingBox(3, c)[-1], 65e-6, atol=1e-6):
+        if np.isclose(gmsh.model.getBoundingBox(3, c)[-1], 65/Lz, atol=1/Lz):
             gmsh.model.addPhysicalGroup(3, [c], markers.electrolyte, "electrolyte")
         else:
             gmsh.model.addPhysicalGroup(3, [c], markers.positive_am, "positive am")
@@ -66,11 +70,11 @@ if __name__ == '__main__':
         com = gmsh.model.occ.getCenterOfMass(*surf)
         if np.isclose(com[2], 0):
             left.append(surf[1])
-        elif np.isclose(com[2], 75e-6, atol=1e-6):
+        elif np.isclose(com[2], 75/Lz, atol=1/Lz):
             right.append(surf[1])
-        elif np.isclose(com[2], 0.5 * (65 + 75) * 1e-6, atol=1e-6):
+        elif np.isclose(com[2], 0.5 * (65 + 75)/Lz, atol=1/Lz):
             insulated_am.append(surf[1])
-        elif np.isclose(com[2], 0.5 * 65e-6, atol=1e-6):
+        elif np.isclose(com[2], 0.5 * 65/Lz, atol=1/Lz):
             insulated_se.append(surf[1])
         else:
             interface.append(surf[1])
@@ -88,8 +92,8 @@ if __name__ == '__main__':
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
         gmsh.model.mesh.field.setNumber(2, "SizeMin", resolution / 5)
         gmsh.model.mesh.field.setNumber(2, "SizeMax", resolution)
-        gmsh.model.mesh.field.setNumber(2, "DistMin", 1e-6)
-        gmsh.model.mesh.field.setNumber(2, "DistMax", 2e-6)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", 1/Lz)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", 2/Lz)
 
         gmsh.model.mesh.field.add("Max", 5)
         gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
@@ -100,6 +104,7 @@ if __name__ == '__main__':
     gmsh.finalize()
     work_time = int(timeit.default_timer() - start_time)
     metadata = {
+        "scale [m]": 75e-6,
         "resolution": resolution,
         "adaptive refine": args.refine,
         "Time elapsed (s)": work_time,
