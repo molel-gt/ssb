@@ -267,16 +267,16 @@ if __name__ == '__main__':
     jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) + ocv_simple(c(r_res), cmax=1)/phi_ref
 
     F_0 = (
-        -1/2 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, (phi_ref/L_ref) * n_l) * dInterface
-        - 0.5 * mixed_term(0.5 * (kappa_elec + kappa_pos_am) * v_l, (u_r - u_l - jump_u), (phi_ref/L_ref) * n_l) * dInterface
+        -1/2 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, (phi_ref/L_ref**2) * n_l) * dInterface
+        - 0.5 * mixed_term(0.5 * (kappa_elec + kappa_pos_am) * v_l, (u_r - u_l - jump_u), (phi_ref/L_ref**2) * n_l) * dInterface
     )
 
     F_1 = (
-        +1/2 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, (phi_ref/L_ref) * n_l) * dInterface
-        - 0.5 * mixed_term(0.5 * (kappa_elec + kappa_pos_am) * v_r, (u_r - u_l - jump_u), (phi_ref/L_ref) * n_l) * dInterface
+        +1/2 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, (phi_ref/L_ref**2) * n_l) * dInterface
+        - 0.5 * mixed_term(0.5 * (kappa_elec + kappa_pos_am) * v_r, (u_r - u_l - jump_u), (phi_ref/L_ref**2) * n_l) * dInterface
     )
-    F_0 += 2 * gamma / (h_l + h_r) * 0.5 * phi_ref * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
-    F_1 += -2 * gamma / (h_l + h_r) * 0.5 * phi_ref * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_r * dInterface
+    F_0 += 2 * gamma / (h_l + h_r) * 0.5 * (phi_ref/L_ref**2) * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
+    F_1 += -2 * gamma / (h_l + h_r) * 0.5 * (phi_ref/L_ref**2) * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_r * dInterface
 
     F_0 += F_00
     F_1 += F_11
