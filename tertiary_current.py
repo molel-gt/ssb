@@ -1,44 +1,66 @@
-#!/usr/bin/env python
-# coding: utf-8
-
+# SPDX-License-Identifier: MIT
 import argparse
-import itertools
-import json
-import math
 import os
 import timeit
 
+
 import dolfinx
-import gmsh
-import logging
-import matplotlib.pyplot as plt
+import dolfinx.fem.petsc
+import matspy
 import numpy as np
-import subprocess
+import scipy
 import ufl
-import warnings
 
-from basix.ufl import element, mixed_element
-from dolfinx import cpp, default_real_type, default_scalar_type, fem, io, la, mesh, nls, plot
-from dolfinx.fem import petsc
-from dolfinx.io import gmshio, VTXWriter, XDMFFile
-from dolfinx.nls import petsc as petsc_nls
-from dolfinx.geometry import bb_tree, compute_collisions_points, compute_colliding_cells
-
+from dolfinx import cpp, fem, io, mesh
 from mpi4py import MPI
 from petsc4py import PETSc
-from ufl import (Circumradius, FacetNormal, SpatialCoordinate, TrialFunction, TestFunction,
-                 dot, div, dx, ds, dS, grad, inner, grad, avg, jump)
+from slepc4py import SLEPc
+from ufl import dot, grad, inner
 
-import commons, configs, utils
-
-warnings.simplefilter('ignore')
+import commons, constants, mesh_utils, solvers, utils 
 
 
-kappa_elec = 0.1
-kappa_pos_am = 0.2
-faraday_const = 96485
-R = 8.3145
+R = 8.314
 T = 298
+faraday_const = 96485
+kappa_pos_am = 0.1
+kinetics = ('linear', 'tafel', 'butler_volmer')
+micron = 1e-6
+
+
+def define_interior_eq(domain, degree,  submesh, submesh_to_mesh, value, kappa):
+    # Compute map from parent entity to submesh cell
+    codim = domain.topology.dim - submesh.topology.dim
+    ptdim = domain.topology.dim - codim
+    num_entities = (
+        domain.topology.index_map(ptdim).size_local
+        + domain.topology.index_map(ptdim).num_ghosts
+    )
+    mesh_to_submesh = np.full(num_entities, -1)
+    mesh_to_submesh[submesh_to_mesh] = np.arange(len(submesh_to_mesh), dtype=np.int32)
+
+    V = fem.functionspace(submesh, ("Lagrange", degree))
+    u = fem.Function(V)
+    v = ufl.TestFunction(V)
+    ct_r = mesh.meshtags(domain, domain.topology.dim, submesh_to_mesh, np.full_like(submesh_to_mesh, 1, dtype=np.int32))
+    val = fem.Constant(submesh, value)
+    dx_r = ufl.Measure("dx", domain=domain, subdomain_data=ct_r, subdomain_id=1)
+    F = kappa * ufl.inner(ufl.grad(u), ufl.grad(v)) * dx_r - val * v * dx_r
+    return u, F, mesh_to_submesh
+
+
+def mixed_term(u, v, n):
+    return ufl.dot(ufl.grad(u), n) * v
+
+
+def surface_overpotential(kappa, u, n, i0, kinetics_type='linear'):
+    i_loc = -inner((kappa * grad(u)), n)
+    if kinetics_type == "butler_volmer":
+        return 2 * ufl.ln(0.5 * i_loc/i0 + ufl.sqrt((0.5 * i_loc/i0)**2 + 1)) * (R * T / faraday_const)
+    elif kinetics_type == "linear":
+        return R * T * i_loc / (i0 * faraday_const)
+    elif kinetics_type == "tafel":
+        return ufl.sign(i_loc) * R * T / (0.5 * faraday_const) * ufl.ln(np.abs(i_loc)/i_0)
 
 
 def arctanh(y):
@@ -46,21 +68,20 @@ def arctanh(y):
 
 
 def ocv(c, cmax=35000):
-    xi = 2 * (c - 0.5 * cmax) / cmax
-    return 3.25 - 0.5 * arctanh(xi)
+    # xi = 2 * (c - 0.5 * cmax) / cmax
+    # return 3.25 - 0.5 * arctanh(xi)
+    return 3.25 - 0.25 * ufl.ln((1 + 2 * (c - 0.5 * cmax) / cmax) / (1 - 2 * (c - 0.5 * cmax) / cmax))
 
-def initial_condition(x, val=0):
-    values = np.zeros((1, x.shape[1]), dtype=default_scalar_type)
-    values[0] = val
-    return values
+
+def ocv_simple(c, cmax=35000):
+    return 4.2 * (1 - c/cmax) ** 2
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='3D Current Collector.')
-    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="lithium_metal_3d_cc_2d")
-    parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid', required=True)
+    parser = argparse.ArgumentParser(description='secondary current distribution')
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1.0, type=float)
+    parser.add_argument("--u_ocv", help="open-circuit potential", nargs='?', const=1, default=0, type=float)
     parser.add_argument("--Wa_n", help="Wagna number for negative electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e-3, type=float)
     parser.add_argument("--Wa_p", help="Wagna number for positive electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
     parser.add_argument("--kr", help="ratio of ionic to electronic conductivity", nargs='?', const=1, default=1, type=float)
@@ -69,67 +90,113 @@ if __name__ == '__main__':
     parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-9, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='MICRON_TO_METER', type=str)
+    parser.add_argument('--kinetics', help='kinetics type', nargs='?', const=1, default='butler_volmer', type=str, choices=kinetics)
+    parser.add_argument("--plot", help="whether to plot results", default=False, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
     start_time = timeit.default_timer()
     voltage = args.voltage
     Wa_n = args.Wa_n
     Wa_p = args.Wa_p
-    comm = MPI.COMM_WORLD
-    encoding = io.XDMFFile.Encoding.HDF5
-    micron = 1e-6
-    LX, LY, LZ = [float(vv) * micron for vv in args.dimensions.split("-")]
-    workdir = os.path.join(args.mesh_folder, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), str(args.gamma))
-    utils.make_dir_if_missing(workdir)
-    output_meshfile = os.path.join(args.mesh_folder, 'mesh.msh')
-    lines_h5file = os.path.join(args.mesh_folder, 'lines.h5')
-    potential_resultsfile = os.path.join(workdir, "potential.bp")
-    concentration_resultsfile = os.path.join(workdir, "concentration.bp")
-    current_dist_file = os.path.join(workdir, f"current-y-positions-{str(args.Wa_p)}-{str(args.kr)}.png")
-    reaction_dist_file = os.path.join(workdir, f"reaction-dist-{str(args.Wa_p)}-{str(args.kr)}.png")
-    current_resultsfile = os.path.join(workdir, "current.bp")
-    simulation_metafile = os.path.join(workdir, "simulation.json")
-
-    loglevel = configs.get_configs()['LOGGING']['level']
-    dimensions = args.dimensions
-    logger = logging.getLogger()
-    logger.setLevel(loglevel)
-    formatter = logging.Formatter(f'%(levelname)s:%(asctime)s:{workdir}:%(message)s')
-    fh = logging.FileHandler(os.path.basename(__file__).replace(".py", ".log"))
-    fh.setFormatter(formatter)
-    logger.addHandler(fh)
-    logger.debug(args.mesh_folder)
+    gamma = args.gamma
+    kappa_elec = args.kr * kappa_pos_am
+    dt_ = 1e-2
+    D = 1e-15
 
     markers = commons.Markers()
+    comm = MPI.COMM_WORLD
 
-    # ### Read input geometry
+    dimensions = utils.extract_dimensions_from_meshfolder(args.mesh_folder)
+    LX, LY, LZ = [float(vv) * micron for vv in dimensions.split("-")]
+
+    characteristic_length = LZ 
+    if np.isclose(LZ, 0):
+        characteristic_length = LX
+
+    output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
+    results_dir = os.path.join(args.mesh_folder, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), str(args.gamma))
+    utils.make_dir_if_missing(results_dir)
+    output_potential_file = os.path.join(results_dir, "potential.bp")
+    elec_potential_file = os.path.join(results_dir, "electrolyte_potential.bp")
+    positive_am_potential_file = os.path.join(results_dir, "positive_am_potential.bp")
+    current_file = os.path.join(results_dir, "current.bp")
+    concentration_file = os.path.join(results_dir, "concentration.bp")
+
+    # load mesh
     partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
-    domain, ct, ft = gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)
+    domain, ct, ft = io.gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)
     tdim = domain.topology.dim
     fdim = tdim - 1
     domain.topology.create_connectivity(tdim, fdim)
-    x = SpatialCoordinate(domain)
+    domain.topology.create_connectivity(tdim, tdim)
+    domain.topology.create_connectivity(fdim, fdim)
 
     # tag internal facets as 0
     ft_imap = domain.topology.index_map(fdim)
-    num_facets = ft_imap.size_local + ft_imap.num_ghosts
-    indices = np.arange(0, num_facets)
-    values = np.zeros(indices.shape, dtype=np.intc)
+    num_facets_local = ft_imap.size_local + ft_imap.num_ghosts
 
-    values[ft.indices] = ft.values
+    # facets
+    num_facets_local = (
+        domain.topology.index_map(fdim).size_local + domain.topology.index_map(fdim).num_ghosts
+    )
+    facets = np.arange(num_facets_local, dtype=np.int32)
+    values = np.full_like(facets, 0, dtype=np.int32)
+    values[ft.find(markers.left)] = markers.left
+    values[ft.find(markers.right)] = markers.right
+    all_b_facets = mesh.compute_incident_entities(
+        domain.topology, ct.find(markers.electrolyte), tdim, fdim
+    )
+    all_t_facets = mesh.compute_incident_entities(
+        domain.topology, ct.find(markers.positive_am), tdim, fdim
+    )
+    interface = np.intersect1d(all_b_facets, all_t_facets)
+    values[interface] = markers.electrolyte_v_positive_am
+
+    ft = mesh.meshtags(domain, fdim, facets, values)
+
+    submesh_electrolyte, submesh_electrolyte_to_mesh, b_v_map = mesh.create_submesh(
+        domain, tdim, ct.find(markers.electrolyte)
+    )[0:3]
+    submesh_positive_am, submesh_positive_am_to_mesh, t_v_map = mesh.create_submesh(
+        domain, tdim, ct.find(markers.positive_am)
+    )[0:3]
+    parent_to_sub_electrolyte = np.full(num_facets_local, -1, dtype=np.int32)
+    parent_to_sub_electrolyte[submesh_electrolyte_to_mesh] = np.arange(len(submesh_electrolyte_to_mesh), dtype=np.int32)
+    parent_to_sub_positive_am = np.full(num_facets_local, -1, dtype=np.int32)
+    parent_to_sub_positive_am[submesh_positive_am_to_mesh] = np.arange(len(submesh_positive_am_to_mesh), dtype=np.int32)
+
+    ft_electrolyte = mesh_utils.transfer_meshtags(domain, submesh_electrolyte, submesh_electrolyte_to_mesh, ft)
+    ft_positive_am = mesh_utils.transfer_meshtags(domain, submesh_positive_am, submesh_positive_am_to_mesh, ft)
 
 
-    ft = mesh.meshtags(domain, fdim, indices, values)
-    ct = mesh.meshtags(domain, tdim, ct.indices, ct.values)
+    # Hack, as we use one-sided restrictions, pad dS integral with the same entity from the same cell on both sides
+    domain.topology.create_connectivity(fdim, tdim)
+    f_to_c = domain.topology.connectivity(fdim, tdim)
 
-    dx = ufl.Measure("dx", domain=domain, subdomain_data=ct, metadata={"quadrature_degree": 4})
-    ds = ufl.Measure("ds", domain=domain, subdomain_data=ft, metadata={"quadrature_degree": 4})
+    for facet in ft.find(markers.electrolyte_v_positive_am):
+        cells = f_to_c.links(facet)
+        assert len(cells) == 2
+        b_map = parent_to_sub_electrolyte[cells]
+        t_map = parent_to_sub_positive_am[cells]
+        parent_to_sub_electrolyte[cells] = max(b_map)
+        parent_to_sub_positive_am[cells] = max(t_map)
 
+    entity_maps = {submesh_electrolyte: parent_to_sub_electrolyte, submesh_positive_am: parent_to_sub_positive_am}
+    # entity_maps = {submesh_electrolyte._cpp_object: parent_to_sub_electrolyte, submesh_positive_am._cpp_object: parent_to_sub_positive_am}
+
+
+    u_0, F_00, m_to_elec = define_interior_eq(domain, 1, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec)
+    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 1, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am)
+    u_0.name = "u_b"
+    u_1.name = "u_t"
+
+
+    # Add coupling term to the interface
+    # Get interface markers on submesh b
     f_to_c = domain.topology.connectivity(fdim, tdim)
     c_to_f = domain.topology.connectivity(tdim, fdim)
     charge_xfer_facets = ft.find(markers.electrolyte_v_positive_am)
 
-    other_internal_facets = ft.find(0)
     int_facet_domain = []
     for f in charge_xfer_facets:
         if f >= ft_imap.size_local or len(f_to_c.links(f)) != 2:
@@ -148,189 +215,253 @@ if __name__ == '__main__':
             int_facet_domain.append(local_f_1)
             int_facet_domain.append(c_0)
             int_facet_domain.append(local_f_0)
+    int_facet_domains = [(markers.electrolyte_v_positive_am, int_facet_domain)]
 
-    other_internal_facet_domains = []
-    for f in other_internal_facets:
-        if f >= ft_imap.size_local or len(f_to_c.links(f)) != 2:
-            continue
-        c_0, c_1 = f_to_c.links(f)[0], f_to_c.links(f)[1]
-        subdomain_0, subdomain_1 = ct.values[[c_0, c_1]]
-        local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
-        local_f_1 = np.where(c_to_f.links(c_1) == f)[0][0]
-        other_internal_facet_domains.append(c_0)
-        other_internal_facet_domains.append(local_f_0)
-        other_internal_facet_domains.append(c_1)
-        other_internal_facet_domains.append(local_f_1)
-    int_facet_domains = [(markers.electrolyte_v_positive_am, int_facet_domain)]#, (0, other_internal_facet_domains)]
+    dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
+    # dInterface = ufl.Measure("dS", domain=domain, subdomain_data=ft, subdomain_id=markers.electrolyte_v_positive_am)
+    dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
+    ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
+    ds_r = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
+    l_res = "-"
+    r_res = "+"
 
-    dS = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains)
+    v_l = ufl.TestFunction(u_0.function_space)(l_res)
+    v_r = ufl.TestFunction(u_1.function_space)(r_res)
+    u_l = u_0(l_res)
+    u_r = u_1(r_res)
 
-    # ### Function Spaces
-    P1 = element("DG", domain.basix_cell(), 1, dtype=default_real_type)
-    P2 = element("DG", domain.basix_cell(), 1, dtype=default_real_type)
-    # V = fem.functionspace(domain, mixed_element([P1, P2]))
-    V = fem.functionspace(domain, ("DG", 1, (2,)))
-    W = fem.functionspace(domain, ("DG", 1, (3,)))
-    Z = fem.functionspace(domain, ("CG", 1, (3,)))
-    Q = fem.functionspace(domain, ("DG", 0))
-    uc = fem.Function(V, name='potential')
 
-    u, c = ufl.split(uc)
-
-    uc0 = fem.Function(V, name='potential')
-
-    v, q = ufl.TestFunctions(V)
-
-    current_h = fem.Function(W, name='current_density')
-    kappa = fem.Function(Q, name='conductivity')
-    D = fem.Function(Q, name='diffusivity')
     n = ufl.FacetNormal(domain)
-    x = ufl.SpatialCoordinate(domain)
-    h = ufl.CellDiameter(domain)
-    h_avg = avg(h)
+    n2 = ufl.FacetNormal(submesh_positive_am)
+    n_l = n(l_res)
+    n_r = n(r_res)
+    cr = ufl.Circumradius(domain)
+    h_l = 2 * cr(l_res)
+    h_r = 2 * cr(r_res)
 
-    cells_elec = ct.find(markers.electrolyte)
-    kappa_pos_am = kappa_elec / args.kr
-    cells_pos_am = ct.find(markers.positive_am)
+    # exchange current densities
+    i0_n = kappa_elec * R * T / (Wa_n * faraday_const * characteristic_length)
+    i0_p = kappa_elec * R * T / (Wa_p * faraday_const * characteristic_length)
 
-    kappa.x.array[cells_elec] = np.full_like(cells_elec, kappa_elec, dtype=default_scalar_type)
-    kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, kappa_pos_am, dtype=default_scalar_type)
+    # concentration problem
+    dt = fem.Constant(submesh_positive_am, dt_)
+    VC = fem.functionspace(submesh_positive_am, ("CG", 1))
+    V_RK = fem.functionspace(submesh_positive_am, ("CG", 1))
+    c, q = fem.Function(VC), ufl.TestFunction(VC)
+    c0 = fem.Function(VC)
+    cmax = 27000
+    c0.interpolate(lambda x: x[0] - x[0] + 0.75*cmax)
 
-    D.x.array[cells_pos_am] = np.full_like(cells_pos_am, 1e-15, dtype=default_scalar_type)
-    D.x.array[cells_elec] = np.full_like(cells_elec, 1e-5, dtype=default_scalar_type)
+    q_r = ufl.TestFunction(c.function_space)(r_res)
+    q_l = ufl.TestFunction(c.function_space)(l_res)
+    c_r = c(r_res)
 
-    fun1 = lambda x: initial_condition(x, val=32500)
-    fun2 = lambda x: initial_condition(x, val=0)
-    uc0.sub(1).interpolate(fun1, cells=cells_pos_am)
-    uc0.sub(1).interpolate(fun2, cells=cells_elec)
-    uc0.x.scatter_forward()
-    u0, c0 = ufl.split(uc0)
-    uc.sub(1).interpolate(uc0.sub(1))
+    jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics) + ocv_simple(c(r_res), cmax=cmax)
 
-    dt = 1e-3
-    TIME = 50 * dt
-    voltage = args.voltage
+    F_0 = (
+        -1/2 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
+        - 0.5 * mixed_term(0.5 * (kappa_elec + kappa_pos_am) * v_l, (u_r - u_l - jump_u), n_l) * dInterface
+    )
 
-    f = fem.Constant(domain, PETSc.ScalarType(0))
-    g = fem.Constant(domain, PETSc.ScalarType(0))
+    F_1 = (
+        +1/2 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, n_l) * dInterface
+        - 0.5 * mixed_term(0.5 * (kappa_elec + kappa_pos_am) * v_r, (u_r - u_l - jump_u), n_l) * dInterface
+    )
+    F_0 += 2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
+    F_1 += -2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_r * dInterface
 
-    u_left = fem.Function(V).sub(0)
-    with u_left.vector.localForm() as u0_loc:
-        u0_loc.set(0)
-    u_right = fem.Function(V).sub(0)
-    with u_right.vector.localForm() as u1_loc:
-        u1_loc.set(voltage)
+    F_0 += F_00
+    F_1 += F_11
 
-    i0_n = kappa_elec * R * T / (args.Wa_n * faraday_const * LX)
-    i0_p = kappa_elec * R * T / (args.Wa_p * faraday_const * LX)
+    # Runge-Kutta 4th order time integration
+    dc1 = fem.Function(VC)
+    dc2 = fem.Function(VC)
+    dc3 = fem.Function(VC)
+    dc4 = fem.Function(VC)
+    c_rk = fem.Function(VC)
+    c_rk.interpolate(c0)
 
-    u_ocv = ocv(c("+"))
-    V_left = 0
+    # F_2 = (c - c_rk)/dt * q * dx_r + D * inner(ufl.grad(c_rk), ufl.grad(q)) * dx_r
+    F_2 = (c - c0)/dt * q * dx_r + D * inner(ufl.grad(c), ufl.grad(q)) * dx_r
+    F_2 += -inner(0.5*kappa_pos_am/faraday_const*grad(u_r + u_l), n_r) * q_r * dInterface
 
-    alpha = 100#args.gamma
-    gamma = 100#args.gamma
-    i_loc = -inner((kappa * grad(u))('+'), n("+"))
-    u_jump = 2 * ufl.ln(0.5 * i_loc/i0_p + ufl.sqrt((0.5 * i_loc/i0_p)**2 + 1)) * (R * T / faraday_const)
+    jac00 = ufl.derivative(F_0, u_0)
+    jac01 = ufl.derivative(F_0, u_1)
+    jac02 = ufl.derivative(F_0, c)
 
-    Fu = kappa * inner(grad(u), grad(v)) * dx - f * v * dx - kappa * inner(grad(u), n) * v * ds
+    jac10 = ufl.derivative(F_1, u_0)
+    jac11 = ufl.derivative(F_1, u_1)
+    jac12 = ufl.derivative(F_1, c)
 
-    # Add DG/IP terms
-    Fu += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS#(0)
-    # F += - inner(utils.jump(kappa * u, n), avg(grad(v))) * dS(0)
-    Fu += - inner(avg(kappa * grad(u)), jump(v, n)) * dS#(0)
-    # F += + avg(u) * inner(utils.jump(kappa, n), avg(grad(v))) * dS(0)
-    Fu += alpha / h_avg * avg(kappa) * inner(jump(v, n), jump(u, n)) * dS#(0)
+    jac20 = ufl.derivative(F_2, u_0)
+    jac21 = ufl.derivative(F_2, u_1)
+    jac22 = ufl.derivative(F_2, c)
 
-    # Internal boundary
-    Fu += + avg(kappa) * dot(avg(grad(v)), (u_jump + u_ocv) * n('+')) * dS(markers.electrolyte_v_positive_am)
-    Fu += -alpha / h_avg * avg(kappa) * dot(jump(v, n), (u_jump + u_ocv) * n('+')) * dS(markers.electrolyte_v_positive_am)
+    J00 = fem.form(jac00, entity_maps=entity_maps)
+    J01 = fem.form(jac01, entity_maps=entity_maps)
+    J02 = fem.form(jac02, entity_maps=entity_maps)
 
-    # # Symmetry
-    Fu += - avg(kappa) * inner(jump(u, n), avg(grad(v))) * dS(markers.electrolyte_v_positive_am)
+    J10 = fem.form(jac10, entity_maps=entity_maps)
+    J11 = fem.form(jac11, entity_maps=entity_maps)
+    J12 = fem.form(jac12, entity_maps=entity_maps)
 
-    # # Coercivity
-    Fu += alpha / h_avg * avg(kappa) * inner(jump(u, n), jump(v, n)) * dS(markers.electrolyte_v_positive_am)
+    J20 = fem.form(jac20, entity_maps=entity_maps)
+    J21 = fem.form(jac21, entity_maps=entity_maps)
+    J22 = fem.form(jac22, entity_maps=entity_maps)
+    
+    J = [[J00, J01, J02], [J10, J11, J12], [J20, J21, J22]]
 
-    # Nitsche Dirichlet BC terms on left and right boundaries
-    Fu += - kappa * (u - u_left) * inner(n, grad(v)) * ds(markers.left)
-    Fu += -gamma / h * (u - u_left) * v * ds(markers.left)
-    Fu += - kappa * (u - u_right) * inner(n, grad(v)) * ds(markers.right) 
-    Fu += -gamma / h * (u - u_right) * v * ds(markers.right)
+    ############### determination of condition number ##########################
+    J_view = fem.petsc.assemble_matrix_block(J)
+    J_view.assemble()
+    # ai, aj, av = J_view.getValuesCSR()
+    # Asp = scipy.sparse.csr_matrix((av, aj, ai))
+    # fig, ax = matspy.spy_to_mpl(Asp)
+    # fig.savefig(os.path.join(results_dir, "jacobian-sparsity.eps"), bbox_inches='tight')
+    # viewer = PETSc.Viewer().DRAW(comm)
+    # J_view.view()
 
-    # Nitsche Neumann BC terms on insulated boundary
-    Fu += -g * v * ds(markers.insulated_electrolyte) + gamma * h * g * inner(grad(v), n) * ds(markers.insulated_electrolyte)
-    Fu += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.insulated_electrolyte)
-    Fu += -g * v * ds(markers.insulated_positive_am) + gamma * h * g * inner(grad(v), n) * ds(markers.insulated_positive_am)
-    Fu += - gamma * h * inner(inner(grad(u), n), inner(grad(v), n)) * ds(markers.insulated_positive_am)
+    # # eigen values
+    # E = SLEPc.EPS()
+    # E.create()
+    # E.setOperators(J_view)
+    # E.setProblemType(SLEPc.EPS.ProblemType.NHEP)
+    # E.setFromOptions()
+    # E.solve()
+    # Print = PETSc.Sys.Print
+    # Print()
+    # Print("******************************")
+    # Print("*** SLEPc Solution Results ***")
+    # Print("******************************")
+    # Print()
 
-    # kinetics boundary - neumann
-    # Fu += - gamma * h * inner(inner(kappa * grad(u), n), inner(grad(v), n)) * ds(markers.left)
-    # Fu -= - gamma * h * 2 * i0_n * ufl.sinh(0.5 * faraday_const / R / T * (V_left - u - 0)) * inner(grad(v), n) * ds(markers.left)
+    # its = E.getIterationNumber()
+    # Print("Number of iterations of the method: %d" % its)
 
-    Fc = c * q * dx - c0 * q * dx
+    # eps_type = E.getType()
+    # Print("Solution method: %s" % eps_type)
 
-    Fct = D * inner(grad(c), grad(q)) * dx - f * q * dx - D * inner(grad(c), n) * q * ds
+    # nev, ncv, mpd = E.getDimensions()
+    # Print("Number of requested eigenvalues: %d" % nev)
 
-    # Add DG/IP terms
-    Fct += - avg(D) * inner(jump(c, n), avg(grad(q))) * dS#(0)
-    Fct += - inner(avg(D * grad(c)), jump(q, n)) * dS#(0)
-    Fct += alpha / h_avg * avg(D) * inner(jump(q, n), jump(c, n)) * dS#(0)
+    # tol, maxit = E.getTolerances()
+    # Print("Stopping condition: tol=%.4g, maxit=%d" % (tol, maxit))
+    # nconv = E.getConverged()
+    # Print("Number of converged eigenpairs %d" % nconv)
+    # if nconv > 0:
+    #     # Create the results vectors
+    #     vr, wr = J_view.getVecs()
+    #     vi, wi = J_view.getVecs()
+    #     #
+    #     Print()
+    #     Print("        k          ||Ax-kx||/||kx|| ")
+    #     Print("----------------- ------------------")
+    #     for i in range(nconv):
+    #         k = E.getEigenpair(i, vr, vi)
+    #         error = E.computeError(i)
+    #         if k.imag != 0.0:
+    #             Print(" %9f%+9f j %12g" % (k.real, k.imag, error))
+    #         else:
+    #             Print(" %12f      %12g" % (k.real, error))
+    #     Print()
 
-    # zero-concentration
-    Fct += - D * (c - 0) * inner(n, grad(q)) * ds(markers.left)
-    Fct += -gamma / h * (c - 0) * q * ds(markers.left)
+    ############################################################################
+    F = [
+        fem.form(F_0, entity_maps=entity_maps),
+        fem.form(F_1, entity_maps=entity_maps),
+        fem.form(F_2, entity_maps=entity_maps),
+    ]
+    left_bc = fem.Function(u_0.function_space)
+    left_bc.x.array[:] = 0
+    submesh_electrolyte.topology.create_connectivity(
+        submesh_electrolyte.topology.dim - 1, submesh_electrolyte.topology.dim
+    )
+    bc_left = fem.dirichletbc(
+        left_bc, fem.locate_dofs_topological(u_0.function_space, fdim, ft_electrolyte.find(markers.left))
+    )
 
-    # insulated
-    Fct += -g * q * ds(markers.insulated_electrolyte) + gamma * h * g * inner(grad(q), n) * ds(markers.insulated_electrolyte)
-    Fct += - gamma * h * inner(inner(grad(c), n), inner(grad(q), n)) * ds(markers.insulated_electrolyte)
-    Fct += -g * q * ds(markers.insulated_positive_am) + gamma * h * g * inner(grad(q), n) * ds(markers.insulated_positive_am)
-    Fct += - gamma * h * inner(inner(grad(c), n), inner(grad(q), n)) * ds(markers.insulated_positive_am)
-    Fct += -g * q * ds(markers.right) + gamma * h * g * inner(grad(q), n) * ds(markers.right)
-    Fct += - gamma * h * inner(inner(grad(c), n), inner(grad(q), n)) * ds(markers.right)
 
-    # Internal boundary
-    Fct += - (1/faraday_const) * inner(jump(q, n), avg(kappa * grad(u))) * dS(markers.electrolyte_v_positive_am)
-    # Fct += -alpha / h_avg * avg(D) * dot(jump(q, n), (u_jump + u_ocv) * n('+')) * dS(markers.electrolyte_v_positive_am)
+    right_bc = fem.Function(u_1.function_space)
+    right_bc.x.array[:] = args.voltage
+    submesh_positive_am.topology.create_connectivity(
+        submesh_positive_am.topology.dim - 1, submesh_positive_am.topology.dim
+    )
+    bc_right = fem.dirichletbc(
+        right_bc, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right))
+    )
+    bcs = [bc_left, bc_right]
 
-    # # # Symmetry
-    Fct += - avg(D) * inner(jump(c, n), avg(grad(q))) * dS(markers.electrolyte_v_positive_am)
 
-    # # # Coercivity
-    Fct += alpha / h_avg * avg(D) * inner(jump(c, n), jump(q, n)) * dS(markers.electrolyte_v_positive_am)
+    solver = solvers.NewtonSolver(
+        F,
+        J,
+        [u_0, u_1, c],
+        bcs=bcs,
+        max_iterations=1000,
+        petsc_options={
+            "ksp_type": "preonly",
+            "pc_type": "lu",
+            "pc_factor_mat_solver_type": "superlu_dist",
+        },
+    )
+    time = 0
+    cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
+    runge_steps = np.array([1, 2, 3, 4], dtype=int)
+    for i in range(1):
+        time += dt.value
+        print(f"Time: {time:.2f}")
+        # for i_rk in runge_steps:
+        #     print(i_rk)
+        #     if i_rk == 1:
+        #         solver.solve(tol=1e-5, beta=0.25)
+        #         dc1.x.array[:] = c.x.array - c0.x.array
+        #         c_rk.x.array[:] = c0.x.array + 0.5 * dc1.x.array
+        #     elif i_rk == 2:
+        #         dt.value = 0.5 * dt_
+        #         solver.solve(tol=1e-5, beta=0.25)
+        #         dc2.x.array[:] = c.x.array - c_rk.x.array
+        #         c_rk.x.array[:] = c0.x.array + 0.5 * dc2.x.array
+        #     elif i_rk == 3:
+        #         dt.value = 0.5 * dt_
+        #         solver.solve(tol=1e-5, beta=0.25)
+        #         dc3.x.array[:] = c.x.array - c_rk.x.array
+        #         c_rk.x.array[:] = c0.x.array + dc3.x.array
+        #     elif i_rk == 4:
+        #         dt.value = dt_
+        #         solver.solve(tol=1e-5, beta=0.25)
+        #         dc4.x.array[:] = c.x.array - c_rk.x.array
+        #         c_rk.x.array[:] = c0.x.array + 0.5 * dc3.x.array
+        solver.solve(tol=1e-6, beta=0.25)
+        # change time step
+        # c.x.array[:] = c0.x.array + 1/6 * (dc1.x.array + 2*dc2.x.array + 2*dc3.x.array + dc4.x.array)
+        c0.x.array[:] = c.x.array
+        # c_rk.x.array[:] = c.x.array
+        if i == 0:
+            dt_ = 0.1
+            dt.value = dt_
+        cvtx.write(time)
+        I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
+        I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
+        I_interface = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * grad(c(l_res)), n_r) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+        # I_interface2 = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * grad(c), n2) * ds_r(markers.electrolyte_v_positive_am))), op=MPI.SUM)
+        print(f"Current left: {I_left:.3e} [A]")
+        print(f"Current interface: {I_interface:.3e} [A]")
+        # print(f"Current interface2: {I_interface2:.3e} [A]")
+        print(f"Current right: {I_right:.3e} [A]")
+    cvtx.close()
 
-    Fc += dt * Fct
+    # interpolate
+    V = fem.functionspace(domain, ("DG", 1))
+    u = fem.Function(V)
+    u.interpolate(u_0, cells1=submesh_electrolyte_to_mesh, cells0=np.arange(len(submesh_electrolyte_to_mesh)))
+    u.interpolate(u_1, cells1=submesh_positive_am_to_mesh, cells0=np.arange(len(submesh_positive_am_to_mesh)))
+    u.x.scatter_forward()
 
-    F = Fu + Fc
+    with io.VTXWriter(comm, output_potential_file, [u], engine="BP5") as vtx:
+        vtx.write(0)
 
-    problem = petsc.NonlinearProblem(F, uc)
-    solver = petsc_nls.NewtonSolver(comm, problem)
-    solver.convergence_criterion = "incremental"
-    # solver.maximum_iterations = 100
-    # solver.rtol = args.rtol
-    # solver.atol = args.atol
+    with io.VTXWriter(comm, elec_potential_file, [u_0], engine="BP5") as vtx:
+        vtx.write(0)
 
-    ksp = solver.krylov_solver
-
-    opts = PETSc.Options()
-    ksp.setMonitor(lambda _, it, residual: print(it, residual))
-    option_prefix = ksp.getOptionsPrefix()
-    opts[f"{option_prefix}ksp_type"] = "preonly"
-    opts[f"{option_prefix}pc_type"] = "lu"
-    opts[f"{option_prefix}pc_factor_mat_solver_type"] = "superlu_dist"
-
-    ksp.setFromOptions()
-    t = 0.0
-    c_vtx = VTXWriter(comm, concentration_resultsfile, uc, engine="BP5")
-    c_vtx.write(0.0)
-
-    while t < TIME:
-        t += dt
-        logger.debug(f"Time: {t}")
-        n_iters, converged = solver.solve(uc)
-        uc.x.scatter_forward()
-        uc0.x.array[:] = uc.x.array
-        I_pos_am_pot = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-(kappa * grad(u))("+"), n("+")) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
-        I_pos_am_conc = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-(faraday_const * D * grad(c))("+"), n("+")) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
-        logger.debug(f"Charge transfer current (potential): {I_pos_am_pot:.4f} A, Charge transfer current (concentration): {I_pos_am_conc:.4f} A")
-        c_vtx.write(t)
-    c_vtx.close()
+    with io.VTXWriter(comm, positive_am_potential_file, [u_1], engine="BP5") as vtx:
+        vtx.write(0)
