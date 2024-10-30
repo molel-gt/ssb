@@ -26,6 +26,8 @@ faraday_const = 96485
 kappa_pos_am = 0.1
 kinetics = ('linear', 'tafel', 'butler_volmer')
 micron = 1e-6
+V_UCO = 4.25  # upper cutoff voltage
+c_max = 35000
 
 
 def define_interior_eq(domain, degree,  submesh, submesh_to_mesh, value, kappa):
@@ -53,8 +55,8 @@ def mixed_term(u, v, n):
     return ufl.dot(ufl.grad(u), n) * v
 
 
-def surface_overpotential(kappa, u, n, i0, kinetics_type='linear'):
-    i_loc = -inner((kappa * grad(u)), n)
+def surface_overpotential(kappa, u, n, i0, kinetics_type='linear', ref={"L": 1, "phi": 1, "t": 1, "c": 1}):
+    i_loc = -inner((kappa * grad(u)), n) * ref["phi"]/ref["L"]
     if kinetics_type == "butler_volmer":
         return 2 * ufl.ln(0.5 * i_loc/i0 + ufl.sqrt((0.5 * i_loc/i0)**2 + 1)) * (R * T / faraday_const)
     elif kinetics_type == "linear":
@@ -109,9 +111,15 @@ if __name__ == '__main__':
     dimensions = utils.extract_dimensions_from_meshfolder(args.mesh_folder)
     LX, LY, LZ = [float(vv) * micron for vv in dimensions.split("-")]
 
-    characteristic_length = LZ 
+    L_ref = LZ 
     if np.isclose(LZ, 0):
-        characteristic_length = LX
+        L_ref = LX
+
+    # reference values
+    t_ref = L_ref ** 2 / D
+    phi_ref = V_UCO
+    c_ref = c_max
+    ref = {"t": t_ref, "phi": phi_ref, "c": c_ref, "L": L_ref}
 
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
     results_dir = os.path.join(args.mesh_folder, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), str(args.gamma))
@@ -185,8 +193,8 @@ if __name__ == '__main__':
     # entity_maps = {submesh_electrolyte._cpp_object: parent_to_sub_electrolyte, submesh_positive_am._cpp_object: parent_to_sub_positive_am}
 
 
-    u_0, F_00, m_to_elec = define_interior_eq(domain, 1, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec)
-    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 1, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am)
+    u_0, F_00, m_to_elec = define_interior_eq(domain, 1, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, (phi_ref/L_ref**2) * kappa_elec)
+    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 1, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, (phi_ref/L_ref**2) * kappa_pos_am)
     u_0.name = "u_b"
     u_1.name = "u_t"
 
@@ -240,8 +248,8 @@ if __name__ == '__main__':
     h_r = 2 * cr(r_res)
 
     # exchange current densities
-    i0_n = kappa_elec * R * T / (Wa_n * faraday_const * characteristic_length)
-    i0_p = kappa_elec * R * T / (Wa_p * faraday_const * characteristic_length)
+    i0_n = kappa_elec * R * T / (Wa_n * faraday_const * L_ref)
+    i0_p = kappa_elec * R * T / (Wa_p * faraday_const * L_ref)
 
     # concentration problem
     dt = fem.Constant(submesh_positive_am, dt_)
@@ -249,26 +257,26 @@ if __name__ == '__main__':
     V_RK = fem.functionspace(submesh_positive_am, ("CG", 1))
     c, q = fem.Function(VC), ufl.TestFunction(VC)
     c0 = fem.Function(VC)
-    cmax = 27000
-    c0.interpolate(lambda x: x[0] - x[0] + 0.75*cmax)
+
+    c0.interpolate(lambda x: x[0] - x[0] + 0.75)
 
     q_r = ufl.TestFunction(c.function_space)(r_res)
     q_l = ufl.TestFunction(c.function_space)(l_res)
     c_r = c(r_res)
 
-    jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics) + ocv_simple(c(r_res), cmax=cmax)
+    jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) + ocv_simple(c(r_res), cmax=1)/phi_ref
 
     F_0 = (
-        -1/2 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
-        - 0.5 * mixed_term(0.5 * (kappa_elec + kappa_pos_am) * v_l, (u_r - u_l - jump_u), n_l) * dInterface
+        -1/2 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, (phi_ref/L_ref) * n_l) * dInterface
+        - 0.5 * mixed_term(0.5 * (kappa_elec + kappa_pos_am) * v_l, (u_r - u_l - jump_u), (phi_ref/L_ref) * n_l) * dInterface
     )
 
     F_1 = (
-        +1/2 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, n_l) * dInterface
-        - 0.5 * mixed_term(0.5 * (kappa_elec + kappa_pos_am) * v_r, (u_r - u_l - jump_u), n_l) * dInterface
+        +1/2 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, (phi_ref/L_ref) * n_l) * dInterface
+        - 0.5 * mixed_term(0.5 * (kappa_elec + kappa_pos_am) * v_r, (u_r - u_l - jump_u), (phi_ref/L_ref) * n_l) * dInterface
     )
-    F_0 += 2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
-    F_1 += -2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_r * dInterface
+    F_0 += 2 * gamma / (h_l + h_r) * 0.5 * phi_ref * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
+    F_1 += -2 * gamma / (h_l + h_r) * 0.5 * phi_ref * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_r * dInterface
 
     F_0 += F_00
     F_1 += F_11
@@ -282,8 +290,8 @@ if __name__ == '__main__':
     c_rk.interpolate(c0)
 
     # F_2 = (c - c_rk)/dt * q * dx_r + D * inner(ufl.grad(c_rk), ufl.grad(q)) * dx_r
-    F_2 = (c - c0)/dt * q * dx_r + D * inner(ufl.grad(c), ufl.grad(q)) * dx_r
-    F_2 += -inner(0.5*kappa_pos_am/faraday_const*grad(u_r + u_l), n_r) * q_r * dInterface
+    F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
+    F_2 += -inner(0.5*kappa_pos_am/(D * faraday_const)*(phi_ref/c_ref)*grad(u_r + u_l), n_r) * q_r * dInterface
 
     jac00 = ufl.derivative(F_0, u_0)
     jac01 = ufl.derivative(F_0, u_1)
@@ -372,7 +380,7 @@ if __name__ == '__main__':
         fem.form(F_2, entity_maps=entity_maps),
     ]
     left_bc = fem.Function(u_0.function_space)
-    left_bc.x.array[:] = 0
+    left_bc.x.array[:] = 0/phi_ref
     submesh_electrolyte.topology.create_connectivity(
         submesh_electrolyte.topology.dim - 1, submesh_electrolyte.topology.dim
     )
@@ -382,7 +390,7 @@ if __name__ == '__main__':
 
 
     right_bc = fem.Function(u_1.function_space)
-    right_bc.x.array[:] = args.voltage
+    right_bc.x.array[:] = args.voltage/phi_ref
     submesh_positive_am.topology.create_connectivity(
         submesh_positive_am.topology.dim - 1, submesh_positive_am.topology.dim
     )
@@ -440,9 +448,9 @@ if __name__ == '__main__':
             dt_ = 0.1
             dt.value = dt_
         cvtx.write(time)
-        I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
-        I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
-        I_interface = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * grad(c(l_res)), n_r) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+        I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * (phi_ref/L_ref) * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
+        I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * (phi_ref/L_ref) * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
+        I_interface = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * (c_ref/L_ref) * grad(c(l_res)), n_r) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
         # I_interface2 = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * grad(c), n2) * ds_r(markers.electrolyte_v_positive_am))), op=MPI.SUM)
         print(f"Current left: {I_left:.3e} [A]")
         print(f"Current interface: {I_interface:.3e} [A]")
