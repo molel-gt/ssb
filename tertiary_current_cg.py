@@ -399,9 +399,9 @@ if __name__ == '__main__':
         bcs=bcs,
         max_iterations=1000,
         petsc_options={
-            "ksp_type": "gmres",
+            "ksp_type": "preonly",
             "pc_type": "lu",
-            "pc_factor_mat_solver_type": "mumps",
+            "pc_factor_mat_solver_type": "superlu_dist",
         },
     )
     time = 0
