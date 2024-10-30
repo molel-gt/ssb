@@ -55,3 +55,13 @@ sudo setfacl -m user:$USER:rw /var/run/docker.sock
 
 # docker share current directory
 docker run -ti -v $(pwd):/root/shared -w /root/shared  dolfinx/dolfinx:nightly
+
+# building in apptainer/singularity
+apptainer pull dolfinx.sif docker://dolfinx/dolfinx:nightly
+singularity build dolfinx/dolfinx:nightly dolfinx.sif
+
+# running program
+module purge
+module load gcc/10.3.0-o57x6h
+module load openmpi/4.1.4
+mpiexec -n 24 apptainer exec ~/dolfinx.sif python3
