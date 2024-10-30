@@ -415,7 +415,7 @@ if __name__ == '__main__':
     time = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
     runge_steps = np.array([1, 2, 3, 4], dtype=int)
-    for i in range(1):
+    for i in range(10):
         time += dt.value
         print(f"Time: {time:.2f}")
         # for i_rk in runge_steps:
