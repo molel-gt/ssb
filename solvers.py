@@ -145,8 +145,7 @@ class SNESSolver:
         assert x.getType() != "nest"
         assert F.getType() != "nest"
         x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-        with F.localForm() as f_local:
-            f_local.set(0.0)
+        F.zeroEntries()
 
         offset = 0
         x_array = x.getArray(readonly=True)
