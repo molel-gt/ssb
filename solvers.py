@@ -131,3 +131,39 @@ class NewtonSolver:
         self.dx.destroy()
         self._solver.destroy()
         self.x.destroy()
+
+
+class SNESSolver:
+    def __init__(self, F, J, soln_vars, bcs, P=None):
+        self.L = F
+        self.a = J
+        self.a_precon = P
+        self.bcs = bcs
+        self.soln_vars = soln_vars
+
+    def F_block(self, snes, x, F):
+        assert x.getType() != "nest"
+        assert F.getType() != "nest"
+        x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+        with F.localForm() as f_local:
+            f_local.set(0.0)
+
+        offset = 0
+        x_array = x.getArray(readonly=True)
+        for var in self.soln_vars:
+            size_local = var.vector.getLocalSize()
+            var.vector.array[:] = x_array[offset : offset + size_local]
+            var.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+            offset += size_local
+
+        fem.petsc.assemble_vector_block(F, self.L, self.a, bcs=self.bcs, x0=x, scale=-1.0)
+
+    def J_block(self, snes, x, J, P):
+        assert x.getType() != "nest" and J.getType() != "nest" and P.getType() != "nest"
+        J.zeroEntries()
+        fem.petsc.assemble_matrix_block(J, self.a, bcs=self.bcs, diagonal=1.0)
+        J.assemble()
+        if self.a_precon is not None:
+            P.zeroEntries()
+            fem.petsc.assemble_matrix_block(P, self.a_precon, bcs=self.bcs, diagonal=1.0)
+            P.assemble()
