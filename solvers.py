@@ -150,10 +150,13 @@ class SNESSolver:
         offset = 0
         x_array = x.getArray(readonly=True)
         for var in self.soln_vars:
-            size_local = var.vector.getLocalSize()
-            var.vector.array[:] = x_array[offset : offset + size_local]
+            num_sub_dofs = (
+                    var.function_space.dofmap.index_map.size_local
+                    * var.function_space.dofmap.index_map_bs
+                )
+            var.vector.array[:] = x_array[offset : offset + num_sub_dofs]
             var.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-            offset += size_local
+            offset += num_sub_dofs
 
         fem.petsc.assemble_vector_block(F, self.L, self.a, bcs=self.bcs, x0=x, scale=-1.0)
 
