@@ -102,7 +102,7 @@ if __name__ == '__main__':
     Wa_p = args.Wa_p
     gamma = args.gamma
     kappa_elec = args.kr * kappa_pos_am
-    dt_ = 1e-2
+    dt_ = 1e-6
     D = 1e-15
 
     markers = commons.Markers()
@@ -226,7 +226,6 @@ if __name__ == '__main__':
     int_facet_domains = [(markers.electrolyte_v_positive_am, int_facet_domain)]
 
     dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
-    # dInterface = ufl.Measure("dS", domain=domain, subdomain_data=ft, subdomain_id=markers.electrolyte_v_positive_am)
     dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
     ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
     ds_r = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
@@ -281,15 +280,6 @@ if __name__ == '__main__':
     F_0 += F_00
     F_1 += F_11
 
-    # Runge-Kutta 4th order time integration
-    dc1 = fem.Function(VC)
-    dc2 = fem.Function(VC)
-    dc3 = fem.Function(VC)
-    dc4 = fem.Function(VC)
-    c_rk = fem.Function(VC)
-    c_rk.interpolate(c0)
-
-    # F_2 = (c - c_rk)/dt * q * dx_r + D * inner(ufl.grad(c_rk), ufl.grad(q)) * dx_r
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
     F_2 += -inner(0.5*kappa_pos_am/(D * faraday_const)*(phi_ref/c_ref)*grad(u_r + u_l), n_r) * q_r * dInterface
 
@@ -320,8 +310,8 @@ if __name__ == '__main__':
     J = [[J00, J01, J02], [J10, J11, J12], [J20, J21, J22]]
 
     ############### determination of condition number ##########################
-    J_view = fem.petsc.assemble_matrix_block(J)
-    J_view.assemble()
+    # J_view = fem.petsc.assemble_matrix_block(J)
+    # J_view.assemble()
     # ai, aj, av = J_view.getValuesCSR()
     # Asp = scipy.sparse.csr_matrix((av, aj, ai))
     # fig, ax = matspy.spy_to_mpl(Asp)
@@ -399,64 +389,82 @@ if __name__ == '__main__':
     )
     bcs = [bc_left, bc_right]
 
+    # solver = solvers.NewtonSolver(
+    #     F,
+    #     J,
+    #     [u_0, u_1, c],
+    #     bcs=bcs,
+    #     max_iterations=1000,
+    #     petsc_options={
+    #         "ksp_type": "preonly",
+    #         "pc_type": "lu",
+    #         "pc_factor_mat_solver_type": "superlu_dist",
+    #     },
+    # )
+    ############################################################################
+    P = [[J00, None, None],[None, J11, None],[None, None, J22]]
+    jacobian_matrix = fem.petsc.create_matrix_block(J)
+    P_matrix        = fem.petsc.create_matrix_block(P)
+    residual_vector = fem.petsc.create_vector_block(F)
 
-    solver = solvers.NewtonSolver(
-        F,
-        J,
-        [u_0, u_1, c],
-        bcs=bcs,
-        max_iterations=1000,
-        petsc_options={
-            "ksp_type": "preonly",
-            "pc_type": "lu",
-            "pc_factor_mat_solver_type": "superlu_dist",
-        },
+    options = PETSc.Options()
+    snes = PETSc.SNES().create(comm)
+    # snes.setType("newtonls")
+    snes.getKSP().setType("preonly")
+    snes.getKSP().getPC().setType("lu")
+    snes.getKSP().getPC().setFactorSolverType("superlu_dist")
+    snes.setMonitor(lambda _, it, residual: print(it, residual))
+    snes.setTolerances(atol=1e-12, max_it=1000)
+
+    V0 = u_0.function_space
+    V1 = u_1.function_space
+    V0_map = V0.dofmap.index_map
+    V1_map = V1.dofmap.index_map
+    VC_map = VC.dofmap.index_map
+
+    snes.setFromOptions()
+    snes.getKSP().setFromOptions()
+
+    problem = solvers.SNESSolver(F, J, [u_0, u_1, c], bcs)
+    snes.setFunction(problem.F_block, residual_vector)
+    snes.setJacobian(problem.J_block, jacobian_matrix)
+    x = fem.petsc.create_vector_block(F)
+
+    cpp.la.petsc.scatter_local_vectors(
+        x,
+        [u_0.x.petsc_vec.array_r, u_1.x.petsc_vec.array_r, c.x.petsc_vec.array_r],
+        [
+            (V0.dofmap.index_map, V0.dofmap.index_map_bs),
+            (V1.dofmap.index_map, V1.dofmap.index_map_bs),
+            (VC.dofmap.index_map, VC.dofmap.index_map_bs),
+        ],
     )
-    time = 0
-    cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
-    runge_steps = np.array([1, 2, 3, 4], dtype=int)
-    for i in range(10):
-        time += dt.value
-        print(f"Time: {time:.2f}")
-        # for i_rk in runge_steps:
-        #     print(i_rk)
-        #     if i_rk == 1:
-        #         solver.solve(tol=1e-5, beta=0.25)
-        #         dc1.x.array[:] = c.x.array - c0.x.array
-        #         c_rk.x.array[:] = c0.x.array + 0.5 * dc1.x.array
-        #     elif i_rk == 2:
-        #         dt.value = 0.5 * dt_
-        #         solver.solve(tol=1e-5, beta=0.25)
-        #         dc2.x.array[:] = c.x.array - c_rk.x.array
-        #         c_rk.x.array[:] = c0.x.array + 0.5 * dc2.x.array
-        #     elif i_rk == 3:
-        #         dt.value = 0.5 * dt_
-        #         solver.solve(tol=1e-5, beta=0.25)
-        #         dc3.x.array[:] = c.x.array - c_rk.x.array
-        #         c_rk.x.array[:] = c0.x.array + dc3.x.array
-        #     elif i_rk == 4:
-        #         dt.value = dt_
-        #         solver.solve(tol=1e-5, beta=0.25)
-        #         dc4.x.array[:] = c.x.array - c_rk.x.array
-        #         c_rk.x.array[:] = c0.x.array + 0.5 * dc3.x.array
-        solver.solve(tol=1e-6, beta=0.25)
-        # change time step
-        # c.x.array[:] = c0.x.array + 1/6 * (dc1.x.array + 2*dc2.x.array + 2*dc3.x.array + dc4.x.array)
-        c0.x.array[:] = c.x.array
-        # c_rk.x.array[:] = c.x.array
-        if i == 0:
-            dt_ = 0.1
-            dt.value = dt_
-        cvtx.write(time)
-        I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * (phi_ref/L_ref) * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
-        I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * (phi_ref/L_ref) * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
-        I_interface = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * (c_ref/L_ref) * grad(c(l_res)), n_r) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
-        # I_interface2 = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * grad(c), n2) * ds_r(markers.electrolyte_v_positive_am))), op=MPI.SUM)
-        print(f"Current left: {I_left:.3e} [A]")
-        print(f"Current interface: {I_interface:.3e} [A]")
-        # print(f"Current interface2: {I_interface2:.3e} [A]")
-        print(f"Current right: {I_right:.3e} [A]")
-    cvtx.close()
+    x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+    snes.solve(None, x)
+
+    PETSc.Sys.Print(
+        f"Norm of x: {x.norm()}\n"
+        f"Norm of u0: {u_0.vector.norm(0)}\n"
+        f"Norm of u1: {u_1.vector.norm(0)}\n"
+        f"Norm of c: {c.vector.norm(0)}\n"
+    )
+
+    ############################################################################
+    # time = 0
+    # cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
+    # for i in range(1):
+    #     time += dt.value
+    #     print(f"Time: {time:.1e}")
+    #     solver.solve(tol=1e-6, beta=0.05)
+    #     c0.x.array[:] = c.x.array
+    #     cvtx.write(time)
+    I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * (phi_ref/L_ref) * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
+    I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * (phi_ref/L_ref) * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
+    I_interface = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * (c_ref/L_ref) * grad(c(l_res)), n_r) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+    print(f"Current left: {I_left:.3e} [A]")
+    print(f"Current interface: {I_interface:.3e} [A]")
+    print(f"Current right: {I_right:.3e} [A]")
+    # cvtx.close()
 
     # interpolate
     V = fem.functionspace(domain, ("DG", 1))
