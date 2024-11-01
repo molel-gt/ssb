@@ -7,7 +7,7 @@ import commons, utils
 N = 100
 scale = 1  # 100e-6
 points = [(scale*idx/N, 0, 0) for idx in range(int(N+1))]
-resolution = 0.01
+resolution = 0.0001
 
 markers = commons.Markers()
 
