@@ -62,7 +62,7 @@ def surface_overpotential(kappa, u, n, i0, kinetics_type='linear', ref={"L": 1, 
     elif kinetics_type == "linear":
         return R * T * i_loc / (i0 * faraday_const)
     elif kinetics_type == "tafel":
-        return ufl.sign(i_loc) * R * T / (0.5 * faraday_const) * ufl.ln(np.abs(i_loc)/i_0)
+        return ufl.sign(i_loc) * R * T / (0.5 * faraday_const) * ufl.ln(np.abs(i_loc)/i0)
 
 
 def arctanh(y):
@@ -76,7 +76,8 @@ def ocv(c, cmax=35000):
 
 
 def ocv_simple(c, cmax=35000):
-    return 4.2 * (1 - c/cmax) ** 2
+    # return 4.2 * (1 - c/cmax) ** 2
+    return 2.25*(1/ufl.cosh(1 - c/cmax) + ufl.sinh(1 - c/cmax))
 
 
 if __name__ == '__main__':
@@ -252,8 +253,8 @@ if __name__ == '__main__':
 
     # concentration problem
     dt = fem.Constant(submesh_positive_am, dt_)
-    VC = fem.functionspace(submesh_positive_am, ("CG", 1))
-    V_RK = fem.functionspace(submesh_positive_am, ("CG", 1))
+    VC = fem.functionspace(submesh_positive_am, ("CG", 2))
+
     c, q = fem.Function(VC), ufl.TestFunction(VC)
     c0 = fem.Function(VC)
 
@@ -310,12 +311,12 @@ if __name__ == '__main__':
     J = [[J00, J01, J02], [J10, J11, J12], [J20, J21, J22]]
 
     ############### determination of condition number ##########################
-    # J_view = fem.petsc.assemble_matrix_block(J)
-    # J_view.assemble()
-    # ai, aj, av = J_view.getValuesCSR()
-    # Asp = scipy.sparse.csr_matrix((av, aj, ai))
-    # fig, ax = matspy.spy_to_mpl(Asp)
-    # fig.savefig(os.path.join(results_dir, "jacobian-sparsity.eps"), bbox_inches='tight')
+    J_view = fem.petsc.assemble_matrix_block(J)
+    J_view.assemble()
+    ai, aj, av = J_view.getValuesCSR()
+    Asp = scipy.sparse.csr_matrix((av, aj, ai))
+    fig, ax = matspy.spy_to_mpl(Asp)
+    fig.savefig(os.path.join(results_dir, "jacobian-sparsity.eps"), bbox_inches='tight')
     # viewer = PETSc.Viewer().DRAW(comm)
     # J_view.view()
 
@@ -413,8 +414,8 @@ if __name__ == '__main__':
     snes.getKSP().setType("preonly")
     snes.getKSP().getPC().setType("lu")
     snes.getKSP().getPC().setFactorSolverType("superlu_dist")
-    snes.setMonitor(lambda _, it, residual: print(it, residual))
-    snes.setTolerances(atol=1e-12, max_it=1000)
+    # snes.setMonitor(lambda _, it, residual: print(it, residual))
+    snes.setTolerances(atol=1e-12, rtol=1e-11, max_it=1000)
 
     V0 = u_0.function_space
     V1 = u_1.function_space
