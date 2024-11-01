@@ -58,11 +58,11 @@ def mixed_term(u, v, n):
 def surface_overpotential(kappa, u, n, i0, kinetics_type='linear', ref={"L": 1, "phi": 1, "t": 1, "c": 1}):
     i_loc = -inner((kappa * grad(u)), n) * ref["phi"]/ref["L"]
     if kinetics_type == "butler_volmer":
-        return 2 * ufl.ln(0.5 * i_loc/i0 + ufl.sqrt((0.5 * i_loc/i0)**2 + 1)) * (R * T / faraday_const)
+        return 2 * ufl.ln(0.5 * i_loc/i0 + ufl.sqrt((0.5 * i_loc/i0)**2 + 1)) * (R * T / (faraday_const * ref["phi"]))
     elif kinetics_type == "linear":
-        return R * T * i_loc / (i0 * faraday_const)
+        return R * T * i_loc / (i0 * faraday_const * ref["phi"])
     elif kinetics_type == "tafel":
-        return ufl.sign(i_loc) * R * T / (0.5 * faraday_const) * ufl.ln(np.abs(i_loc)/i0)
+        return ufl.sign(i_loc) * R * T / (0.5 * faraday_const * ref["phi"]) * ufl.ln(np.abs(i_loc)/i0)
 
 
 def arctanh(y):
@@ -259,7 +259,7 @@ if __name__ == '__main__':
     c, q = fem.Function(VC), ufl.TestFunction(VC)
     c0 = fem.Function(VC)
 
-    c0.interpolate(lambda x: x[0] - x[0] + 0.75)
+    c0.interpolate(lambda x: x[0] - x[0] + 0.25)
 
     q_r = ufl.TestFunction(c.function_space)(r_res)
     q_l = ufl.TestFunction(c.function_space)(l_res)
@@ -283,7 +283,7 @@ if __name__ == '__main__':
     F_1 += F_11
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
-    F_2 += -inner(1*kappa_pos_am/(D * faraday_const)*(phi_ref/c_ref)*grad(u_r), n_r) * q_r * dInterface
+    F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_r), n_r) * q_r * dInterface
 
     jac00 = ufl.derivative(F_0, u_0)
     jac01 = ufl.derivative(F_0, u_1)
