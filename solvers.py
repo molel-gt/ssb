@@ -154,8 +154,8 @@ class SNESSolver:
                     var.function_space.dofmap.index_map.size_local
                     * var.function_space.dofmap.index_map_bs
                 )
-            var.vector.array[:] = x_array[offset : offset + num_sub_dofs]
-            var.vector.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+            var.x.petsc_vec.array_w[:] = x_array[offset : offset + num_sub_dofs]
+            var.x.petsc_vec.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
             offset += num_sub_dofs
 
         fem.petsc.assemble_vector_block(F, self.L, self.a, bcs=self.bcs, x0=x, scale=-1.0)
