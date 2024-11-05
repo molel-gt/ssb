@@ -454,24 +454,56 @@ if __name__ == '__main__':
     #     # x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
     # cvtx.close()
     ############################################################################
-    solver = solvers.NewtonSolver(
-        F,
-        J,
-        [u_0, u_1, c],
-        bcs=bcs,
-        max_iterations=1000,
-        petsc_options={
-            "ksp_type": "preonly",
-            "pc_type": "lu",
-            "pc_factor_mat_solver_type": "superlu_dist",
-        },
-    )
+    # solver = solvers.NewtonSolver(
+    #     F,
+    #     J,
+    #     [u_0, u_1, c],
+    #     bcs=bcs,
+    #     max_iterations=1000,
+    #     petsc_options={
+    #         "ksp_type": "preonly",
+    #         "pc_type": "lu",
+    #         "pc_factor_mat_solver_type": "superlu_dist",
+    #     },
+    # )
     t = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
     while t < TIME:
         t += dt.value
         print(f"Time: {t:.1e}")
-        solver.solve(tol=1e-6, beta=0.05)
+        # solver.solve(tol=1e-6, beta=0.05)
+        Jmat = fem.petsc.create_matrix_block(J)
+        Fvec = fem.petsc.create_vector_block(F)
+        snes = PETSc.SNES().create(MPI.COMM_WORLD)
+        snes.setTolerances(rtol=1.0e-15, max_it=100)
+        snes.setMonitor(lambda _, it, residual: print(it, residual))
+        ksp = snes.getKSP()
+        # snes.setType("ncg")
+        ksp.setType("preonly")
+        ksp.getPC().setType("lu")
+        ksp.getPC().setFactorSolverType("mumps")
+        problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, c], bcs)
+        snes.setFunction(problem.F_block, Fvec)
+        snes.setJacobian(problem.J_block, J=Jmat, P=None)
+        x = fem.petsc.create_vector_block(F)
+        cpp.la.petsc.scatter_local_vectors(
+            x,
+            [u_0.x.petsc_vec.array_r, u_1.x.petsc_vec.array_r, c.x.petsc_vec.array_r],
+            [
+                (u_0.function_space.dofmap.index_map, u_0.function_space.dofmap.index_map_bs),
+                (u_1.function_space.dofmap.index_map, u_1.function_space.dofmap.index_map_bs),
+                (c.function_space.dofmap.index_map, c.function_space.dofmap.index_map_bs),
+            ],
+        )
+        x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+        snes.solve(None, x)
+        assert snes.getKSP().getConvergedReason() > 0
+        assert snes.getConvergedReason() > 0
+        xnorm = x.norm()
+        snes.destroy()
+        Jmat.destroy()
+        Fvec.destroy()
+        x.destroy()
         c0.x.array[:] = c.x.array
         cvtx.write(t)
         I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * (phi_ref) * L_ref ** (tdim-2) * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
