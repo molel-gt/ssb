@@ -29,10 +29,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     micron = 1e-6
     resolution = args.resolution #* micron
-    LX, LY, LZ = [float(val) * micron for val in args.dimensions.split("-")]
-    LY = LY/LX
-    LZ = LZ/LX
-    LX = 1
+    Lx, Ly, Lz = [float(val) * micron for val in args.dimensions.split("-")]
+    LY = Ly/Lx
+    LZ = Lz/Lx
+    LX = Lx/Lx
 
     workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, f'{args.resolution}')
     utils.make_dir_if_missing(workdir)
