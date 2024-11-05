@@ -254,7 +254,7 @@ if __name__ == '__main__':
 
     # concentration problem
     dt = fem.Constant(submesh_positive_am, dt_)
-    VC = fem.functionspace(submesh_positive_am, ("CG", 1))
+    VC = fem.functionspace(submesh_positive_am, ("CG", 2))
 
     c, q = fem.Function(VC), ufl.TestFunction(VC)
     c0 = fem.Function(VC)
@@ -470,7 +470,7 @@ if __name__ == '__main__':
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
     while t < TIME:
         t += dt.value
-        print(f"Time: {t:.1e}")
+        PETSc.Sys.Print(f"Time: {t:.1e}\n")
         # solver.solve(tol=1e-6, beta=0.05)
         Jmat = fem.petsc.create_matrix_block(J)
         Fvec = fem.petsc.create_vector_block(F)
