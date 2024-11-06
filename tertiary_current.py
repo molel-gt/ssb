@@ -2,9 +2,10 @@
 import argparse
 import json
 import os
+import resource
 import timeit
 
-
+import datetime
 import dolfinx
 import dolfinx.fem.petsc
 import matspy
@@ -133,6 +134,12 @@ if __name__ == '__main__':
     current_file = os.path.join(results_dir, "current.bp")
     concentration_file = os.path.join(results_dir, "concentration.bp")
     simulation_metafile = os.path.join(results_dir, "simulation.json")
+    resource_usage = os.path.join(results_dir, f"resources-{comm.Get_rank()}.log")
+    mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+
+    with open(resource_usage, 'a') as f:
+        # Dump timestamp, PID and amount of RAM.
+        f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
 
     # load mesh
     partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
@@ -142,6 +149,9 @@ if __name__ == '__main__':
     domain.topology.create_connectivity(tdim, fdim)
     domain.topology.create_connectivity(tdim, tdim)
     domain.topology.create_connectivity(fdim, fdim)
+    with open(resource_usage, 'a') as f:
+        # Dump timestamp, PID and amount of RAM.
+        f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
 
     # tag internal facets as 0
     ft_imap = domain.topology.index_map(fdim)
@@ -195,6 +205,9 @@ if __name__ == '__main__':
 
     entity_maps = {submesh_electrolyte: parent_to_sub_electrolyte, submesh_positive_am: parent_to_sub_positive_am}
     # entity_maps = {submesh_electrolyte._cpp_object: parent_to_sub_electrolyte, submesh_positive_am._cpp_object: parent_to_sub_positive_am}
+    with open(resource_usage, 'a') as f:
+        # Dump timestamp, PID and amount of RAM.
+        f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
 
 
     u_0, F_00, m_to_elec = define_interior_eq(domain, 1, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec)
@@ -258,7 +271,7 @@ if __name__ == '__main__':
 
     # concentration problem
     dt = fem.Constant(submesh_positive_am, dt_)
-    VC = fem.functionspace(submesh_positive_am, ("CG", 3))
+    VC = fem.functionspace(submesh_positive_am, ("CG", 4))
 
     c, q = fem.Function(VC), ufl.TestFunction(VC)
     c0 = fem.Function(VC)
@@ -363,6 +376,9 @@ if __name__ == '__main__':
     #         "pc_factor_mat_solver_type": "superlu_dist",
     #     },
     # )
+    with open(resource_usage, 'a') as f:
+        # Dump timestamp, PID and amount of RAM.
+        f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
     t = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
     while t < TIME:
@@ -370,7 +386,7 @@ if __name__ == '__main__':
         PETSc.Sys.Print(f"Time: {t:.1e}\n")
         Jmat = fem.petsc.create_matrix_block(J)
         Fvec = fem.petsc.create_vector_block(F)
-        snes = PETSc.SNES().create(MPI.COMM_WORLD)
+        snes = PETSc.SNES().create(comm)
         snes.setTolerances(rtol=1.0e-15, max_it=100)
         snes.setMonitor(lambda _, it, residual: print(it, residual))
         ksp = snes.getKSP()
@@ -379,39 +395,15 @@ if __name__ == '__main__':
         ksp.setType("preonly")
         ksp.getPC().setType("lu")
         ksp.getPC().setFactorSolverType("mumps")
-        pc = ksp.getPC()
-        ########################################################################
-        # pc.setType("fieldsplit")
-        # snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.SYMMETRIC_MULTIPLICATIVE)
-        # snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
-        # snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
-
-        # V0_map = V0.dofmap.index_map
-        # V1_map = V1.dofmap.index_map
-        # VC_map = VC.dofmap.index_map
-        # offset_u1 = V0_map.size_local*V0.dofmap.index_map_bs
-        # offset_c = V0_map.size_local*V0.dofmap.index_map_bs + V1_map.size_local*V1.dofmap.index_map_bs
-
-        # ISu0 = PETSc.IS().createStride(V0_map.size_local*V0.dofmap.index_map_bs, 0, 1, comm=comm)
-        # ISu1 = PETSc.IS().createStride(V1_map.size_local*V1.dofmap.index_map_bs, offset_u1, 1, comm=comm)
-        # ISc = PETSc.IS().createStride(VC_map.size_local*VC.dofmap.index_map_bs, offset_c, 1, comm=comm)
-        # pc.setFieldSplitIS(("u0", ISu0))
-        # pc.setFieldSplitIS(("u1", ISu1))
-        # pc.setFieldSplitIS(("c", ISc))
-        # # snes.getKSP().setUp()
-        # # snes.getKSP().getPC().setUp()
-
-        # ksp_u0, ksp_u1, ksp_c = snes.getKSP().getPC().getFieldSplitSubKSP()
-        # ksp_u0.setType("preonly")
-        # ksp_u0.getPC().setType("lu")
-        # ksp_u1.setType("preonly")
-        # ksp_u1.getPC().setType("lu")
-        # ksp_c.setType("preonly")
-        # ksp_c.getPC().setType("lu")
-        ########################################################################
-
         snes.setFromOptions()
         ksp.setFromOptions()
+
+        # P_0 = [[J00, None, None], [None, J11, None], [None, None, J22]]
+        # P = fem.petsc.assemble_matrix_block(P_0, bcs=bcs)
+        # P.assemble()
+        with open(resource_usage, 'a') as f:
+            # Dump timestamp, PID and amount of RAM.
+            f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
 
         problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, c], bcs)
         snes.setFunction(problem.F_block, Fvec)
@@ -448,6 +440,10 @@ if __name__ == '__main__':
                 f"Current right: {I_right:.3e} [A]\n"
                 )
     cvtx.close()
+    with open(resource_usage, 'a') as f:
+    # Dump timestamp, PID and amount of RAM.
+        f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
+
     time_elapsed = timeit.default_timer() - start_time
     metadata = {
         "I left [A]": I_left,
