@@ -235,9 +235,11 @@ if __name__ == '__main__':
     ds_r = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
     l_res = "-"
     r_res = "+"
+    V0 = u_0.function_space
+    V1 = u_1.function_space
 
-    v_l = ufl.TestFunction(u_0.function_space)(l_res)
-    v_r = ufl.TestFunction(u_1.function_space)(r_res)
+    v_l = ufl.TestFunction(V0)(l_res)
+    v_r = ufl.TestFunction(V1)(r_res)
     u_l = u_0(l_res)
     u_r = u_1(r_res)
 
@@ -366,20 +368,54 @@ if __name__ == '__main__':
     while t < TIME:
         t += dt.value
         PETSc.Sys.Print(f"Time: {t:.1e}\n")
-        # solver.solve(tol=1e-6, beta=0.05)
         Jmat = fem.petsc.create_matrix_block(J)
         Fvec = fem.petsc.create_vector_block(F)
         snes = PETSc.SNES().create(MPI.COMM_WORLD)
         snes.setTolerances(rtol=1.0e-15, max_it=100)
         snes.setMonitor(lambda _, it, residual: print(it, residual))
         ksp = snes.getKSP()
-        # snes.setType("ncg")
+        # snes.setType("ngmres")
         ksp.setType("preonly")
         ksp.getPC().setType("lu")
         ksp.getPC().setFactorSolverType("mumps")
+        pc = ksp.getPC()
+        # pc.setType("fieldsplit")
+
+        # snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.SCHUR)
+        # snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
+        # snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
+
+        # V0_map = V0.dofmap.index_map
+        # V1_map = V1.dofmap.index_map
+        # VC_map = VC.dofmap.index_map
+        # offset_u1 = V0_map.size_local*V0.dofmap.index_map_bs
+        # offset_c = V0_map.size_local*V0.dofmap.index_map_bs + V1_map.size_local*V1.dofmap.index_map_bs
+
+        # ISu0 = PETSc.IS().createStride(V0_map.size_local*V0.dofmap.index_map_bs, 0, 1, comm=comm)
+        # ISu1 = PETSc.IS().createStride(V1_map.size_local*V1.dofmap.index_map_bs, offset_u1, 1, comm=comm)
+        # ISc = PETSc.IS().createStride(VC_map.size_local*VC.dofmap.index_map_bs, offset_c, 1, comm=comm)
+        # pc.setFieldSplitIS(("u0", ISu0))
+        # pc.setFieldSplitIS(("u1", ISu1))
+        # pc.setFieldSplitIS(("c", ISc))
+        # snes.getKSP().setUp()
+        # snes.getKSP().getPC().setUp()
+
+        # ksp_u0, ksp_u1, ksp_c = snes.getKSP().getPC().getFieldSplitSubKSP()
+        # ksp_u0.setType("preonly")
+        # ksp_u0.getPC().setType("lu")
+        # ksp_u1.setType("preonly")
+        # ksp_u1.getPC().setType("lu")
+        # ksp_c.setType("preonly")
+        # ksp_c.getPC().setType("lu")
+
+        # snes.setFromOptions()
+        # snes.getKSP().setFromOptions()
+
         problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, c], bcs)
         snes.setFunction(problem.F_block, Fvec)
         snes.setJacobian(problem.J_block, J=Jmat, P=None)
+        ksp.view()
+        snes.view()
         x = fem.petsc.create_vector_block(F)
         cpp.la.petsc.scatter_local_vectors(
             x,
