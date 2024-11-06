@@ -71,9 +71,9 @@ def arctanh(y):
 
 
 def ocv(c, cmax=35000):
-    # xi = 2 * (c - 0.5 * cmax) / cmax
-    # return 3.25 - 0.5 * arctanh(xi)
-    return 3.25 - 0.25 * ufl.ln((1 + 2 * (c - 0.5 * cmax) / cmax) / (1 - 2 * (c - 0.5 * cmax) / cmax))
+    xi = 2 * (c - 0.5 * cmax) / cmax
+    return 3.25 - 0.5 * arctanh(xi)
+    # return 3.25 - 0.25 * ufl.ln((1 + 2 * (c - 0.5 * cmax) / cmax) / (1 - 2 * (c - 0.5 * cmax) / cmax))
 
 
 def ocv_simple(c, cmax=35000):
@@ -375,13 +375,14 @@ if __name__ == '__main__':
         snes.setMonitor(lambda _, it, residual: print(it, residual))
         ksp = snes.getKSP()
         # snes.setType("ngmres")
+        ksp.setErrorIfNotConverged(True)
         ksp.setType("preonly")
         ksp.getPC().setType("lu")
         ksp.getPC().setFactorSolverType("mumps")
         pc = ksp.getPC()
+        ########################################################################
         # pc.setType("fieldsplit")
-
-        # snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.SCHUR)
+        # snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.SYMMETRIC_MULTIPLICATIVE)
         # snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
         # snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
 
@@ -397,8 +398,8 @@ if __name__ == '__main__':
         # pc.setFieldSplitIS(("u0", ISu0))
         # pc.setFieldSplitIS(("u1", ISu1))
         # pc.setFieldSplitIS(("c", ISc))
-        # snes.getKSP().setUp()
-        # snes.getKSP().getPC().setUp()
+        # # snes.getKSP().setUp()
+        # # snes.getKSP().getPC().setUp()
 
         # ksp_u0, ksp_u1, ksp_c = snes.getKSP().getPC().getFieldSplitSubKSP()
         # ksp_u0.setType("preonly")
@@ -407,9 +408,10 @@ if __name__ == '__main__':
         # ksp_u1.getPC().setType("lu")
         # ksp_c.setType("preonly")
         # ksp_c.getPC().setType("lu")
+        ########################################################################
 
-        # snes.setFromOptions()
-        # snes.getKSP().setFromOptions()
+        snes.setFromOptions()
+        ksp.setFromOptions()
 
         problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, c], bcs)
         snes.setFunction(problem.F_block, Fvec)
