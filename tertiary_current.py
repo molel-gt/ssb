@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import resource
+import time
 import timeit
 
 import datetime
@@ -397,10 +398,15 @@ if __name__ == '__main__':
         snes.setMonitor(lambda _, it, residual: print(it, residual))
 
         # snes.setType("ngmres")
-        snes.getKSP().setErrorIfNotConverged(True)
+        # snes.getKSP().setErrorIfNotConverged(True)
         snes.getKSP().setType("preonly")
         snes.getKSP().getPC().setType("lu")
         snes.getKSP().getPC().setFactorSolverType("mumps")
+        # opts = PETSc.Options()
+        # option_prefix = ""#snes.getKSP().getOptionsPrefix()
+        # opts[f"{option_prefix}mg_coarse_ksp_type"] = "fgmres"
+        # opts[f"{option_prefix}mg_coarse_pc_type"] = "ksp"
+        # opts[f"{option_prefix}mg_coarse_ksp_ksp_type"] = "chebyshev"
 
         # snes.getKSP().getPC().setType("fieldsplit")
         # snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.ADDITIVE)
@@ -453,7 +459,9 @@ if __name__ == '__main__':
             ],
         )
         x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+        t0 = time.time()
         snes.solve(None, x)
+        t1 = time.time()
         assert snes.getKSP().getConvergedReason() > 0
         assert snes.getConvergedReason() > 0
         xnorm = x.norm()
@@ -484,6 +492,7 @@ if __name__ == '__main__':
         "I interface [A]": I_interface,
         "I right [A]": I_right,
         "time elapsed [s]": time_elapsed,
+        "solve time [s]": t1 - t0,
         "L ref [m]": ref["L"],
         "c ref [mol/m3]": ref["c"],
         "phi ref [V]": ref["phi"],
