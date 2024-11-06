@@ -379,6 +379,12 @@ if __name__ == '__main__':
     with open(resource_usage, 'a') as f:
         # Dump timestamp, PID and amount of RAM.
         f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
+    V0_map = V0.dofmap.index_map
+    V1_map = V1.dofmap.index_map
+    VC_map = VC.dofmap.index_map
+    # offset_u1 = V0_map.size_local*V0.dofmap.index_map_bs
+    # offset_c = V0_map.size_local*V0.dofmap.index_map_bs + V1_map.size_local*V1.dofmap.index_map_bs
+    n_dofs = V0_map.size_local*V0.dofmap.index_map_bs + V1_map.size_local*V1.dofmap.index_map_bs + VC_map.size_local*VC.dofmap.index_map_bs
     t = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
     while t < TIME:
@@ -389,14 +395,40 @@ if __name__ == '__main__':
         snes = PETSc.SNES().create(comm)
         snes.setTolerances(rtol=1.0e-15, max_it=100)
         snes.setMonitor(lambda _, it, residual: print(it, residual))
-        ksp = snes.getKSP()
+
         # snes.setType("ngmres")
-        ksp.setErrorIfNotConverged(True)
-        ksp.setType("preonly")
-        ksp.getPC().setType("lu")
-        ksp.getPC().setFactorSolverType("mumps")
-        snes.setFromOptions()
-        ksp.setFromOptions()
+        snes.getKSP().setErrorIfNotConverged(True)
+        snes.getKSP().setType("preonly")
+        snes.getKSP().getPC().setType("lu")
+        snes.getKSP().getPC().setFactorSolverType("mumps")
+
+        # snes.getKSP().getPC().setType("fieldsplit")
+        # snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.ADDITIVE)
+        # snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
+        # snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
+
+        # ISu = PETSc.IS().createStride(V0_map.size_local*V0.dofmap.index_map_bs + V1_map.size_local*V1.dofmap.index_map_bs, 0, 1, comm=comm)
+        # # ISu1 = PETSc.IS().createStride(V1_map.size_local*V1.dofmap.index_map_bs, offset_u1, 1, comm=comm)
+        # ISc = PETSc.IS().createStride(VC_map.size_local*VC.dofmap.index_map_bs, offset_c, 1, comm=comm)
+        # snes.getKSP().getPC().setFieldSplitIS(("u", ISu))
+        # # pc.setFieldSplitIS(("u1", ISu1))
+        # snes.getKSP().getPC().setFieldSplitIS(("c", ISc))
+        # # snes.getKSP().setUp()
+        # # snes.getKSP().getPC().setUp()
+
+        # ksp_u, ksp_c = snes.getKSP().getPC().getFieldSplitSubKSP()
+        # ksp_u.setType("preonly")
+        # ksp_u.getPC().setType("mg")
+        # u_opts = PETSc.Options()
+        # option_prefix_u = ksp_u.getOptionsPrefix()
+        # print(option_prefix_u, u_opts)
+        # u_opts[f"{option_prefix_u}pc_mg_levels"] = 10
+
+        # ksp_c.setType("preonly")
+        # ksp_c.getPC().setType("hypre")
+        # snes.setFromOptions()
+        # ksp_u.setFromOptions()
+        # ksp_c.setFromOptions()
 
         # P_0 = [[J00, None, None], [None, J11, None], [None, None, J22]]
         # P = fem.petsc.assemble_matrix_block(P_0, bcs=bcs)
@@ -408,7 +440,7 @@ if __name__ == '__main__':
         problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, c], bcs)
         snes.setFunction(problem.F_block, Fvec)
         snes.setJacobian(problem.J_block, J=Jmat, P=None)
-        ksp.view()
+        snes.getKSP().view()
         snes.view()
         x = fem.petsc.create_vector_block(F)
         cpp.la.petsc.scatter_local_vectors(
@@ -445,6 +477,8 @@ if __name__ == '__main__':
         f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
 
     time_elapsed = timeit.default_timer() - start_time
+    dofs_per_rank = {}
+    dofs_per_rank[comm.Get_rank()] = n_dofs
     metadata = {
         "I left [A]": I_left,
         "I interface [A]": I_interface,
@@ -456,7 +490,8 @@ if __name__ == '__main__':
         "t ref [s]": ref["t"],
         "Positive Wa": args.Wa_p,
         "Kr": args.kr,
-        "kinetics": args.kinetics
+        "kinetics": args.kinetics,
+        "dofs": dofs_per_rank,
     }
     if comm.rank == 0:
         utils.print_dict(metadata, padding=50)
