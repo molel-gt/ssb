@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 import argparse
+import json
 import os
 import timeit
 
@@ -131,6 +132,7 @@ if __name__ == '__main__':
     positive_am_potential_file = os.path.join(results_dir, "positive_am_potential.bp")
     current_file = os.path.join(results_dir, "current.bp")
     concentration_file = os.path.join(results_dir, "concentration.bp")
+    simulation_metafile = os.path.join(results_dir, "simulation.json")
 
     # load mesh
     partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
@@ -254,7 +256,7 @@ if __name__ == '__main__':
 
     # concentration problem
     dt = fem.Constant(submesh_positive_am, dt_)
-    VC = fem.functionspace(submesh_positive_am, ("CG", 2))
+    VC = fem.functionspace(submesh_positive_am, ("CG", 3))
 
     c, q = fem.Function(VC), ufl.TestFunction(VC)
     c0 = fem.Function(VC)
@@ -311,59 +313,15 @@ if __name__ == '__main__':
     
     J = [[J00, J01, J02], [J10, J11, J12], [J20, J21, J22]]
 
-    ############### determination of condition number ##########################
+    ###################### sparsity structure ##################################
     J_view = fem.petsc.assemble_matrix_block(J)
     J_view.assemble()
     ai, aj, av = J_view.getValuesCSR()
     Asp = scipy.sparse.csr_matrix((av, aj, ai))
+    matspy.params.title = False
+    matspy.params.indices = False
     fig, ax = matspy.spy_to_mpl(Asp)
     fig.savefig(os.path.join(results_dir, "jacobian-sparsity.eps"), bbox_inches='tight')
-    # viewer = PETSc.Viewer().DRAW(comm)
-    # J_view.view()
-
-    # # eigen values
-    # E = SLEPc.EPS()
-    # E.create()
-    # E.setOperators(J_view)
-    # E.setProblemType(SLEPc.EPS.ProblemType.NHEP)
-    # E.setFromOptions()
-    # E.solve()
-    # Print = PETSc.Sys.Print
-    # Print()
-    # Print("******************************")
-    # Print("*** SLEPc Solution Results ***")
-    # Print("******************************")
-    # Print()
-
-    # its = E.getIterationNumber()
-    # Print("Number of iterations of the method: %d" % its)
-
-    # eps_type = E.getType()
-    # Print("Solution method: %s" % eps_type)
-
-    # nev, ncv, mpd = E.getDimensions()
-    # Print("Number of requested eigenvalues: %d" % nev)
-
-    # tol, maxit = E.getTolerances()
-    # Print("Stopping condition: tol=%.4g, maxit=%d" % (tol, maxit))
-    # nconv = E.getConverged()
-    # Print("Number of converged eigenpairs %d" % nconv)
-    # if nconv > 0:
-    #     # Create the results vectors
-    #     vr, wr = J_view.getVecs()
-    #     vi, wi = J_view.getVecs()
-    #     #
-    #     Print()
-    #     Print("        k          ||Ax-kx||/||kx|| ")
-    #     Print("----------------- ------------------")
-    #     for i in range(nconv):
-    #         k = E.getEigenpair(i, vr, vi)
-    #         error = E.computeError(i)
-    #         if k.imag != 0.0:
-    #             Print(" %9f%+9f j %12g" % (k.real, k.imag, error))
-    #         else:
-    #             Print(" %12f      %12g" % (k.real, error))
-    #     Print()
 
     ############################################################################
     F = [
@@ -391,69 +349,6 @@ if __name__ == '__main__':
     )
     bcs = [bc_left, bc_right]
 
-    ############################################################################
-
-    # options = PETSc.Options()
-    # snes = PETSc.SNES().create(comm)
-    # ksp = snes.getKSP()
-    # # snes.setType("ncg")
-    # ksp.setType("preonly")
-    # ksp.getPC().setType("lu")
-    # ksp.getPC().setFactorSolverType("mumps")
-    # # snes.setMonitor(lambda _, it, residual: print(it, residual))
-    # snes.setTolerances(atol=1e-12, rtol=1e-11, max_it=1000)
-
-    # V0 = u_0.function_space
-    # V1 = u_1.function_space
-    # V0_map = V0.dofmap.index_map
-    # V1_map = V1.dofmap.index_map
-    # VC_map = VC.dofmap.index_map
-
-    # ksp.setFromOptions()
-    # snes.setFromOptions()
-
-    # t = 0
-    # cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
-    # while t < TIME:
-    #     t += dt.value
-    #     jacobian_matrix = fem.petsc.create_matrix_block(J)
-    #     residual_vector = fem.petsc.create_vector_block(F)
-    #     problem = solvers.SNESSolver(F, J, [u_0, u_1, c], bcs)
-    #     snes.setFunction(problem.F_block, residual_vector)
-    #     snes.setJacobian(problem.J_block, jacobian_matrix)
-    #     x = fem.petsc.create_vector_block(F)
-
-    #     cpp.la.petsc.scatter_local_vectors(
-    #         x,
-    #         [u_0.x.petsc_vec.array_r, u_1.x.petsc_vec.array_r, c.x.petsc_vec.array_r],
-    #         [
-    #             (V0.dofmap.index_map, V0.dofmap.index_map_bs),
-    #             (V1.dofmap.index_map, V1.dofmap.index_map_bs),
-    #             (VC.dofmap.index_map, VC.dofmap.index_map_bs),
-    #         ],
-    #     )
-    #     x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-    #     snes.solve(None, x)
-
-    #     PETSc.Sys.Print(
-    #         f"Norm of x: {x.norm()}\n"
-    #         f"Norm of u0: {u_0.vector.norm(0)}\n"
-    #         f"Norm of u1: {u_1.vector.norm(0)}\n"
-    #         f"Norm of c: {c.vector.norm(0)}\n"
-    #     )
-    #     I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * (phi_ref) * L_ref ** (tdim-2) * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
-    #     I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * (phi_ref) * L_ref ** (tdim-2) * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
-    #     I_interface = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * (c_ref) * L_ref ** (tdim-2) * grad(c(r_res)), n_r) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
-    #     PETSc.Sys.Print(
-    #         f"Current left: {I_left:.3e} [A]\n"
-    #         f"Current interface: {I_interface:.3e} [A]\n"
-    #         f"Current right: {I_right:.3e} [A]\n"
-    #         )
-    #     c0.x.array[:] = c.x.array
-    #     cvtx.write(t)
-    #     # x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-    # cvtx.close()
-    ############################################################################
     # solver = solvers.NewtonSolver(
     #     F,
     #     J,
@@ -515,6 +410,26 @@ if __name__ == '__main__':
                 f"Current right: {I_right:.3e} [A]\n"
                 )
     cvtx.close()
+    time_elapsed = timeit.default_timer() - start_time
+    metadata = {
+        "I left [A]": I_left,
+        "I interface [A]": I_interface,
+        "I right [A]": I_right,
+        "time elapsed [s]": time_elapsed,
+        "L ref [m]": ref["L"],
+        "c ref [mol/m3]": ref["c"],
+        "phi ref [V]": ref["phi"],
+        "t ref [s]": ref["t"],
+        "Positive Wa": args.Wa_p,
+        "Kr": args.kr,
+        "kinetics": args.kinetics
+    }
+    if comm.rank == 0:
+        utils.print_dict(metadata, padding=50)
+        with open(simulation_metafile, "w", encoding='utf-8') as f:
+            json.dump(metadata, f, ensure_ascii=False, indent=4)
+        print(f"Saved results files in {results_dir}")
+        print(f"Time elapsed: {time_elapsed:3.5f}s")
 
     # interpolate
     V = fem.functionspace(domain, ("DG", 1))
