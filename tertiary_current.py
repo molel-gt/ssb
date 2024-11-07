@@ -9,6 +9,8 @@ import timeit
 import datetime
 import dolfinx
 import dolfinx.fem.petsc
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import matspy
 import numpy as np
 import scipy
@@ -100,6 +102,7 @@ if __name__ == '__main__':
     parser.add_argument("--plot", help="whether to plot results", default=False, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
+
     start_time = timeit.default_timer()
     voltage = args.voltage
     Wa_n = args.Wa_n
@@ -332,15 +335,20 @@ if __name__ == '__main__':
     J = [[J00, J01, J02], [J10, J11, J12], [J20, J21, J22]]
 
     ###################### sparsity structure ##################################
-    J_view = fem.petsc.assemble_matrix_block(J)
-    J_view.assemble()
-    ai, aj, av = J_view.getValuesCSR()
-    Asp = scipy.sparse.csr_matrix((av, aj, ai))
-    matspy.params.title = False
-    matspy.params.indices = False
-    fig, ax = matspy.spy_to_mpl(Asp)
-    fig.savefig(os.path.join(results_dir, "jacobian-sparsity.eps"), bbox_inches='tight')
-
+    if args.plot:
+        J_view = fem.petsc.assemble_matrix_block(J)
+        J_view.assemble()
+        ai, aj, av = J_view.getValuesCSR()
+        Asp = scipy.sparse.csr_matrix((av, aj, ai))
+        mpl.rcParams['savefig.pad_inches'] = 0
+        matspy.params.title = False
+        matspy.params.indices = False
+        matspy.shading = False
+        fig, ax = matspy.spy_to_mpl(Asp)
+        ax.set_box_aspect(1);
+        ax.axis('off');
+        fig.frameon = False
+        fig.savefig(os.path.join(results_dir, "jacobian-sparsity.eps"), bbox_inches='tight', transparent=True)
     ############################################################################
     F = [
         fem.form(F_0, entity_maps=entity_maps),
@@ -387,7 +395,7 @@ if __name__ == '__main__':
     VC_map = VC.dofmap.index_map
     # offset_u1 = V0_map.size_local*V0.dofmap.index_map_bs
     offset_c = V0_map.size_local*V0.dofmap.index_map_bs + V1_map.size_local*V1.dofmap.index_map_bs
-    n_dofs = V0_map.size_local*V0.dofmap.index_map_bs + V1_map.size_local*V1.dofmap.index_map_bs + VC_map.size_local*VC.dofmap.index_map_bs
+    n_dofs = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs + VC_map.size_global*VC.dofmap.index_map_bs
     t = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
     while t < TIME:
@@ -529,8 +537,7 @@ if __name__ == '__main__':
         f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
 
     time_elapsed = timeit.default_timer() - start_time
-    dofs_per_rank = {}
-    dofs_per_rank[comm.Get_rank()] = n_dofs
+
     resistance = args.voltage / (np.abs(I_left) * A0)
     metadata = {
         "I left [A]": I_left,
@@ -546,14 +553,14 @@ if __name__ == '__main__':
         "Positive Wa": args.Wa_p,
         "Kr": args.kr,
         "kinetics": args.kinetics,
-        "dofs": dofs_per_rank,
+        "dofs": n_dofs,
     }
     if comm.rank == 0:
         utils.print_dict(metadata, padding=50)
         with open(simulation_metafile, "w", encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=4)
-        print(f"Saved results files in {results_dir}")
-        print(f"Time elapsed: {time_elapsed:3.5f}s")
+        PETSc.Sys.Print(f"Saved results files in {results_dir}")
+        PETSc.Sys.Print(f"Time elapsed: {time_elapsed:3.5f}s")
 
     # interpolate
     V = fem.functionspace(domain, ("DG", 1))
