@@ -56,6 +56,9 @@ sudo setfacl -m user:$USER:rw /var/run/docker.sock
 # docker share current directory
 docker run -ti -v $(pwd):/root/shared -w /root/shared  dolfinx/dolfinx:nightly
 
+# allow ownership of folder
+sudo chown -R $(whoami):docker output
+
 # building in apptainer/singularity
 apptainer pull dolfinx.sif docker://dolfinx/dolfinx:nightly
 singularity build dolfinx/dolfinx:nightly dolfinx.sif
