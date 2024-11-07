@@ -116,8 +116,10 @@ if __name__ == '__main__':
     dimensions = utils.extract_dimensions_from_meshfolder(args.mesh_folder)
     LX, LY, LZ = [float(vv) * micron for vv in dimensions.split("-")]
 
-    L_ref = LZ 
+    L_ref = LZ
+    A0 = LX * LY * 1e4  # [cm^2]
     if np.isclose(LZ, 0):
+        A0 = LX * 1e4  # [cm^2]
         L_ref = LX
 
     # reference values
@@ -384,7 +386,7 @@ if __name__ == '__main__':
     V1_map = V1.dofmap.index_map
     VC_map = VC.dofmap.index_map
     # offset_u1 = V0_map.size_local*V0.dofmap.index_map_bs
-    # offset_c = V0_map.size_local*V0.dofmap.index_map_bs + V1_map.size_local*V1.dofmap.index_map_bs
+    offset_c = V0_map.size_local*V0.dofmap.index_map_bs + V1_map.size_local*V1.dofmap.index_map_bs
     n_dofs = V0_map.size_local*V0.dofmap.index_map_bs + V1_map.size_local*V1.dofmap.index_map_bs + VC_map.size_local*VC.dofmap.index_map_bs
     t = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
@@ -393,17 +395,57 @@ if __name__ == '__main__':
         PETSc.Sys.Print(f"Time: {t:.1e}\n")
         Jmat = fem.petsc.create_matrix_block(J)
         Fvec = fem.petsc.create_vector_block(F)
+        P_0 = [[J00, None, None], [None, J11, None], [None, None, J22]]
+        P = fem.petsc.assemble_matrix_block(P_0, bcs=bcs)
+        P.assemble()
         snes = PETSc.SNES().create(comm)
-        snes.setTolerances(rtol=1.0e-15, max_it=100)
+        snes.getKSP().setOperators(Jmat, P)
+        snes.setTolerances(rtol=1.0e-6, max_it=100)
         snes.setMonitor(lambda _, it, residual: print(it, residual))
+        snes.getKSP().setType("gmres")
+        snes.getKSP().getPC().setType("gamg")
+        # snes.getKSP().getPC().setReusePreconditioner(True)
+        
+        opts = PETSc.Options()
+        opts["mg_levels_ksp_type"] = "pgmres"
+        opts["mg_levels_pc_type"] = "lu"
+        # opts["mg_levels_ksp_chebyshev_esteig_steps"] = 10
+        snes.setFromOptions()
+        snes.getKSP().setFromOptions()
 
-        # snes.setType("ngmres")
+        # default - direct method
+        # snes.getKSP().setType("preonly")
+        # snes.getKSP().getPC().setType("lu")
+        # snes.getKSP().getPC().setFactorSolverType("mumps")
+
+        # opts = PETSc.Options()
+        # opts["snes_type"] = "newtonls"
+        # opts["npc_snes_type"] = "fas"
+        # opts['npc_snes_fas_levels'] = 4
+        # # opts["npc_snes_max_it"] = 10
+        # opts["pc_type"] = "jacobi"
+        # opts["pc_factor_mat_solver_type"] = "mumps"
+
+        # snes.setType("fas")
         # snes.getKSP().setErrorIfNotConverged(True)
-        snes.getKSP().setType("preonly")
-        snes.getKSP().getPC().setType("lu")
-        snes.getKSP().getPC().setFactorSolverType("mumps")
+
+        # P0, P1 = snes.getKSP().getPC().getOperators()
+        # P0.setBlockSize(1)
+        # P1.setBlockSize(1)
+        # Pc.setBlockSize(tdim)
+
+        # snes.getKSP().getPC().setFactorSolverType("mumps")
+        # snes.getKSP().getPC().setType(PETSc.PC.Type.HYPRE)
+        # snes.getKSP().getPC().setHYPREType("boomeramg")
+
+        # opts[f"{option_prefix}pc_hypre_boomeramg_max_iter"] = 1
+        # opts[f"{option_prefix}pc_hypre_boomeramg_cycle_type"] = 'v'
+        # snes.getKSP().setFromOptions()
+        # snes.getKSP().getPC().setFactorSolverType("parsails")
         # opts = PETSc.Options()
         # option_prefix = ""#snes.getKSP().getOptionsPrefix()
+        # opts[f"{option_prefix}pc_mg_levels"] = 4
+        # opts[f"{option_prefix}pc_mg_cycle_type"] = 'v'
         # opts[f"{option_prefix}mg_coarse_ksp_type"] = "fgmres"
         # opts[f"{option_prefix}mg_coarse_pc_type"] = "ksp"
         # opts[f"{option_prefix}mg_coarse_ksp_ksp_type"] = "chebyshev"
@@ -424,21 +466,23 @@ if __name__ == '__main__':
 
         # ksp_u, ksp_c = snes.getKSP().getPC().getFieldSplitSubKSP()
         # ksp_u.setType("preonly")
-        # ksp_u.getPC().setType("mg")
+        # ksp_u.getPC().setType("jacobi")
         # u_opts = PETSc.Options()
         # option_prefix_u = ksp_u.getOptionsPrefix()
         # print(option_prefix_u, u_opts)
         # u_opts[f"{option_prefix_u}pc_mg_levels"] = 10
 
         # ksp_c.setType("preonly")
-        # ksp_c.getPC().setType("hypre")
+        # ksp_c.getPC().setType("gamg")
+
+        # snes.getKSP().getPC().setUp()
+        # _, Pc = ksp_c.getPC().getOperators()
+        # Pc.setBlockSize(1)
         # snes.setFromOptions()
+        # snes.getKSP().setFromOptions()
         # ksp_u.setFromOptions()
         # ksp_c.setFromOptions()
 
-        # P_0 = [[J00, None, None], [None, J11, None], [None, None, J22]]
-        # P = fem.petsc.assemble_matrix_block(P_0, bcs=bcs)
-        # P.assemble()
         with open(resource_usage, 'a') as f:
             # Dump timestamp, PID and amount of RAM.
             f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
@@ -487,10 +531,12 @@ if __name__ == '__main__':
     time_elapsed = timeit.default_timer() - start_time
     dofs_per_rank = {}
     dofs_per_rank[comm.Get_rank()] = n_dofs
+    resistance = args.voltage / (np.abs(I_left) * A0)
     metadata = {
         "I left [A]": I_left,
         "I interface [A]": I_interface,
         "I right [A]": I_right,
+        "resistance [ohm.cm2]": resistance,
         "time elapsed [s]": time_elapsed,
         "solve time [s]": t1 - t0,
         "L ref [m]": ref["L"],
