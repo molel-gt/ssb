@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import matspy
 import numpy as np
 import scipy
+import scipy.special as sp
 import ufl
 
 from dolfinx import cpp, fem, io, mesh
@@ -81,7 +82,7 @@ def ocv(c, cmax=35000):
 
 
 def ocv_simple(c, cmax=35000):
-    # return 4.2 * (1 - c/cmax) ** 2
+    # return 3.25 + (1.125-c/cmax)**0.5 - (c/cmax)**0.5 + ufl.sinh(1-c/cmax)
     return 2.25*(1/ufl.cosh(1 - c/cmax) + ufl.sinh(1 - c/cmax))
 
 
@@ -221,6 +222,9 @@ if __name__ == '__main__':
     u_0.name = "u_b"
     u_1.name = "u_t"
 
+    # initial guess
+    u_0.interpolate(lambda x: x[0]-x[0] + 0)
+    u_1.interpolate(lambda x: x[0]-x[0] + 1)
 
     # Add coupling term to the interface
     # Get interface markers on submesh b
@@ -282,7 +286,8 @@ if __name__ == '__main__':
     c, q = fem.Function(VC), ufl.TestFunction(VC)
     c0 = fem.Function(VC)
 
-    c0.interpolate(lambda x: x[0] - x[0] + 0.25)
+    c0.interpolate(lambda x: x[0] - x[0] + 0.75)
+    c.interpolate(c0)
 
     q_r = ufl.TestFunction(c.function_space)(r_res)
     q_l = ufl.TestFunction(c.function_space)(l_res)
@@ -336,19 +341,29 @@ if __name__ == '__main__':
 
     ###################### sparsity structure ##################################
     if args.plot:
-        J_view = fem.petsc.assemble_matrix_block(J)
-        J_view.assemble()
-        ai, aj, av = J_view.getValuesCSR()
-        Asp = scipy.sparse.csr_matrix((av, aj, ai))
+        J_diag = fem.petsc.assemble_matrix_block([[J00, None, None], [None, J11, None], [None, None, J22]])
+        J_off_diag = fem.petsc.assemble_matrix_block([[None, J01, J02], [J10, None, J12], [J20, J21, None]])
+        J_diag.assemble()
+        J_off_diag.assemble()
+        ai0, aj0, av0 = J_diag.getValuesCSR()
+        ai1, aj1, av1 = J_off_diag.getValuesCSR()
+        Asp0 = scipy.sparse.csr_matrix((av0, aj0, ai0))
+        Asp1 = scipy.sparse.csr_matrix((av1, aj1, ai1))
         mpl.rcParams['savefig.pad_inches'] = 0
+        mpl.rcParams['figure.figsize'] = (5, 4.5)
         matspy.params.title = False
         matspy.params.indices = False
         matspy.shading = False
-        fig, ax = matspy.spy_to_mpl(Asp)
-        ax.set_box_aspect(1);
-        ax.axis('off');
-        fig.frameon = False
-        fig.savefig(os.path.join(results_dir, "jacobian-sparsity.eps"), bbox_inches='tight', transparent=True)
+        fig0, ax0 = matspy.spy_to_mpl(Asp0)
+        fig1, ax1 = matspy.spy_to_mpl(Asp1)
+        ax0.set_box_aspect(1);
+        ax0.axis('off');
+        fig0.frameon = False
+        fig0.savefig(os.path.join(results_dir, "jacobian-diag-sparsity.eps"), bbox_inches='tight', transparent=True)
+        ax1.set_box_aspect(1);
+        ax1.axis('off');
+        fig1.frameon = False
+        fig1.savefig(os.path.join(results_dir, "jacobian-off-diag-sparsity.eps"), bbox_inches='tight', transparent=True)
     ############################################################################
     F = [
         fem.form(F_0, entity_maps=entity_maps),
@@ -375,18 +390,6 @@ if __name__ == '__main__':
     )
     bcs = [bc_left, bc_right]
 
-    # solver = solvers.NewtonSolver(
-    #     F,
-    #     J,
-    #     [u_0, u_1, c],
-    #     bcs=bcs,
-    #     max_iterations=1000,
-    #     petsc_options={
-    #         "ksp_type": "preonly",
-    #         "pc_type": "lu",
-    #         "pc_factor_mat_solver_type": "superlu_dist",
-    #     },
-    # )
     with open(resource_usage, 'a') as f:
         # Dump timestamp, PID and amount of RAM.
         f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
@@ -402,94 +405,28 @@ if __name__ == '__main__':
         t += dt.value
         PETSc.Sys.Print(f"Time: {t:.1e}\n")
         Jmat = fem.petsc.create_matrix_block(J)
+        # Jmat.assemble()
         Fvec = fem.petsc.create_vector_block(F)
+        # Fvec.assemble()
         P_0 = [[J00, None, None], [None, J11, None], [None, None, J22]]
         P = fem.petsc.assemble_matrix_block(P_0, bcs=bcs)
         P.assemble()
         snes = PETSc.SNES().create(comm)
-        snes.getKSP().setOperators(Jmat, P)
-        snes.setTolerances(rtol=1.0e-6, max_it=100)
-        snes.setMonitor(lambda _, it, residual: print(it, residual))
-        snes.getKSP().setType("gmres")
-        snes.getKSP().getPC().setType("gamg")
-        # snes.getKSP().getPC().setReusePreconditioner(True)
-        
+        snes.getKSP().setOperators(Jmat, None)
+        snes.setTolerances(rtol=1.0e-7, max_it=100)
+        # snes.setMonitor(lambda _, it, residual: print(it, residual))
+        snes.setErrorIfNotConverged(True)
+        snes.getKSP().setErrorIfNotConverged(True)
+        snes.setType('newtonls')
+        snes.getKSP().setType("preonly")
+        snes.getKSP().getPC().setType("lu")
+        snes.getKSP().getPC().setFactorSolverType("mumps")
         opts = PETSc.Options()
-        opts["mg_levels_ksp_type"] = "pgmres"
-        opts["mg_levels_pc_type"] = "lu"
-        # opts["mg_levels_ksp_chebyshev_esteig_steps"] = 10
+        opts['snes_linesearch_type'] = 'bt'
+        opts['snes_monitor'] = None
+        opts['snes_linesearch_monitor'] = None
         snes.setFromOptions()
         snes.getKSP().setFromOptions()
-
-        # default - direct method
-        # snes.getKSP().setType("preonly")
-        # snes.getKSP().getPC().setType("lu")
-        # snes.getKSP().getPC().setFactorSolverType("mumps")
-
-        # opts = PETSc.Options()
-        # opts["snes_type"] = "newtonls"
-        # opts["npc_snes_type"] = "fas"
-        # opts['npc_snes_fas_levels'] = 4
-        # # opts["npc_snes_max_it"] = 10
-        # opts["pc_type"] = "jacobi"
-        # opts["pc_factor_mat_solver_type"] = "mumps"
-
-        # snes.setType("fas")
-        # snes.getKSP().setErrorIfNotConverged(True)
-
-        # P0, P1 = snes.getKSP().getPC().getOperators()
-        # P0.setBlockSize(1)
-        # P1.setBlockSize(1)
-        # Pc.setBlockSize(tdim)
-
-        # snes.getKSP().getPC().setFactorSolverType("mumps")
-        # snes.getKSP().getPC().setType(PETSc.PC.Type.HYPRE)
-        # snes.getKSP().getPC().setHYPREType("boomeramg")
-
-        # opts[f"{option_prefix}pc_hypre_boomeramg_max_iter"] = 1
-        # opts[f"{option_prefix}pc_hypre_boomeramg_cycle_type"] = 'v'
-        # snes.getKSP().setFromOptions()
-        # snes.getKSP().getPC().setFactorSolverType("parsails")
-        # opts = PETSc.Options()
-        # option_prefix = ""#snes.getKSP().getOptionsPrefix()
-        # opts[f"{option_prefix}pc_mg_levels"] = 4
-        # opts[f"{option_prefix}pc_mg_cycle_type"] = 'v'
-        # opts[f"{option_prefix}mg_coarse_ksp_type"] = "fgmres"
-        # opts[f"{option_prefix}mg_coarse_pc_type"] = "ksp"
-        # opts[f"{option_prefix}mg_coarse_ksp_ksp_type"] = "chebyshev"
-
-        # snes.getKSP().getPC().setType("fieldsplit")
-        # snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.ADDITIVE)
-        # snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
-        # snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
-
-        # ISu = PETSc.IS().createStride(V0_map.size_local*V0.dofmap.index_map_bs + V1_map.size_local*V1.dofmap.index_map_bs, 0, 1, comm=comm)
-        # # ISu1 = PETSc.IS().createStride(V1_map.size_local*V1.dofmap.index_map_bs, offset_u1, 1, comm=comm)
-        # ISc = PETSc.IS().createStride(VC_map.size_local*VC.dofmap.index_map_bs, offset_c, 1, comm=comm)
-        # snes.getKSP().getPC().setFieldSplitIS(("u", ISu))
-        # # pc.setFieldSplitIS(("u1", ISu1))
-        # snes.getKSP().getPC().setFieldSplitIS(("c", ISc))
-        # # snes.getKSP().setUp()
-        # # snes.getKSP().getPC().setUp()
-
-        # ksp_u, ksp_c = snes.getKSP().getPC().getFieldSplitSubKSP()
-        # ksp_u.setType("preonly")
-        # ksp_u.getPC().setType("jacobi")
-        # u_opts = PETSc.Options()
-        # option_prefix_u = ksp_u.getOptionsPrefix()
-        # print(option_prefix_u, u_opts)
-        # u_opts[f"{option_prefix_u}pc_mg_levels"] = 10
-
-        # ksp_c.setType("preonly")
-        # ksp_c.getPC().setType("gamg")
-
-        # snes.getKSP().getPC().setUp()
-        # _, Pc = ksp_c.getPC().getOperators()
-        # Pc.setBlockSize(1)
-        # snes.setFromOptions()
-        # snes.getKSP().setFromOptions()
-        # ksp_u.setFromOptions()
-        # ksp_c.setFromOptions()
 
         with open(resource_usage, 'a') as f:
             # Dump timestamp, PID and amount of RAM.
@@ -514,6 +451,7 @@ if __name__ == '__main__':
         t0 = time.time()
         snes.solve(None, x)
         t1 = time.time()
+        # print(snes.getConvergedReason(), snes.getKSP().getConvergedReason())
         assert snes.getKSP().getConvergedReason() > 0
         assert snes.getConvergedReason() > 0
         xnorm = x.norm()
