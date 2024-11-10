@@ -405,14 +405,12 @@ if __name__ == '__main__':
         t += dt.value
         PETSc.Sys.Print(f"Time: {t:.1e}\n")
         Jmat = fem.petsc.create_matrix_block(J)
-        # Jmat.assemble()
         Fvec = fem.petsc.create_vector_block(F)
-        # Fvec.assemble()
         P_0 = [[J00, None, None], [None, J11, None], [None, None, J22]]
         P = fem.petsc.assemble_matrix_block(P_0, bcs=bcs)
         P.assemble()
         snes = PETSc.SNES().create(comm)
-        snes.getKSP().setOperators(Jmat, None)
+        # snes.getKSP().setOperators(Jmat, None)
         snes.setTolerances(rtol=1.0e-7, max_it=100)
         # snes.setMonitor(lambda _, it, residual: print(it, residual))
         snes.setErrorIfNotConverged(True)
