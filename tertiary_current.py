@@ -20,7 +20,6 @@ import ufl
 from dolfinx import cpp, fem, io, mesh
 from mpi4py import MPI
 from petsc4py import PETSc
-from slepc4py import SLEPc
 from ufl import dot, grad, inner
 
 import commons, constants, mesh_utils, solvers, utils 
@@ -34,6 +33,19 @@ kinetics = ('linear', 'tafel', 'butler_volmer')
 micron = 1e-6
 V_UCO = 4.25  # upper cutoff voltage
 c_max = 35000
+
+
+class SolverTypes:
+    def __init__(self):
+        pass
+
+    @property
+    def direct(self):
+        return "direct"
+
+    @property
+    def iterative(self):
+        return "iterative"
 
 
 def define_interior_eq(domain, degree,  submesh, submesh_to_mesh, value, kappa):
@@ -99,6 +111,8 @@ if __name__ == '__main__':
     parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-9, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='MICRON_TO_METER', type=str)
+    parser.add_argument('--solver_type', help='solver type to use', nargs='?',
+                        const=1, default='direct', type=str)
     parser.add_argument('--kinetics', help='kinetics type', nargs='?', const=1, default='butler_volmer', type=str, choices=kinetics)
     parser.add_argument("--plot", help="whether to plot results", default=False, action=argparse.BooleanOptionalAction)
 
@@ -115,6 +129,7 @@ if __name__ == '__main__':
     TIME = 1 * dt_
 
     markers = commons.Markers()
+    solver_types = SolverTypes()
     comm = MPI.COMM_WORLD
 
     dimensions = utils.extract_dimensions_from_meshfolder(args.mesh_folder)
@@ -396,6 +411,13 @@ if __name__ == '__main__':
     V0_map = V0.dofmap.index_map
     V1_map = V1.dofmap.index_map
     VC_map = VC.dofmap.index_map
+    V0_dofmap = V0.dofmap
+    V1_dofmap = V1.dofmap
+    VC_dofmap = VC.dofmap
+    local_dofs_u0 = np.setdiff1d(V0_map.local_to_global(np.arange(V0_map.size_local + V0_map.num_ghosts, dtype=np.int32)), V0_map.ghosts)
+    local_dofs_u1 = np.setdiff1d(V1_map.local_to_global(np.arange(V1_map.size_local + V1_map.num_ghosts, dtype=np.int32)), V1_map.ghosts)
+    local_dofs_u = np.sort(np.hstack((local_dofs_u0, local_dofs_u1)))
+    local_dofs_c = np.sort(np.setdiff1d(VC_map.local_to_global(np.arange(VC_map.size_local + VC_map.num_ghosts, dtype=np.int32)), VC_map.ghosts))
     # offset_u1 = V0_map.size_local*V0.dofmap.index_map_bs
     offset_c = V0_map.size_local*V0.dofmap.index_map_bs + V1_map.size_local*V1.dofmap.index_map_bs
     n_dofs = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs + VC_map.size_global*VC.dofmap.index_map_bs
@@ -406,25 +428,76 @@ if __name__ == '__main__':
         PETSc.Sys.Print(f"Time: {t:.1e}\n")
         Jmat = fem.petsc.create_matrix_block(J)
         Fvec = fem.petsc.create_vector_block(F)
-        P_0 = [[J00, None, None], [None, J11, None], [None, None, J22]]
-        P = fem.petsc.assemble_matrix_block(P_0, bcs=bcs)
-        P.assemble()
+        # P_0 = [[J00, None, None], [None, J11, None], [None, None, J22]]
+        # P = fem.petsc.assemble_matrix_block(P_0, bcs=bcs)
+        # P.assemble()
         snes = PETSc.SNES().create(comm)
-        # snes.getKSP().setOperators(Jmat, None)
-        snes.setTolerances(rtol=1.0e-7, max_it=100)
+        snes.getKSP().setOperators(Jmat, None)
+        snes.setTolerances(rtol=1.0e-6, max_it=100)
         # snes.setMonitor(lambda _, it, residual: print(it, residual))
         snes.setErrorIfNotConverged(True)
         snes.getKSP().setErrorIfNotConverged(True)
         snes.setType('newtonls')
-        snes.getKSP().setType("preonly")
-        snes.getKSP().getPC().setType("lu")
-        snes.getKSP().getPC().setFactorSolverType("mumps")
         opts = PETSc.Options()
         opts['snes_linesearch_type'] = 'bt'
         opts['snes_monitor'] = None
         opts['snes_linesearch_monitor'] = None
-        snes.setFromOptions()
+
+        if args.solver_type == solver_types.direct:
+            snes.getKSP().setType("preonly")
+            snes.getKSP().getPC().setType("lu")
+            snes.getKSP().getPC().setFactorSolverType("mumps")
+        elif solver_type == solver_types.iterative:
+            option_prefix = ""
+            opts[f"{option_prefix}ksp_type"] = "pgmres"
+            opts[f"{option_prefix}ksp_pc_side"] = "right"
+
+            # index sets
+            IS_u0 = PETSc.IS().createGeneral(np.array(local_dofs_u0, dtype=np.int32), comm=comm).sort()
+            IS_u1 = PETSc.IS().createGeneral(np.array(local_dofs_u1, dtype=np.int32), comm=comm).sort()
+            IS_c = PETSc.IS().createGeneral(np.array(local_dofs_c, dtype=np.int32), comm=comm).sort()
+
+            pc = snes.getKSP().getPC()
+            pc.setType("fieldsplit")
+            pc.setFieldSplitIS(("u0", IS_u0), ("u1", IS_u1), ("c", IS_c))
+            ksp_u0, ksp_u1, ksp_c = pc.getFieldSplitSubKSP()
+
+            pc.setFieldSplitType(PETSc.PC.CompositeType.ADDITIVE)
+            pc.setFieldSplitSchurFactType(PETSc.PC.SchurFactType.UPPER)
+            pc.setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
+
+            u_opts = PETSc.Options()
+            option_prefix_u0 = ksp_u0.getOptionsPrefix()
+            option_prefix_u1 = ksp_u1.getOptionsPrefix()
+            option_prefix_c = ksp_c.getOptionsPrefix()
+
+            opts[f"{option_prefix_u0}ksp_type"] = "preonly" # Precondition only once in Newton iterations
+            opts[f"{option_prefix_u0}pc_type"] = "hypre" # Hypre (algebraic multigrid) preconditioning for p-block
+            opts[f"{option_prefix_u0}pc_hypre_type"] = "boomeramg" # Choice of implementation
+            opts[f"{option_prefix_u0}pc_hypre_boomeramg_coarsen_type"] = "pmis" # Grid coarsening strategy
+            opts[f"{option_prefix_u0}pc_hypre_boomeramg_interp_type"] = "FF1" # Projection on to coarser grid
+            opts[f"{option_prefix_u0}pc_hypre_boomeramg_strong_threshold"] = "0.5" # Coarsening limit
+
+            opts[f"{option_prefix_u1}ksp_type"] = "preonly" # Precondition only once in Newton iterations
+            opts[f"{option_prefix_u1}pc_type"] = "hypre" # Hypre (algebraic multigrid) preconditioning for p-block
+            opts[f"{option_prefix_u1}pc_hypre_type"] = "boomeramg" # Choice of implementation
+            opts[f"{option_prefix_u1}pc_hypre_boomeramg_coarsen_type"] = "pmis" # Grid coarsening strategy
+            opts[f"{option_prefix_u1}pc_hypre_boomeramg_interp_type"] = "FF1" # Projection on to coarser grid
+            opts[f"{option_prefix_u1}pc_hypre_boomeramg_strong_threshold"] = "0.5" # Coarsening limit
+
+            opts[f"{option_prefix_c}ksp_type"] = "preonly" # Precondition only once in Newton iterations
+            opts[f"{option_prefix_c}pc_type"] = "hypre" # Hypre (algebraic multigrid) preconditioning for p-block
+            opts[f"{option_prefix_c}pc_hypre_type"] = "boomeramg" # Choice of implementation
+            opts[f"{option_prefix_c}pc_hypre_boomeramg_coarsen_type"] = "pmis" # Grid coarsening strategy
+            opts[f"{option_prefix_c}pc_hypre_boomeramg_interp_type"] = "FF1" # Projection on to coarser grid
+            opts[f"{option_prefix_c}pc_hypre_boomeramg_strong_threshold"] = "0.5" # Coarsening limit
+
+            ksp_u0.setFromOptions()
+            ksp_u1.setFromOptions()
+            ksp_c.setFromOptions()
+
         snes.getKSP().setFromOptions()
+        snes.setFromOptions()
 
         with open(resource_usage, 'a') as f:
             # Dump timestamp, PID and amount of RAM.
@@ -449,7 +522,6 @@ if __name__ == '__main__':
         t0 = time.time()
         snes.solve(None, x)
         t1 = time.time()
-        # print(snes.getConvergedReason(), snes.getKSP().getConvergedReason())
         assert snes.getKSP().getConvergedReason() > 0
         assert snes.getConvergedReason() > 0
         xnorm = x.norm()
@@ -457,6 +529,31 @@ if __name__ == '__main__':
         Jmat.destroy()
         Fvec.destroy()
         x.destroy()
+        # solver = solvers.NewtonSolver(
+        # F,
+        # J,
+        # [u_0, u_1],
+        # bcs=bcs,
+        # max_iterations=1000,
+        # petsc_options={
+        #     "ksp_type": "pgmres",
+        #     "pc_type": "hypre",
+        #     'pc_hypre_type': "boomeramg",
+        #     # "mg_levels_ksp_type": "chebyshev",
+        #     # "mg_levels_pc_type": "pbjacobi",
+        #     # "pc_sor_omega": 0.1,
+        #     # "mg_levels_ksp_chebyshev_esteig_steps": 10,
+        #     # 'pc_gamg_type': 'agg',
+        #     # 'pc_gamg_agg_nsmooths': 0,
+        #     # 'pc_mg_type': 'kaskade',
+        #     # 'pc_gamg_threshold_scale': 0.01,
+        #     # "pc_factor_mat_solver_type": "superlu_dist",
+        # },
+        # )
+        # t0 = time.time()
+        # solver.solve(1e-5, beta=0.1)
+        # t1 = time.time()
+        PETSc.Sys.Print(f"#DoFs: {n_dofs:,}, Solve time: {t1-t0}\n")
         c0.x.array[:] = c.x.array
         cvtx.write(t)
         I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * (phi_ref) * L_ref ** (tdim-2) * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
