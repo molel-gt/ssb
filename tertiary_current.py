@@ -31,7 +31,7 @@ faraday_const = 96485
 kappa_pos_am = 0.1
 kinetics = ('linear', 'tafel', 'butler_volmer')
 micron = 1e-6
-V_UCO = 4.25  # upper cutoff voltage
+V_UCO = 5.0  # upper cutoff voltage
 c_max = 35000
 
 
@@ -96,6 +96,11 @@ def ocv(c, cmax=35000):
 def ocv_simple(c, cmax=35000):
     # return 3.25 + (1.125-c/cmax)**0.5 - (c/cmax)**0.5 + ufl.sinh(1-c/cmax)
     return 2.25*(1/ufl.cosh(1 - c/cmax) + ufl.sinh(1 - c/cmax))
+
+
+def ocv_chen2020(c, cmax):
+    return  4.4875 - 0.8090 * c/cmax - 0.0428 * ufl.tanh(18.5138*(c/cmax - 0.5542)) +\
+    -17.7326 * ufl.tanh(15.7890*(c/cmax - 0.3117)) + 17.5842 * ufl.tanh(15.9308*(c/cmax - 0.3120))
 
 
 if __name__ == '__main__':
@@ -308,7 +313,7 @@ if __name__ == '__main__':
     q_l = ufl.TestFunction(c.function_space)(l_res)
     c_r = c(r_res)
 
-    jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) + ocv_simple(c(r_res), cmax=1)/phi_ref
+    jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) + ocv_chen2020(c(r_res), cmax=1)/phi_ref
 
     F_0 = (
         -1/2 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
