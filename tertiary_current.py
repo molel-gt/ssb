@@ -447,7 +447,7 @@ if __name__ == '__main__':
             snes.getKSP().setType("preonly")
             snes.getKSP().getPC().setType("lu")
             snes.getKSP().getPC().setFactorSolverType("mumps")
-        elif solver_type == solver_types.iterative:
+        elif args.solver_type == solver_types.iterative:
             option_prefix = ""
             opts[f"{option_prefix}ksp_type"] = "pgmres"
             opts[f"{option_prefix}ksp_pc_side"] = "right"
