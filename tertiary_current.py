@@ -551,30 +551,37 @@ if __name__ == '__main__':
         Jmat.destroy()
         Fvec.destroy()
         x.destroy()
-        # solver = solvers.NewtonSolver(
-        # F,
-        # J,
-        # [u_0, u_1],
-        # bcs=bcs,
-        # max_iterations=1000,
-        # petsc_options={
-        #     "ksp_type": "pgmres",
-        #     "pc_type": "hypre",
-        #     'pc_hypre_type': "boomeramg",
-        #     # "mg_levels_ksp_type": "chebyshev",
-        #     # "mg_levels_pc_type": "pbjacobi",
-        #     # "pc_sor_omega": 0.1,
-        #     # "mg_levels_ksp_chebyshev_esteig_steps": 10,
-        #     # 'pc_gamg_type': 'agg',
-        #     # 'pc_gamg_agg_nsmooths': 0,
-        #     # 'pc_mg_type': 'kaskade',
-        #     # 'pc_gamg_threshold_scale': 0.01,
-        #     # "pc_factor_mat_solver_type": "superlu_dist",
-        # },
-        # )
-        # t0 = time.time()
-        # solver.solve(1e-5, beta=0.1)
-        # t1 = time.time()
+        solver = solvers.NewtonSolver(
+        F,
+        J,
+        [u_0, u_1, c],
+        bcs=bcs,
+        max_iterations=1000,
+        petsc_options={
+            "ksp_type": "bcgs",
+            "pc_type": "gamg",
+            # "ksp_pc_side": "right",
+            # 'pc_hypre_type': "boomeramg",
+            "mg_levels_ksp_type": "chebyshev",
+            "mg_levels_pc_type": "sor",
+            "mg_levels_pc_sor_omega": 0.5,
+            # 'mg_levels_pc_sor_its': 10,
+            "mg_levels_ksp_chebyshev_esteig_steps": 10,
+            'pc_gamg_type': 'agg',
+            # 'pc_mg_type': 'kaskade',
+            'pc_gamg_threshold_scale': 0.01,#5,
+            'pc_gamg_agg_nsmooths': 0,
+            'pc_gamg_aggressive_coarsening': 5,
+            # 'pc_gamg_aggressive_square_graph': 1,
+            # 'pc_gamg_mis_k_minimum_degree_ordering': False,
+            # 'pc_gamg_pc_gamg_asm_hem_aggs': 10,
+            # 'pc_gamg_aggressive_mis_k': 3,
+            # "pc_factor_mat_solver_type": "superlu_dist",
+        },
+        )
+        t0 = time.time()
+        solver.solve(5e-4, beta=0.1)
+        t1 = time.time()
         PETSc.Sys.Print(f"#DoFs: {n_dofs:,}, Solve time: {t1-t0}\n")
         c0.x.array[:] = c.x.array
         cvtx.write(t)
