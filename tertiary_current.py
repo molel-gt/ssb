@@ -33,7 +33,7 @@ kinetics = ('linear', 'tafel', 'butler_volmer')
 micron = 1e-6
 V_UCO = 5.0  # upper cutoff voltage
 c_max = 35000
-
+directions = {'x': 0, 'y': 1, 'z': 2}
 
 class SolverTypes:
     def __init__(self):
@@ -103,6 +103,25 @@ def ocv_chen2020(c, cmax):
     -17.7326 * ufl.tanh(15.7890*(c/cmax - 0.3117)) + 17.5842 * ufl.tanh(15.9308*(c/cmax - 0.3120))
 
 
+def get_Lref(dimensions, transport_direction):
+    direction = directions[transport_direction.lower()]
+
+    return dimensions[direction]
+
+
+def cross_section_area(dims, transport_direction):
+    direction = directions[transport_direction.lower()]
+    values = [0, 1, 2]
+    values.pop(direction)
+    if np.isclose(dims[values[0]], 0):
+        return dims[values[1]]
+    elif np.isclose(dims[values[1]], 0):
+        return dims[values[0]]
+    elif np.isclose(dims[values[0]], 0) and np.isclose(dims[values[1]], 0):
+        raise ValueError("Invalid")
+    return dims[values[0]] * dims[values[1]]
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='secondary current distribution')
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
@@ -118,6 +137,7 @@ if __name__ == '__main__':
                         const=1, default='MICRON_TO_METER', type=str)
     parser.add_argument('--solver_type', help='solver type to use', nargs='?',
                         const=1, default='direct', type=str)
+    parser.add_argument('--transport_direction', help='direction perpendicular to current collectors', nargs='?', const=1, default='X', type=str)
     parser.add_argument('--kinetics', help='kinetics type', nargs='?', const=1, default='butler_volmer', type=str, choices=kinetics)
     parser.add_argument("--plot", help="whether to plot results", default=False, action=argparse.BooleanOptionalAction)
 
@@ -140,11 +160,8 @@ if __name__ == '__main__':
     dimensions = utils.extract_dimensions_from_meshfolder(args.mesh_folder)
     LX, LY, LZ = [float(vv) * micron for vv in dimensions.split("-")]
 
-    L_ref = LZ
-    A0 = LX * LY * 1e4  # [cm^2]
-    if np.isclose(LZ, 0):
-        A0 = LX * 1e4  # [cm^2]
-        L_ref = LX
+    L_ref = get_Lref([LX, LY, LZ], args.transport_direction)
+    A0 = cross_section_area([LX, LY, LZ], args.transport_direction) * 1e4  # [cm^2]
 
     # reference values
     t_ref = L_ref ** 2 / D
