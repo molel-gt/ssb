@@ -758,7 +758,18 @@ if __name__ == '__main__':
             solver.solve(1e-5, beta=0.01)
             t1 = time.time()
         else:
-            raise ValueError("Unknown solver type")
+            PETSc.Sys.Print("Unknown solver type, defaulting to direct NewtonSolver")
+            solver = solvers.NewtonSolver(
+                F,
+                J,
+                [u_0, u_1, c],
+                bcs=bcs,
+                max_iterations=1000,
+                petsc_options={'ksp_type': 'preonly', 'pc_type': 'lu', 'pc_factor_mat_solver_type': 'mumps'},
+                )
+            t0 = time.time()
+            solver.solve(1e-5, beta=0.001)
+            t1 = time.time()
 
         PETSc.Sys.Print(f"#DoFs: {n_dofs:,}, Solve time: {t1-t0}\n")
         c0.x.array[:] = c.x.array
