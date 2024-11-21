@@ -47,6 +47,14 @@ class SolverTypes:
     def iterative(self):
         return "iterative"
 
+    @property
+    def custom_newton_iterative(self):
+        return "custom_newton_iterative"
+
+    @property
+    def newton_schur(self):
+        return "newton_schur"
+
 
 def define_interior_eq(domain, degree,  submesh, submesh_to_mesh, value, kappa):
     # Compute map from parent entity to submesh cell
@@ -378,12 +386,16 @@ if __name__ == '__main__':
 
     ###################### sparsity structure ##################################
     if args.plot:
+        J_full = fem.petsc.assemble_matrix_block(J)
+        J_full.assemble()
         J_diag = fem.petsc.assemble_matrix_block([[J00, None, None], [None, J11, None], [None, None, J22]])
-        J_off_diag = fem.petsc.assemble_matrix_block([[None, J01, J02], [J10, None, J12], [J20, J21, None]])
         J_diag.assemble()
+        J_off_diag = fem.petsc.assemble_matrix_block([[None, J01, J02], [J10, None, J12], [J20, J21, None]])
         J_off_diag.assemble()
+        ai, aj, av = J_full.getValuesCSR()
         ai0, aj0, av0 = J_diag.getValuesCSR()
         ai1, aj1, av1 = J_off_diag.getValuesCSR()
+        Asp = scipy.sparse.csr_matrix((av, aj, ai))
         Asp0 = scipy.sparse.csr_matrix((av0, aj0, ai0))
         Asp1 = scipy.sparse.csr_matrix((av1, aj1, ai1))
         mpl.rcParams['savefig.pad_inches'] = 0
@@ -391,8 +403,13 @@ if __name__ == '__main__':
         matspy.params.title = False
         matspy.params.indices = False
         matspy.shading = False
+        fig, ax = matspy.spy_to_mpl(Asp)
         fig0, ax0 = matspy.spy_to_mpl(Asp0)
         fig1, ax1 = matspy.spy_to_mpl(Asp1)
+        ax.set_box_aspect(1);
+        ax.axis('off');
+        fig.frameon = False
+        fig.savefig(os.path.join(results_dir, "jacobian-sparsity.png"), bbox_inches='tight', transparent=True)
         ax0.set_box_aspect(1);
         ax0.axis('off');
         fig0.frameon = False
@@ -436,48 +453,132 @@ if __name__ == '__main__':
     V0_dofmap = V0.dofmap
     V1_dofmap = V1.dofmap
     VC_dofmap = VC.dofmap
-    local_dofs_u0 = np.setdiff1d(V0_map.local_to_global(np.arange(V0_map.size_local + V0_map.num_ghosts, dtype=np.int32)), V0_map.ghosts)
-    local_dofs_u1 = np.setdiff1d(V1_map.local_to_global(np.arange(V1_map.size_local + V1_map.num_ghosts, dtype=np.int32)), V1_map.ghosts)
+    local_dofs_u0 = np.setdiff1d(V0_map.local_to_global(np.arange(V0_map.size_local + V0_map.num_ghosts,
+                                                                  dtype=np.int32)),
+                                 V0_map.ghosts)
+    local_dofs_u1 = np.setdiff1d(V1_map.local_to_global(np.arange(V1_map.size_local + V1_map.num_ghosts, dtype=np.int32)),
+                                 V1_map.ghosts)
     local_dofs_u = np.sort(np.hstack((local_dofs_u0, local_dofs_u1)))
     local_dofs_c = np.sort(np.setdiff1d(VC_map.local_to_global(np.arange(VC_map.size_local + VC_map.num_ghosts, dtype=np.int32)), VC_map.ghosts))
-    # offset_u1 = V0_map.size_local*V0.dofmap.index_map_bs
+    offset_u1 = V0_map.size_local*V0.dofmap.index_map_bs
     offset_c = V0_map.size_local*V0.dofmap.index_map_bs + V1_map.size_local*V1.dofmap.index_map_bs
     n_dofs = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs + VC_map.size_global*VC.dofmap.index_map_bs
+
+    # index sets
+    IS_u0 = PETSc.IS().createGeneral(np.array(local_dofs_u0, dtype=np.int32), comm=comm).sort()
+    IS_u1 = PETSc.IS().createGeneral(np.array(local_dofs_u1, dtype=np.int32), comm=comm).sort()
+    IS_u = PETSc.IS().createGeneral(np.array(local_dofs_u, dtype=np.int32), comm=comm).sort()
+    IS_c = PETSc.IS().createGeneral(np.array(local_dofs_c, dtype=np.int32), comm=comm).sort()
     t = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
+
     while t < TIME:
         t += dt.value
         PETSc.Sys.Print(f"Time: {t:.1e}\n")
         Jmat = fem.petsc.create_matrix_block(J)
         Fvec = fem.petsc.create_vector_block(F)
-        # P_0 = [[J00, None, None], [None, J11, None], [None, None, J22]]
-        # P = fem.petsc.assemble_matrix_block(P_0, bcs=bcs)
-        # P.assemble()
-        snes = PETSc.SNES().create(comm)
-        snes.getKSP().setOperators(Jmat, None)
-        snes.setTolerances(rtol=1.0e-6, max_it=100)
-        # snes.setMonitor(lambda _, it, residual: print(it, residual))
-        snes.setErrorIfNotConverged(True)
-        snes.getKSP().setErrorIfNotConverged(True)
-        snes.setType('newtonls')
-        opts = PETSc.Options()
-        opts['snes_linesearch_type'] = 'bt'
-        opts['snes_monitor'] = None
-        opts['snes_linesearch_monitor'] = None
+        P_0 = [[J00, None, None], [None, J11, None], [None, None, J22]]
+        Pmat = fem.petsc.assemble_matrix_block(P_0, bcs=bcs)
+        Pmat.assemble()
 
         if args.solver_type == solver_types.direct:
+            snes = PETSc.SNES().create(comm)
+            snes.getKSP().setOperators(Jmat, None)
+            snes.setTolerances(rtol=1.0e-7, max_it=100)
+            # snes.setMonitor(lambda _, it, residual: print(it, residual))
+            snes.setErrorIfNotConverged(True)
+            snes.getKSP().setErrorIfNotConverged(True)
+            snes.setType('newtontr')
+            opts = PETSc.Options()
+            # opts['snes_tr_fallback_type'] = 'dogleg'
+            # # opts['snes_tr_delta0'] = 0.01
+            # # opts['snes_tr_deltamin'] = 0.5
+            # # opts['snes_tr_deltamax'] = 100.05
+            # # opts['snes_tr_eta1'] = 0.1
+            opts['snes_linesearch_type'] = 'bt'
+            opts['snes_monitor'] = None
+            # opts['snes_linesearch_monitor'] = None
             snes.getKSP().setType("preonly")
             snes.getKSP().getPC().setType("lu")
-            snes.getKSP().getPC().setFactorSolverType("mumps")
+            snes.getKSP().getPC().setFactorSolverType("superlu_dist")
+            snes.getKSP().setFromOptions()
+            snes.setFromOptions()
+            problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, c], bcs)
+            snes.setFunction(problem.F_block, Fvec)
+            snes.setJacobian(problem.J_block, J=Jmat, P=None)
+            snes.getKSP().view()
+            snes.view()
+            x = fem.petsc.create_vector_block(F)
+            cpp.la.petsc.scatter_local_vectors(
+                x,
+                [u_0.x.petsc_vec.array_r, u_1.x.petsc_vec.array_r, c.x.petsc_vec.array_r],
+                [
+                    (u_0.function_space.dofmap.index_map, u_0.function_space.dofmap.index_map_bs),
+                    (u_1.function_space.dofmap.index_map, u_1.function_space.dofmap.index_map_bs),
+                    (c.function_space.dofmap.index_map, c.function_space.dofmap.index_map_bs),
+                ],
+            )
+            x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+            t0 = time.time()
+            snes.solve(None, x)
+            t1 = time.time()
+            assert snes.getKSP().getConvergedReason() > 0
+            assert snes.getConvergedReason() > 0
+            xnorm = x.norm()
+            snes.destroy()
+            Jmat.destroy()
+            Fvec.destroy()
+            x.destroy()
         elif args.solver_type == solver_types.iterative:
+            snes = PETSc.SNES().create(comm)
+            snes.getKSP().setOperators(Jmat, Pmat)
+            snes.setTolerances(rtol=1.0e-7, max_it=100)
+            # snes.setMonitor(lambda _, it, residual: print(it, residual))
+            snes.setErrorIfNotConverged(True)
+            snes.getKSP().setErrorIfNotConverged(True)
+            snes.setType('newtontr')
+            opts = PETSc.Options()
+            opts['snes_tr_fallback_type'] = 'dogleg'
+            # # opts['snes_tr_delta0'] = 0.01
+            # # opts['snes_tr_deltamin'] = 0.5
+            # # opts['snes_tr_deltamax'] = 100.05
+            # # opts['snes_tr_eta1'] = 0.1
+            opts['snes_linesearch_type'] = 'bt'
+            opts['snes_monitor'] = None
+            # opts['snes_linesearch_monitor'] = None
+            # for k_opt, v_opt in gamg_opts.items():
+            #     opts[k_opt] = v_opt
             option_prefix = ""
-            opts[f"{option_prefix}ksp_type"] = "pgmres"
-            opts[f"{option_prefix}ksp_pc_side"] = "right"
+            opts["ksp_type"] = "minres"
+            # opts["pc_type"] = "gamg"
+            # opts["{option_prefix}ksp_pc_side"] = "right"
+            # opts["pc_gamg_type"] = "agg"
+            # opts["pc_gamg_agg_nsmooths"] = 0
+            # opts["pc_gamg_aggressive_coarsening"] = 1
+            # opts["pc_gamg_threshold_scale"] = 0.0001
+            # opts["mg_levels_ksp_type"] = "chebyshev"
+            # opts["mg_levels_pc_type"] = "sor"
+            # opts["mg_levels_pc_sor_omega"] = 0.5
+            # # opts['mg_levels_pc_sor_its'] = 10
+            # opts["mg_levels_ksp_chebyshev_esteig_steps"] = 10
+            # opts['pc_gamg_aggressive_square_graph'] = 1
 
-            # index sets
-            IS_u0 = PETSc.IS().createGeneral(np.array(local_dofs_u0, dtype=np.int32), comm=comm).sort()
-            IS_u1 = PETSc.IS().createGeneral(np.array(local_dofs_u1, dtype=np.int32), comm=comm).sort()
-            IS_c = PETSc.IS().createGeneral(np.array(local_dofs_c, dtype=np.int32), comm=comm).sort()
+            # opts[f"{option_prefix}ksp_type"] = "preonly"
+            # opts[f"{option_prefix}pc_type"] = "hypre"
+            # opts[f"{option_prefix}pc_hypre_type"] = "boomeramg"
+            # opts[f"{option_prefix}pc_hypre_boomeramg_coarsen_type"] = "hmis"
+            # opts[f"{option_prefix}pc_hypre_boomeramg_interp_type"] = "FF1"
+            # opts[f"{option_prefix}pc_hypre_boomeramg_truncfactor"] = 0
+            # opts[f"{option_prefix}pc_hypre_boomeramg_strong_threshold"] = "0.5"
+            # opts[f"{option_prefix}pc_hypre_boomeramg_print_statistics"] = "2"
+            # opts[f"{option_prefix}pc_hypre_boomeramg_agg_nl"] = 1
+            # opts[f"{option_prefix}pc_hypre_boomeramg_agg_num_paths"] = 1
+            # opts[f"{option_prefix}pc_hypre_boomeramg_P_max"] = 1
+            # opts[f"{option_prefix}pc_hypre_boomeramg_relax_type_coarse"] = "jacobi"
+            # opts[f"{option_prefix}pc_hypre_boomeramg_smooth_type"] = "parasails"
+            # opts[f"{option_prefix}pc_hypre_boomeramg_nodal_relaxation"] = "1"
+            # opts[f"{option_prefix}pc_hypre_boomeramg_nodal_coarsen"] = "6"
+            # opts[f"{option_prefix}pc_hypre_boomeramg_tol"] = 1e-3
 
             pc = snes.getKSP().getPC()
             pc.setType("fieldsplit")
@@ -485,103 +586,180 @@ if __name__ == '__main__':
             ksp_u0, ksp_u1, ksp_c = pc.getFieldSplitSubKSP()
 
             pc.setFieldSplitType(PETSc.PC.CompositeType.ADDITIVE)
-            pc.setFieldSplitSchurFactType(PETSc.PC.SchurFactType.UPPER)
-            pc.setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
+            # pc.setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
+            # pc.setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
 
             u_opts = PETSc.Options()
             option_prefix_u0 = ksp_u0.getOptionsPrefix()
             option_prefix_u1 = ksp_u1.getOptionsPrefix()
             option_prefix_c = ksp_c.getOptionsPrefix()
 
-            opts[f"{option_prefix_u0}ksp_type"] = "preonly" # Precondition only once in Newton iterations
-            opts[f"{option_prefix_u0}pc_type"] = "hypre" # Hypre (algebraic multigrid) preconditioning for p-block
-            opts[f"{option_prefix_u0}pc_hypre_type"] = "boomeramg" # Choice of implementation
-            opts[f"{option_prefix_u0}pc_hypre_boomeramg_coarsen_type"] = "pmis" # Grid coarsening strategy
-            opts[f"{option_prefix_u0}pc_hypre_boomeramg_interp_type"] = "FF1" # Projection on to coarser grid
-            opts[f"{option_prefix_u0}pc_hypre_boomeramg_strong_threshold"] = "0.5" # Coarsening limit
+            opts[f"{option_prefix_u0}ksp_type"] = "fgmres"
+            opts[f"{option_prefix_u0}pc_type"] = "hypre"
+            # opts[f"{option_prefix_u0}pc_gamg_type"] = "agg"
+            # opts[f"{option_prefix_u0}pc_gamg_agg_nsmooths"] = 0
+            # opts[f"{option_prefix_u0}pc_gamg_aggressive_coarsening"] = 1
+            # opts[f"{option_prefix_u0}pc_gamg_threshold_scale"] = 0.0001
+            # opts[f"{option_prefix_u0}mg_levels_ksp_type"] = "chebyshev"
+            # opts[f"{option_prefix_u0}mg_levels_pc_type"] = "sor"
+            # opts[f"{option_prefix_u0}mg_levels_pc_sor_omega"] = 0.5
+            # # opts['mg_levels_pc_sor_its'] = 10
+            # opts[f"{option_prefix_u0}mg_levels_ksp_chebyshev_esteig_steps"] = 10
+            # opts[f"{option_prefix_u0}'pc_gamg_aggressive_square_graph"] = 1
+            # opts[f"{option_prefix_u0}pc_hypre_type"] = "boomeramg"
+            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_coarsen_type"] = "pmis"
+            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_interp_type"] = "FF1"
+            # # opts[f"{option_prefix_u0}pc_hypre_boomeramg_truncfactor"] = 0
+            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_strong_threshold"] = "0.5"
+            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_print_statistics"] = "2"
+            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_agg_nl"] = 1
+            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_agg_num_paths"] = 5
+            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_P_max"] = 1
+            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_relax_type_coarse"] = "chebyshev"
+            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_nodal_coarsen"] = "6"
 
-            opts[f"{option_prefix_u1}ksp_type"] = "preonly" # Precondition only once in Newton iterations
-            opts[f"{option_prefix_u1}pc_type"] = "hypre" # Hypre (algebraic multigrid) preconditioning for p-block
-            opts[f"{option_prefix_u1}pc_hypre_type"] = "boomeramg" # Choice of implementation
-            opts[f"{option_prefix_u1}pc_hypre_boomeramg_coarsen_type"] = "pmis" # Grid coarsening strategy
-            opts[f"{option_prefix_u1}pc_hypre_boomeramg_interp_type"] = "FF1" # Projection on to coarser grid
-            opts[f"{option_prefix_u1}pc_hypre_boomeramg_strong_threshold"] = "0.5" # Coarsening limit
+            opts[f"{option_prefix_u1}ksp_type"] = "fgmres"
+            opts[f"{option_prefix_u1}pc_type"] = "hypre"
+            # opts[f"{option_prefix_u1}pc_gamg_type"] = "agg"
+            # opts[f"{option_prefix_u1}pc_gamg_agg_nsmooths"] = 0
+            # opts[f"{option_prefix_u1}pc_gamg_aggressive_coarsening"] = 1
+            # opts[f"{option_prefix_u1}pc_gamg_threshold_scale"] = 0.0001
+            # opts[f"{option_prefix_u1}mg_levels_ksp_type"] = "chebyshev"
+            # opts[f"{option_prefix_u1}mg_levels_pc_type"] = "sor"
+            # opts[f"{option_prefix_u1}mg_levels_pc_sor_omega"] = 0.5
+            # # opts['mg_levels_pc_sor_its'] = 10
+            # opts[f"{option_prefix_u1}mg_levels_ksp_chebyshev_esteig_steps"] = 10
+            # opts[f"{option_prefix_u1}'pc_gamg_aggressive_square_graph"] = 1
+            # opts[f"{option_prefix_u1}pc_hypre_type"] = "boomeramg"
+            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_coarsen_type"] = "pmis"
+            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_interp_type"] = "FF1"
+            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_truncfactor"] = 0
+            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_strong_threshold"] = "0.5"
+            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_print_statistics"] = "2"
+            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_agg_nl"] = 1
+            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_agg_num_paths"] = 5
+            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_P_max"] = 2
+            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_relax_type_coarse"] = "chebyshev"
+            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_nodal_relaxation"] = "2"
+            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_nodal_coarsen"] = "6"
 
-            opts[f"{option_prefix_c}ksp_type"] = "preonly" # Precondition only once in Newton iterations
-            opts[f"{option_prefix_c}pc_type"] = "hypre" # Hypre (algebraic multigrid) preconditioning for p-block
-            opts[f"{option_prefix_c}pc_hypre_type"] = "boomeramg" # Choice of implementation
-            opts[f"{option_prefix_c}pc_hypre_boomeramg_coarsen_type"] = "pmis" # Grid coarsening strategy
-            opts[f"{option_prefix_c}pc_hypre_boomeramg_interp_type"] = "FF1" # Projection on to coarser grid
-            opts[f"{option_prefix_c}pc_hypre_boomeramg_strong_threshold"] = "0.5" # Coarsening limit
+            opts[f"{option_prefix_c}ksp_type"] = "fgmres"
+            opts[f"{option_prefix_c}pc_type"] = "hypre"
+            # opts[f"{option_prefix_c}pc_gamg_type"] = "agg"
+            # opts[f"{option_prefix_c}pc_gamg_agg_nsmooths"] = 0
+            # opts[f"{option_prefix_c}pc_gamg_aggressive_coarsening"] = 1
+            # opts[f"{option_prefix_c}pc_gamg_threshold_scale"] = 0.0001
+            # opts[f"{option_prefix_c}mg_levels_ksp_type"] = "chebyshev"
+            # opts[f"{option_prefix_c}mg_levels_pc_type"] = "sor"
+            # opts[f"{option_prefix_c}mg_levels_pc_sor_omega"] = 0.5
+            # # opts['mg_levels_pc_sor_its'] = 10
+            # opts[f"{option_prefix_c}mg_levels_ksp_chebyshev_esteig_steps"] = 10
+            # opts[f"{option_prefix_c}'pc_gamg_aggressive_square_graph"] = 1
+            # opts[f"{option_prefix_c}pc_hypre_type"] = "boomeramg"
+            # opts[f"{option_prefix_c}pc_hypre_boomeramg_coarsen_type"] = "pmis"
+            # opts[f"{option_prefix_c}pc_hypre_boomeramg_interp_type"] = "FF1"
+            # opts[f"{option_prefix_c}pc_hypre_boomeramg_truncfactor"] = 0
+            # opts[f"{option_prefix_c}pc_hypre_boomeramg_strong_threshold"] = "0.5"
+            # opts[f"{option_prefix_c}pc_hypre_boomeramg_print_statistics"] = "2"
+            # opts[f"{option_prefix_c}pc_hypre_boomeramg_agg_nl"] = 1
+            # opts[f"{option_prefix_c}pc_hypre_boomeramg_agg_num_paths"] = 1
+            # opts[f"{option_prefix_c}pc_hypre_boomeramg_P_max"] = 1
+            # opts[f"{option_prefix_c}pc_hypre_boomeramg_relax_type_coarse"] = "chebyshev"
+            # opts[f"{option_prefix_c}pc_hypre_boomeramg_smooth_type"] = "schwarz-smoothers"
+            # opts[f"{option_prefix_c}pc_hypre_boomeramg_nodal_relaxation"] = "1"
+            # opts[f"{option_prefix_c}pc_hypre_boomeramg_nodal_coarsen"] = "6"
+            # opts[f"{option_prefix_c}pc_hypre_boomeramg_tol"] = 1e-3
 
             ksp_u0.setFromOptions()
             ksp_u1.setFromOptions()
             ksp_c.setFromOptions()
 
-        snes.getKSP().setFromOptions()
-        snes.setFromOptions()
+            snes.getKSP().setFromOptions()
+            snes.setFromOptions()
 
-        with open(resource_usage, 'a') as f:
-            # Dump timestamp, PID and amount of RAM.
-            f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
+            with open(resource_usage, 'a') as f:
+                # Dump timestamp, PID and amount of RAM.
+                f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
 
-        problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, c], bcs)
-        snes.setFunction(problem.F_block, Fvec)
-        snes.setJacobian(problem.J_block, J=Jmat, P=None)
-        snes.getKSP().view()
-        snes.view()
-        x = fem.petsc.create_vector_block(F)
-        cpp.la.petsc.scatter_local_vectors(
-            x,
-            [u_0.x.petsc_vec.array_r, u_1.x.petsc_vec.array_r, c.x.petsc_vec.array_r],
-            [
-                (u_0.function_space.dofmap.index_map, u_0.function_space.dofmap.index_map_bs),
-                (u_1.function_space.dofmap.index_map, u_1.function_space.dofmap.index_map_bs),
-                (c.function_space.dofmap.index_map, c.function_space.dofmap.index_map_bs),
-            ],
-        )
-        x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-        t0 = time.time()
-        snes.solve(None, x)
-        t1 = time.time()
-        assert snes.getKSP().getConvergedReason() > 0
-        assert snes.getConvergedReason() > 0
-        xnorm = x.norm()
-        snes.destroy()
-        Jmat.destroy()
-        Fvec.destroy()
-        x.destroy()
-        solver = solvers.NewtonSolver(
-        F,
-        J,
-        [u_0, u_1, c],
-        bcs=bcs,
-        max_iterations=1000,
-        petsc_options={
-            "ksp_type": "bcgs",
-            "pc_type": "gamg",
-            # "ksp_pc_side": "right",
-            # 'pc_hypre_type': "boomeramg",
+            problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, c], bcs)
+            snes.setFunction(problem.F_block, Fvec)
+            snes.setJacobian(problem.J_block, J=Jmat, P=Jmat)
+            snes.getKSP().view()
+            snes.view()
+            x = fem.petsc.create_vector_block(F)
+            cpp.la.petsc.scatter_local_vectors(
+                x,
+                [u_0.x.petsc_vec.array_r, u_1.x.petsc_vec.array_r, c.x.petsc_vec.array_r],
+                [
+                    (u_0.function_space.dofmap.index_map, u_0.function_space.dofmap.index_map_bs),
+                    (u_1.function_space.dofmap.index_map, u_1.function_space.dofmap.index_map_bs),
+                    (c.function_space.dofmap.index_map, c.function_space.dofmap.index_map_bs),
+                ],
+            )
+            x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+            t0 = time.time()
+            snes.solve(None, x)
+            t1 = time.time()
+            assert snes.getKSP().getConvergedReason() > 0
+            assert snes.getConvergedReason() > 0
+            xnorm = x.norm()
+            snes.destroy()
+            Jmat.destroy()
+            Fvec.destroy()
+            x.destroy()
+
+        elif args.solver_type == solver_types.custom_newton_iterative:
+            gamg_opts = {
+            "ksp_pc_side": "right",
             "mg_levels_ksp_type": "chebyshev",
             "mg_levels_pc_type": "sor",
-            "mg_levels_pc_sor_omega": 0.5,
-            # 'mg_levels_pc_sor_its': 10,
-            "mg_levels_ksp_chebyshev_esteig_steps": 10,
+            "mg_levels_pc_sor_omega": 4/3,
+            'mg_levels_pc_sor_its': 10,
+            "mg_levels_ksp_chebyshev_esteig_steps"    : 10,
             'pc_gamg_type': 'agg',
-            # 'pc_mg_type': 'kaskade',
-            'pc_gamg_threshold_scale': 0.01,#5,
-            'pc_gamg_agg_nsmooths': 0,
-            'pc_gamg_aggressive_coarsening': 5,
-            # 'pc_gamg_aggressive_square_graph': 1,
-            # 'pc_gamg_mis_k_minimum_degree_ordering': False,
-            # 'pc_gamg_pc_gamg_asm_hem_aggs': 10,
-            # 'pc_gamg_aggressive_mis_k': 3,
-            # "pc_factor_mat_solver_type": "superlu_dist",
-        },
-        )
-        t0 = time.time()
-        solver.solve(5e-4, beta=0.1)
-        t1 = time.time()
+            # 'pc_mg_type': 'multiplicative',
+            'pc_mg_distinct_smoothup': 1,
+            # 'pc_mg_cycle_type': 'v',
+            'pc_gamg_agg_nsmooths': 0,  # nonsymmetric problem
+            'pc_gamg_aggressive_coarsening': 1,
+            'pc_gamg_aggressive_square_graph': 1,
+            }
+            precond_fields = [
+                {'solve': 'bcgs', 'prec': 'amg', 'amgtype': 'hypre'},# 'petsc_options': gamg_opts},
+                {'solve': 'bcgs', 'prec': 'amg', 'amgtype': 'hypre'}, #'petsc_options': gamg_opts},
+                {'solve': 'preonly', 'prec': 'jacobi'},# 'petsc_options': gamg_opts},
+            ]
+            solver = solvers.SchurComplementNewtonSolver(
+                F,
+                J,
+                [u_0, u_1, c],
+                bcs=bcs,
+                max_iterations=1000,
+                comm=comm,
+                P=J,
+                precond_fields=precond_fields,
+                iset=[IS_u0, IS_u1, IS_c]
+            )
+            t0 = time.time()
+            solver.solve(1e-5, beta=0.001)
+            t1 = time.time()
+
+        elif args.solver_type == solver_types.newton_schur:
+            solver = solvers.SchurNewtonSolver(
+                F,
+                J,
+                [u_0, u_1, c],
+                bcs=bcs,
+                max_iterations=10,
+                iset=[IS_u, IS_c],
+                petsc_options={},
+             )
+            t0 = time.time()
+            solver.solve(1e-5, beta=0.01)
+            t1 = time.time()
+        else:
+            raise ValueError("Unknown solver type")
+
         PETSc.Sys.Print(f"#DoFs: {n_dofs:,}, Solve time: {t1-t0}\n")
         c0.x.array[:] = c.x.array
         cvtx.write(t)
