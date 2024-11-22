@@ -429,8 +429,24 @@ if __name__ == '__main__':
 
     ###################### sparsity structure ##################################
     if args.plot:
+        J_u = fem.petsc.assemble_matrix_block([[J00, None, None], [None, J11, None], [None, None, J22]])
+        J_u.assemble()
+        get_eigenvalues(J_u)
+        for i_x in range(3):
+            for i_y in range(3):
+                J_ = J[i_x][i_y]
+                PETSc.Sys.Print(f"################# {i_x},{i_y} ##########################")
+                J_00 = fem.petsc.assemble_matrix(J_)
+                J_00.assemble()
+                try:
+                    get_eigenvalues(J_00)
+                except PETSc.Error:
+                    PETSc.Sys.Print(f"Could not converge for block {i_x},{i_y}")
+
         J_full = fem.petsc.assemble_matrix_block(J)
         J_full.assemble()
+        viewer = PETSc.Viewer().createDraw(size=(1200, 1200))
+        viewer(J_full)
         J_diag = fem.petsc.assemble_matrix_block([[J00, None, None], [None, J11, None], [None, None, J22]])
         J_diag.assemble()
         J_off_diag = fem.petsc.assemble_matrix_block([[None, J01, J02], [J10, None, J12], [J20, J21, None]])
@@ -704,7 +720,6 @@ if __name__ == '__main__':
             Jmat.destroy()
             Fvec.destroy()
             x.destroy()
-
         elif args.solver_type == solver_types.newton_sc:
             gamg_opts = {
             "ksp_pc_side": "right",
@@ -748,7 +763,6 @@ if __name__ == '__main__':
             t0 = time.time()
             solver.solve(1e-5, beta=0.001)
             t1 = time.time()
-
         elif args.solver_type == solver_types.newton_schur:
             solver = solvers.SchurNewtonSolver(
                 F,
