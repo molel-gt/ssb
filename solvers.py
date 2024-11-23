@@ -217,7 +217,7 @@ class NonlinearPDE_SNESProblem:
                 var_sub.x.array[:] = _x.array_r
 
         # Assemble
-        bcs1 = bcs_by_block(extract_function_spaces(self.a, 1), self.bcs)
+        bcs1 = fem.bcs_by_block(fem.extract_function_spaces(self.a, 1), self.bcs)
         for L, F_sub, a in zip(self.L, F.getNestSubVecs(), self.a):
             with F_sub.localForm() as F_sub_local:
                 F_sub_local.set(0.0)
@@ -226,7 +226,7 @@ class NonlinearPDE_SNESProblem:
             F_sub.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
 
         # Set bc value in RHS
-        bcs0 = bcs_by_block(extract_function_spaces(self.L), self.bcs)
+        bcs0 = fem.bcs_by_block(fem.extract_function_spaces(self.L), self.bcs)
         for F_sub, bc, x_sub in zip(F.getNestSubVecs(), bcs0, x):
             set_bc(F_sub, bc, x_sub, -1.0)
 
@@ -493,7 +493,6 @@ class StaticCondensationNewtonSolver:
         self.dx.destroy()
         self._solver.destroy()
         self.x.destroy()
-
 
 
 class SchurNewtonSolver:
