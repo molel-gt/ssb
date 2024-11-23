@@ -552,7 +552,7 @@ if __name__ == '__main__':
         if args.solver_type == solver_types.direct:
             snes = PETSc.SNES().create(comm)
             snes.getKSP().setOperators(Jmat, None)
-            snes.setTolerances(rtol=1.0e-7, max_it=100)
+            snes.setTolerances(rtol=1.0e-8, max_it=100)
             # snes.setMonitor(lambda _, it, residual: print(it, residual))
             snes.setErrorIfNotConverged(True)
             snes.getKSP().setErrorIfNotConverged(True)
@@ -794,11 +794,11 @@ if __name__ == '__main__':
             Fvec = fem.petsc.create_vector_nest(F)
             snes = PETSc.SNES().create(comm)
             snes.setType('newtonls')
-            snes.setTolerances(rtol=1.0e-8, max_it=100)
+            snes.setTolerances(rtol=1.0e-7, max_it=100)
             nested_IS = Jmat.getNestISs()
             snes.getKSP().setType("bcgsl")
             # snes.getKSP().setType("preonly")
-            snes.getKSP().setTolerances(rtol=1e-8)
+            snes.getKSP().setTolerances(rtol=1e-7)
             # snes.setMonitor(lambda _, it, residual: PETSc.Sys.Print(it, residual))
             snes.setErrorIfNotConverged(True)
             snes.getKSP().setErrorIfNotConverged(True)
@@ -904,10 +904,11 @@ if __name__ == '__main__':
         "dofs": n_dofs,
     }
     if comm.rank == 0:
-        fig, ax = plt.subplots()
-        ax.semilogy(snes.getKSP().getConvergenceHistory())
-        plt.tight_layout()
-        plt.savefig(convergence_history)
+        if args.plot:
+            fig, ax = plt.subplots()
+            ax.semilogy(snes.getKSP().getConvergenceHistory())
+            plt.tight_layout()
+            plt.savefig(convergence_history, bbox_inches="tight")
         utils.print_dict(metadata, padding=50)
         with open(simulation_metafile, "w", encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=4)
