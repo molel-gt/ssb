@@ -797,7 +797,6 @@ if __name__ == '__main__':
             snes.setTolerances(rtol=1.0e-7, max_it=100)
             nested_IS = Jmat.getNestISs()
             snes.getKSP().setType("bcgsl")
-            # snes.getKSP().setType("preonly")
             snes.getKSP().setTolerances(rtol=1e-7)
             # snes.setMonitor(lambda _, it, residual: PETSc.Sys.Print(it, residual))
             snes.setErrorIfNotConverged(True)
@@ -815,16 +814,33 @@ if __name__ == '__main__':
 
             ksp_u0, ksp_u1, ksp_c = snes.getKSP().getPC().getFieldSplitSubKSP()
 
-            snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
+            snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.ADDITIVE)
             snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.FULL)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
             ksp_u0.setType(PETSc.KSP.Type.PREONLY)
-            ksp_u0.getPC().setType(PETSc.PC.Type.BJACOBI)
+            ksp_u0.getPC().setType(PETSc.PC.Type.HYPRE)
             ksp_u1.setType(PETSc.KSP.Type.PREONLY)
-            ksp_u1.getPC().setType(PETSc.PC.Type.BJACOBI)
+            ksp_u1.getPC().setType(PETSc.PC.Type.HYPRE)
             ksp_c.setType(PETSc.KSP.Type.PREONLY)
-            ksp_c.getPC().setType(PETSc.PC.Type.GAMG)
+            ksp_c.getPC().setType(PETSc.PC.Type.HYPRE)
+            opts[f"{ksp_u0.getOptionsPrefix()}pc_hypre_type"] = "parasails"
+            opts[f"{ksp_u1.getOptionsPrefix()}pc_hypre_type"] = "parasails"
+            opts[f"{ksp_c.getOptionsPrefix()}pc_hypre_type"] = "parasails"
+            # opts[f"{ksp_c.getOptionsPrefix()}pc_hypre_boomeramg_coarsen_type"] = "pmis"
+            # opts[f"{ksp_c.getOptionsPrefix()}pc_hypre_boomeramg_interp_type"] = "FF1"
+
+            # opts[f'{ksp_c.getOptionsPrefix()}mg_coarse_ksp_ksp_type'] = 'chebyshev'
+            # opts[f'{ksp_c.getOptionsPrefix()}mg_levels_pc_type'] = "sor"
+            # opts[f'{ksp_c.getOptionsPrefix()}mg_levels_pc_sor_omega']= 4/3
+            # opts[f'{ksp_c.getOptionsPrefix()}mg_levels_pc_sor_its'] = 10
+            # opts[f'{ksp_c.getOptionsPrefix()}mg_levels_ksp_chebyshev_esteig_steps'] = 10
+            # opts[f'{ksp_c.getOptionsPrefix()}pc_gamg_agg_nsmooths'] = 0
+            # # opts[f'{ksp_c.getOptionsPrefix()}pc_gamg_type'] = 'agg'
+            # opts[f'{ksp_c.getOptionsPrefix()}pc_gamg_threshold'] = 0
+            # opts[f'{ksp_c.getOptionsPrefix()}pc_gamg_aggressive_coarsening'] = 0
+            # opts[f'{ksp_c.getOptionsPrefix()}pc_gamg_aggressive_square_graph'] = 0
+            # opts[f'{ksp_c.getOptionsPrefix()}pc_mg_distinct_smoothup'] = 1
 
             ksp_u0.setFromOptions()
             ksp_u1.setFromOptions()
