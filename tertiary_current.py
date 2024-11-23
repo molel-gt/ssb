@@ -794,7 +794,7 @@ if __name__ == '__main__':
             Fvec = fem.petsc.create_vector_nest(F)
             snes = PETSc.SNES().create(comm)
             snes.setType('newtonls')
-            snes.setTolerances(rtol=1.0e-12, max_it=100)
+            snes.setTolerances(rtol=1.0e-8, max_it=100)
             nested_IS = Jmat.getNestISs()
             snes.getKSP().setType("bcgsl")
             # snes.getKSP().setType("preonly")
