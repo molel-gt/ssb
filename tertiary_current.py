@@ -18,6 +18,7 @@ import scipy.special as sp
 import ufl
 
 from dolfinx import cpp, fem, io, mesh
+from matplotlib import rc
 from mpi4py import MPI
 from petsc4py import PETSc
 from slepc4py import SLEPc
@@ -25,6 +26,16 @@ from ufl import dot, grad, inner
 
 import commons, constants, mesh_utils, solvers, utils 
 
+
+rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
+rc('text', usetex=True)
+params = {
+    'figure.figsize': (5, 4.5),
+    'font.size' : 12,
+    'axes.labelsize': 14,
+    'legend.fontsize': 12,
+}
+plt.rcParams.update(params)
 
 R = 8.314
 T = 298
@@ -230,6 +241,7 @@ if __name__ == '__main__':
     current_file = os.path.join(results_dir, "current.bp")
     concentration_file = os.path.join(results_dir, "concentration.bp")
     simulation_metafile = os.path.join(results_dir, "simulation.json")
+    convergence_history = os.path.join(results_dir, "convergence.eps")
     resource_usage = os.path.join(results_dir, f"resources-{comm.Get_rank()}.log")
     mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
@@ -782,13 +794,15 @@ if __name__ == '__main__':
             Fvec = fem.petsc.create_vector_nest(F)
             snes = PETSc.SNES().create(comm)
             snes.setType('newtonls')
-            snes.setTolerances(rtol=1.0e-15, max_it=100)
+            snes.setTolerances(rtol=1.0e-12, max_it=100)
             nested_IS = Jmat.getNestISs()
             snes.getKSP().setType("bcgsl")
+            # snes.getKSP().setType("preonly")
             snes.getKSP().setTolerances(rtol=1e-8)
             # snes.setMonitor(lambda _, it, residual: PETSc.Sys.Print(it, residual))
-            # snes.setErrorIfNotConverged(True)
-            # snes.getKSP().setErrorIfNotConverged(True)
+            snes.setErrorIfNotConverged(True)
+            snes.getKSP().setErrorIfNotConverged(True)
+            snes.getKSP().setConvergenceHistory()
             snes.getKSP().getPC().setType("fieldsplit")
             snes.getKSP().getPC().setFieldSplitIS(("u0", nested_IS[0][0]), ("u1", nested_IS[0][1]), ("c", nested_IS[0][2]))
             opts = PETSc.Options()
@@ -806,9 +820,9 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
             ksp_u0.setType(PETSc.KSP.Type.PREONLY)
-            ksp_u0.getPC().setType(PETSc.PC.Type.JACOBI)
+            ksp_u0.getPC().setType(PETSc.PC.Type.BJACOBI)
             ksp_u1.setType(PETSc.KSP.Type.PREONLY)
-            ksp_u1.getPC().setType(PETSc.PC.Type.GAMG)
+            ksp_u1.getPC().setType(PETSc.PC.Type.BJACOBI)
             ksp_c.setType(PETSc.KSP.Type.PREONLY)
             ksp_c.getPC().setType(PETSc.PC.Type.GAMG)
 
@@ -820,8 +834,6 @@ if __name__ == '__main__':
             snes.setFunction(problem.F_nest, Fvec)
             snes.setJacobian(problem.J_nest, J=Jmat, P=Pmat)
             snes.setFromOptions()
-
-            snes.getKSP().view()
             snes.view()
 
             x = fem.petsc.create_vector_nest(F)
@@ -892,6 +904,10 @@ if __name__ == '__main__':
         "dofs": n_dofs,
     }
     if comm.rank == 0:
+        fig, ax = plt.subplots()
+        ax.semilogy(snes.getKSP().getConvergenceHistory())
+        plt.tight_layout()
+        plt.savefig(convergence_history)
         utils.print_dict(metadata, padding=50)
         with open(simulation_metafile, "w", encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=4)
