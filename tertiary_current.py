@@ -71,6 +71,10 @@ class SolverTypes:
     def snes_nested(self):
         return "snes_nested"
 
+    @property
+    def block_newton(self):
+        return "block_newton"
+
 
 def define_interior_eq(domain, degree,  submesh, submesh_to_mesh, value, kappa):
     # Compute map from parent entity to submesh cell
@@ -137,52 +141,74 @@ def cross_section_area(dims, transport_direction):
 
 def get_eigenvalues(M):
     Print = PETSc.Sys.Print
-    Print(M.getSize())
-    E = SLEPc.EPS()
-    E.create(M.getComm().tompi4py())
-    E.setOperators(M)
-    # E.setWhichEigenpairs(SLEPc.EPS_LARGEST_MAGNITUDE)
-    opts = PETSc.Options()
-    opts['eps_nev'] = 10
-    E.setProblemType(SLEPc.EPS.ProblemType.HEP)
-    E.setFromOptions()
-    E.solve()
-    
-    Print()
-    Print("******************************")
-    Print("*** SLEPc Solution Results ***")
-    Print("******************************")
-    Print()
+    for eps_type in [SLEPc.EPS.Which.SMALLEST_MAGNITUDE, SLEPc.EPS.Which.LARGEST_MAGNITUDE]:
+        E = SLEPc.EPS()
+        E.create(M.getComm().tompi4py())
+        E.setOperators(M)
+        E.setWhichEigenpairs(eps_type)
+        opts = PETSc.Options()
+        E.setProblemType(SLEPc.EPS.ProblemType.HEP)
+        E.setFromOptions()
+        E.solve()
+        nconv = E.getConverged()
 
-    its = E.getIterationNumber()
-    Print("Number of iterations of the method: %d" % its)
+        vw = PETSc.Viewer.STDOUT()
+        if nconv>0:
+            sx, _ = M.createVecs()
+            E.getEigenpair(0, sx)
+            vw.pushFormat(PETSc.Viewer.Format.ASCII_INFO_DETAIL)
+            E.errorView(viewer=vw)
+            # def myArbitrarySel(evalue, xr, xi, sx):
+            #     return abs(xr.dot(sx))
+            # E.setArbitrarySelection(myArbitrarySel,sx)
+            # E.setWhichEigenpairs(eps_type)
+            # E.solve()
+            # E.errorView(viewer=vw)
+            # vw.popFormat()
+        else:
+            Print( "No eigenpairs converged" )
 
-    eps_type = E.getType()
-    Print("Solution method: %s" % eps_type)
 
-    nev, ncv, mpd = E.getDimensions()
-    Print("Number of requested eigenvalues: %d" % nev)
+class SchurPC(object):
+    # def __init__(self, A, y):
+    #     self.A = A
+    #     self.y = y
 
-    tol, maxit = E.getTolerances()
-    Print("Stopping condition: tol=%.4g, maxit=%d" % (tol, maxit))
-    nconv = E.getConverged()
-    Print("Number of converged eigenpairs %d" % nconv)
-    if nconv > 0:
-        # Create the results vectors
-        vr, wr = M.getVecs()
-        vi, wi = M.getVecs()
-        #
-        Print()
-        Print("        k          ||Ax-kx||/||kx|| ")
-        Print("----------------- ------------------")
-        for i in range(nconv):
-            k = E.getEigenpair(i, vr, vi)
-            error = E.computeError(i)
-            if k.imag != 0.0:
-                Print(" %9f%+9f j %12g" % (k.real, k.imag, error))
-            else:
-                Print(" %12f      %12g" % (k.real, error))
-        Print()
+    def create(self, pc):
+        pass
+
+    def setUp(self, pc):
+        B, P = pc.getOperators()
+        # extract the MatrixFreeB object from B
+        ctx = B.getPythonContext()
+        self.A = ctx.A
+        self.u = ctx.u
+        self.v = ctx.v
+        # Here we build the PC object that uses the concrete,
+        # assembled matrix A.  We will use this to apply the action
+        # of A^{-1}
+        self.pc = PETSc.PC().create()
+        self.pc.setOptionsPrefix("mf_")
+        self.pc.setOperators(self.A)
+        self.pc.setFromOptions()
+        # Since u and v do not change, we can build the denominator
+        # and the action of A^{-1} on u only once, in the setup
+        # phase.
+        tmp = self.A.createVecLeft()
+        self.pc.apply(self.u, tmp)
+        self._Ainvu = tmp
+        self._denom = 1 + self.v.dot(self._Ainvu)
+
+    def apply(self, pc, x, y):
+        # y <- A^{-1}x
+        self.pc.apply(x, y)
+        # alpha <- (v^T A^{-1} x) / (1 + v^T A^{-1} u)
+        alpha = self.v.dot(y) / self._denom
+        # y <- y - alpha * A^{-1}u
+        y.axpy(-alpha, self._Ainvu)
+
+    def destroy(self, pc):
+        pc.destroy()
 
 
 if __name__ == '__main__':
@@ -324,7 +350,7 @@ if __name__ == '__main__':
     u_1.name = "u_t"
 
     # initial guess
-    u_0.interpolate(lambda x: x[0]/0.5)
+    u_0.interpolate(lambda x: x[0])
     u_1.interpolate(lambda x: x[0])
 
     # Add coupling term to the interface
@@ -439,11 +465,22 @@ if __name__ == '__main__':
     
     J = [[J00, J01, J02], [J10, J11, J12], [J20, J21, J22]]
 
+    V0_map = V0.dofmap.index_map
+    V1_map = V1.dofmap.index_map
+    VC_map = VC.dofmap.index_map
+    V0_dofmap = V0.dofmap
+    V1_dofmap = V1.dofmap
+    VC_dofmap = VC.dofmap
+
     ###################### sparsity structure ##################################
     if args.plot:
-        J_u = fem.petsc.assemble_matrix_block([[J00, None, None], [None, J11, None], [None, None, J22]])
-        J_u.assemble()
-        get_eigenvalues(J_u)
+        Ju = [[J00, J01], [J10, J11]]
+        J_00 = fem.petsc.assemble_matrix_block(Ju)
+        J_00.assemble()
+        try:
+            get_eigenvalues(J_00)
+        except PETSc.Error:
+            PETSc.Sys.Print(f"Could not converge for block {i_x},{i_y}")
         for i_x in range(3):
             for i_y in range(3):
                 J_ = J[i_x][i_y]
@@ -457,38 +494,23 @@ if __name__ == '__main__':
 
         J_full = fem.petsc.assemble_matrix_block(J)
         J_full.assemble()
-        viewer = PETSc.Viewer().createDraw(size=(1200, 1200))
-        viewer(J_full)
-        J_diag = fem.petsc.assemble_matrix_block([[J00, None, None], [None, J11, None], [None, None, J22]])
-        J_diag.assemble()
-        J_off_diag = fem.petsc.assemble_matrix_block([[None, J01, J02], [J10, None, J12], [J20, J21, None]])
-        J_off_diag.assemble()
+        # PETSc.Sys.Print(np.linalg.cond(J_full.createDense()))
+        # viewer = PETSc.Viewer().createDraw(size=(1200, 1200))
+        # viewer(J_full)
         ai, aj, av = J_full.getValuesCSR()
-        ai0, aj0, av0 = J_diag.getValuesCSR()
-        ai1, aj1, av1 = J_off_diag.getValuesCSR()
         Asp = scipy.sparse.csr_matrix((av, aj, ai))
-        Asp0 = scipy.sparse.csr_matrix((av0, aj0, ai0))
-        Asp1 = scipy.sparse.csr_matrix((av1, aj1, ai1))
-        mpl.rcParams['savefig.pad_inches'] = 0
-        mpl.rcParams['figure.figsize'] = (5, 4.5)
-        matspy.params.title = False
-        matspy.params.indices = False
-        matspy.shading = False
-        fig, ax = matspy.spy_to_mpl(Asp)
-        fig0, ax0 = matspy.spy_to_mpl(Asp0)
-        fig1, ax1 = matspy.spy_to_mpl(Asp1)
+        fig, ax = plt.subplots()
+        ax.spy(Asp, markersize=0.25)
+        ax.grid()
+        _l0 = V0_map.size_local
+        _l1 = _l0 + V1_map.size_local
+        ax.axvline(x=_l0, color='red', linewidth=0.5)
+        ax.axhline(y=_l0, color='red', linewidth=0.5)
+        ax.axvline(x=_l1, color='red', linewidth=0.5)
+        ax.axhline(y=_l1, color='red', linewidth=0.5)
         ax.set_box_aspect(1);
-        ax.axis('off');
-        fig.frameon = False
-        fig.savefig(os.path.join(results_dir, "jacobian-sparsity.png"), bbox_inches='tight', transparent=True)
-        ax0.set_box_aspect(1);
-        ax0.axis('off');
-        fig0.frameon = False
-        fig0.savefig(os.path.join(results_dir, "jacobian-diag-sparsity.eps"), bbox_inches='tight', transparent=True)
-        ax1.set_box_aspect(1);
-        ax1.axis('off');
-        fig1.frameon = False
-        fig1.savefig(os.path.join(results_dir, "jacobian-off-diag-sparsity.eps"), bbox_inches='tight', transparent=True)
+        plt.savefig(os.path.join(results_dir, "jacobian-sparsity.png"), bbox_inches='tight')#, transparent=True)
+        # PETSc.Sys.Print(np.linalg.cond(Asp.todense()))
     ############################################################################
     F = [
         fem.form(F_0, entity_maps=entity_maps),
@@ -517,12 +539,7 @@ if __name__ == '__main__':
     with open(resource_usage, 'a') as f:
         # Dump timestamp, PID and amount of RAM.
         f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
-    V0_map = V0.dofmap.index_map
-    V1_map = V1.dofmap.index_map
-    VC_map = VC.dofmap.index_map
-    V0_dofmap = V0.dofmap
-    V1_dofmap = V1.dofmap
-    VC_dofmap = VC.dofmap
+
     local_dofs_u0 = np.setdiff1d(V0_map.local_to_global(np.arange(V0_map.size_local + V0_map.num_ghosts,
                                                                   dtype=np.int32)),
                                  V0_map.ghosts)
@@ -866,10 +883,33 @@ if __name__ == '__main__':
             snes.solve(None, x)
             t1 = time.time()
             PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}")
+            if comm.rank == 0 and args.plot:
+                fig, ax = plt.subplots()
+                ax.semilogy(snes.getKSP().getConvergenceHistory())
+                ax.set_box_aspect(1)
+                plt.tight_layout()
+                plt.savefig(convergence_history, bbox_inches="tight")
             snes.destroy()
             Jmat.destroy(), Fvec.destroy()
             x.destroy()
             Pmat.destroy()
+        elif args.solver_type == solver_types.block_newton:
+            Jmat = fem.petsc.create_matrix_nest(J)
+            Pmat = fem.petsc.create_matrix_nest(P)
+            Fvec = fem.petsc.create_vector_nest(F)
+            solver = solvers.BlockNewtonSolver(
+                F,
+                J,
+                [u_0, u_1, c],
+                bcs=bcs,
+                iset=[IS_u0, IS_u1, IS_c, IS_u],
+                max_iterations=10,
+                petsc_options={'ksp_type': 'preonly', 'pc_type': 'hypre', 'pc_hypre_type': 'boomeramg'}#, 'pc_factor_mat_solver_type': 'superlu_dist'},
+                )
+            t0 = time.time()
+            solver.solve(1e-5, beta=0.01)
+            t1 = time.time()
+
         else:
             PETSc.Sys.Print("Unknown solver type, defaulting to direct NewtonSolver")
             solver = solvers.NewtonSolver(
@@ -920,11 +960,6 @@ if __name__ == '__main__':
         "dofs": n_dofs,
     }
     if comm.rank == 0:
-        if args.plot:
-            fig, ax = plt.subplots()
-            ax.semilogy(snes.getKSP().getConvergenceHistory())
-            plt.tight_layout()
-            plt.savefig(convergence_history, bbox_inches="tight")
         utils.print_dict(metadata, padding=50)
         with open(simulation_metafile, "w", encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=4)
