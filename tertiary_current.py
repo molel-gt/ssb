@@ -158,22 +158,11 @@ def get_eigenvalues(M):
             E.getEigenpair(0, sx)
             vw.pushFormat(PETSc.Viewer.Format.ASCII_INFO_DETAIL)
             E.errorView(viewer=vw)
-            # def myArbitrarySel(evalue, xr, xi, sx):
-            #     return abs(xr.dot(sx))
-            # E.setArbitrarySelection(myArbitrarySel,sx)
-            # E.setWhichEigenpairs(eps_type)
-            # E.solve()
-            # E.errorView(viewer=vw)
-            # vw.popFormat()
         else:
             Print( "No eigenpairs converged" )
 
 
 class SchurPC(object):
-    # def __init__(self, A, y):
-    #     self.A = A
-    #     self.y = y
-
     def create(self, pc):
         pass
 
