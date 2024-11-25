@@ -425,13 +425,6 @@ if __name__ == '__main__':
 
     ###################### sparsity structure ##################################
     if args.plot:
-        # Ju = [[J00, J01], [J10, J11]]
-        # J_00 = fem.petsc.assemble_matrix_block(Ju)
-        # J_00.assemble()
-        # try:
-        #     get_eigenvalues(J_00)
-        # except PETSc.Error:
-        #     PETSc.Sys.Print(f"Could not converge for block {i_x},{i_y}")
         for i_x in range(3):
             for i_y in range(3):
                 if i_x != i_y:
@@ -461,7 +454,6 @@ if __name__ == '__main__':
         J_full = fem.petsc.assemble_matrix_block(J)
         J_full.assemble()
 
-        # PETSc.Sys.Print(np.linalg.cond(J_full.createDense()))
         # viewer = PETSc.Viewer().createDraw(size=(1200, 1200))
         # viewer(J_full)
         ai, aj, av = J_full.getValuesCSR()
@@ -477,7 +469,6 @@ if __name__ == '__main__':
         ax.axhline(y=_l1, color='red', linewidth=0.5)
         ax.set_box_aspect(1);
         plt.savefig(os.path.join(results_dir, "jacobian-sparsity.png"), bbox_inches='tight')#, transparent=True)
-        # PETSc.Sys.Print(np.linalg.cond(Asp.todense()))
     ############################################################################
     F = [
         fem.form(F_0, entity_maps=entity_maps),
@@ -801,7 +792,7 @@ if __name__ == '__main__':
             # opts['snes_linesearch_type'] = 'nleqerr'
             # opts['snes_linesearch_maxstep'] = 10
             # opts['snes_linesearch_minlambda'] = 0.01
-            # opts['snes_tr_fallback_type'] = 'dogleg'
+            opts['snes_tr_fallback_type'] = 'dogleg'
             # opts['snes_linesearch_alpha'] = 0.5
             # opts['pc_fieldsplit_diag_use_amat'] = True
 
@@ -891,11 +882,11 @@ if __name__ == '__main__':
                 [u_0, u_1, c],
                 bcs=bcs,
                 iset=[IS_u0, IS_u1, IS_c, IS_u],
-                max_iterations=10,
-                petsc_options={'ksp_type': 'preonly', 'pc_type': 'hypre', 'pc_hypre_type': 'boomeramg'}#, 'pc_factor_mat_solver_type': 'superlu_dist'},
+                max_iterations=1000,
+                petsc_options={'ksp_type': 'fgmres', 'pc_type': 'gamg', 'pc_hypre_type': 'ml'}#, 'pc_factor_mat_solver_type': 'superlu_dist'},
                 )
             t0 = time.time()
-            solver.solve(1e-5, beta=0.01)
+            solver.solve(1e-5, beta=0.001)
             t1 = time.time()
 
         else:
@@ -906,7 +897,7 @@ if __name__ == '__main__':
                 [u_0, u_1, c],
                 bcs=bcs,
                 max_iterations=1000,
-                petsc_options={'ksp_type': 'preonly', 'pc_type': 'lu', 'pc_factor_mat_solver_type': 'mumps'},
+                petsc_options={'ksp_type': 'preonly', 'pc_type': 'lu', 'pc_factor_mat_solver_type': 'superlu_dist'},
                 )
             t0 = time.time()
             solver.solve(1e-5, beta=0.1)
