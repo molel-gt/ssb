@@ -261,13 +261,17 @@ class BlockNewtonSolver:
         w: list[fem.Function],
         bcs: list[fem.DirichletBC] | None = None,
         max_iterations: int = 5,
-        iset=[]
+        iset=[],
         petsc_options: dict[str, str | float | int | None] = None,
         problem_prefix="newton",
     ):
         self.max_iterations = max_iterations
         self.bcs = [] if bcs is None else bcs
         self.b = fem.petsc.create_vector_block(F)
+        self.b_u = fem.petsc.create_vector_block([F[0], F[1]])
+        self.b_u0 = fem.petsc.create_vector(F[0])
+        self.b_u1 = fem.petsc.create_vector(F[1])
+        self.b_c = fem.petsc.create_vector(F[2])
         self.F = F
         self.J = J
         self.A = fem.petsc.create_matrix_block(J)
@@ -276,11 +280,14 @@ class BlockNewtonSolver:
         self.x = fem.petsc.create_vector_block(F)
         self.comm = self.b.getComm().tompi4py()
         self.iset = iset
-        self.Ju = fem.petsc.create_matrix_block([[J[0][0], J[0][1]], [J[1][0], J[1][1]]])
-        self.J_01 = fem.petsc.create_matrix(J[0][1])
-        self.J_02 = fem.petsc.create_matrix(J[0][2])
-        self.J_21 = fem.petsc.create_matrix(J[2][1])
-        self.J_22 = fem.petsc.create_matrix(J[2][2])
+        self.iset_u = self.iset[0].sum(self.iset[1])
+
+        self.A_u = fem.petsc.create_matrix_block([[J[0][0], J[0][1]], [J[1][0], J[1][1]]])
+        self.A_c = fem.petsc.create_matrix(J[2][2])
+        self.A01_2 = fem.petsc.assemble_matrix_block([[self.J[0][2]],[self.J[1][2]]])
+        self.A02 = fem.petsc.assemble_matrix(self.J[0][2])
+        self.A12 = fem.petsc.assemble_matrix(self.J[1][2])
+        self.A21 = fem.petsc.assemble_matrix(self.J[2][1])
 
         # Set PETSc options
         opts = PETSc.Options()
@@ -290,30 +297,40 @@ class BlockNewtonSolver:
 
         ######################### Define KSP solver ############################
         # potential block solver
-        self.ksp_u = PETSc.KSP().create(self.comm)
-        self.ksp_u.setType(PETSc.KSP.Type.PREONLY)
-        self.ksp_u.setOperators(self.Ju, self.Ju)
-        self.ksp_u.getPC().setType("fieldsplit")
-        self.ksp_u.getPC().setFieldSplitIS(("u0", self.iset[0]), ("u1", self.iset[1]))
-        self.ksp_u0, self.ksp_u1 = self.ksp_u.getPC().getFieldSplitSubKSP()
-        self.ksp_u.getPC().setFieldSplitType(PETSc.PC.CompositeType.SCHUR)
-        self.ksp_u.getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.FULL)
-        self.ksp_u.getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
+        # self.ksp_u = PETSc.KSP().create(self.comm)
+        # self.ksp_u.setType(PETSc.KSP.Type.PREONLY)
+        # self.ksp_u.setTolerances(rtol=1.0e-7, max_it=100)
+        # self.ksp_u.setMonitor(lambda _, it, residual: print(it, residual))
+        # self.ksp_u.setErrorIfNotConverged(True)
+        # self.ksp_u.setOperators(self.A_u)
+        # self.ksp_u.getPC().setType(PETSc.PC.Type.HYPRE)
+        # self.ksp_u.getPC().setType("fieldsplit")
+        # self.ksp_u.getPC().setFieldSplitIS(("u0", self.iset[0]), ("u1", self.iset[1]))
+        # self.ksp_u0, self.ksp_u1 = self.ksp_u.getPC().getFieldSplitSubKSP()
+        # self.ksp_u.getPC().setFieldSplitType(PETSc.PC.CompositeType.SCHUR)
+        # self.ksp_u.getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.FULL)
+        # self.ksp_u.getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
-        self.ksp_u0.setType(PETSc.KSP.Type.PREONLY)
-        self.ksp_u0.getPC().setType(PETSc.PC.Type.BJACOBI)
-        self.ksp_u1.setType(PETSc.KSP.Type.PREONLY)
-        self.ksp_u1.getPC().setType(PETSc.PC.Type.BJACOBI)
-        # self.ksp_u.getPC().setType(PETSc.PC.Type.BJACOBI)
+        # self.ksp_u0.setType(PETSc.KSP.Type.FGMRES)
+        # self.ksp_u0.getPC().setType(PETSc.PC.Type.HYPRE)
+        # self.ksp_u1.setType(PETSc.KSP.Type.FGMRES)
+        # self.ksp_u1.getPC().setType(PETSc.PC.Type.HYPRE)
+        # self.ksp_u0.setErrorIfNotConverged(True)
+        # self.ksp_u1.setErrorIfNotConverged(True)
         # self.ksp_u.setFromOptions()
+        # self.ksp_u0.setFromOptions()
+        # self.ksp_u1.setFromOptions()
 
         # concentration solver
-        self.ksp_c = PETSc.KSP().create(self.comm)
-        self.ksp_c.setType(PETSc.KSP.Type.PREONLY)
-        self.ksp_c.setOperators(self.J_22)
-        self.ksp_c.getPC().setType(PETSc.PC.Type.HYPRE)
-        self.ksp_c.getPC().setHYPREType("boomeramg")
-        self.ksp_c.setFromOptions()
+        # self.ksp_c = PETSc.KSP().create(self.comm)
+        # self.ksp_c.setType(PETSc.KSP.Type.GMRES)
+        # self.ksp_c.setOperators(self.A_c)
+        # self.ksp_c.setTolerances(rtol=1.0e-7, max_it=100)
+        # self.ksp_c.setErrorIfNotConverged(True)
+        # self.ksp_c.setMonitor(lambda _, it, residual: print(it, residual))
+        # self.ksp_c.getPC().setType(PETSc.PC.Type.HYPRE)
+        # self.ksp_c.getPC().setHYPREType("boomeramg")
+        # self.ksp_c.setFromOptions()
 
         self._solver = PETSc.KSP().create(self.comm)
         self._solver.setOperators(self.A, self.A)
@@ -323,14 +340,89 @@ class BlockNewtonSolver:
         self.A.setFromOptions()
         self.b.setFromOptions()
 
-    def solve_u(self):
-        pass
+    def solve_u(self, x_u0, x_u, x_c0):
+        b_u0 = x_u.duplicate()
+        b_u = b_u0.duplicate()
+        b_u.zeroEntries()
+        b_c = x_c0.duplicate()
 
-    def solve_c(self):
-        pass
+        self.b.getSubVector(self.iset[2], subvec=b_c)
+        self.b.getSubVector(self.iset[-1], subvec=b_u0)
 
-    def linear_solve(self):
-        pass
+        self.A01_2.mult(x_c0, b_u)
+        b_u.scale(-1.0)
+        b_u += b_u0
+
+        self.ksp_u.solve(b_u, x_u)
+        x_u.scale(0.001)
+        x_u += x_u0
+
+        self.b.restoreSubVector(self.iset[-1], subvec=b_u0)
+        self.b.restoreSubVector(self.iset[2], subvec=b_c)
+
+    def solve_c(self, x_u0, x_c0, x_c):
+        x_u0 = self.A02.createVecLeft()
+        x_u1 = self.A12.createVecLeft()
+        b_u0 = x_u0.duplicate()
+        b_u1 = x_u1.duplicate()
+        self.x.getSubVector(self.iset[1], subvec=x_u1)
+        self.x.getSubVector(self.iset[0], subvec=x_u0)
+
+        self.b.getSubVector(self.iset[2], subvec=self.b_c)
+        self.b.getSubVector(self.iset[1], subvec=b_u1)
+        self.b.getSubVector(self.iset[0], subvec=b_u0)
+        u1 = x_u1.duplicate()
+        b_c0 = x_c.duplicate()
+        x_u_sol = x_u0.duplicate()
+
+        self.A21.mult(u1, x_c0)
+        self.b_c += -b_c0
+        self.ksp_c.solve(self.b_c, x_c)
+        x_c.scale(0.01)
+        x_c += x_c0
+        self.x.restoreSubVector(self.iset[0], subvec=x_u0)
+        self.x.restoreSubVector(self.iset[1], subvec=x_u1)
+
+        self.b.restoreSubVector(self.iset[0], subvec=b_u0)
+        self.b.restoreSubVector(self.iset[1], subvec=b_u1)
+        self.b.restoreSubVector(self.iset[2], subvec=self.b_c)
+
+    def linear_solve(self, tol=1e-3, max_its=2):
+        error = 1.0
+        x_u0 = self.A_u.createVecLeft()
+        x_c0 = self.A_c.createVecLeft()
+        x_u_prev = x_u0.duplicate()
+        x_c_prev = x_c0.duplicate()
+        e_vec_c = x_c_prev.duplicate()
+        its = 0
+        x_u = x_u0.duplicate()
+        x_u.zeroEntries()
+        x_c = x_c0.duplicate()
+        x_c.zeroEntries()
+        self.dx.getSubVector(self.iset[2], subvec=x_c)
+        self.dx.getSubVector(self.iset[-1], subvec=x_u)
+        x_u_prev = x_u.duplicate()
+        x_c_prev = x_c.duplicate()
+        # PETSc.Sys.Print(f"Init residue: {self.dx.norm()}")
+        while error > tol and its < max_its:
+            PETSc.Sys.Print(x_c_prev.norm())
+            self.solve_c(x_u_prev, x_c_prev, x_c)
+            PETSc.Sys.Print(x_c.norm())
+        
+            # self.x.getSubVector(self.iset[2], subvec=self.x_c)
+            evec_c = x_c - x_c_prev
+            error_c = evec_c.norm(0)
+            x_c_prev = x_c.duplicate()
+            self.solve_u(x_u_prev, x_u, x_c)
+            evec_u = x_u_prev - x_u
+            error_u = evec_u.norm(0)
+            x_u_prev = x_u.duplicate()
+            # PETSc.Sys.Print(f"Inner Iteration: {its}, c: {error_c}, u: {error_u}")
+            error = max(error_c, error_u)
+            its += 1
+            PETSc.Sys.Print(f"It: {its}, r: {self.dx.norm(0)}, error: {error}")
+        self.dx.restoreSubVector(self.iset[-1], subvec=x_u)
+        self.dx.restoreSubVector(self.iset[2], subvec=x_c)
 
     def solve(self, tol=1e-6, beta=1.0):
         i = 0
@@ -347,6 +439,7 @@ class BlockNewtonSolver:
                     for si in self.w
                 ],
             )
+
             self.x.ghostUpdate(
                 addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
             )
@@ -355,24 +448,51 @@ class BlockNewtonSolver:
             with self.b.localForm() as b_local:
                 b_local.set(0.0)
             fem.petsc.assemble_vector_block(
-                self.b, self.F, self.J, bcs=self.bcs, x0=self.x, scale=-1.0
+                self.b, self.F, self.J, bcs=self.bcs, x0=self.x, alpha=-1.0
             )
+
             self.b.ghostUpdate(
                 PETSc.InsertMode.INSERT_VALUES, PETSc.ScatterMode.FORWARD
             )
 
-
-            # Assemble Jacobian
+            # # Assemble Jacobian
             self.A.zeroEntries()
             fem.petsc.assemble_matrix_block(self.A, self.J, bcs=self.bcs)
             self.A.assemble()
 
+            # self.A_c.zeroEntries()
+            # fem.petsc.assemble_matrix(self.A_c, self.J[2][2], bcs=self.bcs)
+            # self.A_c.assemble()
+
+            # self.A01_2.zeroEntries()
+            # fem.petsc.assemble_matrix_block(self.A01_2, [[self.J[0][2]], [self.J[1][2]]], bcs=self.bcs)
+            # self.A01_2.assemble()
+
+            # # self.A02.zeroEntries()
+            # fem.petsc.assemble_matrix(self.A02, self.J[0][2], bcs=self.bcs)
+            # self.A02.assemble()
+
+            # # self.A12.zeroEntries()
+            # fem.petsc.assemble_matrix(self.A12, self.J[1][2], bcs=self.bcs)
+            # self.A12.assemble()
+
+            # # self.A21.zeroEntries()
+            # fem.petsc.assemble_matrix(self.A21, self.J[2][1], bcs=self.bcs)
+            # self.A21.assemble()
+
+            # self.A_u.zeroEntries()
+            # fem.petsc.assemble_matrix_block(self.A_u, [[self.J[0][0], self.J[0][1]], [self.J[1][0], self.J[1][1]]], bcs=self.bcs)
+            # self.A_u.assemble()
+            # # solve linear system
+            # self.linear_solve()
+
             self._solver.solve(self.b, self.dx)
-            self._solver.view()
-            self._solver.setMonitor(lambda _, it, residual: print(it, residual))
+            # self._solver.view()
+            # self._solver.setMonitor(lambda _, it, residual: print(it, residual))
             assert (
                 self._solver.getConvergedReason() > 0
             ), "Linear solver did not converge"
+
             offset_start = 0
             for s in self.w:
                 num_sub_dofs = (
@@ -386,10 +506,10 @@ class BlockNewtonSolver:
                     addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
                 )
                 offset_start += num_sub_dofs
-            # Compute norm of update
+            # # Compute norm of update
 
             correction_norm = self.dx.norm(0)
-            PETSc.Sys.Print(f"Iteration {i}: Correction norm {correction_norm}")
+            PETSc.Sys.Print(f"Outer Iteration {i}: Correction norm {correction_norm}")
             if correction_norm < tol:
                 break
             if np.isnan(self.dx.norm(0)):
@@ -401,4 +521,8 @@ class BlockNewtonSolver:
         self.b.destroy()
         self.dx.destroy()
         self._solver.destroy()
+        # self.ksp_u.destroy()
+        # self.ksp_u0.destroy()
+        # self.ksp_u1.destroy()
+        # self.ksp_u.destroy()
         self.x.destroy()
