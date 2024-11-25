@@ -46,7 +46,7 @@ class BlockPreconditioner:
                     try: maxiter = self.precond_fields[n]['maxiter']
                     except: maxiter = 1000
                     try: rtol = self.precond_fields[n]['rtol']
-                    except: rtol = 1e-8
+                    except: rtol = 1e-7
                     try: atol = self.precond_fields[n]['atol']
                     except: atol = 1e-50
                     self.ksp_fields[n].setTolerances(rtol=rtol, atol=atol, divtol=None, max_it=maxiter)
@@ -70,20 +70,31 @@ class BlockPreconditioner:
                 self.ksp_fields[n].getPC().setType("lu")
                 self.ksp_fields[n].getPC().setFactorSolverType("mumps")
             else:
-                raise ValueError("Unknown preconditioner type")
+                self.ksp_fields[n].setType(self.precond_fields[n]['solve'])
+                self.ksp_fields[n].getPC().setType(self.precond_fields[n]['prec'])
+                # raise ValueError("Unknown preconditioner type")
 
             self.ksp_fields[n].setOperators(operator_mats[n])
 
     def init_mat_vec(self, pc):
         self.A  = self.P.createSubMatrix(self.iset[0],self.iset[0])
+        self.A.assemble()
         self.Bt = self.P.createSubMatrix(self.iset[0],self.iset[1])
+        self.Bt.assemble()
         self.Dt = self.P.createSubMatrix(self.iset[0],self.iset[2])
+        self.Dt.assemble()
         self.B  = self.P.createSubMatrix(self.iset[1],self.iset[0])
+        self.B.assemble()
         self.C  = self.P.createSubMatrix(self.iset[1],self.iset[1])
+        self.C.assemble()
         self.Et = self.P.createSubMatrix(self.iset[1],self.iset[2])
+        self.Et.assemble()
         self.D  = self.P.createSubMatrix(self.iset[2],self.iset[0])
+        self.D.assemble()
         self.E  = self.P.createSubMatrix(self.iset[2],self.iset[1])
+        self.E.assemble()
         self.R  = self.P.createSubMatrix(self.iset[2],self.iset[2])
+        self.R.assemble()
 
         # the matrix to later insert the diagonal
         self.Adinv = PETSc.Mat().createAIJ(self.A.getSizes(), bsize=None, nnz=(1,1), csr=None, comm=self.comm)
@@ -304,9 +315,10 @@ class BlockPreconditioner:
         x.restoreSubVector(self.iset[2], subvec=self.x3)
 
         # set into y vector
-        y.setValues(self.iset[0], self.y1.array)
-        y.setValues(self.iset[1], self.y2.array)
-        y.setValues(self.iset[2], self.y3.array)
+        y.setNestSubVecs([self.y1, self.y2, self.y3])
+        # y.setValues(self.iset[0].getIndices(), self.y1.array)
+        # y.setValues(self.iset[1], self.y2.array)
+        # y.setValues(self.iset[2], self.y3.array)
 
         y.assemble()
 
@@ -381,7 +393,9 @@ class BGSPreconditioner:
                 self.ksp_fields[n].getPC().setType("lu")
                 self.ksp_fields[n].getPC().setFactorSolverType("mumps")
             else:
-                raise ValueError("Unknown preconditioner type")
+                self.ksp_fields[n].setType(self.precond_fields[n]['solve'])
+                self.ksp_fields[n].getPC().setType(self.precond_fields[n]['prec'])
+                # raise ValueError("Unknown preconditioner type")
 
             self.ksp_fields[n].setOperators(operator_mats[n])
 
@@ -473,7 +487,6 @@ class BGSPreconditioner:
         pc.destroy()
 
 
-
 class BGSSIMPLEPreconditioner:
     def __init__(self, comm, iset, precond_fields, solver_params={}):
         self._comm = comm
@@ -517,7 +530,7 @@ class BGSSIMPLEPreconditioner:
                     try: maxiter = self.precond_fields[n]['maxiter']
                     except: maxiter = 1000
                     try: rtol = self.precond_fields[n]['rtol']
-                    except: rtol = 1e-8
+                    except: rtol = 1e-5
                     try: atol = self.precond_fields[n]['atol']
                     except: atol = 1e-50
                     self.ksp_fields[n].setTolerances(rtol=rtol, atol=atol, divtol=None, max_it=maxiter)
