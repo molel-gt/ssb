@@ -54,7 +54,7 @@ if __name__ == '__main__':
     gmsh.initialize()
     gmsh.model.add('full-cell')
     if not args.refine:
-        gmsh.option.setNumber('Mesh.CharacteristicLengthMax', resolution)
+        gmsh.option.setNumber('Mesh.MeshSizeMax', resolution)
     gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
     gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
     gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
