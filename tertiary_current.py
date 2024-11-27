@@ -433,6 +433,7 @@ if __name__ == '__main__':
                 PETSc.Sys.Print(f"################# {i_x},{i_y} ##########################")
                 J_00 = fem.petsc.assemble_matrix(J_)
                 J_00.assemble()
+                PETSc.Sys.Print(f"Symmetric: {J_00.isSymmetric()}")
                 J_new = J_00.duplicate()
                 J_new.zeroEntries()
                 rowsum = J_new.createVecRight()
@@ -862,7 +863,7 @@ if __name__ == '__main__':
             snes.solve(None, x)
             t1 = time.time()
             PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}")
-            if comm.rank == 0 and args.plot:
+            if comm.rank == 0:
                 fig, ax = plt.subplots()
                 ax.semilogy(snes.getKSP().getConvergenceHistory())
                 ax.set_box_aspect(1)
@@ -888,7 +889,6 @@ if __name__ == '__main__':
             t0 = time.time()
             solver.solve(1e-5, beta=0.001)
             t1 = time.time()
-
         else:
             PETSc.Sys.Print("Unknown solver type, defaulting to direct NewtonSolver")
             solver = solvers.NewtonSolver(
@@ -900,20 +900,14 @@ if __name__ == '__main__':
                 petsc_options={'ksp_type': 'preonly', 'pc_type': 'lu', 'pc_factor_mat_solver_type': 'superlu_dist'},
                 )
             t0 = time.time()
-            solver.solve(1e-5, beta=0.1)
+            solver.solve(1e-7, beta=0.5)
             t1 = time.time()
 
-        PETSc.Sys.Print(f"#DoFs: {n_dofs:,}, Solve time: {t1-t0}\n")
         c0.x.array[:] = c.x.array
         cvtx.write(t)
         I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * (phi_ref) * L_ref ** (tdim-2) * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
         I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * (phi_ref) * L_ref ** (tdim-2) * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
         I_interface = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * (c_ref) * L_ref ** (tdim-2) * grad(c(r_res)), n_r) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
-        PETSc.Sys.Print(
-                f"Current left: {I_left:.3e} [A]\n"
-                f"Current interface: {I_interface:.3e} [A]\n"
-                f"Current right: {I_right:.3e} [A]\n"
-                )
     cvtx.close()
     with open(resource_usage, 'a') as f:
     # Dump timestamp, PID and amount of RAM.
@@ -937,6 +931,7 @@ if __name__ == '__main__':
         "Kr": args.kr,
         "kinetics": args.kinetics,
         "dofs": n_dofs,
+        "n_procs": comm.Get_size(),
     }
     if comm.rank == 0:
         utils.print_dict(metadata, padding=50)
