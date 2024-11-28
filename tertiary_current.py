@@ -188,7 +188,7 @@ if __name__ == '__main__':
     Wa_p = args.Wa_p
     gamma = args.gamma
     kappa_elec = args.kr * kappa_pos_am
-    dt_ = 1e-6
+    dt_ = 1e-7
     D = 1e-15
     TIME = 1 * dt_
 
@@ -898,6 +898,7 @@ if __name__ == '__main__':
         "c ref [mol/m3]": ref["c"],
         "phi ref [V]": ref["phi"],
         "t ref [s]": ref["t"],
+        "time step [s]": dt_ * ref["t"],
         "Positive Wa": args.Wa_p,
         "Kr": args.kr,
         "kinetics": args.kinetics,
