@@ -11,20 +11,19 @@ import dolfinx
 import dolfinx.fem.petsc
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import matspy
 import numpy as np
 import scipy
 import scipy.special as sp
 import ufl
 
-from dolfinx import cpp, fem, io, mesh
+from dolfinx import cpp, fem, io, mesh, log
 from matplotlib import rc
 from mpi4py import MPI
 from petsc4py import PETSc
 from slepc4py import SLEPc
 from ufl import dot, grad, inner
 
-import commons, constants, mesh_utils, solvers, utils 
+import commons, constants, mesh_utils, solvers, solver_params, utils
 
 
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
@@ -221,6 +220,7 @@ if __name__ == '__main__':
     convergence_history = os.path.join(results_dir, "convergence.eps")
     resource_usage = os.path.join(results_dir, f"resources-{comm.Get_rank()}.log")
     mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    log.set_output_file(os.path.join(results_dir, "log.txt"))
 
     with open(resource_usage, 'a') as f:
         # Dump timestamp, PID and amount of RAM.
@@ -381,8 +381,8 @@ if __name__ == '__main__':
         +1/2 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, n_l) * dInterface
         - 0.5 * mixed_term(0.5 * (kappa_elec + kappa_pos_am) * v_r, (u_r - u_l - jump_u), n_l) * dInterface
     )
-    F_0 += 2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
-    F_1 += -2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_r * dInterface
+    F_0 += -2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
+    F_1 += +2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_r * dInterface
 
     F_0 += F_00
     F_1 += F_11
@@ -530,19 +530,18 @@ if __name__ == '__main__':
 
         if args.solver_type == solver_types.direct:
             snes = PETSc.SNES().create(comm)
-            snes.getKSP().setOperators(Jmat)
+            snes.getKSP().setOperators(Jmat, Pmat)
             snes.setTolerances(rtol=1.0e-7, max_it=100)
             # snes.setMonitor(lambda _, it, residual: print(it, residual))
             snes.setErrorIfNotConverged(True)
             snes.getKSP().setErrorIfNotConverged(True)
             snes.setType('newtonls')
             opts = PETSc.Options()
-            opts['snes_linesearch_type'] = 'bt'
             opts['snes_monitor'] = None
             opts['snes_linesearch_monitor'] = None
-            snes.getKSP().setType("preonly")
-            snes.getKSP().setUp()
-            snes.getKSP().getPC().setType("lu")
+            # snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
+            # snes.getKSP().setUp()
+            snes.getKSP().getPC().setType(PETSc.PC.Type.LU)
             snes.getKSP().getPC().setFactorSolverType("mumps")
             snes.getKSP().setFromOptions()
             snes.setFromOptions()
@@ -773,11 +772,14 @@ if __name__ == '__main__':
             Pmat = fem.petsc.create_matrix_nest(P)
             Fvec = fem.petsc.create_vector_nest(F)
             snes = PETSc.SNES().create(comm)
-            snes.setType('newtontr')
+            snes.setType('newtonls')
             snes.setTolerances(rtol=1.0e-7, max_it=10000)
             nested_IS = Jmat.getNestISs()
             snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
+            snes.getKSP().setOptionsPrefix("snes_")
             snes.getKSP().setOperators(Jmat, Pmat)
+            # nullspace = PETSc.NullSpace().create(constant=True)
+            # PETSc.Mat.setNearNullSpace(Jmat, nullspace)
             snes.getKSP().setTolerances(rtol=1e-7)
             # snes.setMonitor(lambda _, it, residual: PETSc.Sys.Print(it, residual))
             snes.setErrorIfNotConverged(True)
@@ -787,67 +789,36 @@ if __name__ == '__main__':
             is_u = nested_IS[0][0].sum(nested_IS[0][1])
             snes.getKSP().getPC().setFieldSplitIS(("u", is_u), ("c", nested_IS[0][2]))
             opts = PETSc.Options()
-            # opts['snes_qn_type'] = 'lbfgs'
+
             opts['snes_linesearch_monitor'] = None
             opts['snes_monitor'] = None
-            # opts['snes_linesearch_type'] = 'nleqerr'
-            # opts['snes_linesearch_maxstep'] = 10
-            # opts['snes_linesearch_minlambda'] = 0.01
-            opts['snes_tr_fallback_type'] = 'dogleg'
-            # opts['snes_linesearch_alpha'] = 0.5
-            # opts['pc_fieldsplit_diag_use_amat'] = True
+            opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
 
             ksp_u, ksp_c = snes.getKSP().getPC().getFieldSplitSubKSP()
 
-            snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.ADDITIVE)
-            # snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
+            snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
+            snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.A11)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
-            ksp_u.setType(PETSc.KSP.Type.GMRES)
+            ksp_u.setType(PETSc.KSP.Type.FGMRES)
             ksp_u.getPC().setType(PETSc.PC.Type.JACOBI)
-            # ksp_u1.setType(PETSc.KSP.Type.PREONLY)
-            # ksp_u1.getPC().setType(PETSc.PC.Type.JACOBI)
-            ksp_c.setType(PETSc.KSP.Type.PREONLY)
+            ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(PETSc.PC.Type.HYPRE)
-            opts[f"{ksp_c.getOptionsPrefix()}pc_hypre_type"] = "parasails"
-            # opts[f"{ksp_u.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "blockdiag"
-            # opts[f"{ksp_u.getOptionsPrefix()}pc_fieldsplit_schur_precondition"] = "a11"
-            # opts[f"{ksp_c.getOptionsPrefix()}pc_type"] = "ml"
-            # opts[f"{ksp_c.getOptionsPrefix()}mg_coarse_pc_factor_shift_type"] = "NONZERO"
-            # opts[f"{ksp_c.getOptionsPrefix()}mg_levels_1_pc_type"] = "asm"
-            # opts[f"{ksp_c.getOptionsPrefix()}mg_levels_2_pc_type"] = "asm"
-            # opts[f"{ksp_c.getOptionsPrefix()}mg_levels_3_pc_type"] = "asm"
-            # opts[f"{ksp_c.getOptionsPrefix()}mg_levels_4_pc_type"] = "asm"
-            # opts[f"{ksp_c.getOptionsPrefix()}mg_levels_5_pc_type"] = "asm"
-            # opts[f"{ksp_c.getOptionsPrefix()}pc_hypre_type"] = "boomeramg"
-            # opts[f"{ksp_c.getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
-            # opts[f"{ksp_c.getOptionsPrefix()}pc_hypre_boomeramg_coarsen_type"] = "pmis"
-            # opts[f"{ksp_c.getOptionsPrefix()}pc_hypre_boomeramg_interp_type"] = "FF1"
-            # opts[f"{ksp_c.getOptionsPrefix()}pc_hypre_boomeramg_strong_threshold"] = 0.75
-            # opts[f"{ksp_c.getOptionsPrefix()}pc_hypre_boomeramg_agg_nl"] = 2
-            # opts[f"{ksp_c.getOptionsPrefix()}pc_hypre_boomeramg_print_statistics"] = 2
 
-            # opts[f'{ksp_c.getOptionsPrefix()}mg_coarse_ksp_ksp_type'] = 'chebyshev'
-            # opts[f'{ksp_c.getOptionsPrefix()}mg_levels_pc_type'] = "sor"
-            # opts[f'{ksp_c.getOptionsPrefix()}mg_levels_pc_sor_omega']= 4/3
-            # opts[f'{ksp_c.getOptionsPrefix()}mg_levels_pc_sor_its'] = 10
-            # opts[f'{ksp_c.getOptionsPrefix()}mg_levels_ksp_chebyshev_esteig_steps'] = 10
-            # opts[f'{ksp_c.getOptionsPrefix()}pc_gamg_agg_nsmooths'] = 0
-            # # opts[f'{ksp_c.getOptionsPrefix()}pc_gamg_type'] = 'agg'
-            # opts[f'{ksp_c.getOptionsPrefix()}pc_gamg_threshold'] = 0
-            # opts[f'{ksp_c.getOptionsPrefix()}pc_gamg_aggressive_coarsening'] = 0
-            # opts[f'{ksp_c.getOptionsPrefix()}pc_gamg_aggressive_square_graph'] = 0
-            # opts[f'{ksp_c.getOptionsPrefix()}pc_mg_distinct_smoothup'] = 1
+            for optk, optv in solver_params.boomeramg.items():
+                opts[f"{ksp_c.getOptionsPrefix()}{optk}"] = optv
 
             ksp_u.setFromOptions()
-            # ksp_u1.setFromOptions()
             ksp_c.setFromOptions()
+            snes.getKSP().setFromOptions()
 
             problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, c], bcs, P=P)
             snes.setFunction(problem.F_nest, Fvec)
             snes.setJacobian(problem.J_nest, J=Jmat, P=Pmat)
             snes.setFromOptions()
             snes.view()
+            snes.getKSP().view()
+            ksp_c.view()
 
             x = fem.petsc.create_vector_nest(F)
             for x1_soln_pair in zip(x.getNestSubVecs(), (u_0, u_1, c)):
