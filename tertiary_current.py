@@ -349,8 +349,8 @@ if __name__ == '__main__':
     n_l = n(l_res)
     n_r = n(r_res)
     cr = ufl.Circumradius(domain)
-    h_l = 2 * cr(l_res)
-    h_r = 2 * cr(r_res)
+    h_l = 2 * cr(l_res) ** -0.25
+    h_r = 2 * cr(r_res) ** -0.25
 
     # exchange current densities
     i0_n = kappa_elec * R * T / (Wa_n * faraday_const * L_ref)
@@ -796,13 +796,13 @@ if __name__ == '__main__':
 
             ksp_u, ksp_c = snes.getKSP().getPC().getFieldSplitSubKSP()
 
-            snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
+            snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.SCHUR)
             snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.A11)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
             ksp_u.setType(PETSc.KSP.Type.FGMRES)
             ksp_u.getPC().setType(PETSc.PC.Type.JACOBI)
-            ksp_c.setType(PETSc.KSP.Type.CG)
+            ksp_c.setType(PETSc.KSP.Type.FGMRES)
             ksp_c.getPC().setType(PETSc.PC.Type.HYPRE)
 
             for optk, optv in solver_params.boomeramg.items():
