@@ -6,14 +6,12 @@ gamg = {
     "pc_gamg_aggressive_square_graph": 0,
     # "pc_gamg_agg_nsmooths": 1,
     "pc_gamg_coarse_eq_limit": 1000,
-    "pc_mg_type": "kaskade",
 }
 
 boomeramg = {
     "pc_hypre_type": "boomeramg",
     "pc_hypre_boomeramg_coarsen_type": "pmis",
     "pc_hypre_boomeramg_interp_type": "FF1",
-    "pc_hypre_boomeramg_strong_threshold": 0.5,
     "pc_hypre_boomeramg_agg_nl": 2,
     "pc_hypre_boomeramg_print_statistics": 2,
     "pc_hypre_boomeramg_coarsen_type": "pmis",
