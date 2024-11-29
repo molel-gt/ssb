@@ -528,7 +528,6 @@ if __name__ == '__main__':
         Fvec = fem.petsc.create_vector_block(F)
         P = [[J00, J01, J02], [None, J11, J12], [None, None, J22]]
         Pmat = fem.petsc.assemble_matrix_block(P)
-        # Jmat.assemble()
         Pmat.assemble()
 
         if args.solver_type == solver_types.direct:
@@ -646,75 +645,19 @@ if __name__ == '__main__':
             Jmat.destroy()
             Fvec.destroy()
             x.destroy()
-        elif args.solver_type == solver_types.newton_sc:
-            gamg_opts = {
-            "ksp_pc_side": "right",
-            "mg_levels_ksp_type": "chebyshev",
-            "mg_levels_pc_type": "sor",
-            "mg_levels_pc_sor_omega": 4/3,
-            'mg_levels_pc_sor_its': 10,
-            "mg_levels_ksp_chebyshev_esteig_steps"    : 10,
-            'pc_gamg_type': 'agg',
-            # 'pc_mg_type': 'multiplicative',
-            'pc_mg_distinct_smoothup': 1,
-            # 'pc_mg_cycle_type': 'v',
-            'pc_gamg_agg_nsmooths': 0,  # nonsymmetric problem
-            'pc_gamg_aggressive_coarsening': 1,
-            'pc_gamg_aggressive_square_graph': 1,
-            }
-            precond_fields = [
-                {'solve': 'preonly', 'prec': 'jacobi'},# 'petsc_options': gamg_opts},
-                {'solve': 'preonly', 'prec': 'jacobi'}, #'petsc_options': gamg_opts},
-                {'solve': 'preonly', 'prec': 'ilu'},
-            ]
-            # solver = solvers.SchurComplementNewtonSolver(
-            #     F,
-            #     J,
-            #     [u_0, u_1, c],
-            #     bcs=bcs,
-            #     max_iterations=1000,
-            #     comm=comm,
-            #     P=P_0,
-            #     precond_fields=precond_fields,
-            #     iset=[IS_u0, IS_u1, IS_c]
-            # )
-            solver = solvers.BGSNewtonSolver(
-                            F,
-                            J,
-                            [u_0, u_1, c],
-                            P=P_0,
-                            max_iterations=1000,
-                            petsc_options={"ksp_type": "preonly", "pc_type": "hypre", "pc_hypre_type": "boomeramg"},
-                                             )
-            t0 = time.time()
-            solver.solve(1e-5, beta=0.001)
-            t1 = time.time()
-        elif args.solver_type == solver_types.newton_schur:
-            solver = solvers.SchurNewtonSolver(
-                F,
-                J,
-                [u_0, u_1, c],
-                bcs=bcs,
-                max_iterations=1000,
-                iset=[IS_u0, IS_u1, IS_c],
-                petsc_options={},
-             )
-            t0 = time.time()
-            solver.solve(1e-5, beta=0.05)
-            t1 = time.time()
         elif args.solver_type == solver_types.snes_nested:
             Jmat = fem.petsc.create_matrix_nest(J)
             Pmat = fem.petsc.create_matrix_nest(P)
             Fvec = fem.petsc.create_vector_nest(F)
             snes = PETSc.SNES().create(comm)
-            snes.setType('newtonls')
+            # snes.setType('')
             snes.setTolerances(rtol=1.0e-7, max_it=10000)
             nested_IS = Jmat.getNestISs()
             snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
             snes.getKSP().setOptionsPrefix("snes_")
             snes.getKSP().setOperators(Jmat, Pmat)
-            # nullspace = PETSc.NullSpace().create(constant=True)
-            # PETSc.Mat.setNearNullSpace(Jmat, nullspace)
+            nullspace = PETSc.NullSpace().create(constant=True)
+            PETSc.Mat.setNearNullSpace(Jmat, nullspace)
             snes.getKSP().setTolerances(rtol=1e-7)
             snes.setErrorIfNotConverged(True)
             snes.getKSP().setErrorIfNotConverged(True)
@@ -726,7 +669,9 @@ if __name__ == '__main__':
 
             opts['snes_linesearch_monitor'] = None
             opts['snes_monitor'] = None
-            opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+            # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+            # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
+
 
             ksp_u, ksp_c = snes.getKSP().getPC().getFieldSplitSubKSP()
 
@@ -736,7 +681,7 @@ if __name__ == '__main__':
 
             ksp_u.setType(PETSc.KSP.Type.FGMRES)
             ksp_u.getPC().setType(PETSc.PC.Type.JACOBI)
-            ksp_c.setType(PETSc.KSP.Type.FGMRES)
+            ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(PETSc.PC.Type.HYPRE)
 
             for optk, optv in solver_params.boomeramg.items():
@@ -764,12 +709,12 @@ if __name__ == '__main__':
                 x1_sub.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
             x.set(0.0)
-            PETSc.Log().begin()
+            # PETSc.Log().begin()
             t0 = time.time()
             snes.solve(None, x)
             t1 = time.time()
             PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}")
-            PETSc.Log().view()
+            # PETSc.Log().view()
             if comm.rank == 0:
                 fig, ax = plt.subplots()
                 ax.semilogy(snes.getKSP().getConvergenceHistory())
@@ -780,22 +725,6 @@ if __name__ == '__main__':
             Jmat.destroy(), Fvec.destroy()
             x.destroy()
             Pmat.destroy()
-        elif args.solver_type == solver_types.block_newton:
-            Jmat = fem.petsc.create_matrix_nest(J)
-            Pmat = fem.petsc.create_matrix_nest(P)
-            Fvec = fem.petsc.create_vector_nest(F)
-            solver = solvers.BlockNewtonSolver(
-                F,
-                J,
-                [u_0, u_1, c],
-                bcs=bcs,
-                iset=[IS_u0, IS_u1, IS_c, IS_u],
-                max_iterations=1000,
-                petsc_options={'ksp_type': 'fgmres', 'pc_type': 'gamg', 'pc_hypre_type': 'ml'}#, 'pc_factor_mat_solver_type': 'superlu_dist'},
-                )
-            t0 = time.time()
-            solver.solve(1e-5, beta=0.001)
-            t1 = time.time()
         else:
             PETSc.Sys.Print("Unknown solver type, defaulting to direct NewtonSolver")
             solver = solvers.NewtonSolver(
