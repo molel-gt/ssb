@@ -715,7 +715,7 @@ if __name__ == '__main__':
             t1 = time.time()
             PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}")
             # PETSc.Log().view()
-            if comm.rank == 0:
+            if comm.rank == 0 and args.plot:
                 fig, ax = plt.subplots()
                 ax.semilogy(snes.getKSP().getConvergenceHistory())
                 ax.set_box_aspect(1)
