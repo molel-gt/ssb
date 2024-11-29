@@ -46,6 +46,10 @@ V_UCO = 5.0  # upper cutoff voltage
 c_max = 35000
 directions = {'x': 0, 'y': 1, 'z': 2}
 
+
+log.set_log_level(dolfinx.log.LogLevel.WARNING)
+
+
 class SolverTypes:
     def __init__(self):
         pass
@@ -220,7 +224,6 @@ if __name__ == '__main__':
     convergence_history = os.path.join(results_dir, "convergence.eps")
     resource_usage = os.path.join(results_dir, f"resources-{comm.Get_rank()}.log")
     mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    log.set_output_file(os.path.join(results_dir, "log.txt"))
 
     with open(resource_usage, 'a') as f:
         # Dump timestamp, PID and amount of RAM.
@@ -539,8 +542,7 @@ if __name__ == '__main__':
             opts = PETSc.Options()
             opts['snes_monitor'] = None
             opts['snes_linesearch_monitor'] = None
-            # snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
-            # snes.getKSP().setUp()
+            snes.getKSP().setType(PETSc.KSP.Type.PREONLY)
             snes.getKSP().getPC().setType(PETSc.PC.Type.LU)
             snes.getKSP().getPC().setFactorSolverType("mumps")
             snes.getKSP().setFromOptions()
@@ -600,79 +602,12 @@ if __name__ == '__main__':
 
             opts[f"{option_prefix_u0}ksp_type"] = "fgmres"
             opts[f"{option_prefix_u0}pc_type"] = "hypre"
-            # opts[f"{option_prefix_u0}pc_gamg_type"] = "agg"
-            # opts[f"{option_prefix_u0}pc_gamg_agg_nsmooths"] = 0
-            # opts[f"{option_prefix_u0}pc_gamg_aggressive_coarsening"] = 1
-            # opts[f"{option_prefix_u0}pc_gamg_threshold_scale"] = 0.0001
-            # opts[f"{option_prefix_u0}mg_levels_ksp_type"] = "chebyshev"
-            # opts[f"{option_prefix_u0}mg_levels_pc_type"] = "sor"
-            # opts[f"{option_prefix_u0}mg_levels_pc_sor_omega"] = 0.5
-            # # opts['mg_levels_pc_sor_its'] = 10
-            # opts[f"{option_prefix_u0}mg_levels_ksp_chebyshev_esteig_steps"] = 10
-            # opts[f"{option_prefix_u0}'pc_gamg_aggressive_square_graph"] = 1
-            # opts[f"{option_prefix_u0}pc_hypre_type"] = "boomeramg"
-            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_coarsen_type"] = "pmis"
-            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_interp_type"] = "FF1"
-            # # opts[f"{option_prefix_u0}pc_hypre_boomeramg_truncfactor"] = 0
-            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_strong_threshold"] = "0.5"
-            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_print_statistics"] = "2"
-            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_agg_nl"] = 1
-            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_agg_num_paths"] = 5
-            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_P_max"] = 1
-            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_relax_type_coarse"] = "chebyshev"
-            # opts[f"{option_prefix_u0}pc_hypre_boomeramg_nodal_coarsen"] = "6"
 
             opts[f"{option_prefix_u1}ksp_type"] = "fgmres"
             opts[f"{option_prefix_u1}pc_type"] = "hypre"
-            # opts[f"{option_prefix_u1}pc_gamg_type"] = "agg"
-            # opts[f"{option_prefix_u1}pc_gamg_agg_nsmooths"] = 0
-            # opts[f"{option_prefix_u1}pc_gamg_aggressive_coarsening"] = 1
-            # opts[f"{option_prefix_u1}pc_gamg_threshold_scale"] = 0.0001
-            # opts[f"{option_prefix_u1}mg_levels_ksp_type"] = "chebyshev"
-            # opts[f"{option_prefix_u1}mg_levels_pc_type"] = "sor"
-            # opts[f"{option_prefix_u1}mg_levels_pc_sor_omega"] = 0.5
-            # # opts['mg_levels_pc_sor_its'] = 10
-            # opts[f"{option_prefix_u1}mg_levels_ksp_chebyshev_esteig_steps"] = 10
-            # opts[f"{option_prefix_u1}'pc_gamg_aggressive_square_graph"] = 1
-            # opts[f"{option_prefix_u1}pc_hypre_type"] = "boomeramg"
-            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_coarsen_type"] = "pmis"
-            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_interp_type"] = "FF1"
-            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_truncfactor"] = 0
-            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_strong_threshold"] = "0.5"
-            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_print_statistics"] = "2"
-            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_agg_nl"] = 1
-            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_agg_num_paths"] = 5
-            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_P_max"] = 2
-            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_relax_type_coarse"] = "chebyshev"
-            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_nodal_relaxation"] = "2"
-            # opts[f"{option_prefix_u1}pc_hypre_boomeramg_nodal_coarsen"] = "6"
 
             opts[f"{option_prefix_c}ksp_type"] = "fgmres"
             opts[f"{option_prefix_c}pc_type"] = "hypre"
-            # opts[f"{option_prefix_c}pc_gamg_type"] = "agg"
-            # opts[f"{option_prefix_c}pc_gamg_agg_nsmooths"] = 0
-            # opts[f"{option_prefix_c}pc_gamg_aggressive_coarsening"] = 1
-            # opts[f"{option_prefix_c}pc_gamg_threshold_scale"] = 0.0001
-            # opts[f"{option_prefix_c}mg_levels_ksp_type"] = "chebyshev"
-            # opts[f"{option_prefix_c}mg_levels_pc_type"] = "sor"
-            # opts[f"{option_prefix_c}mg_levels_pc_sor_omega"] = 0.5
-            # # opts['mg_levels_pc_sor_its'] = 10
-            # opts[f"{option_prefix_c}mg_levels_ksp_chebyshev_esteig_steps"] = 10
-            # opts[f"{option_prefix_c}'pc_gamg_aggressive_square_graph"] = 1
-            # opts[f"{option_prefix_c}pc_hypre_type"] = "boomeramg"
-            # opts[f"{option_prefix_c}pc_hypre_boomeramg_coarsen_type"] = "pmis"
-            # opts[f"{option_prefix_c}pc_hypre_boomeramg_interp_type"] = "FF1"
-            # opts[f"{option_prefix_c}pc_hypre_boomeramg_truncfactor"] = 0
-            # opts[f"{option_prefix_c}pc_hypre_boomeramg_strong_threshold"] = "0.5"
-            # opts[f"{option_prefix_c}pc_hypre_boomeramg_print_statistics"] = "2"
-            # opts[f"{option_prefix_c}pc_hypre_boomeramg_agg_nl"] = 1
-            # opts[f"{option_prefix_c}pc_hypre_boomeramg_agg_num_paths"] = 1
-            # opts[f"{option_prefix_c}pc_hypre_boomeramg_P_max"] = 1
-            # opts[f"{option_prefix_c}pc_hypre_boomeramg_relax_type_coarse"] = "chebyshev"
-            # opts[f"{option_prefix_c}pc_hypre_boomeramg_smooth_type"] = "schwarz-smoothers"
-            # opts[f"{option_prefix_c}pc_hypre_boomeramg_nodal_relaxation"] = "1"
-            # opts[f"{option_prefix_c}pc_hypre_boomeramg_nodal_coarsen"] = "6"
-            # opts[f"{option_prefix_c}pc_hypre_boomeramg_tol"] = 1e-3
 
             ksp_u0.setFromOptions()
             ksp_u1.setFromOptions()
@@ -781,7 +716,6 @@ if __name__ == '__main__':
             # nullspace = PETSc.NullSpace().create(constant=True)
             # PETSc.Mat.setNearNullSpace(Jmat, nullspace)
             snes.getKSP().setTolerances(rtol=1e-7)
-            # snes.setMonitor(lambda _, it, residual: PETSc.Sys.Print(it, residual))
             snes.setErrorIfNotConverged(True)
             snes.getKSP().setErrorIfNotConverged(True)
             snes.getKSP().setConvergenceHistory()
@@ -830,10 +764,12 @@ if __name__ == '__main__':
                 x1_sub.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
             x.set(0.0)
+            PETSc.Log().begin()
             t0 = time.time()
             snes.solve(None, x)
             t1 = time.time()
             PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}")
+            PETSc.Log().view()
             if comm.rank == 0:
                 fig, ax = plt.subplots()
                 ax.semilogy(snes.getKSP().getConvergenceHistory())
