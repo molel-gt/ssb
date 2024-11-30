@@ -292,7 +292,6 @@ if __name__ == '__main__':
         parent_to_sub_positive_am[cells] = max(t_map)
 
     entity_maps = {submesh_electrolyte: parent_to_sub_electrolyte, submesh_positive_am: parent_to_sub_positive_am}
-    # entity_maps = {submesh_electrolyte._cpp_object: parent_to_sub_electrolyte, submesh_positive_am._cpp_object: parent_to_sub_positive_am}
     with open(resource_usage, 'a') as f:
         # Dump timestamp, PID and amount of RAM.
         f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
