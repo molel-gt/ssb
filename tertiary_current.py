@@ -180,6 +180,8 @@ if __name__ == '__main__':
                         const=1, default='MICRON_TO_METER', type=str)
     parser.add_argument('--solver_type', help='solver type to use', nargs='?',
                         const=1, default='direct', type=str)
+    parser.add_argument('--amg_type', help='if using iterative solver, which algebraic multigrid type to use', nargs='?',
+                        const=1, default='gamg', type=str)
     parser.add_argument('--transport_direction', help='direction perpendicular to current collectors', nargs='?', const=1, default='X', type=str)
     parser.add_argument('--kinetics', help='kinetics type', nargs='?', const=1, default='butler_volmer', type=str, choices=kinetics)
     parser.add_argument("--plot", help="whether to plot results", default=False, action=argparse.BooleanOptionalAction)
@@ -665,10 +667,9 @@ if __name__ == '__main__':
             is_u = nested_IS[0][0].sum(nested_IS[0][1])
             snes.getKSP().getPC().setFieldSplitIS(("u", is_u), ("c", nested_IS[0][2]))
             opts = PETSc.Options()
-
             opts['snes_linesearch_monitor'] = None
             opts['snes_monitor'] = None
-            # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+            opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
             # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
 
 
@@ -681,9 +682,9 @@ if __name__ == '__main__':
             ksp_u.setType(PETSc.KSP.Type.FGMRES)
             ksp_u.getPC().setType(PETSc.PC.Type.JACOBI)
             ksp_c.setType(PETSc.KSP.Type.CG)
-            ksp_c.getPC().setType(PETSc.PC.Type.HYPRE)
+            ksp_c.getPC().setType(args.amg_type)
 
-            for optk, optv in solver_params.boomeramg.items():
+            for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
                 opts[f"{ksp_c.getOptionsPrefix()}{optk}"] = optv
 
             ksp_u.setFromOptions()
@@ -708,12 +709,12 @@ if __name__ == '__main__':
                 x1_sub.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
             x.set(0.0)
-            # PETSc.Log().begin()
+            PETSc.Log().begin()
             t0 = time.time()
             snes.solve(None, x)
             t1 = time.time()
             PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}")
-            # PETSc.Log().view()
+            PETSc.Log().view()
             if comm.rank == 0 and args.plot:
                 fig, ax = plt.subplots()
                 ax.semilogy(snes.getKSP().getConvergenceHistory())
