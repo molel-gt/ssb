@@ -521,6 +521,7 @@ if __name__ == '__main__':
     IS_c = PETSc.IS().createGeneral(np.array(local_dofs_c, dtype=np.int32), comm=comm).sort()
     t = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
+    PETSc.Sys.Print(f"Setting up problem, #DoFs: {n_dofs}")
 
     while t < TIME:
         t += dt.value
