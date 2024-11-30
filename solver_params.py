@@ -4,8 +4,9 @@ gamg = {
     "pc_gamg_repartition": True,
     "pc_gamg_aggressive_coarsening": 0,
     "pc_gamg_aggressive_square_graph": 0,
-    # "pc_gamg_agg_nsmooths": 1,
-    "pc_gamg_coarse_eq_limit": 1000,
+    "pc_gamg_agg_nsmooths": 0,
+    "pc_gamg_coarse_eq_limit": 10000,
+    "pc_gamg_parallel_coarse_grid_solver": True,
 }
 
 boomeramg = {
