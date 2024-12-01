@@ -670,6 +670,8 @@ if __name__ == '__main__':
             opts = PETSc.Options()
             opts['snes_linesearch_monitor'] = None
             opts['snes_monitor'] = None
+            opts['snes_linesearch_alpha'] = 1e-5
+            opts['snes_linesearch_minlambda'] = 1e-6
             opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
             # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
 
