@@ -208,6 +208,7 @@ if __name__ == '__main__':
     concentration_file = os.path.join(results_dir, "concentration.bp")
     simulation_metafile = os.path.join(results_dir, "simulation.json")
     convergence_history = os.path.join(results_dir, "convergence.eps")
+    log_datafile = os.path.join(results_dir, "log.txt")
     resource_usage = os.path.join(results_dir, f"resources-{comm.Get_rank()}.log")
     mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
 
@@ -508,6 +509,9 @@ if __name__ == '__main__':
     PETSc.Sys.Print(f"Setting up problem, #DoFs: {n_dofs:,}")
     P = [[J00, J01, J02], [None, J11, J12], [None, None, J22]]
 
+    log_viewer = PETSc.Viewer().STDOUT()
+    log_viewer.setFileName(log_datafile)
+
     while t < TIME:
         t += dt.value
         PETSc.Sys.Print(f"Time: {t:.1e}\n")
@@ -518,11 +522,13 @@ if __name__ == '__main__':
                 [u_0, u_1, c],
                 bcs=bcs,
                 max_iterations=1000,
-                petsc_options={'ksp_type': 'preonly', 'pc_type': 'lu', 'pc_factor_mat_solver_type': 'superlu_dist'},
+                petsc_options={'ksp_type': 'preonly', 'pc_type': 'lu', 'pc_factor_mat_solver_type': 'mumps'},
                 )
+            PETSc.Log().begin()
             t0 = time.time()
             solver.solve(1e-7, beta=0.5)
             t1 = time.time()
+            PETSc.Log().view(log_viewer)
         elif args.solver_type == solver_types.iterative:
             Jmat = fem.petsc.create_matrix_nest(J)
             Pmat = fem.petsc.create_matrix_nest(P)
@@ -589,12 +595,12 @@ if __name__ == '__main__':
                 x1_sub.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
             x.set(0.0)
-            # PETSc.Log().begin()
+            PETSc.Log().begin()
             t0 = time.time()
             snes.solve(None, x)
             t1 = time.time()
             PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}")
-            # PETSc.Log().view()
+            PETSc.Log().view(log_viewer)
             if comm.rank == 0 and args.plot:
                 fig, ax = plt.subplots()
                 ax.semilogy(snes.getKSP().getConvergenceHistory())
@@ -644,6 +650,7 @@ if __name__ == '__main__':
         with open(simulation_metafile, "w", encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=4)
         PETSc.Sys.Print(f"Saved results files in {results_dir}")
+        PETSc.Sys.Print(f"Wrote log summary to {log_datafile}")
         PETSc.Sys.Print(f"Time elapsed: {time_elapsed:3.5f}s")
 
     # interpolate
