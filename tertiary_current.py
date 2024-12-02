@@ -509,8 +509,8 @@ if __name__ == '__main__':
     PETSc.Sys.Print(f"Setting up problem Wa: {args.Wa_p}, Kr: {args.kr}, #DoFs: {n_dofs:,}")
     P = [[J00, J01, J02], [None, J11, J12], [None, None, J22]]
 
-    log_viewer = PETSc.Viewer().STDOUT()
-    log_viewer.setFileName(log_datafile)
+    # log_viewer = PETSc.Viewer().STDOUT()
+    # log_viewer.setFileName(log_datafile)
 
     while t < TIME:
         t += dt.value
@@ -537,7 +537,7 @@ if __name__ == '__main__':
             snes.setType('newtonls')
             snes.setTolerances(rtol=1.0e-7, max_it=10000)
             nested_IS = Jmat.getNestISs()
-            snes.getKSP().setType(PETSc.KSP.Type.LGMRES)
+            snes.getKSP().setType(PETSc.KSP.Type.BCGS)
             snes.getKSP().setOptionsPrefix("snes_")
             snes.getKSP().setOperators(Jmat, Pmat)
             # nullspace = PETSc.NullSpace().create(constant=True)
@@ -595,12 +595,12 @@ if __name__ == '__main__':
                 x1_sub.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
             x.set(0.0)
-            PETSc.Log().begin()
+            # PETSc.Log().begin()
             t0 = time.time()
             snes.solve(None, x)
             t1 = time.time()
             PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}")
-            PETSc.Log().view(log_viewer)
+            # PETSc.Log().view(log_viewer)
             if comm.rank == 0 and args.plot:
                 fig, ax = plt.subplots()
                 ax.semilogy(snes.getKSP().getConvergenceHistory())
