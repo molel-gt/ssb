@@ -635,12 +635,12 @@ if __name__ == '__main__':
                 x1_sub.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
             x.set(0.0)
-            PETSc.Log().begin()
+            # PETSc.Log().begin()
             t0 = time.time()
             snes.solve(None, x)
             t1 = time.time()
             PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}")
-            PETSc.Log().view()
+            # PETSc.Log().view()
             if comm.rank == 0 and args.plot:
                 fig, ax = plt.subplots()
                 ax.semilogy(snes.getKSP().getConvergenceHistory())
