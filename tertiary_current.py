@@ -62,22 +62,6 @@ class SolverTypes:
     def iterative(self):
         return "iterative"
 
-    @property
-    def newton_sc(self):
-        return "newton_sc"
-
-    @property
-    def newton_schur(self):
-        return "newton_schur"
-
-    @property
-    def snes_nested(self):
-        return "snes_nested"
-
-    @property
-    def block_newton(self):
-        return "block_newton"
-
 
 def define_interior_eq(domain, degree,  submesh, submesh_to_mesh, value, kappa):
     # Compute map from parent entity to submesh cell
@@ -522,57 +506,24 @@ if __name__ == '__main__':
     t = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
     PETSc.Sys.Print(f"Setting up problem, #DoFs: {n_dofs:,}")
+    P = [[J00, J01, J02], [None, J11, J12], [None, None, J22]]
 
     while t < TIME:
         t += dt.value
         PETSc.Sys.Print(f"Time: {t:.1e}\n")
-        Jmat = fem.petsc.create_matrix_block(J)
-        Fvec = fem.petsc.create_vector_block(F)
-        P = [[J00, J01, J02], [None, J11, J12], [None, None, J22]]
-        Pmat = fem.petsc.assemble_matrix_block(P)
-        Pmat.assemble()
-
         if args.solver_type == solver_types.direct:
-            snes = PETSc.SNES().create(comm)
-            snes.getKSP().setOperators(Jmat, Pmat)
-            snes.setTolerances(rtol=1.0e-7, max_it=100)
-            # snes.setMonitor(lambda _, it, residual: print(it, residual))
-            snes.setErrorIfNotConverged(True)
-            snes.getKSP().setErrorIfNotConverged(True)
-            snes.setType('newtonls')
-            opts = PETSc.Options()
-            opts['snes_monitor'] = None
-            opts['snes_linesearch_monitor'] = None
-            snes.getKSP().setType(PETSc.KSP.Type.PREONLY)
-            snes.getKSP().getPC().setType(PETSc.PC.Type.LU)
-            snes.getKSP().getPC().setFactorSolverType("mumps")
-            snes.getKSP().setFromOptions()
-            snes.setFromOptions()
-            problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, c], bcs)
-            snes.setFunction(problem.F_block, Fvec)
-            snes.setJacobian(problem.J_block, J=Jmat, P=Pmat)
-            snes.getKSP().view()
-            snes.view()
-            x = fem.petsc.create_vector_block(F)
-            cpp.la.petsc.scatter_local_vectors(
-                x,
-                [u_0.x.petsc_vec.array_r, u_1.x.petsc_vec.array_r, c.x.petsc_vec.array_r],
-                [
-                    (u_0.function_space.dofmap.index_map, u_0.function_space.dofmap.index_map_bs),
-                    (u_1.function_space.dofmap.index_map, u_1.function_space.dofmap.index_map_bs),
-                    (c.function_space.dofmap.index_map, c.function_space.dofmap.index_map_bs),
-                ],
-            )
-            x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+            solver = solvers.NewtonSolver(
+                F,
+                J,
+                [u_0, u_1, c],
+                bcs=bcs,
+                max_iterations=1000,
+                petsc_options={'ksp_type': 'preonly', 'pc_type': 'lu', 'pc_factor_mat_solver_type': 'superlu_dist'},
+                )
             t0 = time.time()
-            snes.solve(None, x)
+            solver.solve(1e-7, beta=0.5)
             t1 = time.time()
-            xnorm = x.norm()
-            snes.destroy()
-            Jmat.destroy()
-            Fvec.destroy()
-            x.destroy()
-        elif args.solver_type == solver_types.snes_nested:
+        elif args.solver_type == solver_types.iterative:
             Jmat = fem.petsc.create_matrix_nest(J)
             Pmat = fem.petsc.create_matrix_nest(P)
             Fvec = fem.petsc.create_vector_nest(F)
@@ -605,10 +556,13 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.A11)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
-            ksp_u.setType(PETSc.KSP.Type.PREONLY)
+            ksp_u.setType(PETSc.KSP.Type.LGMRES)
             ksp_u.getPC().setType(PETSc.PC.Type.JACOBI)
             ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(args.amg_type)
+
+            opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
+            opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_modifiedgramschmidt'] = True
 
             for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
                 opts[f"{ksp_c.getOptionsPrefix()}{optk}"] = optv
@@ -652,18 +606,7 @@ if __name__ == '__main__':
             x.destroy()
             Pmat.destroy()
         else:
-            PETSc.Sys.Print("Unknown solver type, defaulting to direct NewtonSolver")
-            solver = solvers.NewtonSolver(
-                F,
-                J,
-                [u_0, u_1, c],
-                bcs=bcs,
-                max_iterations=1000,
-                petsc_options={'ksp_type': 'preonly', 'pc_type': 'lu', 'pc_factor_mat_solver_type': 'superlu_dist'},
-                )
-            t0 = time.time()
-            solver.solve(1e-7, beta=0.5)
-            t1 = time.time()
+            raise ValueError("Unknown solver type!")
 
         c0.x.array[:] = c.x.array
         cvtx.write(t)
