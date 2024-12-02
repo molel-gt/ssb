@@ -60,6 +60,9 @@ class NewtonSolver:
         # Set matrix and vector PETSc options
         self.A.setFromOptions()
         self.b.setFromOptions()
+        # self._solver.setMonitor(lambda _, it, residual: PETSc.Sys.Print(it, residual))
+        self._solver.setTolerances(rtol=1e-7)
+        self._solver.view()
 
     def solve(self, tol=1e-6, beta=1.0):
         i = 0
@@ -97,8 +100,7 @@ class NewtonSolver:
             self.A.assemble()
 
             self._solver.solve(self.b, self.dx)
-            self._solver.view()
-            self._solver.setMonitor(lambda _, it, residual: print(it, residual))
+
             assert (
                 self._solver.getConvergedReason() > 0
             ), "Linear solver did not converge"
