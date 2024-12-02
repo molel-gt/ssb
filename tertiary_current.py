@@ -572,81 +572,6 @@ if __name__ == '__main__':
             Jmat.destroy()
             Fvec.destroy()
             x.destroy()
-        elif args.solver_type == solver_types.iterative:
-            snes = PETSc.SNES().create(comm)
-            snes.getKSP().setOperators(Jmat, Pmat)
-            snes.setTolerances(rtol=1.0e-7, max_it=100)
-            # snes.setMonitor(lambda _, it, residual: print(it, residual))
-            snes.setErrorIfNotConverged(True)
-            snes.getKSP().setErrorIfNotConverged(True)
-            snes.setType('newtonls')
-            opts = PETSc.Options()
-            opts['snes_linesearch_type'] = 'bt'
-            opts['snes_monitor'] = None
-            opts['snes_linesearch_monitor'] = None
-            option_prefix = ""
-            opts["ksp_type"] = "minres"
-
-            pc = snes.getKSP().getPC()
-            pc.setType("fieldsplit")
-            pc.setFieldSplitIS(("u0", IS_u0), ("u1", IS_u1), ("c", IS_c))
-            ksp_u0, ksp_u1, ksp_c = pc.getFieldSplitSubKSP()
-
-            pc.setFieldSplitType(PETSc.PC.CompositeType.ADDITIVE)
-            pc.setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
-            pc.setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
-
-            u_opts = PETSc.Options()
-            option_prefix_u0 = ksp_u0.getOptionsPrefix()
-            option_prefix_u1 = ksp_u1.getOptionsPrefix()
-            option_prefix_c = ksp_c.getOptionsPrefix()
-
-            opts[f"{option_prefix_u0}ksp_type"] = "fgmres"
-            opts[f"{option_prefix_u0}pc_type"] = "hypre"
-
-            opts[f"{option_prefix_u1}ksp_type"] = "fgmres"
-            opts[f"{option_prefix_u1}pc_type"] = "hypre"
-
-            opts[f"{option_prefix_c}ksp_type"] = "fgmres"
-            opts[f"{option_prefix_c}pc_type"] = "hypre"
-
-            ksp_u0.setFromOptions()
-            ksp_u1.setFromOptions()
-            ksp_c.setFromOptions()
-
-            snes.getKSP().setFromOptions()
-            snes.setFromOptions()
-
-            with open(resource_usage, 'a') as f:
-                # Dump timestamp, PID and amount of RAM.
-                f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
-
-            problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, c], bcs)
-            snes.setFunction(problem.F_block, Fvec)
-            snes.setJacobian(problem.J_block, J=Jmat, P=Jmat)
-            snes.getKSP().view()
-            snes.view()
-            x = fem.petsc.create_vector_block(F)
-            cpp.la.petsc.scatter_local_vectors(
-                x,
-                [u_0.x.petsc_vec.array_r, u_1.x.petsc_vec.array_r, c.x.petsc_vec.array_r],
-                [
-                    (u_0.function_space.dofmap.index_map, u_0.function_space.dofmap.index_map_bs),
-                    (u_1.function_space.dofmap.index_map, u_1.function_space.dofmap.index_map_bs),
-                    (c.function_space.dofmap.index_map, c.function_space.dofmap.index_map_bs),
-                ],
-            )
-            x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-            t0 = time.time()
-            snes.solve(None, x)
-            t1 = time.time()
-            assert snes.getKSP().getConvergedReason() > 0
-            assert snes.getConvergedReason() > 0
-            xnorm = x.norm()
-            snes.destroy()
-            Jmat.destroy()
-            Fvec.destroy()
-            x.destroy()
         elif args.solver_type == solver_types.snes_nested:
             Jmat = fem.petsc.create_matrix_nest(J)
             Pmat = fem.petsc.create_matrix_nest(P)
@@ -670,8 +595,7 @@ if __name__ == '__main__':
             opts = PETSc.Options()
             opts['snes_linesearch_monitor'] = None
             opts['snes_monitor'] = None
-            opts['snes_linesearch_alpha'] = 1e-5
-            opts['snes_linesearch_minlambda'] = 1e-6
+            opts['snes_linesearch_type'] = 'cp'
             opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
             # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
 
@@ -681,7 +605,7 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.A11)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
-            ksp_u.setType(PETSc.KSP.Type.PREONLY)
+            ksp_u.setType(PETSc.KSP.Type.FGMRES)
             ksp_u.getPC().setType(PETSc.PC.Type.JACOBI)
             ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(args.amg_type)
