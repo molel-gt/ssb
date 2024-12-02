@@ -338,8 +338,8 @@ if __name__ == '__main__':
     n_l = n(l_res)
     n_r = n(r_res)
     cr = ufl.Circumradius(domain)
-    h_l = 2 * cr(l_res) ** -0.25
-    h_r = 2 * cr(r_res) ** -0.25
+    h_l = 2 * cr(l_res) ** 0.25
+    h_r = 2 * cr(r_res) ** 0.25
 
     # exchange current densities
     i0_n = kappa_elec * R * T / (Wa_n * faraday_const * L_ref)
@@ -537,7 +537,7 @@ if __name__ == '__main__':
             snes.setType('newtonls')
             snes.setTolerances(rtol=1.0e-7, max_it=10000)
             nested_IS = Jmat.getNestISs()
-            snes.getKSP().setType(PETSc.KSP.Type.BCGS)
+            snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
             snes.getKSP().setOptionsPrefix("snes_")
             snes.getKSP().setOperators(Jmat, Pmat)
             # nullspace = PETSc.NullSpace().create(constant=True)
@@ -564,10 +564,13 @@ if __name__ == '__main__':
 
             ksp_u.setType(PETSc.KSP.Type.FGMRES)
             ksp_u.getPC().setType(PETSc.PC.Type.JACOBI)
-            ksp_c.setType(PETSc.KSP.Type.CG)
+            ksp_c.setType(PETSc.KSP.Type.FGMRES)
             ksp_c.getPC().setType(args.amg_type)
 
             opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
+            opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 100
+            opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 100
+
             opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_modifiedgramschmidt'] = True
 
             for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
