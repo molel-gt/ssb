@@ -506,7 +506,7 @@ if __name__ == '__main__':
     IS_c = PETSc.IS().createGeneral(np.array(local_dofs_c, dtype=np.int32), comm=comm).sort()
     t = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
-    PETSc.Sys.Print(f"Setting up problem, #DoFs: {n_dofs:,}")
+    PETSc.Sys.Print(f"Setting up problem Wa: {args.Wa_p}, Kr: {args.kr}, #DoFs: {n_dofs:,}")
     P = [[J00, J01, J02], [None, J11, J12], [None, None, J22]]
 
     log_viewer = PETSc.Viewer().STDOUT()
@@ -537,7 +537,7 @@ if __name__ == '__main__':
             snes.setType('newtonls')
             snes.setTolerances(rtol=1.0e-7, max_it=10000)
             nested_IS = Jmat.getNestISs()
-            snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
+            snes.getKSP().setType(PETSc.KSP.Type.LGMRES)
             snes.getKSP().setOptionsPrefix("snes_")
             snes.getKSP().setOperators(Jmat, Pmat)
             # nullspace = PETSc.NullSpace().create(constant=True)
@@ -562,7 +562,7 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.A11)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
-            ksp_u.setType(PETSc.KSP.Type.PREONLY)
+            ksp_u.setType(PETSc.KSP.Type.FGMRES)
             ksp_u.getPC().setType(PETSc.PC.Type.JACOBI)
             ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(args.amg_type)
