@@ -199,7 +199,7 @@ if __name__ == '__main__':
     ref = {"t": t_ref, "phi": phi_ref, "c": c_ref, "L": L_ref}
 
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
-    results_dir = os.path.join(args.mesh_folder, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), str(args.gamma))
+    results_dir = os.path.join(args.mesh_folder, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), str(args.gamma), str(comm.Get_size()))
     utils.make_dir_if_missing(results_dir)
     output_potential_file = os.path.join(results_dir, "potential.bp")
     elec_potential_file = os.path.join(results_dir, "electrolyte_potential.bp")
@@ -562,14 +562,14 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.A11)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
-            ksp_u.setType(PETSc.KSP.Type.FGMRES)
+            ksp_u.setType(PETSc.KSP.Type.PREONLY)
             ksp_u.getPC().setType(PETSc.PC.Type.JACOBI)
-            ksp_c.setType(PETSc.KSP.Type.FGMRES)
+            ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(args.amg_type)
 
             opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
-            opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 100
-            opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 100
+            # opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 100
+            # opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 100
 
             opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_modifiedgramschmidt'] = True
 
