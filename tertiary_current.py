@@ -534,7 +534,7 @@ if __name__ == '__main__':
             Pmat = fem.petsc.create_matrix_nest(P)
             Fvec = fem.petsc.create_vector_nest(F)
             snes = PETSc.SNES().create(comm)
-            snes.setType('newtonls')
+            snes.setType('newtontr')
             snes.setTolerances(rtol=1.0e-7, max_it=10000)
             nested_IS = Jmat.getNestISs()
             snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
@@ -564,14 +564,17 @@ if __name__ == '__main__':
 
             ksp_u.setType(PETSc.KSP.Type.FGMRES)
             ksp_u.getPC().setType(PETSc.PC.Type.JACOBI)
-            ksp_c.setType(PETSc.KSP.Type.FGMRES)
+            ksp_u.setConvergenceHistory()
+            ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(args.amg_type)
+            ksp_c.setConvergenceHistory()
 
-            # opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
-            # opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 100
-            # opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 100
+            # opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 50
+            # opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 50
+            # opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 50
 
-            opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_modifiedgramschmidt'] = True
+            # opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_modifiedgramschmidt'] = True
+            # opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_modifiedgramschmidt'] = True
 
             for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
                 opts[f"{ksp_c.getOptionsPrefix()}{optk}"] = optv
