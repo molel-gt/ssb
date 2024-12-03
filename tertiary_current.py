@@ -169,6 +169,7 @@ if __name__ == '__main__':
     parser.add_argument('--transport_direction', help='direction perpendicular to current collectors', nargs='?', const=1, default='X', type=str)
     parser.add_argument('--kinetics', help='kinetics type', nargs='?', const=1, default='butler_volmer', type=str, choices=kinetics)
     parser.add_argument("--plot", help="whether to plot results", default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--plot_sparsity", help="whether to plot results", default=False, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
 
@@ -413,7 +414,7 @@ if __name__ == '__main__':
     VC_dofmap = VC.dofmap
 
     ###################### sparsity structure ##################################
-    if args.plot:
+    if args.plot_sparsity:
         for i_x in range(3):
             for i_y in range(3):
                 if i_x != i_y:
