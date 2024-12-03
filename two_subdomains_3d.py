@@ -33,8 +33,9 @@ if __name__ == '__main__':
     LY = Ly/Lx
     LZ = Lz/Lx
     LX = Lx/Lx
-
     workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, f'{args.resolution}')
+    if args.refine:
+        workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, f'{args.resolution}', 'refined')
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(workdir, 'mesh.msh')
     output_metafile = os.path.join(workdir, 'geometry.json')
