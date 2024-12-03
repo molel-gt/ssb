@@ -567,7 +567,7 @@ if __name__ == '__main__':
             ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(args.amg_type)
 
-            opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
+            # opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
             # opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 100
             # opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 100
 
