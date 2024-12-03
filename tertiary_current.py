@@ -339,8 +339,8 @@ if __name__ == '__main__':
     n_l = n(l_res)
     n_r = n(r_res)
     cr = ufl.Circumradius(domain)
-    h_l = 2 * cr(l_res) ** 0.25
-    h_r = 2 * cr(r_res) ** 0.25
+    h_l = 2 * cr(l_res) ** -0.25
+    h_r = 2 * cr(r_res) ** -0.25
 
     # exchange current densities
     i0_n = kappa_elec * R * T / (Wa_n * faraday_const * L_ref)
