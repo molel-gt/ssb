@@ -535,7 +535,7 @@ if __name__ == '__main__':
             Pmat = fem.petsc.create_matrix_nest(P)
             Fvec = fem.petsc.create_vector_nest(F)
             snes = PETSc.SNES().create(comm)
-            snes.setType('newtontr')
+            snes.setType('newtonls')
             snes.setTolerances(rtol=1.0e-7, max_it=10000)
             nested_IS = Jmat.getNestISs()
             snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
@@ -570,9 +570,9 @@ if __name__ == '__main__':
             ksp_c.getPC().setType(args.amg_type)
             ksp_c.setConvergenceHistory()
 
-            # opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 50
-            # opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 50
-            # opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 50
+            opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 50
+            opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 50
+            opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 50
 
             # opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_modifiedgramschmidt'] = True
             # opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_modifiedgramschmidt'] = True
