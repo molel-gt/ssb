@@ -59,7 +59,7 @@ if __name__ == '__main__':
         gmsh.option.setNumber('Mesh.MeshSizeMax', resolution)
     gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
     gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
-    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
     #      Points Numbering
     # 1-----------------------------2-----------7
     # |                             |           |
@@ -92,12 +92,11 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
     gmsh.model.occ.healShapes()
     old_surfs = gmsh.model.getEntities(2)
-    objs = gmsh.model.occ.revolve(old_surfs, 0, 0, 0, -1, 0, 0, 2*np.pi, heights=[])#, recombine=True)
+    objs = gmsh.model.occ.revolve(old_surfs, 0, 0, 0, -1, 0, 0, 2*np.pi, heights=[], recombine=True)
     gmsh.model.occ.synchronize()
-    gmsh.model.occ.healShapes(gmsh.model.occ.getEntities(2))
-    gmsh.model.occ.synchronize()
-    vols = gmsh.model.occ.getEntities(3)#[]
-    print(vols)
+    # gmsh.model.occ.healShapes(gmsh.model.occ.getEntities(2))
+    # gmsh.model.occ.synchronize()
+    vols = gmsh.model.occ.getEntities(3)
 
     gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.electrolyte, "electrolyte")
     gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.positive_am, "positive_am")
@@ -118,7 +117,6 @@ if __name__ == '__main__':
         if np.isclose(com[0], 0):
             left.append(surf[1])
         elif np.isclose(com[0], 0.625):
-            # print(surf)
             interface.append(surf[1])
         elif np.isclose(com[0], 1):
             right.append(surf[1])
@@ -131,6 +129,10 @@ if __name__ == '__main__':
                 if np.isclose(com[1], 0):
                     interface.append(surf[1])
                 else:
+                    # if com[0] < 0.5:
+                    #     left.append(surf[1])
+                    # else:
+                    #     insulated_electrolyte.append(surf[1])
                     print(com, surf)
                     # raise ValueError("Unexpected surfaces")
     gmsh.model.addPhysicalGroup(2, left, markers.left, "left")
