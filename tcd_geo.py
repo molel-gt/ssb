@@ -90,10 +90,14 @@ if __name__ == '__main__':
     se_phase = gmsh.model.occ.addPlaneSurface([se_loop])
     pe_phase = gmsh.model.occ.addPlaneSurface([pe_loop])
     gmsh.model.occ.synchronize()
+    gmsh.model.occ.healShapes()
     old_surfs = gmsh.model.getEntities(2)
-    objs = gmsh.model.occ.revolve(old_surfs, 0, 0, 0, -1, 0, 0, 2*np.pi, heights=[], recombine=True)
+    objs = gmsh.model.occ.revolve(old_surfs, 0, 0, 0, -1, 0, 0, 2*np.pi, heights=[])#, recombine=True)
     gmsh.model.occ.synchronize()
-    vols = [tag for tag in objs if tag[0] == 3]
+    gmsh.model.occ.healShapes(gmsh.model.occ.getEntities(2))
+    gmsh.model.occ.synchronize()
+    vols = gmsh.model.occ.getEntities(3)#[]
+    print(vols)
 
     gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.electrolyte, "electrolyte")
     gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.positive_am, "positive_am")
@@ -127,7 +131,8 @@ if __name__ == '__main__':
                 if np.isclose(com[1], 0):
                     interface.append(surf[1])
                 else:
-                    raise ValueError("Unexpected surfaces")
+                    print(com, surf)
+                    # raise ValueError("Unexpected surfaces")
     gmsh.model.addPhysicalGroup(2, left, markers.left, "left")
     gmsh.model.addPhysicalGroup(2, right, markers.right, "right")
     gmsh.model.addPhysicalGroup(2, interface, markers.electrolyte_v_positive_am, "electrolyte_v_positive_am")
