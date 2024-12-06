@@ -5,8 +5,6 @@ import json
 import os
 
 import gmsh
-import matplotlib.pyplot as plt
-import meshio
 import numpy as np
 import ufl
 import warnings
@@ -73,7 +71,7 @@ if __name__ == '__main__':
     points.extend([gmsh.model.occ.addPoint(*p) for p in points_left])
     points.extend([gmsh.model.occ.addPoint(*p) for p in reversed(points_mid)])
     points.extend([gmsh.model.occ.addPoint(*p) for p in points_right])
-    gmsh.model.occ.synchronize()
+    # gmsh.model.occ.synchronize()
     for idx in range(0, 5):
         lines.append(
             gmsh.model.occ.addLine(points[idx], points[idx+1])
@@ -83,16 +81,16 @@ if __name__ == '__main__':
     lines.append(gmsh.model.occ.addLine(points[6], points[7]))
     lines.append(gmsh.model.occ.addLine(points[7], points[2]))
 
-    gmsh.model.occ.synchronize()
+    # gmsh.model.occ.synchronize()
     se_loop = gmsh.model.occ.addCurveLoop([lines[idx] for idx in range(6)])
     pe_loop = gmsh.model.occ.addCurveLoop([lines[idx] for idx in [2, 3, 4, 6, 7, 8]])
-    gmsh.model.occ.synchronize()
+    # gmsh.model.occ.synchronize()
     se_phase = gmsh.model.occ.addPlaneSurface([se_loop])
     pe_phase = gmsh.model.occ.addPlaneSurface([pe_loop])
     gmsh.model.occ.synchronize()
-    gmsh.model.occ.healShapes()
+    # gmsh.model.occ.healShapes()
     old_surfs = gmsh.model.getEntities(2)
-    objs = gmsh.model.occ.revolve(old_surfs, 0, 0, 0, -1, 0, 0, 2*np.pi, heights=[], recombine=True)
+    objs = gmsh.model.occ.revolve(old_surfs, 0, 0, 0, -1, 0, 0, 2*np.pi, heights=[])#, recombine=True)
     gmsh.model.occ.synchronize()
     # gmsh.model.occ.healShapes(gmsh.model.occ.getEntities(2))
     # gmsh.model.occ.synchronize()
@@ -144,11 +142,11 @@ if __name__ == '__main__':
 
     if args.refine:
         gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "FacesList", left + interface + right)
+        gmsh.model.mesh.field.setNumbers(1, "FacesList", interface)
         
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
-        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution/5)
+        gmsh.model.mesh.field.setNumber(2, "LcMin", resolution/2)
         gmsh.model.mesh.field.setNumber(2, "LcMax", resolution)
         gmsh.model.mesh.field.setNumber(2, "DistMin", resolution)
         gmsh.model.mesh.field.setNumber(2, "DistMax", 5 * resolution)
