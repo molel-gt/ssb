@@ -20,10 +20,11 @@ if __name__ == '__main__':
     parser.add_argument('--resolution', help=f'max resolution (units of microns)', nargs='?', const=1, default=1, type=float)
     parser.add_argument("--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
+
+    workdir = os.path.join("output", args.name_of_study, args.dimensions, str(args.resolution))
     if args.refine:
-        workdir = os.path.join("output", args.name_of_study, args.dimensions, str(args.resolution))
-    else:
-        workdir = os.path.join("output", args.name_of_study, args.dimensions, "unrefined", str(args.resolution))
+        workdir = os.path.join("output", args.name_of_study, args.dimensions, str(args.resolution), "refined")
+
     Lx, Ly, Lz = [int(val) for val in args.dimensions.split("-")]
     LX = Lx / Lz
     LY = Ly / Lz
