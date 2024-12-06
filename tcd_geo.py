@@ -15,10 +15,10 @@ warnings.simplefilter('ignore')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
-    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="current_dist")
-    parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid',  nargs='?', const=1, default='80-20-20')
-    parser.add_argument('--resolution', help=f'max resolution resolution', nargs='?', const=1, default=0.1, type=float)
-    parser.add_argument("--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument("-n", "--name_of_study", help="name_of_study", nargs='?', const=1, default="current_dist")
+    parser.add_argument("-d", '--dimensions', help='integer representation of Lx-Ly-Lz of the grid',  nargs='?', const=1, default='80-20-20')
+    parser.add_argument("-r", '--resolution', help=f'max resolution resolution', nargs='?', const=1, default=0.1, type=float)
+    parser.add_argument("-f", "--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
     micron = 1e-6
     resolution = args.resolution
