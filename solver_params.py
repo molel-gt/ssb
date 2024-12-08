@@ -1,13 +1,14 @@
 gamg = {
     "pc_gamg_type": 'agg',
-    "pc_gamg_threshold": 0.0,
+    "pc_gamg_threshold": 0.01,
     "pc_gamg_repartition": True,
     "pc_gamg_aggressive_coarsening": 4,
     "pc_gamg_aggressive_square_graph": 1,
-    "pc_gamg_agg_nsmooths": 0,
+    "pc_gamg_agg_nsmooths": 1,
     "pc_gamg_coarse_eq_limit": 10000,
     "pc_gamg_parallel_coarse_grid_solver": True,
-    # "pc_gamg_eigenvalues": [1e-4, 5],
+    "pc_gamg_eigenvalues": [1e-4, 5],
+    "pc_gamg_use_sa_esteig": True,
 }
 
 boomeramg = {
