@@ -343,8 +343,9 @@ if __name__ == '__main__':
     n_l = n(l_res)
     n_r = n(r_res)
     cd = ufl.CellDiameter(domain)
-    h_l = cd(l_res) ** 0.25
-    h_r = cd(r_res) ** 0.25
+    p = 4
+    h_l = cd(l_res) ** (-1/p)
+    h_r = cd(r_res) ** (-1/p)
 
     # exchange current densities
     i0_n = kappa_elec * R * T / (Wa_n * faraday_const * L_ref)
@@ -352,7 +353,7 @@ if __name__ == '__main__':
 
     # concentration problem
     dt = fem.Constant(submesh_positive_am, dt_)
-    VC = fem.functionspace(submesh_positive_am, ("CG", 4))
+    VC = fem.functionspace(submesh_positive_am, ("CG", p))
 
     c, q = fem.Function(VC), ufl.TestFunction(VC)
     c0 = fem.Function(VC)
