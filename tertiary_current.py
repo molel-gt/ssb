@@ -506,10 +506,10 @@ if __name__ == '__main__':
     n_dofs = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs + VC_map.size_global*VC.dofmap.index_map_bs
 
     # index sets
-    # IS_u0 = PETSc.IS().createGeneral(np.array(local_dofs_u0, dtype=np.int32), comm=comm).sort()
-    # IS_u1 = PETSc.IS().createGeneral(np.array(local_dofs_u1, dtype=np.int32), comm=comm).sort()
-    # IS_u = IS_u0.sum(IS_u1)#PETSc.IS().createGeneral(np.array(local_dofs_u, dtype=np.int32), comm=comm).sort()
-    # IS_c = PETSc.IS().createGeneral(np.array(local_dofs_c, dtype=np.int32), comm=comm).sort()
+    IS_u0 = PETSc.IS().createGeneral(np.array(local_dofs_u0, dtype=np.int32), comm=comm).sort()
+    IS_u1 = PETSc.IS().createGeneral(np.array(local_dofs_u1, dtype=np.int32), comm=comm).sort()
+    IS_u = IS_u0.sum(IS_u1)#PETSc.IS().createGeneral(np.array(local_dofs_u, dtype=np.int32), comm=comm).sort()
+    IS_c = PETSc.IS().createGeneral(np.array(local_dofs_c, dtype=np.int32), comm=comm).sort()
     t = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
     PETSc.Sys.Print(f"Setting up problem Wa: {args.Wa_p}, Kr: {args.kr}, #DoFs: {n_dofs:,}")
