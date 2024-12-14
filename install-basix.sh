@@ -12,9 +12,6 @@ else
     git clone https://github.com/FEniCS/basix.git .
 fi
 
-cd $BASIX_DIR
-mkdir $DOLFINX_BUILD_DIR
-
 cd $BASIX_DIR/cpp
 mkdir build
 cd $BASIX_DIR/cpp/build
