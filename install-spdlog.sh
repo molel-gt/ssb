@@ -5,7 +5,7 @@ cd $SOFTWARES_DIR
 if [ -d $SOFTWARES_DIR/spdlog ]; then;
     echo 'directory exists, skip cloning'
 else;
-    git clone https://github.com/gabime/spdlog.git .
+    git clone https://github.com/gabime/spdlog.git
 fi
 
 cd $SOFTWARES_DIR/spdlog
