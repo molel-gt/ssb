@@ -1,5 +1,12 @@
 #!/bin/bash
+
 cd $SOFTWARES_DIR
+if [ -d $SOFTWARES_DIR/slepc ]; then
+    echo "directory exists, skip cloning"
+else
+    git clone https://gitlab.com/slepc/slepc .
+fi
+cd $SOFTWARES_DIR/slepc
 ./configure --prefix=$CMAKE_INSTALL_PREFIX --with-clean
 make SLEPC_DIR=$SLEPC_DIR PETSC_DIR=$PETSC_DIR PETSC_ARCH=$PETSC_ARCH
 make SLEPC_DIR=$SLEPC_DIR PETSC_DIR=$PETSC_DIR install
