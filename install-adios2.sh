@@ -2,7 +2,7 @@
 
 cd $SOFTWARES_DIR
 
-if -d $SOFTWARES_DIR/ADIOS2; then
+if [ -d $SOFTWARES_DIR/ADIOS2 ]; then
     echo 'ADIOS2 directory exists'
 else
     git clone https://github.com/ornladios/ADIOS2.git ADIOS2
