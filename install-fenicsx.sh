@@ -2,7 +2,7 @@
 
 DOLFINX_BUILD_DIR=$SOFTWARES_DIR/dolfinx/cpp/build
 
-. $HOME/python3-env/bin/activate
+. $PYTHON3_DIR/bin/activate
 
 cd $SOFTWARES_DIR/dolfinx/cpp/
 
@@ -16,5 +16,5 @@ make && make install
 
 cd $SOFTWARES_DIR/dolfinx/python
 
-$HOME/python3-env/bin/python3 -m pip install -r build-requirements.txt
-$HOME/python3-env/bin/python3 -m pip install --check-build-dependencies --no-build-isolation .
+$PYTHON3_DIR/bin/python3 -m pip install -r build-requirements.txt
+$PYTHON3_DIR/bin/python3 -m pip install --check-build-dependencies --no-build-isolation .
