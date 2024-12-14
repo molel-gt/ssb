@@ -1,9 +1,11 @@
 #!/bin/bash
 
+cd $SOFTWARES_DIR
+
 if [ -d $SOFTWARES_DIR/pugixml ]; then
     echo 'directory exists, not cloning'
 else
-    git git clone https://github.com/zeux/pugixml.git .
+    git clone https://github.com/zeux/pugixml.git
 fi
 
 cd $SOFTWARES_DIR/pugixml

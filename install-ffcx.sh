@@ -9,7 +9,7 @@ FFCX_DIR=$SOFTWARES_DIR/ffcx
 if [ -d "$FFCX_DIR" ]; then
     echo "Skip cloning, directory exists"
 else
-    git clone https://github.com/FEniCS/ffcx.git .
+    git clone https://github.com/FEniCS/ffcx.git
 fi
 
 cd $FFCX_DIR
