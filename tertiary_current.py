@@ -223,7 +223,7 @@ if __name__ == '__main__':
 
     # load mesh
     partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
-    domain, ct, ft = io.gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)
+    domain, ct, ft = io.gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)[:3]
     tdim = domain.topology.dim
     fdim = tdim - 1
     domain.topology.create_connectivity(tdim, fdim)
@@ -506,17 +506,17 @@ if __name__ == '__main__':
     n_dofs = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs + VC_map.size_global*VC.dofmap.index_map_bs
 
     # index sets
-    IS_u0 = PETSc.IS().createGeneral(np.array(local_dofs_u0, dtype=np.int32), comm=comm).sort()
-    IS_u1 = PETSc.IS().createGeneral(np.array(local_dofs_u1, dtype=np.int32), comm=comm).sort()
-    IS_u = IS_u0.sum(IS_u1)#PETSc.IS().createGeneral(np.array(local_dofs_u, dtype=np.int32), comm=comm).sort()
-    IS_c = PETSc.IS().createGeneral(np.array(local_dofs_c, dtype=np.int32), comm=comm).sort()
+    # IS_u0 = PETSc.IS().createGeneral(np.array(local_dofs_u0, dtype=np.int32), comm=comm).sort()
+    # IS_u1 = PETSc.IS().createGeneral(np.array(local_dofs_u1, dtype=np.int32), comm=comm).sort()
+    # IS_u = IS_u0.sum(IS_u1)#PETSc.IS().createGeneral(np.array(local_dofs_u, dtype=np.int32), comm=comm).sort()
+    # IS_c = PETSc.IS().createGeneral(np.array(local_dofs_c, dtype=np.int32), comm=comm).sort()
     t = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
     PETSc.Sys.Print(f"Setting up problem Wa: {args.Wa_p}, Kr: {args.kr}, #DoFs: {n_dofs:,}")
     P = [[J00, J01, J02], [None, J11, J12], [None, None, J22]]
 
-    # log_viewer = PETSc.Viewer().STDOUT()
-    # log_viewer.setFileName(log_datafile)
+    log_viewer = PETSc.Viewer().STDOUT()
+    log_viewer.setFileName(log_datafile)
 
     while t < TIME:
         t += dt.value
@@ -616,12 +616,12 @@ if __name__ == '__main__':
                 x1_sub.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
             x.set(0.0)
-            # PETSc.Log().begin()
+            PETSc.Log().begin()
             t0 = time.time()
             snes.solve(None, x)
             t1 = time.time()
             PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}")
-            # PETSc.Log().view(log_viewer)
+            PETSc.Log().view(log_viewer)
             if comm.rank == 0 and args.plot:
                 fig, ax = plt.subplots()
                 ax.semilogy(snes.getKSP().getConvergenceHistory())
