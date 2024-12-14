@@ -2,12 +2,9 @@
 
 cd $SOFTWARES_DIR
 
-
 BASIX_DIR=$SOFTWARES_DIR/basix
 
 . $PYTHON3_DIR/bin/activate
-
-# cd $SOFTWARES_DIR/dolfinx/cpp/
 
 if [ -d "$BASIX_DIR" ]; then
     echo "Skip cloning, directory exists";
