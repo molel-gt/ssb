@@ -68,3 +68,6 @@ module purge
 module load gcc/10.3.0-o57x6h
 module load openmpi/4.1.4
 mpiexec -n 24 apptainer exec ~/dolfinx.sif python3
+
+# copy files to cluster
+scp src/ksp/ksp/impls/gmres/fgmres/fgmres.c emolel3@login-phoenix-rh9.pace.gatech.edu:/storage/coda1/p-tf74/0/shared/leshinka/softwares/petsc/src/ksp/ksp/impls/gmres/fgmres/
