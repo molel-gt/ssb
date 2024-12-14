@@ -2,6 +2,13 @@
 
 DOLFINX_BUILD_DIR=$SOFTWARES_DIR/dolfinx/cpp/build
 
+cd $SOFTWARES_DIR
+if [ -d $SOFTWARES_DIR/dolfinx ]; then
+    echo 'directory exists, skip cloning'
+else
+    git clone https://github.com/FEniCS/dolfinx.git
+fi
+
 . $PYTHON3_DIR/bin/activate
 
 cd $SOFTWARES_DIR/dolfinx/cpp/
