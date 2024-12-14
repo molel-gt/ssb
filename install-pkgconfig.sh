@@ -2,7 +2,7 @@
 
 cd $SOFTWARES_DIR
 
-if [ -d $SOFTWARES_DIR/pkg-config ]; then;
+if [ -d $SOFTWARES_DIR/pkg-config ]; then
     echo 'directory exists, skip cloning'
 else;
     git clone https://gitlab.freedesktop.org/pkg-config/pkg-config.git
