@@ -9,7 +9,7 @@ BASIX_DIR=$SOFTWARES_DIR/basix
 if [ -d "$BASIX_DIR" ]; then
     echo "Skip cloning, directory exists"
 else
-    git clone https://github.com/FEniCS/basix.git .
+    git clone https://github.com/FEniCS/basix.git
 fi
 
 cd $BASIX_DIR/cpp
