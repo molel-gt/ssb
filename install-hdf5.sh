@@ -10,5 +10,5 @@ fi
 
 cd $SOFTWARES_DIR/hdf5
 ./autogen.sh
-CC=$CMAKE_INSTALL_PREFIX/bin/mpicc ./configure --enable-parallel --prefix=$CMAKE_INSTALL_PREFIX
+CC=$(which mpicc) ./configure --enable-parallel --prefix=$CMAKE_INSTALL_PREFIX
 make -j && make install
