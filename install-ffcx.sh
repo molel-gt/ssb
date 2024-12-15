@@ -20,4 +20,4 @@ cmake ../cmake -DCMAKE_INSTALL_PREFIX=$CMAKE_INSTALL_PREFIX -DCMAKE_PREFIX_PATH=
 make -j && make install
 
 # cd $FFCX_DIR/python
-$PYTHON3_DIR/bin/python3 -m pip install .
+$PYTHON3_DIR/bin/python3 -m pip install $FFCX_DIR
