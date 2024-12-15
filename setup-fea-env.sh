@@ -3,6 +3,7 @@
 sh install-pkgconf.sh
 sh install-pugixml.sh
 sh install-adios2.sh
+sh install-spdlog.sh
 sh install-openmpi.sh
 sh install-petsc.sh
 sh install-slepc.sh
