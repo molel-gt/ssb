@@ -4,7 +4,7 @@ cd $SOFTWARES_DIR
 if [ -d $SOFTWARES_DIR/slepc ]; then
     echo "directory exists, skip cloning"
 else
-    git clone https://gitlab.com/slepc/slepc .
+    git clone https://gitlab.com/slepc/slepc
 fi
 cd $SOFTWARES_DIR/slepc
 ./configure --prefix=$CMAKE_INSTALL_PREFIX --with-clean
