@@ -15,6 +15,3 @@ cmake ../ADIOS2 -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH -DCMAKE_INSTALL_PREFIX=$C
 
 make -j3
 make install
-
-echo "export ADIOS2_ROOT=$CMAKE_INSTALL_PREFIX/adios2" >> $HOME/.bashrc
-echo "export ADIOS2_DIR=$CMAKE_INSTALL_PREFIX/adios2"  >> $HOME/.bashrc
