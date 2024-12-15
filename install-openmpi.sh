@@ -10,6 +10,6 @@ if [ -d "$OPENMPI_SRC_DIR" ]; then wget url .; fi
 
 tar xvzf $OPENMPI_SRC_DIR.tar.gz
 cd $OPENMPI_SRC_DIR
-./configure --prefix=$CMAKE_INSTALL_PREFIX
+./configure --prefix=$CMAKE_INSTALL_PREFIX --with-cuda=0
 make -j
 make install
