@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sh install-pkgconf.sh
+# sh install-pkgconf.sh
 sh install-pugixml.sh
 sh install-adios2.sh
 sh install-spdlog.sh
