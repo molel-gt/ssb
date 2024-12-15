@@ -14,6 +14,5 @@ sh install-adios2.sh
 sh install-petsc.sh
 sh install-slepc.sh
 sh install-basix.sh
-
-$PYTHON3_DIR/bin/python3 -m pip install ufl
+sh install-ufl.sh
 sh install-ffcx.sh
