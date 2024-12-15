@@ -19,7 +19,8 @@ mkdir $DOLFINX_BUILD_DIR
 cd $DOLFINX_BUILD_DIR
 cmake .. -DCMAKE_INSTALL_PREFIX=$CMAKE_INSTALL_PREFIX -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH
 make && make install
-. $CMAKE_INSTALL_PREFIX/lib/dolfinx/dolfinx.conf
+dolfinxconf=$(find $CMAKE_INSTALL_PREFIX/ -name dolfinx.conf -print)
+. $dolfinxconf
 
 cd $SOFTWARES_DIR/dolfinx/python
 
