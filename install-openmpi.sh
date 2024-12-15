@@ -1,15 +1,19 @@
 #!/bin/bash
 
-version=$1
-url=https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-$version.tar.gz
-OPENMPI_SRC_DIR=$SOFTWARES_DIR/opempi-$version
+OPENMPI_SRC_DIR=$SOFTWARES_DIR/ompi
 
 cd $SOFTWARES_DIR
 
-if [ -d "$OPENMPI_SRC_DIR" ]; then wget url .; fi
+if [ -d "$OPENMPI_SRC_DIR" ]; then
+    echo 'directory exists, skip cloning'
+else
+    git clone https://github.com/open-mpi/ompi.git --recursive
+fi
 
-tar xvzf $OPENMPI_SRC_DIR.tar.gz
+git checkout v5.0.6
+
 cd $OPENMPI_SRC_DIR
-./configure --prefix=$CMAKE_INSTALL_PREFIX --with-cuda=0
-make -j
+./autogen.pl
+./configure --prefix=$CMAKE_INSTALL_PREFIX --disable-cuda
+make -j3
 make install
