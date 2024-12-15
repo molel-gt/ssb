@@ -1,5 +1,4 @@
 import dolfinx
-import gmsh
 import numpy as np
 import ufl
 import warnings
