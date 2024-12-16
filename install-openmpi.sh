@@ -14,6 +14,6 @@ git checkout v5.0.6
 
 cd $OPENMPI_SRC_DIR
 ./autogen.pl
-./configure --prefix=$CMAKE_INSTALL_PREFIX --enable-shared --with-hwloc=embedded --without-cuda --without-ze --with-cuda=no --with-ze=no --enable-mca-no-build=pgpu --enable-mpi-ext=affinity,ftmpi,rocm,shortfloat --enable-mca-dso=null,rocm,ze --enable-fast=O3,avx,ndebug
+./configure --prefix=$CMAKE_INSTALL_PREFIX --enable-shared --with-pmix=internal --with-hwloc=embedded --without-cuda --without-ze --with-cuda=no --with-ze=no --enable-mca-no-build=pgpu --enable-mpi-ext=affinity,ftmpi,rocm,shortfloat --enable-mca-dso=null,rocm,ze
 make -j3
 make install
