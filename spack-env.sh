@@ -6,6 +6,7 @@ if [ -d $SOFTWARES_DIR/spack ]; then
     echo 'directory exists, skip cloning'
 else
     git clone https://github.com/spack/spack.git
+    cp $WORK_DIR/../spack/config.yaml $SOFTWARES_DIR/spack/
     . ./spack/share/spack/setup-env.sh
     spack env create fenicsx-env
     spack env activate fenicsx-env
