@@ -6,10 +6,10 @@ if [ -d $SOFTWARES_DIR/spack ]; then
     echo 'directory exists, skip cloning'
 else
     git clone https://github.com/spack/spack.git
-    cp $WORK_DIR/../spack/config.yaml $SOFTWARES_DIR/spack/
+    # cp $WORK_DIR/../spack/config.yaml $SOFTWARES_DIR/spack/
     . ./spack/share/spack/setup-env.sh
     spack env create fenicsx-env
     spack env activate fenicsx-env
-    spack add fenics-dolfinx+adios2 py-fenics-dolfinx cflags="-O3" fflags="-O3"
+    spack add fenics-dolfinx@main%gcc@12.3.0+adios2 py-fenics-dolfinx%gcc@12.3.0 cflags="-O3" fflags="-O3"
     spack install
 fi
