@@ -522,13 +522,20 @@ if __name__ == '__main__':
         t += dt.value
         PETSc.Sys.Print(f"Time: {t:.1e}\n")
         if args.solver_type == solver_types.direct:
+            opts = {
+                'ksp_type': 'preonly',
+                'pc_type': 'lu',
+                'pc_factor_mat_solver_type': 'superlu_dist',
+                'ksp_gmres_restart': 75,
+
+                }
             solver = solvers.NewtonSolver(
                 F,
                 J,
                 [u_0, u_1, c],
                 bcs=bcs,
                 max_iterations=1000,
-                petsc_options={'ksp_type': 'preonly', 'pc_type': 'lu', 'pc_factor_mat_solver_type': 'superlu_dist'},
+                petsc_options=opts,
                 )
             PETSc.Log().begin()
             t0 = time.time()
