@@ -525,7 +525,7 @@ if __name__ == '__main__':
             opts = {
                 'ksp_type': 'preonly',
                 'pc_type': 'lu',
-                'pc_factor_mat_solver_type': 'superlu_dist',
+                'pc_factor_mat_solver_type': 'mumps',
                 'ksp_gmres_restart': 75,
 
                 }
