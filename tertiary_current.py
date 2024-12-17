@@ -583,13 +583,13 @@ if __name__ == '__main__':
             ksp_u.getPC().setType(PETSc.PC.Type.JACOBI)
             opts[f"{ksp_u.getOptionsPrefix()}pc_jacobi_fixdiagonal"] = True
             ksp_u.setConvergenceHistory()
-            ksp_c.setType(PETSc.KSP.Type.CG)
+            ksp_c.setType(PETSc.KSP.Type.FGMRES)
             ksp_c.getPC().setType(args.amg_type)
             ksp_c.setConvergenceHistory()
 
-            opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 75
-            # opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 75
-            # opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 75
+            opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 50
+            opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 50
+            opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 50
 
             # opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_modifiedgramschmidt'] = True
             # opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_modifiedgramschmidt'] = True
