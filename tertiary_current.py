@@ -587,9 +587,9 @@ if __name__ == '__main__':
             ksp_c.getPC().setType(args.amg_type)
             ksp_c.setConvergenceHistory()
 
-            opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 50
-            opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 50
-            opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 50
+            opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 75
+            opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 75
+            opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 75
 
             # opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_modifiedgramschmidt'] = True
             # opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_modifiedgramschmidt'] = True
