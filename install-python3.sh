@@ -8,6 +8,6 @@ else
     wget https://www.python.org/ftp/python/3.12.3/Python-3.12.3.tgz
     tar xvf Python-3.12.3.tgz
 fi
-
+cd $SOFTWARES_DIR/Python-3.12.3
 ./configure --prefix=$CMAKE_INSTALL_PREFIX
 make -j && make install
