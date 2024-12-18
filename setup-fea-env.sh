@@ -1,6 +1,6 @@
 #!/bin/bash
 
-sh install-autoconf.sh
+# sh install-autoconf.sh
 sh install-openmpi.sh
 sh install-pkgconf.sh
 sh install-pugixml.sh
