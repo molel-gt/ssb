@@ -71,3 +71,7 @@ mpiexec -n 24 apptainer exec ~/dolfinx.sif python3
 
 # copy files to cluster
 scp src/ksp/ksp/impls/gmres/fgmres/fgmres.c emolel3@login-phoenix-rh9.pace.gatech.edu:/storage/coda1/p-tf74/0/shared/leshinka/softwares/petsc/src/ksp/ksp/impls/gmres/fgmres/
+
+# fetch tags on forked branch
+git fetch --tags https://github.com/petsc/petsc.git
+git push --tags
