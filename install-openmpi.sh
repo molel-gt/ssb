@@ -7,13 +7,14 @@ cd $SOFTWARES_DIR
 if [ -d "$OPENMPI_SRC_DIR" ]; then
     echo 'directory exists, skip cloning'
 else
-    git clone https://github.com/open-mpi/ompi.git --recursive
+    # git clone https://github.com/open-mpi/ompi.git --recursive
+    wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.5.tar.gz
+    tar xvzf openmpi-5.0.5.tar.gz
 fi
 
-git checkout v5.0.6
+# git checkout v5.0.5
 
 cd $OPENMPI_SRC_DIR
-./autogen.pl
-./configure --prefix=$CMAKE_INSTALL_PREFIX --enable-shared --with-pmix=internal --with-hwloc=embedded --without-cuda --without-ze --with-cuda=no --with-ze=no --enable-mca-no-build=pgpu --enable-mpi-ext=affinity,ftmpi,rocm,shortfloat --enable-mca-dso=null,rocm,ze
-make -j3
-make install
+# ./autogen.pl
+./configure --prefix=$CMAKE_INSTALL_PREFIX
+make -j && make install
