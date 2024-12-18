@@ -1,5 +1,6 @@
 #!/bin/bash
 
+cd $SOFTWARES_DIR
 if [ -d $SOFTWARES_DIR/petsc ]; then
     echo 'Directory exists, not cloning'
 else
