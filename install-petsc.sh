@@ -9,7 +9,7 @@ else
     git checkout vary-restart
     cp src/ksp/ksp/impls/gmres/fgmres/fgmres.c src/ksp/ksp/impls/gmres/fgmres/fgmres-new.c
     git checkout v3.22.2
-    cp src/ksp/ksp/impls/gmres/fgmres/fgmres-new.c src/ksp/ksp/impls/gmres/fgmres/fgmres.c
+    mv src/ksp/ksp/impls/gmres/fgmres/fgmres-new.c src/ksp/ksp/impls/gmres/fgmres/fgmres.c
 fi
 
 cd $SOFTWARES_DIR/petsc
