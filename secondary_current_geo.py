@@ -87,14 +87,14 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
     if args.refine:
         gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "FacesList", left + interface + right + insulated_se + insulated_am)
+        gmsh.model.mesh.field.setNumbers(1, "FacesList", interface)
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
         gmsh.model.mesh.field.setNumber(2, "SizeMin", resolution / 5)
         gmsh.model.mesh.field.setNumber(2, "SizeMax", resolution)
-        gmsh.model.mesh.field.setNumber(2, "DistMin", 1/Lz)
-        gmsh.model.mesh.field.setNumber(2, "DistMax", 2/Lz)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", 0.01)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", 0.05)
 
         gmsh.model.mesh.field.add("Max", 5)
         gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
