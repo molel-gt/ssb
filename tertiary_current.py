@@ -295,8 +295,8 @@ if __name__ == '__main__':
     u_1.name = "u_t"
 
     # initial guess
-    u_0.interpolate(lambda x: x[0]*0.95)
-    u_1.interpolate(lambda x: 1.05*x[0]/1.1)
+    u_0.interpolate(lambda x: x[directions[args.transport_direction.lower()]]*0.95)
+    u_1.interpolate(lambda x: 1.05*x[directions[args.transport_direction.lower()]]/1.1)
 
     # Add coupling term to the interface
     # Get interface markers on submesh b
@@ -358,8 +358,8 @@ if __name__ == '__main__':
     c, q = fem.Function(VC), ufl.TestFunction(VC)
     c0 = fem.Function(VC)
 
-    c0.interpolate(lambda x: x[0] - x[0] + 0.75)
-    c.interpolate(c0)
+    c0.interpolate(lambda x: x[directions[args.transport_direction.lower()]] - x[directions[args.transport_direction.lower()]] + 0.75)
+    c.interpolate(lambda x: 0.75 * (1 - np.exp(-x[directions[args.transport_direction.lower()]])))
 
     q_r = ufl.TestFunction(c.function_space)(r_res)
     q_l = ufl.TestFunction(c.function_space)(l_res)
@@ -368,12 +368,12 @@ if __name__ == '__main__':
     jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) + ocv_chen2020(c(r_res), cmax=1)/phi_ref
 
     F_0 = (
-        -1/2 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
+        - 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
         - 0.5 * mixed_term(0.5 * (kappa_elec + kappa_pos_am) * v_l, (u_r - u_l - jump_u), n_l) * dInterface
     )
 
     F_1 = (
-        +1/2 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, n_l) * dInterface
+        + 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, n_l) * dInterface
         - 0.5 * mixed_term(0.5 * (kappa_elec + kappa_pos_am) * v_r, (u_r - u_l - jump_u), n_l) * dInterface
     )
     F_0 += -2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
@@ -515,8 +515,8 @@ if __name__ == '__main__':
     PETSc.Sys.Print(f"Setting up problem Wa: {args.Wa_p}, Kr: {args.kr}, #DoFs: {n_dofs:,}, nprocs: {comm.Get_size()}")
     P = [[J00, J01, J02], [None, J11, J12], [None, None, J22]]
 
-    log_viewer = PETSc.Viewer().STDOUT()
-    log_viewer.setFileName(log_datafile)
+    # log_viewer = PETSc.Viewer().STDOUT()
+    # log_viewer.setFileName(log_datafile)
 
     while t < TIME:
         t += dt.value
@@ -541,7 +541,7 @@ if __name__ == '__main__':
             t0 = time.time()
             solver.solve(1e-7, beta=0.5)
             t1 = time.time()
-            PETSc.Log().view(log_viewer)
+            # PETSc.Log().view(log_viewer)
         elif args.solver_type == solver_types.nested_iterative:
             Jmat = fem.petsc.create_matrix_nest(J)
             Pmat = fem.petsc.create_matrix_nest(P)
@@ -619,12 +619,12 @@ if __name__ == '__main__':
                 x1_sub.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
 
             x.set(0.0)
-            PETSc.Log().begin()
+            # PETSc.Log().begin()
             t0 = time.time()
             snes.solve(None, x)
             t1 = time.time()
             PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}")
-            PETSc.Log().view(log_viewer)
+            # PETSc.Log().view(log_viewer)
             if comm.rank == 0 and args.plot:
                 fig, ax = plt.subplots()
                 ax.semilogy(snes.getKSP().getConvergenceHistory())
