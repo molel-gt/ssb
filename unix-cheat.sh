@@ -78,3 +78,5 @@ git push --tags
 
 # find resources in a partition
 sinfo --partition=cpu-amd -o "%50N  %10c  %20m  %30G "
+
+pace-check-queue cpu-amd
