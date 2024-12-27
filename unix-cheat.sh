@@ -75,3 +75,6 @@ scp src/ksp/ksp/impls/gmres/fgmres/fgmres.c emolel3@login-phoenix-rh9.pace.gatec
 # fetch tags on forked branch
 git fetch --tags https://github.com/petsc/petsc.git
 git push --tags
+
+# find resources in a partition
+sinfo --partition=cpu-amd -o "%50N  %10c  %20m  %30G "
