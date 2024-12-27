@@ -344,8 +344,8 @@ if __name__ == '__main__':
     n_r = n(r_res)
     cd = ufl.CellDiameter(domain)
     p = 4
-    h_l = cd(l_res) ** (-1/p)
-    h_r = cd(r_res) ** (-1/p)
+    h_l = cd(l_res)  # ** (-1/p)
+    h_r = cd(r_res)  # ** (-1/p)
 
     # exchange current densities
     i0_n = kappa_elec * R * T / (Wa_n * faraday_const * L_ref)
