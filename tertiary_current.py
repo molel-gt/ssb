@@ -562,14 +562,11 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setType("fieldsplit")
             IS_u = nested_IS[0][0].sum(nested_IS[0][1])
             IS_c = nested_IS[0][2]
-            # Jmat.reorderForNonzeroDiagonal(IS_u, IS_u)
-            # Jmat.reorderForNonzeroDiagonal(IS_c, IS_c)
             snes.getKSP().getPC().setFieldSplitIS(("u", IS_u), ("c", IS_c))
             opts = PETSc.Options()
             opts['snes_linesearch_monitor'] = None
             opts['snes_monitor'] = None
 
-            # opts['snes_linesearch_type'] = 'cp'
             opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
             opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
 
