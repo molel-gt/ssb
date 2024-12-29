@@ -697,3 +697,44 @@ if __name__ == '__main__':
 
     with io.VTXWriter(comm, positive_am_potential_file, [u_1], engine="BP5") as vtx:
         vtx.write(0)
+
+    if args.plot and comm.Get_size() == 1:
+        n_points = 1000
+        tol = 1e-8  # Avoid hitting the outside of the domain
+        bb_trees = bb_tree(submesh_positive_am, submesh_positive_am.topology.dim)
+
+        z = np.linspace(tol, 1 - tol, n_points)
+        points = np.zeros((3, n_points))
+        points[2] = z
+
+        # obtain values to plot
+        u_values = []
+        cells = []
+        points_on_proc = []
+        # Find cells whose bounding-box collide with the the points
+        cell_candidates = compute_collisions_points(bb_trees, points.T)
+        # Choose one of the cells that contains the point
+        colliding_cells = compute_colliding_cells(submesh_positive_am, cell_candidates, points.T)
+
+        for i in range(n_points):
+            point = points.T[i]
+
+            if len(colliding_cells.links(i)) > 0:
+                points_on_proc.append(point)
+                cells.append(colliding_cells.links(i)[0])
+
+        points_on_proc = np.array(points_on_proc, dtype=np.float64)
+        c_values_mid = c.eval(points_on_proc, cells)
+
+        fig, ax = plt.subplots()
+        ax.plot(points_on_proc[:, 2], c_values_mid, 'k', label=r'0.5$L_x$,0.5$L_y$', linewidth=1)
+        ax.grid(True)
+        ax.legend()
+        ax.set_xlim([0, 1])
+        ax.set_box_aspect(1)
+        ax.set_ylabel(r'$\hat{c}$', rotation=90, labelpad=0, fontsize='xx-large')
+        ax.set_xlabel(r'$\hat{x}$')
+        ax.set_title(r'$\mathrm{Wa}$ = ' + f'{args.Wa_p}' + ',' + r'$\frac{\kappa}{\sigma}$ = ' + f'{args.kr}')
+        plt.tight_layout()
+        plt.savefig(concentration_plot_file)
+        plt.show()
