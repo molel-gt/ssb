@@ -577,7 +577,7 @@ if __name__ == '__main__':
             ksp_u, ksp_c = snes.getKSP().getPC().getFieldSplitSubKSP()
 
             snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.SCHUR)
-            snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.A11)
+            snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
             ksp_u.setType(PETSc.KSP.Type.FGMRES)
