@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: MIT
 import argparse
+import datetime
 import json
 import os
 import resource
 import time
 import timeit
 
-import datetime
+import basix
 import dolfinx
 import dolfinx.fem.petsc
 import matplotlib as mpl
@@ -17,6 +18,7 @@ import scipy.special as sp
 import ufl
 
 from dolfinx import cpp, fem, io, mesh, log
+from dolfinx.geometry import bb_tree, compute_collisions_points, compute_colliding_cells
 from matplotlib import rc
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -162,6 +164,7 @@ if __name__ == '__main__':
     parser.add_argument("--Wa_p", help="Wagna number for positive electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
     parser.add_argument("--kr", help="ratio of ionic to electronic conductivity", nargs='?', const=1, default=1, type=float)
     parser.add_argument("--gamma", help="interior penalty parameter", nargs='?', const=1, default=15, type=float)
+    parser.add_argument("-p", "--p", help="polynomial approximation order", nargs='?', const=1, default=4, type=int)
     parser.add_argument("--atol", help="solver absolute tolerance", nargs='?', const=1, default=1e-12, type=float)
     parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-9, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
@@ -211,6 +214,7 @@ if __name__ == '__main__':
     positive_am_potential_file = os.path.join(results_dir, "positive_am_potential.bp")
     current_file = os.path.join(results_dir, "current.bp")
     concentration_file = os.path.join(results_dir, "concentration.bp")
+    concentration_plot_file = os.path.join(results_dir, "concentration.eps")
     simulation_metafile = os.path.join(results_dir, "simulation.json")
     convergence_history = os.path.join(results_dir, "convergence.eps")
     log_datafile = os.path.join(results_dir, "log.txt")
@@ -343,7 +347,6 @@ if __name__ == '__main__':
     n_l = n(l_res)
     n_r = n(r_res)
     cd = ufl.CellDiameter(domain)
-    p = 4
     h_l = cd(l_res)  # ** (-1/p)
     h_r = cd(r_res)  # ** (-1/p)
 
@@ -353,7 +356,8 @@ if __name__ == '__main__':
 
     # concentration problem
     dt = fem.Constant(submesh_positive_am, dt_)
-    VC = fem.functionspace(submesh_positive_am, ("CG", p))
+    element = basix.ufl.element(basix.ElementFamily.P, basix.CellType.tetrahedron, args.p, basix.LagrangeVariant.gll_warped, dtype=dolfinx.default_real_type)
+    VC = fem.functionspace(submesh_positive_am, element)
 
     c, q = fem.Function(VC), ufl.TestFunction(VC)
     c0 = fem.Function(VC)
@@ -664,6 +668,8 @@ if __name__ == '__main__':
         "time step [s]": dt_ * ref["t"],
         "Positive Wa": args.Wa_p,
         "Kr": args.kr,
+        "polynomial approximation order (p)": args.p,
+        "penalty parameter (gamma)": args.gamma,
         "kinetics": args.kinetics,
         "dofs": n_dofs,
         "n_procs": comm.Get_size(),
