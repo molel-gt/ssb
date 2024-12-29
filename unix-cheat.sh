@@ -80,3 +80,6 @@ git push --tags
 sinfo --partition=cpu-amd -o "%50N  %10c  %20m  %30G "
 
 pace-check-queue cpu-amd
+
+# check resource usage
+sacct --format='Account,JobID,JobName,CPUTime%15,TotalCPU,Elapsed%15,MaxRS,MaxVMSize,ReqNodes,NCPU,Partition,QOS,NodeList'
