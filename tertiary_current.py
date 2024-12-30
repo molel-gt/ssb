@@ -29,13 +29,14 @@ import commons, constants, mesh_utils, solvers, solver_params, utils
 
 
 rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
-rc('text', usetex=True)
+# rc('text', usetex=True)
 params = {
     'figure.figsize': (5, 4.5),
     'font.size' : 12,
     'axes.labelsize': 14,
     'legend.fontsize': 12,
 }
+
 plt.rcParams.update(params)
 
 R = 8.314
