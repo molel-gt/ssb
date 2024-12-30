@@ -25,19 +25,10 @@ from petsc4py import PETSc
 from slepc4py import SLEPc
 from ufl import dot, grad, inner
 
-import commons, constants, mesh_utils, solvers, solver_params, utils
+import commons, constants, mesh_utils, plot_opts, solvers, solver_params, utils
 
 
-rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
-# rc('text', usetex=True)
-params = {
-    'figure.figsize': (5, 4.5),
-    'font.size' : 12,
-    'axes.labelsize': 14,
-    'legend.fontsize': 12,
-}
-
-plt.rcParams.update(params)
+plt.rcParams.update(plot_opts.params)
 
 R = 8.314
 T = 298
