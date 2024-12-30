@@ -36,6 +36,7 @@ if __name__ == '__main__':
     resolution = args.resolution
     gmsh.initialize()
     gmsh.model.add('cell')
+    # gmsh.option.setNumber('Mesh.SubdivisionAlgorithm', 3)
     if not args.refine:
         gmsh.option.setNumber("Mesh.CharacteristicLengthMax", resolution)
     cyl = gmsh.model.occ.addCylinder(0, 0, 0, 0, 0, 75/Lz, 20/Lz)
