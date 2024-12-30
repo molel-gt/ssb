@@ -216,6 +216,7 @@ if __name__ == '__main__':
     positive_am_potential_file = os.path.join(results_dir, "positive_am_potential.bp")
     current_file = os.path.join(results_dir, "current.bp")
     concentration_file = os.path.join(results_dir, "concentration.bp")
+    potential_plot_file = os.path.join(results_dir, "potential.eps")
     concentration_plot_file = os.path.join(results_dir, "concentration.eps")
     simulation_metafile = os.path.join(results_dir, "simulation.json")
     convergence_history = os.path.join(results_dir, "convergence.eps")
@@ -710,8 +711,7 @@ if __name__ == '__main__':
         points = np.zeros((3, n_points))
         points[2] = z
 
-        # obtain values to plot
-        u_values = []
+        # obtain concentration values to plot
         cells = []
         points_on_proc = []
         bb_trees = bb_tree(submesh_positive_am, submesh_positive_am.topology.dim)
@@ -720,28 +720,51 @@ if __name__ == '__main__':
         # Choose one of the cells that contains the point
         colliding_cells = compute_colliding_cells(submesh_positive_am, cell_candidates, points.T)
 
+        # obtain potential values to plot
+        cells_d = []
+        points_on_proc_d = []
+        bb_trees_d = bb_tree(domain, domain.topology.dim)
+        # Find cells whose bounding-box collide with the the points
+        cell_candidates_d = compute_collisions_points(bb_trees_d, points.T)
+        # Choose one of the cells that contains the point
+        colliding_cells_d = compute_colliding_cells(domain, cell_candidates_d, points.T)
+
         for i in range(n_points):
             if len(colliding_cells.links(i)) > 0:
                 points_on_proc.append(points.T[i])
                 cells.append(colliding_cells.links(i)[0])
 
+            if len(colliding_cells_d.links(i)) > 0:
+                points_on_proc_d.append(points.T[i])
+                cells_d.append(colliding_cells_d.links(i)[0])
+
         points_on_proc = np.array(points_on_proc, dtype=np.float64)
+        points_on_proc_d = np.array(points_on_proc_d, dtype=np.float64)
         c_values_mid = c.eval(points_on_proc, cells)
-        plot_val = np.hstack((points_on_proc, c_values_mid))
+        c_plot_vals = np.hstack((points_on_proc, c_values_mid))
+
+        u_values_mid = u.eval(points_on_proc_d, cells_d)
+        u_plot_vals = np.hstack((points_on_proc_d, u_values_mid))
 
         if comm_rank != 0:
-            req = comm.send(plot_val, dest=0, tag=11)
+            req = comm.send(c_plot_vals, dest=0, tag=11)
+            req2 = comm.send(u_plot_vals, dest=0, tag=13)
 
         if comm_rank == 0:
-            all_vals = plot_val
+            all_c_vals = c_plot_vals
+            all_u_vals = u_plot_vals
             for rank in range(1, comm_size):
-                addtnl = comm.recv(source=rank, tag=11)
-                all_vals = np.vstack((all_vals, addtnl))
+                addtnl_c = comm.recv(source=rank, tag=11)
+                all_c_vals = np.vstack((all_c_vals, addtnl_c))
 
-            vals = all_vals[all_vals[:, 2].argsort()]
+                addtnl_u = comm.recv(source=rank, tag=13)
+                all_u_vals = np.vstack((all_u_vals, addtnl_u))
+
+            c_vals = all_c_vals[all_c_vals[:, 2].argsort()]
+            u_vals = all_u_vals[all_u_vals[:, 2].argsort()]
 
             fig, ax = plt.subplots()
-            ax.plot(vals[:, 2], vals[:, 3], 'k', label=r'0.5$L_x$,0.5$L_y$', linewidth=1)
+            ax.plot(c_vals[:, 2], c_vals[:, 3], 'k', label=r'0.5$L_x$,0.5$L_y$', linewidth=1)
             ax.grid(True)
             ax.legend()
             ax.set_xlim([0, 1])
@@ -752,4 +775,18 @@ if __name__ == '__main__':
             ax.set_title(r'$\mathrm{Wa}$ = ' + f'{args.Wa_p}' + ',' + r'$\frac{\kappa}{\sigma}$ = ' + f'{args.kr}')
             plt.tight_layout()
             plt.savefig(concentration_plot_file)
+            plt.show()
+
+            fig, ax = plt.subplots()
+            ax.plot(u_vals[:, 2], u_vals[:, 3], 'k', label=r'0.5$L_x$,0.5$L_y$', linewidth=1)
+            ax.grid(True)
+            ax.legend()
+            ax.set_xlim([0, 1])
+            ax.set_ylim([0, 1])
+            ax.set_box_aspect(1)
+            ax.set_ylabel(r'$\hat{\phi}$', rotation=90, labelpad=0, fontsize='xx-large')
+            ax.set_xlabel(r'$\hat{x}$')
+            ax.set_title(r'$\mathrm{Wa}$ = ' + f'{args.Wa_p}' + ',' + r'$\frac{\kappa}{\sigma}$ = ' + f'{args.kr}')
+            plt.tight_layout()
+            plt.savefig(potential_plot_file)
             plt.show()
