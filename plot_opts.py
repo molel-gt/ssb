@@ -1,0 +1,13 @@
+# options for matplotlib.plt
+params = {
+    'figure.figsize': (5, 4.5),
+    'font.size' : 12,
+    'font.family': 'monospace',
+    'axes.labelsize': 14,
+    'legend.fontsize': 12,
+    'xtick.direction': "in",
+    'xtick.minor.visible': True,
+    'ytick.direction': "in",
+    'ytick.minor.visible': True,
+    'savefig.format': 'eps',
+}
