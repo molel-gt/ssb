@@ -742,10 +742,16 @@ if __name__ == '__main__':
         points_on_proc = np.array(points_on_proc, dtype=np.float64)
         points_on_proc_d = np.array(points_on_proc_d, dtype=np.float64)
         c_values_mid = c.eval(points_on_proc, cells)
-        c_plot_vals = np.hstack((points_on_proc, c_values_mid))
+        if np.all(c_values_mid.shape):
+            c_plot_vals = np.hstack((points_on_proc, c_values_mid))
+        else:
+            c_plot_vals = np.empty((0, 4))
 
         u_values_mid = u.eval(points_on_proc_d, cells_d)
-        u_plot_vals = np.hstack((points_on_proc_d, u_values_mid))
+        if np.all(u_values_mid.shape):
+            u_plot_vals = np.hstack((points_on_proc_d, u_values_mid))
+        else:
+            u_plot_vals = np.empty((0, 4))
 
         if comm_rank != 0:
             req = comm.send(c_plot_vals, dest=0, tag=11)
