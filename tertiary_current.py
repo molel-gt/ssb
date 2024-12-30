@@ -17,7 +17,7 @@ import scipy
 import scipy.special as sp
 import ufl
 
-from dolfinx import cpp, fem, io, mesh, log
+from dolfinx import cpp, default_real_type, fem, io, mesh, log
 from dolfinx.geometry import bb_tree, compute_collisions_points, compute_colliding_cells
 from matplotlib import rc
 from mpi4py import MPI
@@ -193,6 +193,8 @@ if __name__ == '__main__':
     markers = commons.Markers()
     solver_types = SolverTypes()
     comm = MPI.COMM_WORLD
+    comm_rank = comm.Get_rank()
+    comm_size = comm.Get_size()
 
     dimensions = utils.extract_dimensions_from_meshfolder(args.mesh_folder)
     LX, LY, LZ = [float(vv) * micron for vv in dimensions.split("-")]
@@ -674,7 +676,7 @@ if __name__ == '__main__':
         "dofs": n_dofs,
         "n_procs": comm.Get_size(),
     }
-    if comm.rank == 0:
+    if comm_rank == 0:
         utils.print_dict(metadata, padding=50)
         with open(simulation_metafile, "w", encoding='utf-8') as f:
             json.dump(metadata, f, ensure_ascii=False, indent=4)
@@ -698,10 +700,11 @@ if __name__ == '__main__':
     with io.VTXWriter(comm, positive_am_potential_file, [u_1], engine="BP5") as vtx:
         vtx.write(0)
 
-    if args.plot and comm.Get_size() == 1:
+    if args.plot:
         n_points = 1000
+        if comm_rank == 0:
+            all_vals = np.zeros((n_points, 4))
         tol = 1e-8  # Avoid hitting the outside of the domain
-        bb_trees = bb_tree(submesh_positive_am, submesh_positive_am.topology.dim)
 
         z = np.linspace(tol, 1 - tol, n_points)
         points = np.zeros((3, n_points))
@@ -711,30 +714,42 @@ if __name__ == '__main__':
         u_values = []
         cells = []
         points_on_proc = []
+        bb_trees = bb_tree(submesh_positive_am, submesh_positive_am.topology.dim)
         # Find cells whose bounding-box collide with the the points
         cell_candidates = compute_collisions_points(bb_trees, points.T)
         # Choose one of the cells that contains the point
         colliding_cells = compute_colliding_cells(submesh_positive_am, cell_candidates, points.T)
 
         for i in range(n_points):
-            point = points.T[i]
-
             if len(colliding_cells.links(i)) > 0:
-                points_on_proc.append(point)
+                points_on_proc.append(points.T[i])
                 cells.append(colliding_cells.links(i)[0])
 
         points_on_proc = np.array(points_on_proc, dtype=np.float64)
         c_values_mid = c.eval(points_on_proc, cells)
+        plot_val = np.hstack((points_on_proc, c_values_mid))
 
-        fig, ax = plt.subplots()
-        ax.plot(points_on_proc[:, 2], c_values_mid, 'k', label=r'0.5$L_x$,0.5$L_y$', linewidth=1)
-        ax.grid(True)
-        ax.legend()
-        ax.set_xlim([0, 1])
-        ax.set_box_aspect(1)
-        ax.set_ylabel(r'$\hat{c}$', rotation=90, labelpad=0, fontsize='xx-large')
-        ax.set_xlabel(r'$\hat{x}$')
-        ax.set_title(r'$\mathrm{Wa}$ = ' + f'{args.Wa_p}' + ',' + r'$\frac{\kappa}{\sigma}$ = ' + f'{args.kr}')
-        plt.tight_layout()
-        plt.savefig(concentration_plot_file)
-        plt.show()
+        if comm_rank != 0:
+            req = comm.send(plot_val, dest=0, tag=11)
+
+        if comm_rank == 0:
+            all_vals = plot_val
+            for rank in range(1, comm_size):
+                addtnl = comm.recv(source=rank, tag=11)
+                all_vals = np.vstack((all_vals, addtnl))
+
+            vals = all_vals[all_vals[:, 2].argsort()]
+
+            fig, ax = plt.subplots()
+            ax.plot(vals[:, 2], vals[:, 3], 'k', label=r'0.5$L_x$,0.5$L_y$', linewidth=1)
+            ax.grid(True)
+            ax.legend()
+            ax.set_xlim([0, 1])
+            ax.set_ylim([0, 1])
+            ax.set_box_aspect(1)
+            ax.set_ylabel(r'$\hat{c}$', rotation=90, labelpad=0, fontsize='xx-large')
+            ax.set_xlabel(r'$\hat{x}$')
+            ax.set_title(r'$\mathrm{Wa}$ = ' + f'{args.Wa_p}' + ',' + r'$\frac{\kappa}{\sigma}$ = ' + f'{args.kr}')
+            plt.tight_layout()
+            plt.savefig(concentration_plot_file)
+            plt.show()
