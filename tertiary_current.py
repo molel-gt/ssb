@@ -743,13 +743,19 @@ if __name__ == '__main__':
         points_on_proc_d = np.array(points_on_proc_d, dtype=np.float64)
         c_values_mid = c.eval(points_on_proc, cells)
         if np.all(c_values_mid.shape):
-            c_plot_vals = np.hstack((points_on_proc, c_values_mid))
+            try:
+                c_plot_vals = np.hstack((points_on_proc, c_values_mid))
+            except ValueError:
+                c_plot_vals = np.empty((0, 4))
         else:
             c_plot_vals = np.empty((0, 4))
 
         u_values_mid = u.eval(points_on_proc_d, cells_d)
         if np.all(u_values_mid.shape):
-            u_plot_vals = np.hstack((points_on_proc_d, u_values_mid))
+            try:
+                u_plot_vals = np.hstack((points_on_proc_d, u_values_mid))
+            except ValueError:
+                u_plot_vals = np.empty((0, 4))
         else:
             u_plot_vals = np.empty((0, 4))
 
