@@ -157,6 +157,7 @@ if __name__ == '__main__':
     parser.add_argument("--kr", help="ratio of ionic to electronic conductivity", nargs='?', const=1, default=1, type=float)
     parser.add_argument("--gamma", help="interior penalty parameter", nargs='?', const=1, default=15, type=float)
     parser.add_argument("-p", "--p", help="polynomial approximation order", nargs='?', const=1, default=4, type=int)
+    parser.add_argument("-dt", "--dt", help="minimum normalized time step", nargs='?', const=1, default=1e-6, type=float)
     parser.add_argument("--atol", help="solver absolute tolerance", nargs='?', const=1, default=1e-12, type=float)
     parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-9, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
@@ -178,7 +179,7 @@ if __name__ == '__main__':
     Wa_p = args.Wa_p
     gamma = args.gamma
     kappa_elec = args.kr * kappa_pos_am
-    dt_ = 1e-7
+    dt_ = args.dt
     D = 1e-15
     TIME = 1 * dt_
 
@@ -660,7 +661,7 @@ if __name__ == '__main__':
         "c ref [mol/m3]": ref["c"],
         "phi ref [V]": ref["phi"],
         "t ref [s]": ref["t"],
-        "time step [s]": dt_ * ref["t"],
+        "min time step [s]": args.dt * ref["t"],
         "Positive Wa": args.Wa_p,
         "Kr": args.kr,
         "polynomial approximation order (p)": args.p,
