@@ -61,7 +61,7 @@ class SolverTypes:
         return "block_iterative"
 
 
-def define_interior_eq(domain, degree,  submesh, submesh_to_mesh, value, kappa):
+def define_interior_eq(domain, degree,  submesh, submesh_to_mesh, value, kappa, cell_type=basix.CellType.tetrahedron):
     # Compute map from parent entity to submesh cell
     codim = domain.topology.dim - submesh.topology.dim
     ptdim = domain.topology.dim - codim
@@ -72,7 +72,9 @@ def define_interior_eq(domain, degree,  submesh, submesh_to_mesh, value, kappa):
     mesh_to_submesh = np.full(num_entities, -1)
     mesh_to_submesh[submesh_to_mesh] = np.arange(len(submesh_to_mesh), dtype=np.int32)
 
-    V = fem.functionspace(submesh, ("Lagrange", degree))
+    el = basix.ufl.element(basix.ElementFamily.P, cell_type, degree, basix.LagrangeVariant.gll_warped, dtype=dolfinx.default_real_type)
+    # el = ("CG", degree)
+    V = fem.functionspace(submesh, el)
     u = fem.Function(V)
     v = ufl.TestFunction(V)
     ct_r = mesh.meshtags(domain, domain.topology.dim, submesh_to_mesh, np.full_like(submesh_to_mesh, 1, dtype=np.int32))
@@ -157,6 +159,7 @@ if __name__ == '__main__':
     parser.add_argument("--kr", help="ratio of ionic to electronic conductivity", nargs='?', const=1, default=1, type=float)
     parser.add_argument("--gamma", help="interior penalty parameter", nargs='?', const=1, default=15, type=float)
     parser.add_argument("-p", "--p", help="polynomial approximation order", nargs='?', const=1, default=4, type=int)
+    parser.add_argument("-cell_type", "--cell_type", help="cell type to use", nargs='?', const=1, default="tetrahedron", type=str)
     parser.add_argument("-dt", "--dt", help="minimum normalized time step", nargs='?', const=1, default=1e-7, type=float)
     parser.add_argument("--atol", help="solver absolute tolerance", nargs='?', const=1, default=1e-12, type=float)
     parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-9, type=float)
@@ -188,6 +191,7 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     comm_rank = comm.Get_rank()
     comm_size = comm.Get_size()
+    cell_type = getattr(basix.CellType, args.cell_type)
 
     dimensions = utils.extract_dimensions_from_meshfolder(args.mesh_folder)
     LX, LY, LZ = [float(vv) * micron for vv in dimensions.split("-")]
@@ -289,8 +293,8 @@ if __name__ == '__main__':
         f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
 
 
-    u_0, F_00, m_to_elec = define_interior_eq(domain, 1, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec)
-    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 1, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am)
+    u_0, F_00, m_to_elec = define_interior_eq(domain, 1, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec, cell_type=cell_type)
+    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 1, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am, cell_type=cell_type)
     u_0.name = "u_b"
     u_1.name = "u_t"
 
@@ -352,8 +356,8 @@ if __name__ == '__main__':
 
     # concentration problem
     dt = fem.Constant(submesh_positive_am, dt_)
-    element = basix.ufl.element(basix.ElementFamily.P, basix.CellType.tetrahedron, args.p, basix.LagrangeVariant.gll_warped, dtype=dolfinx.default_real_type)
-    VC = fem.functionspace(submesh_positive_am, element)
+    el = basix.ufl.element(basix.ElementFamily.P, cell_type, args.p, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
+    VC = fem.functionspace(submesh_positive_am, el)
 
     c, q = fem.Function(VC), ufl.TestFunction(VC)
     c0 = fem.Function(VC)
@@ -526,8 +530,6 @@ if __name__ == '__main__':
                 'ksp_type': 'preonly',
                 'pc_type': 'lu',
                 'pc_factor_mat_solver_type': 'mumps',
-                'ksp_gmres_restart': 75,
-
                 }
             solver = solvers.NewtonSolver(
                 F,
@@ -539,7 +541,7 @@ if __name__ == '__main__':
                 )
             PETSc.Log().begin()
             t0 = time.time()
-            solver.solve(1e-7, beta=0.5)
+            solver.solve(1e-8, beta=0.5)
             t1 = time.time()
             # PETSc.Log().view(log_viewer)
         elif args.solver_type == solver_types.nested_iterative:
