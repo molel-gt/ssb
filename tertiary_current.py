@@ -567,7 +567,7 @@ if __name__ == '__main__':
             IS_c = nested_IS[0][2]
             snes.getKSP().getPC().setFieldSplitIS(("u", IS_u), ("c", IS_c))
             opts = PETSc.Options()
-            for kopt, vopt in solver_params.LINESEARCH:
+            for kopt, vopt in solver_params.LINESEARCH.items():
                 opts[kopt] = vopt
 
             opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
