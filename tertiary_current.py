@@ -72,8 +72,8 @@ def define_interior_eq(domain, degree,  submesh, submesh_to_mesh, value, kappa, 
     mesh_to_submesh = np.full(num_entities, -1)
     mesh_to_submesh[submesh_to_mesh] = np.arange(len(submesh_to_mesh), dtype=np.int32)
 
-    el = basix.ufl.element(basix.ElementFamily.P, cell_type, degree, basix.LagrangeVariant.gll_warped, dtype=dolfinx.default_real_type)
-    # el = ("CG", degree)
+    # el = basix.ufl.element(basix.ElementFamily.P, cell_type, degree, basix.LagrangeVariant.gll_warped, dtype=dolfinx.default_real_type)
+    el = ("CG", degree)
     V = fem.functionspace(submesh, el)
     u = fem.Function(V)
     v = ufl.TestFunction(V)
@@ -356,7 +356,8 @@ if __name__ == '__main__':
 
     # concentration problem
     dt = fem.Constant(submesh_positive_am, dt_)
-    el = basix.ufl.element(basix.ElementFamily.P, cell_type, args.p, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
+    # el = basix.ufl.element(basix.ElementFamily.P, cell_type, args.p, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
+    el = ("CG", args.p)
     VC = fem.functionspace(submesh_positive_am, el)
 
     c, q = fem.Function(VC), ufl.TestFunction(VC)
