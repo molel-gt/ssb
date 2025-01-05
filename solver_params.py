@@ -35,3 +35,9 @@ AMG_TYPES = {
     "gamg": gamg,
     "hypre": boomeramg,
 }
+
+LINESEARCH = {
+    "snes_linesearch_type": "basic",
+    'snes_linesearch_monitor': None,
+    'snes_monitor': None,
+}
