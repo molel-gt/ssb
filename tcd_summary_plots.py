@@ -53,7 +53,7 @@ if __name__ == '__main__':
     plt.savefig(current_ratios_plots, bbox_inches='tight')
 
     fig, ax = plt.subplots()
-    ax.plot(df['n_procs'], df['dofs'] * df['n_procs'] / df['solve time [s]'], 'o')
+    ax.plot(df['n_procs'], df['dofs'] / df['n_procs'] / df['solve time [s]'], 'o')
     ax.set_xlabel('nprocs')
     ax.set_ylabel('dofs/s')
     ax.set_box_aspect(1)
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     plt.savefig(solve_time_nprocs_plots, bbox_inches='tight')
 
     fig, ax = plt.subplots()
-    ax.plot(df['dofs'], df['dofs'] * df['n_procs'] / df['solve time [s]'], 'o')
+    ax.plot(df['dofs'], df['dofs'] / df['n_procs'] / df['solve time [s]'], 'o')
     ax.set_xlabel('DOFs')
     ax.set_ylabel('dofs/s')
     ax.set_box_aspect(1)
