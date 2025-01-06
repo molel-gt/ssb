@@ -637,7 +637,36 @@ if __name__ == '__main__':
             x.destroy()
             Pmat.destroy()
         elif args.solver_type == solver_types.block_iterative:
-            raise ValueError("{args.solver_type} not yet implemented")
+            opts = PETSc.Options()
+            solver = scifem.BlockedNewtonSolver(F, [u_0, u_1, c], bcs=bcs, J=J, entity_maps=entity_maps)
+            ksp = solver.krylov_solver
+            ksp.setType(PETSc.KSP.Type.FGMRES)
+            ksp.setTolerances(rtol=1e-7)
+            pc = ksp.getPC()
+            pc.setType("fieldsplit")
+            pc.setFieldSplitIS(("u0", IS_u0), ("u1", IS_u1), ("c", IS_c))
+            ksp_u0, ksp_u1, ksp_c = pc.getFieldSplitSubKSP()
+            pc.setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
+            ksp_u0.setType(PETSc.KSP.Type.FGMRES)
+            ksp_u0.getPC().setType(PETSc.PC.Type.JACOBI)
+            ksp_u1.setType(PETSc.KSP.Type.FGMRES)
+            ksp_u1.getPC().setType(PETSc.PC.Type.JACOBI)
+            opts[f"{ksp_u0.getOptionsPrefix()}pc_jacobi_fixdiagonal"] = True
+            opts[f"{ksp_u1.getOptionsPrefix()}pc_jacobi_fixdiagonal"] = True
+            opts[f'{ksp_u0.getOptionsPrefix()}ksp_gmres_restart'] = 75
+            opts[f'{ksp_u1.getOptionsPrefix()}ksp_gmres_restart'] = 75
+            opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 75
+            ksp_c.setType(PETSc.KSP.Type.FGMRES)
+            ksp_c.getPC().setType(args.amg_type)
+            for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
+                opts[f"{ksp_c.getOptionsPrefix()}{optk}"] = optv
+            ksp_u0.setFromOptions()
+            ksp_u1.setFromOptions()
+            ksp_c.setFromOptions()
+            ksp.setFromOptions()
+            t0 = time.time()
+            solver.solve()
+            t1 = time.time()
         else:
             raise ValueError("Unknown solver type!")
 
