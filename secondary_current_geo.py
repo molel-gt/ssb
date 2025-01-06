@@ -19,6 +19,7 @@ if __name__ == '__main__':
     parser.add_argument("-d", '--dimensions', help='integer representation of Lx-Ly-Lz of the grid',  nargs='?', const=1, default='40-40-75')
     parser.add_argument("-r", '--resolution', help=f'max resolution (units of microns)', nargs='?', const=1, default=1, type=float)
     parser.add_argument("-f", "--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument("-hexahedron", "--hexahedron", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
 
     workdir = os.path.join("output", args.name_of_study, args.dimensions, str(args.resolution))
@@ -36,7 +37,8 @@ if __name__ == '__main__':
     resolution = args.resolution
     gmsh.initialize()
     gmsh.model.add('cell')
-    # gmsh.option.setNumber('Mesh.SubdivisionAlgorithm', 3)
+    if args.hexahedron:
+        gmsh.option.setNumber('Mesh.SubdivisionAlgorithm', 2)
     if not args.refine:
         gmsh.option.setNumber("Mesh.CharacteristicLengthMax", resolution)
     cyl = gmsh.model.occ.addCylinder(0, 0, 0, 0, 0, 75/Lz, 20/Lz)
