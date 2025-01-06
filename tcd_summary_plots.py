@@ -46,7 +46,7 @@ if __name__ == '__main__':
     solve_time_nprocs_plots = os.path.join(workdir, "solve-time-nprocs.eps")
     solve_time_dofs_plots = os.path.join(workdir, "solve-time-dofs.eps")
     fig, ax = plt.subplots()
-    ax.semilogy(df['dofs'], df['I left [A]']/df['I interface [A]'], 'o')
+    ax.semilogy(df['dofs'], df['I interface [A]']/df['I left [A]'], 'o')
     ax.set_xlabel('DOFs')
     ax.set_box_aspect(1)
     plt.tight_layout()
