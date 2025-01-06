@@ -61,7 +61,7 @@ class SolverTypes:
         return "block_iterative"
 
 
-def define_interior_eq(domain, degree,  submesh, submesh_to_mesh, value, kappa, cell_type=basix.CellType.tetrahedron):
+def define_interior_eq(domain, degree,  submesh, submesh_to_mesh, value, kappa, cell_type):
     # Compute map from parent entity to submesh cell
     codim = domain.topology.dim - submesh.topology.dim
     ptdim = domain.topology.dim - codim
@@ -293,8 +293,8 @@ if __name__ == '__main__':
         f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
 
 
-    u_0, F_00, m_to_elec = define_interior_eq(domain, 1, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec, cell_type=cell_type)
-    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 1, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am, cell_type=cell_type)
+    u_0, F_00, m_to_elec = define_interior_eq(domain, 1, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec, cell_type)
+    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 1, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am, cell_type)
     u_0.name = "u_b"
     u_1.name = "u_t"
 
@@ -556,8 +556,8 @@ if __name__ == '__main__':
             snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
             snes.getKSP().setOptionsPrefix("snes_")
             snes.getKSP().setOperators(Jmat, Pmat)
-            # nullspace = PETSc.NullSpace().create(constant=True)
-            # PETSc.Mat.setNearNullSpace(Jmat, nullspace)
+            nullspace = PETSc.NullSpace().create(constant=True)
+            PETSc.Mat.setNearNullSpace(Jmat, nullspace)
             snes.getKSP().setTolerances(rtol=1e-7)
             snes.setErrorIfNotConverged(True)
             snes.getKSP().setErrorIfNotConverged(True)
@@ -590,9 +590,6 @@ if __name__ == '__main__':
             opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 75
             opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 75
             opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 75
-
-            # opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_modifiedgramschmidt'] = True
-            # opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_modifiedgramschmidt'] = True
 
             opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
 
