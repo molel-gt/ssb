@@ -14,7 +14,7 @@ plt.rcParams.update(plot_opts.params)
 data_cols = ['I left [A]', 'I interface [A]', 'I right [A]', 'solve time [s]', 'Positive Wa', 'Kr', 'dofs', 'n_procs']
 
 
-def json_data(cols=data_cols, kinetics_type="butler_volmer"):
+def json_data(cols=data_cols, kinetics_type="butler_volmer", refined=False):
     process = subprocess.Popen('find output/tertiary_current/40-40-75 -name simulation.json',
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, text=True)
     rows = []
@@ -24,6 +24,8 @@ def json_data(cols=data_cols, kinetics_type="butler_volmer"):
 
     for f in sim_jsons:
         if kinetics_type not in f:
+            continue
+        if not refined and 'refined' in f:
             continue
         with open(f, "r") as fp:
             try:
