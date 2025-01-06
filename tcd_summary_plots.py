@@ -50,6 +50,7 @@ if __name__ == '__main__':
     fig, ax = plt.subplots()
     ax.semilogx(df['dofs'], df['I interface [A]']/df['I left [A]'], 'o')
     ax.set_xlabel('DOFs')
+    ax.set_ylabel(r'$\frac{I_c}{I_{\phi}}$')
     ax.set_box_aspect(1)
     plt.tight_layout()
     plt.savefig(current_ratios_plots, bbox_inches='tight')
