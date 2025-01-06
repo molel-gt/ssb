@@ -2,6 +2,7 @@
 import argparse
 import datetime
 import json
+import logging
 import os
 import resource
 import time
@@ -13,6 +14,7 @@ import dolfinx.fem.petsc
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import scifem
 import scipy
 import scipy.special as sp
 import ufl
@@ -29,6 +31,7 @@ import commons, constants, mesh_utils, plot_opts, solvers, solver_params, utils
 
 
 plt.rcParams.update(plot_opts.params)
+logging.basicConfig(level=logging.INFO)
 
 R = 8.314
 T = 298
@@ -532,17 +535,18 @@ if __name__ == '__main__':
                 'pc_type': 'lu',
                 'pc_factor_mat_solver_type': 'mumps',
                 }
-            solver = solvers.NewtonSolver(
-                F,
-                J,
-                [u_0, u_1, c],
-                bcs=bcs,
-                max_iterations=1000,
-                petsc_options=opts,
-                )
-            PETSc.Log().begin()
+            # solver = solvers.NewtonSolver(
+            #     F,
+            #     J,
+            #     [u_0, u_1, c],
+            #     bcs=bcs,
+            #     max_iterations=1000,
+            #     petsc_options=opts,
+            #     )
+            solver = scifem.NewtonSolver(F, J, [u_0, u_1, c], max_iterations=25, bcs=bcs, petsc_options=opts)
+            # PETSc.Log().begin()
             t0 = time.time()
-            solver.solve(1e-8, beta=0.5)
+            solver.solve()
             t1 = time.time()
             # PETSc.Log().view(log_viewer)
         elif args.solver_type == solver_types.nested_iterative:
