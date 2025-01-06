@@ -26,8 +26,11 @@ def json_data(cols=data_cols, kinetics_type="butler_volmer"):
         if kinetics_type not in f:
             continue
         with open(f, "r") as fp:
-            data = json.load(fp)
-            row_data = {k: data[k] for k in cols}
+            try:
+                data = json.load(fp)
+                row_data = {k: data[k] for k in cols}
+            except JSONDecodeError:
+                print(f"Could not decode {f}")
         rows.append(row_data)
 
     return rows
