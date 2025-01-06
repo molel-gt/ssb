@@ -29,7 +29,7 @@ def json_data(cols=data_cols, kinetics_type="butler_volmer"):
             try:
                 data = json.load(fp)
                 row_data = {k: data[k] for k in cols}
-            except JSONDecodeError:
+            except json.decoder.JSONDecodeError:
                 print(f"Could not decode {f}")
         rows.append(row_data)
 
