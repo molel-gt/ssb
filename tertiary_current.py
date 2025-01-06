@@ -567,7 +567,9 @@ if __name__ == '__main__':
             snes.getKSP().setErrorIfNotConverged(True)
             snes.getKSP().setConvergenceHistory()
             snes.getKSP().getPC().setType("fieldsplit")
-            IS_u = nested_IS[0][0].sum(nested_IS[0][1])
+            IS_u0 = nested_IS[0][0]
+            IS_u1 = nested_IS[0][1]
+            IS_u = IS_u0.sum(IS_u1)
             IS_c = nested_IS[0][2]
             snes.getKSP().getPC().setFieldSplitIS(("u", IS_u), ("c", IS_c))
             opts = PETSc.Options()
