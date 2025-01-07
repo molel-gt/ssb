@@ -75,7 +75,8 @@ if __name__ == '__main__':
 
     strong_scaling_df = df[np.isclose(df['dofs'], 3193836, atol=1e4)]
     fig, ax = plt.subplots()
-    ax.plot(strong_scaling_df['n_procs'], strong_scaling_df['solve time [s]']/np.min(strong_scaling_df['solve time [s]']), 'kx-')
+    solve_time_1proc = strong_scaling_df[np.isclose(strong_scaling_df['n_procs'], 1)]["solve time [s]"]
+    ax.plot(strong_scaling_df['n_procs'], solve_time_1proc/strong_scaling_df['solve time [s]'], 'kx-')
     ax.plot([1, np.max(strong_scaling_df['n_procs'])], [1, np.max(strong_scaling_df['n_procs'])], 'r--')
     ax.set_xlabel('No. of Processors')
     ax.set_ylabel("Speedup")
