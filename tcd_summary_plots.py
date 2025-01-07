@@ -11,7 +11,7 @@ import plot_opts, utils
 
 plt.rcParams.update(plot_opts.params)
 
-data_cols = ['I left [A]', 'I interface [A]', 'I right [A]', 'solve time [s]', 'Positive Wa', 'Kr', 'dofs', 'n_procs']
+data_cols = ['I left [A]', 'I interface [A]', 'I right [A]', 'solve time [s]', 'Positive Wa', 'Kr', 'dofs', 'n_procs', 'polynomial approximation order (p)', 'penalty parameter (gamma)']
 
 
 def json_data(cols=data_cols, kinetics_type="butler_volmer", refined=False):
@@ -33,7 +33,7 @@ def json_data(cols=data_cols, kinetics_type="butler_volmer", refined=False):
                 row_data = {k: data[k] for k in cols}
             except json.decoder.JSONDecodeError:
                 print(f"Could not decode {f}")
-        if row_data['polynomial approximation order (p)'] is None:
+        if row_data.get('polynomial approximation order (p)') is None:
             continue
         if row_data.get('polynomial approximation order (p)') == 4:
             rows.append(row_data)
