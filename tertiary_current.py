@@ -642,17 +642,38 @@ if __name__ == '__main__':
             opts = PETSc.Options()
             solver = scifem.BlockedNewtonSolver(F, [u_0, u_1, c], bcs=bcs, J=J, entity_maps=entity_maps)
             ksp = solver.krylov_solver
+            opts.clear()
+            ksp.setOptionsPrefix("ksp_")
             ksp.setType(PETSc.KSP.Type.FGMRES)
             ksp.setTolerances(rtol=1e-7)
+            ksp.setErrorIfNotConverged(True)
             pc = ksp.getPC()
             pc.setType("fieldsplit")
+            Jmat = fem.petsc.create_matrix_nest(J)
+            nested_IS = Jmat.getNestISs()
+            IS_u0 = nested_IS[0][0]
+            IS_u1 = nested_IS[0][1]
+            IS_u = IS_u0.sum(IS_u1)
+            IS_c = nested_IS[0][2]
             pc.setFieldSplitIS(("u0", IS_u0), ("u1", IS_u1), ("c", IS_c))
+            # pc.setFieldSplitIS(("u", IS_u), ("c", IS_c))
             ksp_u0, ksp_u1, ksp_c = pc.getFieldSplitSubKSP()
+            # ksp_u, ksp_c = pc.getFieldSplitSubKSP()
             pc.setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
+            # pc.setFieldSplitType(PETSc.PC.CompositeType.SCHUR)
+            pc.setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
+            pc.setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
+            # opts[f"{ksp.getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+            # opts[f"{ksp.getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
+            # ksp_u.setType(PETSc.KSP.Type.FGMRES)
+            # ksp_u.getPC().setType(PETSc.PC.Type.JACOBI)
             ksp_u0.setType(PETSc.KSP.Type.FGMRES)
-            ksp_u0.getPC().setType(PETSc.PC.Type.JACOBI)
+            ksp_u0.getPC().setType(PETSc.PC.Type.SOR)
             ksp_u1.setType(PETSc.KSP.Type.FGMRES)
-            ksp_u1.getPC().setType(PETSc.PC.Type.JACOBI)
+            ksp_u1.getPC().setType(PETSc.PC.Type.SOR)
+            opts[f'{ksp.getOptionsPrefix()}ksp_gmres_restart'] = 75
+            # opts[f"{ksp_u.getOptionsPrefix()}pc_jacobi_fixdiagonal"] = True
+            # opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 75
             opts[f"{ksp_u0.getOptionsPrefix()}pc_jacobi_fixdiagonal"] = True
             opts[f"{ksp_u1.getOptionsPrefix()}pc_jacobi_fixdiagonal"] = True
             opts[f'{ksp_u0.getOptionsPrefix()}ksp_gmres_restart'] = 75
@@ -662,10 +683,12 @@ if __name__ == '__main__':
             ksp_c.getPC().setType(args.amg_type)
             for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
                 opts[f"{ksp_c.getOptionsPrefix()}{optk}"] = optv
+            # ksp_u.setFromOptions()
             ksp_u0.setFromOptions()
             ksp_u1.setFromOptions()
             ksp_c.setFromOptions()
             ksp.setFromOptions()
+            ksp.view()
             t0 = time.time()
             solver.solve()
             t1 = time.time()
