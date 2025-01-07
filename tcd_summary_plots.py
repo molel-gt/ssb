@@ -79,7 +79,7 @@ if __name__ == '__main__':
     strong_scaling_df = df[np.logical_and(np.isclose(df['dofs'], 3193836, atol=1e4), np.isclose(df['Positive Wa'], 1))]
     strong_scaling_df = strong_scaling_df[np.isclose(strong_scaling_df['penalty parameter (gamma)'], 1e-4)]
     fig, ax = plt.subplots()
-    solve_time_1proc = strong_scaling_df[np.isclose(strong_scaling_df['n_procs'], 1)]["solve time [s]"]
+    solve_time_1proc = strong_scaling_df[np.isclose(strong_scaling_df['n_procs'], 1)]["solve time [s]"].values[0]
     ax.plot(strong_scaling_df['n_procs'], solve_time_1proc/strong_scaling_df['solve time [s]'], 'kx-', label='Actual')
     ax.plot([1, np.max(strong_scaling_df['n_procs'])], [1, np.max(strong_scaling_df['n_procs'])], 'r--', label='Ideal')
     ax.set_xlabel('No. of Processors')
