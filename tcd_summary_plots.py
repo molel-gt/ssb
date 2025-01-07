@@ -47,6 +47,8 @@ if __name__ == '__main__':
     current_ratios_plots = os.path.join(workdir, "current-ratios.eps")
     solve_time_nprocs_plots = os.path.join(workdir, "solve-time-nprocs.eps")
     solve_time_dofs_plots = os.path.join(workdir, "solve-time-dofs.eps")
+    weak_scaling_plot = os.path.join(workdir, "weak-scaling.eps")
+    strong_scaling_plot = os.path.join(workdir, "strong-scaling.eps")
     fig, ax = plt.subplots()
     ax.semilogx(df['dofs'], df['I interface [A]']/df['I left [A]'], 'o')
     ax.set_xlabel('DOFs')
@@ -70,3 +72,13 @@ if __name__ == '__main__':
     ax.set_box_aspect(1)
     plt.tight_layout()
     plt.savefig(solve_time_dofs_plots, bbox_inches='tight')
+
+    strong_scaling_df = df[np.isclose(df['dofs'], 3193836, atol=1e4)]
+    fig, ax = plt.subplots()
+    ax.plot(strong_scaling_df['nprocs'], strong_scaling_df['solve time [s]']/np.min(strong_scaling_df['solve time [s]']), 'kx-')
+    ax.plot([1, strong_scaling_df['nprocs']], [1, strong_scaling_df['nprocs']], 'r--')
+    ax.set_xlabel('No. of Processors')
+    ax.set_ylabel("Speedup")
+    ax.set_box_aspect(1)
+    plt.tight_layout()
+    plt.savefig(strong_scaling_plot, bbox_inches='tight')
