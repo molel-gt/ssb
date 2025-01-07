@@ -33,7 +33,10 @@ def json_data(cols=data_cols, kinetics_type="butler_volmer", refined=False):
                 row_data = {k: data[k] for k in cols}
             except json.decoder.JSONDecodeError:
                 print(f"Could not decode {f}")
-        rows.append(row_data)
+        if rows_data['polynomial approximation order (p)'] is None:
+            continue
+        if rows_data.get('polynomial approximation order (p)') == 4:
+            rows.append(row_data)
 
     return rows
 
