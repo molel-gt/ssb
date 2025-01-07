@@ -4,6 +4,8 @@ import os
 import subprocess
 
 import matplotlib.pyplot as plt
+from matplotlib import ticker
+
 import numpy as np
 import pandas as pd
 
@@ -78,14 +80,17 @@ if __name__ == '__main__':
 
     strong_scaling_df = df[np.logical_and(np.isclose(df['dofs'], 3193836, atol=1e4), np.isclose(df['Positive Wa'], 1))]
     strong_scaling_df = strong_scaling_df[np.isclose(strong_scaling_df['penalty parameter (gamma)'], 1e-4)]
+    strong_scaling_df.sort_values("n_procs", inplace=True)
     fig, ax = plt.subplots()
     solve_time_1proc = strong_scaling_df[np.isclose(strong_scaling_df['n_procs'], 1)]["solve time [s]"].values[0]
     ax.plot(strong_scaling_df['n_procs'], solve_time_1proc/strong_scaling_df['solve time [s]'], 'kx-', label='Actual')
     ax.plot([1, np.max(strong_scaling_df['n_procs'])], [1, np.max(strong_scaling_df['n_procs'])], 'r--', label='Ideal')
     ax.set_xlabel('No. of Processors')
     ax.set_ylabel("Speedup")
-    ax.set_xlim([0, np.max(strong_scaling_df['n_procs']) + 1])
-    ax.set_ylim([0, np.max(strong_scaling_df['n_procs']) + 1])
+    plt.xscale('log', basex=2)
+    ax.set_xlim([0.5, np.max(strong_scaling_df['n_procs']) + 1])
+    ax.set_ylim([0.5, np.max(strong_scaling_df['n_procs']) + 1])
+    ax.xaxis.set_major_formatter(ticker.FormatStrFormatter("%d"))
     ax.legend()
     ax.set_box_aspect(1)
     plt.tight_layout()
