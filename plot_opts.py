@@ -4,7 +4,7 @@ params = {
     'figure.figsize': (5, 4.5),
     'font.size' : 12,
     'font.family': 'monospace',
-    'axes.labelsize': 14,
+    'axes.labelsize': 12,
     'legend.fontsize': 12,
     'xtick.direction': "in",
     'xtick.minor.visible': True,
