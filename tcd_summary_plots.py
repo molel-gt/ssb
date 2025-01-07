@@ -90,7 +90,7 @@ if __name__ == '__main__':
     ax.set_xlabel('No. of Processors')
     ax.set_ylabel("Speedup")
     # plt.xscale('log', base=2)
-    xticks = [1, 2, 4, 8, 16, 32, 64, 128]
+    xticks = [1, 4, 8, 16, 32, 64, 128]
     ax.set_xticks(xticks, xticks)
     ax.set_xlim([1, np.max(strong_scaling_df['n_procs']) + 1])
     ax.set_ylim([1, np.max(strong_scaling_df['n_procs']) + 1])
