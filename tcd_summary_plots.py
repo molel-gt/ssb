@@ -89,7 +89,7 @@ if __name__ == '__main__':
     ax.plot([1, np.max(strong_scaling_df['n_procs'])], [1, np.max(strong_scaling_df['n_procs'])], 'r--', label='Ideal')
     ax.set_xlabel('No. of Processors')
     ax.set_ylabel("Speedup")
-    plt.xscale('log', base=2)
+    # plt.xscale('log', base=2)
     ax.set_xlim([1, np.max(strong_scaling_df['n_procs']) + 1])
     ax.set_ylim([1, np.max(strong_scaling_df['n_procs']) + 1])
     ax.xaxis.set_major_formatter(ticker.FormatStrFormatter("%d"))
