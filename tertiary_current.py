@@ -684,8 +684,8 @@ if __name__ == '__main__':
             # ksp_u.setConvergenceHistory()
 
             ksp_c.setType(PETSc.KSP.Type.PREONLY)
-            # ksp_c.getPC().setType(args.amg_type)
-            ksp_c.getPC().setType(PETSc.PC.Type.ILU)
+            ksp_c.getPC().setType(args.amg_type)
+            # ksp_c.getPC().setType(PETSc.PC.Type.ILU)
             # ksp_c.setConvergenceHistory()
 
             # opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 75
@@ -693,8 +693,8 @@ if __name__ == '__main__':
             # opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 75
             # opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
 
-            # for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
-            #     opts[f"{ksp_c.getOptionsPrefix()}{optk}"] = optv
+            for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
+                opts[f"{ksp_c.getOptionsPrefix()}{optk}"] = optv
 
             ksp_u.setFromOptions()
             ksp_c.setFromOptions()
