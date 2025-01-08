@@ -85,7 +85,7 @@ if __name__ == '__main__':
     print(strong_scaling_df)
     fig, ax = plt.subplots()
     solve_time_1proc = strong_scaling_df[np.isclose(strong_scaling_df['n_procs'], 1)]["solve time [s]"].values[0]
-    ax.plot(strong_scaling_df['n_procs'], solve_time_1proc/strong_scaling_df['solve time [s]'], 'kx-', label='Actual')
+    ax.plot(strong_scaling_df['n_procs'], solve_time_1proc/strong_scaling_df['solve time [s]'], 'bx-', label='Actual')
     ax.plot([1, np.max(strong_scaling_df['n_procs'])], [1, np.max(strong_scaling_df['n_procs'])], 'r--', label='Ideal')
     ax.set_xlabel('No. of Processors')
     ax.set_ylabel("Speedup")
