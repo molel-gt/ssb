@@ -83,3 +83,6 @@ pace-check-queue cpu-amd
 
 # check resource usage
 sacct --format='Account,JobID,JobName,CPUTime%15,TotalCPU,Elapsed%15,MaxRS,MaxVMSize,ReqNodes,NCPU,Partition,QOS,NodeList'
+
+# resolve git fatal errors in commit refs
+git fsck && git gc && git push origin
