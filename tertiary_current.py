@@ -534,16 +534,17 @@ if __name__ == '__main__':
                 'ksp_type': 'preonly',
                 'pc_type': 'lu',
                 'pc_factor_mat_solver_type': 'mumps',
+                "rtol": 1e-7,
                 }
-            # solver = solvers.NewtonSolver(
-            #     F,
-            #     J,
-            #     [u_0, u_1, c],
-            #     bcs=bcs,
-            #     max_iterations=1000,
-            #     petsc_options=opts,
-            #     )
-            solver = scifem.NewtonSolver(F, J, [u_0, u_1, c], max_iterations=25, bcs=bcs, petsc_options=opts)
+            solver = solvers.NewtonSolver(
+                F,
+                J,
+                [u_0, u_1, c],
+                bcs=bcs,
+                max_iterations=1000,
+                petsc_options=opts,
+                )
+            # solver = scifem.BlockedNewtonSolver(F, [u_0, u_1, c], bcs=bcs, J=J, petsc_options=opts)
             # PETSc.Log().begin()
             t0 = time.time()
             solver.solve()
