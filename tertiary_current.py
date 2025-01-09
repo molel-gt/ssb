@@ -350,8 +350,8 @@ if __name__ == '__main__':
     n_l = n(l_res)
     n_r = n(r_res)
     cd = ufl.CellDiameter(domain)
-    h_l = cd(l_res)  # ** (-1/p)
-    h_r = cd(r_res)  # ** (-1/p)
+    h_l = cd(l_res)
+    h_r = cd(r_res)
 
     # exchange current densities
     i0_n = kappa_elec * R * T / (Wa_n * faraday_const * L_ref)
@@ -655,7 +655,7 @@ if __name__ == '__main__':
             snes = PETSc.SNES().create(comm)
             snes.setType('newtonls')
             snes.setTolerances(rtol=1.0e-7, max_it=10000)
-            snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
+            snes.getKSP().setType(PETSc.KSP.Type.GMRES)
             snes.getKSP().setOptionsPrefix("snes_")
             snes.getKSP().setOperators(Jmat, Pmat)
             nullspace = PETSc.NullSpace().create(constant=True)
