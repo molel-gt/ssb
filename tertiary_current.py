@@ -691,7 +691,11 @@ if __name__ == '__main__':
             # opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 75
             # opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 75
             # opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 75
-            # opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
+            opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
+            opts[f"{ksp_c.getOptionsPrefix()}inner_ksp_type"] = "preonly"
+            opts[f"{ksp_c.getOptionsPrefix()}inner_pc_type"] = "ilu"
+            opts[f"{ksp_c.getOptionsPrefix()}upper_ksp_type"] = "gmres"
+            opts[f"{ksp_c.getOptionsPrefix()}upper_pc_type"] = "ilu"
 
             for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
                 opts[f"{ksp_c.getOptionsPrefix()}{optk}"] = optv
