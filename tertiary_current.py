@@ -875,7 +875,6 @@ if __name__ == '__main__':
             ax.set_title(r'$\mathrm{Wa}$ = ' + f'{args.Wa_p}' + ',' + r'$\frac{\kappa}{\sigma}$ = ' + f'{args.kr}')
             plt.tight_layout()
             plt.savefig(concentration_plot_file)
-            # plt.show()
 
             fig, ax = plt.subplots()
             ax.plot(u_vals[:, 2], u_vals[:, 3], 'k', label=r'0.5$L_x$,0.5$L_y$', linewidth=1)
@@ -889,4 +888,3 @@ if __name__ == '__main__':
             ax.set_title(r'$\mathrm{Wa}$ = ' + f'{args.Wa_p}' + ',' + r'$\frac{\kappa}{\sigma}$ = ' + f'{args.kr}')
             plt.tight_layout()
             plt.savefig(potential_plot_file)
-            # plt.show()
