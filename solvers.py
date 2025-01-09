@@ -63,7 +63,7 @@ class NewtonSolver:
         self._solver.setTolerances(rtol=1e-7)
         self._solver.view()
 
-    def solve(self, tol=1e-6, beta=1.0):
+    def solve(self, tol=1e-7, beta=1.0):
         i = 0
 
         while i < self.max_iterations:
