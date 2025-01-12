@@ -523,8 +523,8 @@ if __name__ == '__main__':
     PETSc.Sys.Print(f"Setting up problem Wa: {args.Wa_p}, Kr: {args.kr}, #DoFs: {n_dofs:,}, nprocs: {comm.Get_size()}")
     P = J  # [[J00, J01, J02], [None, J11, J12], [None, None, J22]]
 
-    # log_viewer = PETSc.Viewer().STDOUT()
-    # log_viewer.setFileName(log_datafile)
+    log_viewer = PETSc.Viewer().STDOUT()
+    log_viewer.setFileName(log_datafile)
 
     while t < TIME:
         t += dt.value
@@ -536,6 +536,7 @@ if __name__ == '__main__':
                 'pc_factor_mat_solver_type': 'mumps',
                 "rtol": 1e-7,
                 }
+            opts['log_view'] = None
             solver = solvers.NewtonSolver(
                 F,
                 J,
@@ -549,7 +550,7 @@ if __name__ == '__main__':
             t0 = time.time()
             solver.solve()
             t1 = time.time()
-            # PETSc.Log().view(log_viewer)
+            PETSc.Log().view(log_viewer)
         elif args.solver_type == solver_types.nested_iterative:
             Jmat = fem.petsc.create_matrix_nest(J)
             nested_IS = Jmat.getNestISs()
@@ -727,7 +728,7 @@ if __name__ == '__main__':
             snes.solve(None, x)
             t1 = time.time()
             PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}")
-            # PETSc.Log().view(log_viewer)
+            PETSc.Log().view(log_viewer)
             if comm_rank == 0 and args.plot:
                 fig, ax = plt.subplots()
                 ax.semilogy(snes.getKSP().getConvergenceHistory(), 'x-')
