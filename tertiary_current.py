@@ -683,8 +683,10 @@ if __name__ == '__main__':
             ksp_u.setType(PETSc.KSP.Type.PREONLY)
             ksp_u.getPC().setType(PETSc.PC.Type.ILU)
             # ksp_u.setConvergenceHistory()
+            opts[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
+            opts[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
-            ksp_c.setType(PETSc.KSP.Type.PREONLY)
+            ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(args.amg_type)
             # ksp_c.getPC().setType(PETSc.PC.Type.ILU)
             # ksp_c.setConvergenceHistory()
@@ -695,8 +697,10 @@ if __name__ == '__main__':
             opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
             opts[f"{ksp_c.getOptionsPrefix()}inner_ksp_type"] = "preonly"
             opts[f"{ksp_c.getOptionsPrefix()}inner_pc_type"] = "ilu"
+            opts[f"{ksp_c.getOptionsPrefix()}inner_pc_factor_levels"] = 0
             opts[f"{ksp_c.getOptionsPrefix()}upper_ksp_type"] = "gmres"
             opts[f"{ksp_c.getOptionsPrefix()}upper_pc_type"] = "ilu"
+            opts[f"{ksp_c.getOptionsPrefix()}upper_pc_factor_levels"] = 0
 
             for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
                 opts[f"{ksp_c.getOptionsPrefix()}{optk}"] = optv
