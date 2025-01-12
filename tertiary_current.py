@@ -545,7 +545,7 @@ if __name__ == '__main__':
                 petsc_options=opts,
                 )
             # solver = scifem.BlockedNewtonSolver(F, [u_0, u_1, c], bcs=bcs, J=J, petsc_options=opts)
-            # PETSc.Log().begin()
+            PETSc.Log().begin()
             t0 = time.time()
             solver.solve()
             t1 = time.time()
@@ -656,7 +656,7 @@ if __name__ == '__main__':
             snes = PETSc.SNES().create(comm)
             snes.setType('newtonls')
             snes.setTolerances(rtol=1.0e-7, max_it=10000)
-            snes.getKSP().setType(PETSc.KSP.Type.GMRES)
+            snes.getKSP().setType(PETSc.KSP.Type.PREONLY)
             snes.getKSP().setOptionsPrefix("snes_")
             snes.getKSP().setOperators(Jmat, Pmat)
             nullspace = PETSc.NullSpace().create(constant=True)
@@ -670,6 +670,8 @@ if __name__ == '__main__':
             opts = PETSc.Options()
             for kopt, vopt in solver_params.LINESEARCH.items():
                 opts[kopt] = vopt
+
+            opts['log_view'] = None
 
             # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
             opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
@@ -686,21 +688,24 @@ if __name__ == '__main__':
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
-            ksp_c.setType(PETSc.KSP.Type.CG)
+            ksp_c.setType(PETSc.KSP.Type.PREONLY)
             ksp_c.getPC().setType(args.amg_type)
-            # ksp_c.getPC().setType(PETSc.PC.Type.ILU)
-            # ksp_c.setConvergenceHistory()
+            ksp_c.setConvergenceHistory()
 
-            # opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 75
+            # opts[f'{snes.getKSP().getOptionsPrefix()}ksp_monitor_singular_value'] = None
+            # opts[f'{ksp_u.getOptionsPrefix()}ksp_monitor_singular_value'] = None
+            opts[f'{ksp_c.getOptionsPrefix()}ksp_monitor_singular_value'] = None
             # opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 75
             # opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 75
-            opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
+            # opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
             opts[f"{ksp_c.getOptionsPrefix()}inner_ksp_type"] = "preonly"
             opts[f"{ksp_c.getOptionsPrefix()}inner_pc_type"] = "ilu"
             opts[f"{ksp_c.getOptionsPrefix()}inner_pc_factor_levels"] = 0
-            opts[f"{ksp_c.getOptionsPrefix()}upper_ksp_type"] = "gmres"
+            opts[f"{ksp_c.getOptionsPrefix()}inner_pc_factor_fill"] = 2.0
+            opts[f"{ksp_c.getOptionsPrefix()}upper_ksp_type"] = "preonly"
             opts[f"{ksp_c.getOptionsPrefix()}upper_pc_type"] = "ilu"
             opts[f"{ksp_c.getOptionsPrefix()}upper_pc_factor_levels"] = 0
+            opts[f"{ksp_c.getOptionsPrefix()}upper_pc_factor_fill"] = 2.0
 
             for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
                 opts[f"{ksp_c.getOptionsPrefix()}{optk}"] = optv
@@ -717,7 +722,7 @@ if __name__ == '__main__':
 
             x = fem.petsc.create_vector_block(F)
             x.set(0.0)
-            # PETSc.Log().begin()
+            PETSc.Log().begin()
             t0 = time.time()
             snes.solve(None, x)
             t1 = time.time()
@@ -725,7 +730,7 @@ if __name__ == '__main__':
             # PETSc.Log().view(log_viewer)
             if comm_rank == 0 and args.plot:
                 fig, ax = plt.subplots()
-                ax.semilogy(snes.getKSP().getConvergenceHistory())
+                ax.semilogy(snes.getKSP().getConvergenceHistory(), 'x-')
                 ax.set_box_aspect(1)
                 plt.tight_layout()
                 plt.savefig(convergence_history, bbox_inches="tight")
