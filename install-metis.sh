@@ -8,5 +8,5 @@ else
 fi
 
 cd $SOFTWARES_DIR/METIS
-make config cc=mpicc prefix=$CMAKE_INSTALL_PREFIX
+make config shared=1 cc=mpicc prefix=$CMAKE_INSTALL_PREFIX
 make install
