@@ -688,14 +688,14 @@ if __name__ == '__main__':
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
-            ksp_c.setType(PETSc.KSP.Type.PREONLY)
+            ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(args.amg_type)
             ksp_c.setConvergenceHistory()
 
             # opts[f'{snes.getKSP().getOptionsPrefix()}ksp_monitor_singular_value'] = None
             # opts[f'{ksp_u.getOptionsPrefix()}ksp_monitor_singular_value'] = None
             opts[f'{ksp_c.getOptionsPrefix()}ksp_monitor_singular_value'] = None
-            # opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
+            opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
             opts[f"{ksp_c.getOptionsPrefix()}inner_ksp_type"] = "preonly"
             opts[f"{ksp_c.getOptionsPrefix()}inner_pc_type"] = "ilu"
             opts[f"{ksp_c.getOptionsPrefix()}inner_pc_factor_levels"] = 0
