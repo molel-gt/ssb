@@ -674,7 +674,7 @@ if __name__ == '__main__':
 
             opts['log_view'] = None
 
-            # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+            opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
             opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
 
             ksp_u, ksp_c = snes.getKSP().getPC().getFieldSplitSubKSP()
@@ -685,7 +685,6 @@ if __name__ == '__main__':
 
             ksp_u.setType(PETSc.KSP.Type.PREONLY)
             ksp_u.getPC().setType(PETSc.PC.Type.ILU)
-            # ksp_u.setConvergenceHistory()
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
@@ -696,8 +695,6 @@ if __name__ == '__main__':
             # opts[f'{snes.getKSP().getOptionsPrefix()}ksp_monitor_singular_value'] = None
             # opts[f'{ksp_u.getOptionsPrefix()}ksp_monitor_singular_value'] = None
             opts[f'{ksp_c.getOptionsPrefix()}ksp_monitor_singular_value'] = None
-            # opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 75
-            # opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 75
             # opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
             opts[f"{ksp_c.getOptionsPrefix()}inner_ksp_type"] = "preonly"
             opts[f"{ksp_c.getOptionsPrefix()}inner_pc_type"] = "ilu"
