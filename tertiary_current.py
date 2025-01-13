@@ -683,7 +683,7 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
-            ksp_u.setType(PETSc.KSP.Type.PREONLY)
+            ksp_u.setType(PETSc.KSP.Type.FGMRES)
             ksp_u.getPC().setType(PETSc.PC.Type.ILU)
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
