@@ -14,7 +14,6 @@ import dolfinx.fem.petsc
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-import scifem
 import scipy
 import scipy.special as sp
 import ufl
@@ -545,7 +544,6 @@ if __name__ == '__main__':
                 max_iterations=1000,
                 petsc_options=opts,
                 )
-            # solver = scifem.BlockedNewtonSolver(F, [u_0, u_1, c], bcs=bcs, J=J, petsc_options=opts)
             PETSc.Log().begin()
             t0 = time.time()
             solver.solve()
