@@ -672,7 +672,8 @@ if __name__ == '__main__':
 
             opts['log_view'] = None
 
-            opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+            # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_diag_use_amat"] = True
+            # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
             opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
 
             ksp_u, ksp_c = snes.getKSP().getPC().getFieldSplitSubKSP()
