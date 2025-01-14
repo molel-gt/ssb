@@ -690,10 +690,9 @@ if __name__ == '__main__':
 
             ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(args.amg_type)
+            ksp_u.setConvergenceHistory()
             ksp_c.setConvergenceHistory()
 
-            # opts[f'{snes.getKSP().getOptionsPrefix()}ksp_monitor_singular_value'] = None
-            # opts[f'{ksp_u.getOptionsPrefix()}ksp_monitor_singular_value'] = None
             opts[f'{ksp_c.getOptionsPrefix()}ksp_monitor_singular_value'] = None
             opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
             opts[f"{ksp_c.getOptionsPrefix()}inner_ksp_type"] = "preonly"
