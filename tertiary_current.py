@@ -17,6 +17,7 @@ import numpy as np
 import scipy
 import scipy.special as sp
 import ufl
+import warnings
 
 from dolfinx import cpp, default_real_type, fem, io, jit, mesh, log
 from dolfinx.geometry import bb_tree, compute_collisions_points, compute_colliding_cells
@@ -28,7 +29,7 @@ from ufl import dot, grad, inner
 
 import commons, constants, mesh_utils, plot_opts, solvers, solver_params, utils
 
-
+warnings.simplefilter("ignore")
 plt.rcParams.update(plot_opts.params)
 logging.basicConfig(level=logging.INFO)
 
@@ -206,7 +207,6 @@ if __name__ == '__main__':
     phi_ref = V_UCO
     # c_ref = c_max
     c_ref = kappa_elec * phi_ref / (faraday_const * D)
-    PETSc.Sys.Print(c_max/c_ref)
     ref = {"t": t_ref, "phi": phi_ref, "c": c_ref, "L": L_ref}
 
     soc_init = 0.75 * c_max / c_ref
@@ -224,12 +224,6 @@ if __name__ == '__main__':
     simulation_metafile = os.path.join(results_dir, "simulation.json")
     convergence_history = os.path.join(results_dir, "convergence.eps")
     log_datafile = os.path.join(results_dir, "log.txt")
-    resource_usage = os.path.join(results_dir, f"resources-{comm.Get_rank()}.log")
-    mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-
-    with open(resource_usage, 'a') as f:
-        # Dump timestamp, PID and amount of RAM.
-        f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
 
     # load mesh
     partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
@@ -239,9 +233,6 @@ if __name__ == '__main__':
     domain.topology.create_connectivity(tdim, fdim)
     domain.topology.create_connectivity(tdim, tdim)
     domain.topology.create_connectivity(fdim, fdim)
-    with open(resource_usage, 'a') as f:
-        # Dump timestamp, PID and amount of RAM.
-        f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
 
     # tag internal facets as 0
     ft_imap = domain.topology.index_map(fdim)
@@ -294,10 +285,6 @@ if __name__ == '__main__':
         parent_to_sub_positive_am[cells] = max(t_map)
 
     entity_maps = {submesh_electrolyte: parent_to_sub_electrolyte, submesh_positive_am: parent_to_sub_positive_am}
-    with open(resource_usage, 'a') as f:
-        # Dump timestamp, PID and amount of RAM.
-        f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
-
 
     u_0, F_00, m_to_elec = define_interior_eq(domain, 1, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec, cell_type)
     u_1, F_11, m_to_pos_am = define_interior_eq(domain, 1, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am, cell_type)
@@ -501,10 +488,6 @@ if __name__ == '__main__':
         right_bc, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right))
     )
     bcs = [bc_left, bc_right]
-
-    with open(resource_usage, 'a') as f:
-        # Dump timestamp, PID and amount of RAM.
-        f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
 
     local_dofs_u0 = np.setdiff1d(V0_map.local_to_global(np.arange(V0_map.size_local + V0_map.num_ghosts,
                                                                   dtype=np.int32)),
@@ -748,9 +731,6 @@ if __name__ == '__main__':
         I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * (phi_ref) * L_ref ** (tdim-2) * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
         I_interface = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * (c_ref) * L_ref ** (tdim-2) * grad(c(r_res)), n_r) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
     cvtx.close()
-    with open(resource_usage, 'a') as f:
-    # Dump timestamp, PID and amount of RAM.
-        f.write('{} {} {}\n'.format(datetime.datetime.now(), os.getpid(), mem))
 
     time_elapsed = timeit.default_timer() - start_time
 
