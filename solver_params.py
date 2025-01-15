@@ -14,7 +14,7 @@ gamg = {
 boomeramg = {
     "pc_hypre_type": "boomeramg",
     "pc_hypre_boomeramg_coarsen_type": "hmis",
-    "pc_hypre_boomeramg_interp_type": "ext",
+    "pc_hypre_boomeramg_interp_type": "ext+i",
     "pc_hypre_boomeramg_strong_threshold": 0.7,
     "pc_hypre_boomeramg_agg_nl": 2,
     "pc_hypre_boomeramg_agg_num_paths": 5,
@@ -31,9 +31,17 @@ boomeramg = {
     "pc_hypre_boomeramg_cycle_type": 'v',
 }
 
+ml = {
+    "pc_ml_maxNlevels": 25,
+    "pc_ml_repartition": True,
+    "pc_ml_Threshold": 0.75,
+    "pc_ml_CoarsenScheme": "METIS",
+}
+
 AMG_TYPES = {
     "gamg": gamg,
     "hypre": boomeramg,
+    "ml": ml,
 }
 
 LINESEARCH = {
