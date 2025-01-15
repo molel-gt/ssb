@@ -204,8 +204,12 @@ if __name__ == '__main__':
     # reference values
     t_ref = L_ref ** 2 / D
     phi_ref = V_UCO
-    c_ref = c_max
+    # c_ref = c_max
+    c_ref = kappa_elec * phi_ref / (faraday_const * D)
+    PETSc.Sys.Print(c_max/c_ref)
     ref = {"t": t_ref, "phi": phi_ref, "c": c_ref, "L": L_ref}
+
+    soc_init = 0.75 * c_max / c_ref
 
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
     results_dir = os.path.join(args.mesh_folder, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), str(args.gamma), str(comm.Get_size()))
@@ -365,14 +369,14 @@ if __name__ == '__main__':
     c, q = fem.Function(VC), ufl.TestFunction(VC)
     c0 = fem.Function(VC)
 
-    c0.interpolate(lambda x: x[directions[args.transport_direction.lower()]] - x[directions[args.transport_direction.lower()]] + 0.75)
-    c.interpolate(lambda x: 0.75 * (1 - np.exp(-x[directions[args.transport_direction.lower()]])))
+    c0.interpolate(lambda x: x[directions[args.transport_direction.lower()]] - x[directions[args.transport_direction.lower()]] + soc_init)
+    c.interpolate(lambda x: soc_init * (1 - np.exp(-x[directions[args.transport_direction.lower()]])))
 
     q_r = ufl.TestFunction(c.function_space)(r_res)
     q_l = ufl.TestFunction(c.function_space)(l_res)
     c_r = c(r_res)
 
-    jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) + ocv_chen2020(c(r_res), cmax=1)/phi_ref
+    jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) + ocv_chen2020(c(r_res), cmax=c_max/c_ref)/phi_ref
 
     F_0 = (
         - 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
@@ -390,7 +394,8 @@ if __name__ == '__main__':
     F_1 += F_11
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
-    F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_r), n_r) * q_r * dInterface
+    # F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_r), n_r) * q_r * dInterface
+    F_2 += -inner(grad(u_r), n_r) * q_r * dInterface
 
     jac00 = ufl.derivative(F_0, u_0)
     jac01 = ufl.derivative(F_0, u_1)
@@ -670,8 +675,6 @@ if __name__ == '__main__':
             for kopt, vopt in solver_params.LINESEARCH.items():
                 opts[kopt] = vopt
 
-            opts['log_view'] = None
-
             # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_diag_use_amat"] = True
             # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
             opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
@@ -722,6 +725,8 @@ if __name__ == '__main__':
             t0 = time.time()
             snes.solve(None, x)
             t1 = time.time()
+            flops = PETSc.Log().getFlops()
+            PETSc.Log().logFlops(flops)
             PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}")
             PETSc.Log().view(log_viewer)
             if comm_rank == 0 and args.plot:
