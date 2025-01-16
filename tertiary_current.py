@@ -63,6 +63,10 @@ class SolverTypes:
     def block_iterative(self):
         return "block_iterative"
 
+    @property
+    def block_gs(self):
+        return "block_gs"
+
 
 def define_interior_eq(domain, degree,  submesh, submesh_to_mesh, value, kappa, cell_type):
     # Compute map from parent entity to submesh cell
@@ -678,6 +682,7 @@ if __name__ == '__main__':
             ksp_u.setConvergenceHistory()
             ksp_c.setConvergenceHistory()
 
+            opts[f'{ksp_u.getOptionsPrefix()}ksp_monitor_singular_value'] = None
             opts[f'{ksp_c.getOptionsPrefix()}ksp_monitor_singular_value'] = None
             opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
             opts[f"{ksp_c.getOptionsPrefix()}inner_ksp_type"] = "preonly"
