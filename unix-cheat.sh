@@ -86,3 +86,6 @@ sacct --format='Account,JobID,JobName,CPUTime%15,TotalCPU,Elapsed%15,MaxRS,MaxVM
 
 # resolve git fatal errors in commit refs
 git fsck && git gc && git push origin
+
+# kill current emacs buffer
+C-x k

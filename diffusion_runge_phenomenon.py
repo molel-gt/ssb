@@ -19,6 +19,7 @@ import scipy.special as sp
 import ufl
 
 from dolfinx import cpp, default_real_type, fem, io, mesh, log
+from dolfinx.graph import partitioner_kahip
 from dolfinx.geometry import bb_tree, compute_collisions_points, compute_colliding_cells
 from dolfinx.nls import petsc as petsc_nls
 from matplotlib import rc
@@ -39,7 +40,7 @@ right_surfs = []
 side_surfs = []
 
 
-def create_mesh(msh_output_path, resolution=0.1):
+def create_mesh(msh_output_path, resolution=0.035):
     gmsh.initialize()
     gmsh.model.add('mesh')
     gmsh.option.setNumber("Mesh.MeshSizeMax", resolution)
@@ -65,6 +66,45 @@ def create_mesh(msh_output_path, resolution=0.1):
     gmsh.finalize()
 
 
+class Precon(PETSc.PC):
+    def setUp(self):
+        pass
+
+    def apply(self):
+        pass
+
+class MatrixFreePC(object):
+    def setUp(self, pc):
+        B, P = pc.getOperators()
+        # extract the MatrixFreeB object from B
+        ctx = B.getPythonContext()
+        self.A = ctx.A
+        self.u = ctx.u
+        self.v = ctx.v
+        # Here we build the PC object that uses the concrete,
+        # assembled matrix A.  We will use this to apply the action
+        # of A^{-1}
+        self.pc = PETSc.PC().create()
+        self.pc.setOptionsPrefix("mf_")
+        self.pc.setOperators(self.A)
+        self.pc.setFromOptions()
+        # Since u and v do not change, we can build the denominator
+        # and the action of A^{-1} on u only once, in the setup
+        # phase.
+        tmp = self.A.createVecLeft()
+        self.pc.apply(self.u, tmp)
+        self._Ainvu = tmp
+        self._denom = 1 + self.v.dot(self._Ainvu)
+
+    def apply(self, pc, x, y):
+        # y <- A^{-1}x
+        self.pc.apply(x, y)
+        # alpha <- (v^T A^{-1} x) / (1 + v^T A^{-1} u)
+        alpha = self.v.dot(y) / self._denom
+        # y <- y - alpha * A^{-1}u
+        y.axpy(-alpha, self._Ainvu)
+
+
 if __name__ == '__main__':
     output_meshfile = "mesh.msh"
     # create_mesh(output_meshfile)
@@ -73,7 +113,7 @@ if __name__ == '__main__':
     comm_rank = comm.Get_rank()
     comm_size = comm.Get_size()
 
-    partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
+    partitioner = mesh.create_cell_partitioner(partitioner_kahip(), ghost_mode=mesh.GhostMode.shared_facet)
     domain, ct, ft = io.gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)[:3]
     tdim = domain.topology.dim
     fdim = tdim - 1
@@ -89,9 +129,16 @@ if __name__ == '__main__':
 
     n = ufl.FacetNormal(domain)
     dt = fem.Constant(domain, 1e-4)
-    el = basix.ufl.element(basix.ElementFamily.P, basix.CellType.tetrahedron, 4, basix.LagrangeVariant.gll_warped, dtype=default_real_type)
+    el = basix.ufl.element(basix.ElementFamily.P, basix.CellType.tetrahedron, 4, basix.LagrangeVariant.gll_isaac, dtype=default_real_type)
     el = ("CG", 4)
     VC = fem.functionspace(domain, el)
+
+    VC_dofmap = VC.dofmap
+    VC_map = VC.dofmap.index_map
+
+    n_dofs = VC_map.size_global*VC.dofmap.index_map_bs
+
+    PETSc.Sys.Print(f"#DoFs: {n_dofs}")
 
     c, q = fem.Function(VC), ufl.TestFunction(VC)
     c0 = fem.Function(VC)
@@ -99,13 +146,19 @@ if __name__ == '__main__':
     c0.interpolate(lambda x: x[2] - x[2] + 0.75)
     c.interpolate(lambda x: 0.75 * (1 - np.exp(-x[2])))
 
-    F = (c - c0)/dt * q * dx + inner(ufl.grad(c), ufl.grad(q)) * dx
+    k1 = ufl.inner(ufl.grad(c0), ufl.grad(q))
+    k2 = ufl.inner(ufl.grad(c0 + dt/2 * k1), ufl.grad(q))
+    k3 = ufl.inner(ufl.grad(c0 + dt/3 * k2), ufl.grad(q))
+    k4 = ufl.inner(ufl.grad(c0 + dt * k3), ufl.grad(q))
+    # F = (c - c0)/dt * q * dx + inner(ufl.grad(c), ufl.grad(q)) * dx
+    f_rk4 = 1/6 * (k1 + 2*k2 + 2*k3 + k4)
+    F = (c - c0)/dt * q * dx + f_rk4 * dx
     F += -g * q * ds(left) + g0 * q * ds(insulated)
     max_time = 1 * dt.value
-    time = 0
+    t = 0
 
-    while time < max_time:
-        time += dt.value
+    while t < max_time:
+        t += dt.value
         problem = fem.petsc.NonlinearProblem(F, c, bcs=[])
         solver = petsc_nls.NewtonSolver(comm, problem)
         solver.convergence_criterion = "residual"
@@ -114,26 +167,36 @@ if __name__ == '__main__':
         solver.rtol = 1e-8 #np.finfo(float).eps * 10
 
         ksp = solver.krylov_solver
+        # pc = ksp.getPC()
+        # pc.setType(pc.Type.PYTHON)
+        # mpc = MatrixFreePC()
+        # pc.setPythonContext(mpc)
         opts = PETSc.Options()
         option_prefix = ksp.getOptionsPrefix()
-        opts[f"{option_prefix}ksp_type"] = "fgmres"
-        opts[f"{option_prefix}pc_type"] = "gamg"
-        gamg = {
-            "pc_gamg_type": 'agg',
-            "pc_gamg_threshold": 0.01,
-            "pc_gamg_repartition": True,
-            "pc_gamg_aggressive_coarsening": 4,
-            "pc_gamg_aggressive_square_graph": 1,
-            "pc_gamg_agg_nsmooths": 1,
-            "pc_gamg_coarse_eq_limit": 10000,
-            "pc_gamg_parallel_coarse_grid_solver": True,
-            "pc_gamg_eigenvalues": [1e-4, 5],
-            "pc_gamg_use_sa_esteig": True,
-            }
-        for kopt, vopt in gamg.items():
-            opts[f"{option_prefix}{kopt}"] = vopt
+        opts[f"{option_prefix}ksp_type"] = "cg"
+        opts[f"{option_prefix}pc_type"] = "sor"
+        opts['log_view'] = None
+        opts[f'{option_prefix}ksp_monitor_singular_value'] = None
+        # gamg = {
+        #     "pc_gamg_type": 'agg',
+        #     "pc_gamg_threshold": 0.05,
+        #     "pc_gamg_repartition": True,
+        #     "pc_gamg_aggressive_coarsening": 4,
+        #     "pc_gamg_aggressive_square_graph": 1,
+        #     "pc_gamg_agg_nsmooths": 0,
+        #     "pc_gamg_coarse_eq_limit": 10000,
+        #     "pc_gamg_parallel_coarse_grid_solver": True,
+        #     "pc_gamg_eigenvalues": [1e-4, 50],
+        #     "pc_gamg_use_sa_esteig": True,
+        #     }
+        # for kopt, vopt in gamg.items():
+        #     opts[f"{option_prefix}{kopt}"] = vopt
         ksp.setFromOptions()
+        start = time.time()
+        PETSc.Log().begin()
         n_iters, converged = solver.solve(c)
+        end = time.time()
+        print(f"{n}, solve time: {end-start}")
 
         n_points = 1000
         if comm_rank == 0:
@@ -190,4 +253,4 @@ if __name__ == '__main__':
             ax.set_xlabel(r'$\hat{x}$')
             plt.tight_layout()
             plt.savefig("concentration.eps")
-            plt.show()
+            # plt.show()

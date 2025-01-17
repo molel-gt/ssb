@@ -662,8 +662,9 @@ if __name__ == '__main__':
             for kopt, vopt in solver_params.LINESEARCH.items():
                 opts[kopt] = vopt
 
-            # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_diag_use_amat"] = True
-            # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+            opts['log_view'] = None
+
+            opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
             opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
 
             ksp_u, ksp_c = snes.getKSP().getPC().getFieldSplitSubKSP()
@@ -677,12 +678,12 @@ if __name__ == '__main__':
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
-            ksp_c.setType(PETSc.KSP.Type.CG)
+            ksp_c.setType(PETSc.KSP.Type.PREONLY)
             ksp_c.getPC().setType(args.amg_type)
             ksp_u.setConvergenceHistory()
             ksp_c.setConvergenceHistory()
 
-            opts[f'{ksp_u.getOptionsPrefix()}ksp_monitor_singular_value'] = None
+            # opts[f'{ksp_u.getOptionsPrefix()}ksp_monitor_singular_value'] = None
             opts[f'{ksp_c.getOptionsPrefix()}ksp_monitor_singular_value'] = None
             opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
             opts[f"{ksp_c.getOptionsPrefix()}inner_ksp_type"] = "preonly"
@@ -713,8 +714,6 @@ if __name__ == '__main__':
             t0 = time.time()
             snes.solve(None, x)
             t1 = time.time()
-            flops = PETSc.Log().getFlops()
-            PETSc.Log().logFlops(flops)
             PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}")
             PETSc.Log().view(log_viewer)
             if comm_rank == 0 and args.plot:
@@ -752,6 +751,7 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setType("fieldsplit")
             snes.getKSP().getPC().setFieldSplitIS(("u", IS_u), ("c", IS_c))
             opts = PETSc.Options()
+            opts['log_view'] = None
             for kopt, vopt in solver_params.LINESEARCH.items():
                 opts[kopt] = vopt
 
@@ -766,8 +766,8 @@ if __name__ == '__main__':
             # snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.DIAG)
 
             ksp_u.setType(PETSc.KSP.Type.GMRES)
-            ksp_u.getPC().setType(PETSc.PC.Type.ML)
-            # opts[f"{ksp_u.getOptionsPrefix()}pc_hypre_type"] = "parasails"
+            ksp_u.getPC().setType(PETSc.PC.Type.HYPRE)
+            opts[f"{ksp_u.getOptionsPrefix()}pc_hypre_type"] = "parasails"
             # opts[f"{ksp_u.getOptionsPrefix()}pc_asm_type"] = "basic"
             # opts[f"{ksp_u.getOptionsPrefix()}pc_asm_local_type"] = "multiplicative"
             # opts[f"{ksp_u.getOptionsPrefix()}pc_asm_sub_ksp_type"] = "preonly"
@@ -816,8 +816,6 @@ if __name__ == '__main__':
             t0 = time.time()
             snes.solve(None, x)
             t1 = time.time()
-            flops = PETSc.Log().getFlops()
-            PETSc.Log().logFlops(flops)
             PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}")
             PETSc.Log().view(log_viewer)
             if comm_rank == 0 and args.plot:

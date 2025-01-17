@@ -28,6 +28,7 @@ class BlockPreconditioner:
 
     def create(self, pc):
         _, self.P = pc.getOperators()
+        self.P.assemble()
         opts = PETSc.Options()
         operator_mats = self.init_mat_vec(pc)
 
@@ -37,64 +38,31 @@ class BlockPreconditioner:
             self.ksp_fields.append( PETSc.KSP().create(self.comm) )
 
         for n in range(self.size):
-            if self.precond_fields[n]['prec'] == 'amg':
-                try: solvetype = self.precond_fields[n]['solve']
-                except: solvetype = "preonly"
-                self.ksp_fields[n].setType(solvetype)
-                # GMRES or FGMES for inner solve
-                if solvetype == 'gmres' or solvetype == 'fgmres':
-                    try: maxiter = self.precond_fields[n]['maxiter']
-                    except: maxiter = 1000
-                    try: rtol = self.precond_fields[n]['rtol']
-                    except: rtol = 1e-7
-                    try: atol = self.precond_fields[n]['atol']
-                    except: atol = 1e-50
-                    self.ksp_fields[n].setTolerances(rtol=rtol, atol=atol, divtol=None, max_it=maxiter)
-                try: amgtype = self.precond_fields[n]['amgtype']
-                except: amgtype = "hypre"
-                self.ksp_fields[n].getPC().setType(amgtype)
-                if amgtype=="hypre":
-                    self.ksp_fields[n].getPC().setHYPREType("boomeramg")
-                # add PETSc options
-                if 'petsc_options' in self.precond_fields[n].keys():
-                    opt_dict = self.precond_fields[n]['petsc_options']
-                    for o in opt_dict:
-                        opts.setValue(o, opt_dict[o])
-                    self.ksp_fields[n].setFromOptions() # solver options
-                    self.ksp_fields[n].getPC().setFromOptions() # preconditioner options
-                    for key in opts.getAll(): opts.delValue(key) # clear options - opts.clear() doesn't seem to work?!
-                # print to view some settings...
-                #print(self.ksp_fields[n].getPC().view())
-            elif self.precond_fields[n]['prec'] == 'direct':
-                self.ksp_fields[n].setType("preonly")
-                self.ksp_fields[n].getPC().setType("lu")
-                self.ksp_fields[n].getPC().setFactorSolverType("mumps")
-            else:
-                self.ksp_fields[n].setType(self.precond_fields[n]['solve'])
-                self.ksp_fields[n].getPC().setType(self.precond_fields[n]['prec'])
-                # raise ValueError("Unknown preconditioner type")
-
+            self.ksp_fields[n].setType(self.precond_fields[n]['ksp_type'])
+            self.ksp_fields[n].getPC().setType(self.precond_fields[n]['pc_type'])
             self.ksp_fields[n].setOperators(operator_mats[n])
 
     def init_mat_vec(self, pc):
-        self.A  = self.P.createSubMatrix(self.iset[0],self.iset[0])
+        PETSc.Sys.Print(self.P.getSize())
+        self.A  = self.P.createSubMatrix(self.iset[0], self.iset[0])
         self.A.assemble()
-        self.Bt = self.P.createSubMatrix(self.iset[0],self.iset[1])
+        self.Bt = self.P.createSubMatrix(self.iset[0], self.iset[1])
         self.Bt.assemble()
-        self.Dt = self.P.createSubMatrix(self.iset[0],self.iset[2])
+        self.Dt = self.P.createSubMatrix(self.iset[0], self.iset[2])
         self.Dt.assemble()
-        self.B  = self.P.createSubMatrix(self.iset[1],self.iset[0])
+        self.B  = self.P.createSubMatrix(self.iset[1], self.iset[0])
         self.B.assemble()
-        self.C  = self.P.createSubMatrix(self.iset[1],self.iset[1])
+        self.C  = self.P.createSubMatrix(self.iset[1], self.iset[1])
         self.C.assemble()
-        self.Et = self.P.createSubMatrix(self.iset[1],self.iset[2])
+        self.Et = self.P.createSubMatrix(self.iset[1], self.iset[2])
         self.Et.assemble()
-        self.D  = self.P.createSubMatrix(self.iset[2],self.iset[0])
+        self.D  = self.P.createSubMatrix(self.iset[2], self.iset[0])
         self.D.assemble()
-        self.E  = self.P.createSubMatrix(self.iset[2],self.iset[1])
+        self.E  = self.P.createSubMatrix(self.iset[2], self.iset[1])
         self.E.assemble()
-        self.R  = self.P.createSubMatrix(self.iset[2],self.iset[2])
+        self.R  = self.P.createSubMatrix(self.iset[2], self.iset[2])
         self.R.assemble()
+        PETSc.Sys.Print("Finished here 1")
 
         # the matrix to later insert the diagonal
         self.Adinv = PETSc.Mat().createAIJ(self.A.getSizes(), bsize=None, nnz=(1,1), csr=None, comm=self.comm)
@@ -112,6 +80,8 @@ class BlockPreconditioner:
             self.adinv_vec.set(1.0)
         else:
             raise ValueError("Unknown schur_block_scaling option!")
+
+        PETSc.Sys.Print("Finished here 2")
 
         self.Smod = self.C.copy(structure=PETSc.Mat.Structure.DIFFERENT_NONZERO_PATTERN)
 
@@ -146,6 +116,7 @@ class BlockPreconditioner:
 
         self.D_Adinv_Dt = self.D.matMult(self.Adinv_Dt)
 
+        PETSc.Sys.Print("Finished here 3")
         # need to set Smod and Tmod here to get the data structures right
         self.Smod.axpy(-1., self.B_Adinv_Bt)
         self.Umod.axpy(-1., self.D_Adinv_Bt)
@@ -166,10 +137,13 @@ class BlockPreconditioner:
         self.y1, self.y2, self.y3 = self.A.createVecLeft(), self.Smod.createVecLeft(), self.Wmod.createVecLeft()
         self.z1, self.z2, self.z3 = self.A.createVecLeft(), self.Smod.createVecLeft(), self.Wmod.createVecLeft()
 
+        PETSc.Sys.Print("Finished here 4")
+
         # do we need these???
-        self.A.setOption(PETSc.Mat.Option.NO_OFF_PROC_ZERO_ROWS, True)
-        self.Smod.setOption(PETSc.Mat.Option.NO_OFF_PROC_ZERO_ROWS, True)
-        self.Wmod.setOption(PETSc.Mat.Option.NO_OFF_PROC_ZERO_ROWS, True)
+        # self.A.setOption(PETSc.Mat.Option.NO_OFF_PROC_ZERO_ROWS, True)
+        # self.Smod.setOption(PETSc.Mat.Option.NO_OFF_PROC_ZERO_ROWS, True)
+        # self.Wmod.setOption(PETSc.Mat.Option.NO_OFF_PROC_ZERO_ROWS, True)
+        PETSc.Sys.Print("Finished here 5")
 
         return [self.A, self.Smod, self.Wmod]
 
@@ -184,6 +158,8 @@ class BlockPreconditioner:
         self.P.createSubMatrix(self.iset[2],self.iset[1], submat=self.E)
         self.P.createSubMatrix(self.iset[2],self.iset[2], submat=self.R)
 
+        PETSc.Sys.Print("Finished here 6")
+
         if self.schur_block_scaling[0]['type']=='diag':
             self.A.getDiagonal(result=self.adinv_vec)
             self.adinv_vec.reciprocal()
@@ -197,6 +173,8 @@ class BlockPreconditioner:
             raise ValueError("Unknown schur_block_scaling option!")
 
         self.adinv_vec.scale(self.schur_block_scaling[0]['val'])
+
+        PETSc.Sys.Print("Finished here 7")
 
         # form diag(A)^{-1}
         self.Adinv.setDiagonal(self.adinv_vec, addv=PETSc.InsertMode.INSERT)
@@ -220,6 +198,8 @@ class BlockPreconditioner:
         self.E.copy(result=self.Umod)
         self.Umod.axpy(-1., self.D_Adinv_Bt)
 
+        PETSc.Sys.Print("Finished here 8")
+
         # compute self.Tmod = self.Et - B_Adinv_Dt
         self.Et.copy(result=self.Tmod)
         self.Tmod.axpy(-1., self.B_Adinv_Dt)
@@ -240,6 +220,9 @@ class BlockPreconditioner:
 
         self.smoddinv_vec.scale(self.schur_block_scaling[1]['val'])
 
+
+        PETSc.Sys.Print("Finished here 9")
+
         # form diag(Smod)^{-1}
         self.Smoddinv.setDiagonal(self.smoddinv_vec, addv=PETSc.InsertMode.INSERT)
 
@@ -247,17 +230,24 @@ class BlockPreconditioner:
 
         self.Umod.matMult(self.Smoddinv_Tmod, result=self.Umod_Smoddinv_Tmod)              # Umod diag(Smod)^{-1} Tmod
 
-        self.D.matMult(self.Adinv_Dt, result=self.D_Adinv_Dt)                              # D diag(A)^{-1} Dt
+        self.D.matMult(self.Adinv_Dt, result=self.D_Adinv_Dt)                          # D diag(A)^{-1} Dt
+
+        PETSc.Sys.Print("Finished here 10")
 
         # compute self.Wmod = self.R - D_Adinv_Dt - Umod_Smoddinv_Tmod
         self.R.copy(result=self.Wmod)
         self.Wmod.axpy(-1., self.D_Adinv_Dt)
         self.Wmod.axpy(-1., self.Umod_Smoddinv_Tmod)
 
+
+        PETSc.Sys.Print("Finished here 11")
+
         # operator values have changed - do we need to re-set them?
         self.ksp_fields[0].setOperators(self.A)
         self.ksp_fields[1].setOperators(self.Smod)
         self.ksp_fields[2].setOperators(self.Wmod)
+
+        PETSc.Sys.Print("Finished here 12")
 
     def apply(self, pc, x, y):
         # get subvectors (references!)
@@ -265,10 +255,14 @@ class BlockPreconditioner:
         x.getSubVector(self.iset[1], subvec=self.x2)
         x.getSubVector(self.iset[2], subvec=self.x3)
 
+        PETSc.Sys.Print("Finished here 13")
+
         tss = time.time()
 
         # 1) solve A * y_1 = x_1
+        PETSc.Sys.Print(self.x1.getSize(), self.y1.getSize())
         self.ksp_fields[0].solve(self.x1, self.y1)
+        PETSc.Sys.Print("Finished here 14")
 
         self.B.mult(self.y1, self.By1)
 
@@ -287,6 +281,7 @@ class BlockPreconditioner:
         self.z3.axpy(-1., self.Dy1)
         self.z3.axpy(-1., self.Umody2)
 
+        PETSc.Sys.Print("Finished here 14")
         # 3) solve Wmod * y_3 = z_3
         self.ksp_fields[2].solve(self.z3, self.y3)
 
@@ -313,6 +308,9 @@ class BlockPreconditioner:
         x.restoreSubVector(self.iset[0], subvec=self.x1)
         x.restoreSubVector(self.iset[1], subvec=self.x2)
         x.restoreSubVector(self.iset[2], subvec=self.x3)
+
+
+        PETSc.Sys.Print("Finished here 15")
 
         # set into y vector
         y.setNestSubVecs([self.y1, self.y2, self.y3])
@@ -350,7 +348,9 @@ class BGSPreconditioner:
         return self._precond_fields
 
     def create(self, pc):
+        # pc.setUp()
         _, self.P = pc.getOperators()
+        self.P.setUp()
         opts = PETSc.Options()
         operator_mats = self.init_mat_vec(pc)
 
@@ -360,42 +360,9 @@ class BGSPreconditioner:
             self.ksp_fields.append( PETSc.KSP().create(self.comm) )
 
         for n in range(self.size):
-            if self.precond_fields[n]['prec'] == 'amg':
-                try: solvetype = self.precond_fields[n]['solve']
-                except: solvetype = "preonly"
-                self.ksp_fields[n].setType(solvetype)
-                # GMRES or FGMES for inner solve
-                if solvetype == 'gmres' or solvetype == 'fgmres':
-                    try: maxiter = self.precond_fields[n]['maxiter']
-                    except: maxiter = 1000
-                    try: rtol = self.precond_fields[n]['rtol']
-                    except: rtol = 1e-8
-                    try: atol = self.precond_fields[n]['atol']
-                    except: atol = 1e-50
-                    self.ksp_fields[n].setTolerances(rtol=rtol, atol=atol, divtol=None, max_it=maxiter)
-                try: amgtype = self.precond_fields[n]['amgtype']
-                except: amgtype = "hypre"
-                self.ksp_fields[n].getPC().setType(amgtype)
-                if amgtype=="hypre":
-                    self.ksp_fields[n].getPC().setHYPREType("boomeramg")
-                # add PETSc options
-                if 'petsc_options' in self.precond_fields[n].keys():
-                    opt_dict = self.precond_fields[n]['petsc_options']
-                    for o in opt_dict:
-                        opts.setValue(o, opt_dict[o])
-                    self.ksp_fields[n].setFromOptions() # solver options
-                    self.ksp_fields[n].getPC().setFromOptions() # preconditioner options
-                    for key in opts.getAll(): opts.delValue(key) # clear options - opts.clear() doesn't seem to work?!
-                # print to view some settings...
-                #print(self.ksp_fields[n].getPC().view())
-            elif self.precond_fields[n]['prec'] == 'direct':
-                self.ksp_fields[n].setType("preonly")
-                self.ksp_fields[n].getPC().setType("lu")
-                self.ksp_fields[n].getPC().setFactorSolverType("mumps")
-            else:
-                self.ksp_fields[n].setType(self.precond_fields[n]['solve'])
-                self.ksp_fields[n].getPC().setType(self.precond_fields[n]['prec'])
-                # raise ValueError("Unknown preconditioner type")
+            self.ksp_fields[n].setType(self.precond_fields[n]['ksp_type'])
+            self.ksp_fields[n].getPC().setType(self.precond_fields[n]['pc_type'])
+            # raise ValueError("Unknown preconditioner type")
 
             self.ksp_fields[n].setOperators(operator_mats[n])
 
@@ -521,52 +488,22 @@ class BGSSIMPLEPreconditioner:
             self.ksp_fields.append( PETSc.KSP().create(self.comm) )
 
         for n in range(self.size):
-            if self.precond_fields[n]['prec'] == 'amg':
-                try: solvetype = self.precond_fields[n]['solve']
-                except: solvetype = "preonly"
-                self.ksp_fields[n].setType(solvetype)
-                # GMRES or FGMES for inner solve
-                if solvetype == 'gmres' or solvetype == 'fgmres':
-                    try: maxiter = self.precond_fields[n]['maxiter']
-                    except: maxiter = 1000
-                    try: rtol = self.precond_fields[n]['rtol']
-                    except: rtol = 1e-5
-                    try: atol = self.precond_fields[n]['atol']
-                    except: atol = 1e-50
-                    self.ksp_fields[n].setTolerances(rtol=rtol, atol=atol, divtol=None, max_it=maxiter)
-                try: amgtype = self.precond_fields[n]['amgtype']
-                except: amgtype = "hypre"
-                self.ksp_fields[n].getPC().setType(amgtype)
-                if amgtype=="hypre":
-                    self.ksp_fields[n].getPC().setHYPREType("boomeramg")
-                # add PETSc options
-                if 'petsc_options' in self.precond_fields[n].keys():
-                    opt_dict = self.precond_fields[n]['petsc_options']
-                    for o in opt_dict:
-                        opts.setValue(o, opt_dict[o])
-                    self.ksp_fields[n].setFromOptions() # solver options
-                    self.ksp_fields[n].getPC().setFromOptions() # preconditioner options
-                    for key in opts.getAll(): opts.delValue(key) # clear options - opts.clear() doesn't seem to work?!
-                # print to view some settings...
-                #print(self.ksp_fields[n].getPC().view())
-            elif self.precond_fields[n]['prec'] == 'direct':
-                self.ksp_fields[n].setType("preonly")
-                self.ksp_fields[n].getPC().setType("lu")
-                self.ksp_fields[n].getPC().setFactorSolverType("mumps")
-            else:
-                self.ksp_fields[n].setType(self.precond_fields[n]['solve'])
-                self.ksp_fields[n].getPC().setType(self.precond_fields[n]['prec'])
-                # raise ValueError("Unknown preconditioner type")
+            self.ksp_fields[n].setType(self.precond_fields[n]['ksp_type'])
+            self.ksp_fields[n].getPC().setType(self.precond_fields[n]['pc_type'])
+            # raise ValueError("Unknown preconditioner type")
 
             self.ksp_fields[n].setOperators(operator_mats[n])
 
     def init_mat_vec(self, pc):
         self.A  = self.P.createSubMatrix(self.iset[0],self.iset[0])
+        self.A.assemble()
         self.Bt = self.P.createSubMatrix(self.iset[0],self.iset[1])
         self.Dt = self.P.createSubMatrix(self.iset[0],self.iset[2])
         self.B  = self.P.createSubMatrix(self.iset[1],self.iset[0])
         self.C  = self.P.createSubMatrix(self.iset[1],self.iset[1])
+        self.C.assemble()
         self.Et = self.P.createSubMatrix(self.iset[1],self.iset[2])
+        self.Et.assemble()
         self.D  = self.P.createSubMatrix(self.iset[2],self.iset[0])
         self.E  = self.P.createSubMatrix(self.iset[2],self.iset[1])
         self.R  = self.P.createSubMatrix(self.iset[2],self.iset[2])
@@ -579,7 +516,8 @@ class BGSSIMPLEPreconditioner:
         self.Adinv.shift(1.)
 
         if self.schur_block_scaling[0]['type']=='diag':
-            self.adinv_vec = self.A.getDiagonal()
+            self.adinv_vec = self.A.createVecLeft()
+            self.A.getDiagonal(result=self.adinv_vec)
         elif self.schur_block_scaling[0]['type']=='rowsum':
             self.adinv_vec = self.A.getRowSum()
         elif self.schur_block_scaling[0]['type']=='none':
