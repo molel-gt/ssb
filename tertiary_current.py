@@ -519,27 +519,43 @@ if __name__ == '__main__':
 
     ## solve initial potential distribution at t = 0
     n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs
-    opts = {
-        'ksp_type': 'cg',
-        'pc_type': 'ilu',
-        'pc_factor_levels': 0,
-        'pc_factor_fill': 1.0,
-        "relative_tolerance": 1e-7,
-        "log_view": None,
-        }
     F2D = F[:2]
     J2D = [j2d[:2] for j2d in J[:2]]
-    solver = solvers.NewtonSolver(
-        F2D,
-        J2D,
-        [u_0, u_1],
-        bcs=bcs,
-        max_iterations=1000,
-        petsc_options=opts,
-        )
+    Jmat2d = fem.petsc.create_matrix_block(J2D)
+    Fvec2d = fem.petsc.create_vector_block(F2D)
+    snes = PETSc.SNES().create(comm)
+    snes.setType('newtonls')
+    snes.setTolerances(rtol=1.0e-7, max_it=10000)
+    snes.getKSP().setType(PETSc.KSP.Type.CG)
+    snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
+    snes.getKSP().setOptionsPrefix("snes_")
+    snes.getKSP().setOperators(Jmat2d, Jmat2d)
+    snes.getKSP().setTolerances(rtol=1e-7)
+    snes.setErrorIfNotConverged(True)
+    snes.getKSP().setErrorIfNotConverged(True)
+    snes.getKSP().setConvergenceHistory()
+    opts = PETSc.Options()
+    opts['snes_linesearch_type'] = 'bt'
+    opts['snes_linesearch_monitor'] = None
+    opts['snes_monitor'] = None
+    opts[f"{snes.getKSP().getOptionsPrefix()}pc_factor_levels"] = 0
+    opts[f"{snes.getKSP().getOptionsPrefix()}pc_factor_fill"] = 1.0
+    snes.getKSP().setFromOptions()
+    snes.setFromOptions()
+    snes.view()
+
+    problem_t0 = solvers.NonlinearPDE_SNESProblem(F2D, J2D, [u_0, u_1], bcs, P=J2D)
+    snes.setFunction(problem_t0.F_block, Fvec2d)
+    snes.setJacobian(problem_t0.J_block, J=Jmat2d, P=Jmat2d)
+    x2d = fem.petsc.create_vector_block(F2D)
+    x2d.set(0.0)
     t0 = time.time()
-    solver.solve(tol=1e-5)
+    snes.solve(None, x2d)
     t1 = time.time()
+    snes.destroy()
+    Jmat2d.destroy()
+    Fvec2d.destroy()
+    x2d.destroy()
     PETSc.Sys.Print(f"Finished computation of initial (t = 0) potential distribution!\nn_dofs: {n_dofs_t0}\nsolve time: {t1 - t0:.3f}s")
     # I_left_t0 = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * (phi_ref) * L_ref ** (tdim-2) * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
     # I_right_t0 = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * (phi_ref) * L_ref ** (tdim-2) * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
