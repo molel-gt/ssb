@@ -21,6 +21,7 @@ import warnings
 
 from dolfinx import cpp, default_real_type, fem, io, jit, mesh, log
 from dolfinx.geometry import bb_tree, compute_collisions_points, compute_colliding_cells
+from dolfinx.nls import petsc as petsc_nls
 from matplotlib import rc
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -180,6 +181,7 @@ if __name__ == '__main__':
     parser.add_argument('--kinetics', help='kinetics type', nargs='?', const=1, default='butler_volmer', type=str, choices=kinetics)
     parser.add_argument("--plot", help="whether to plot results", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("--plot_sparsity", help="whether to plot results", default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--improved_guess", help="whether to solve for improved guess", default=False, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
 
@@ -327,8 +329,9 @@ if __name__ == '__main__':
 
     dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
     dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
+    dx_c = ufl.Measure('dx', domain=submesh_positive_am)
     ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
-    ds_r = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
+    ds_c = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
     l_res = "-"
     r_res = "+"
     V0 = u_0.function_space
@@ -340,7 +343,7 @@ if __name__ == '__main__':
     u_r = u_1(r_res)
 
     n = ufl.FacetNormal(domain)
-    n2 = ufl.FacetNormal(submesh_positive_am)
+    n_c = ufl.FacetNormal(submesh_positive_am)
     n_l = n(l_res)
     n_r = n(r_res)
     cd = ufl.CellDiameter(domain)
@@ -359,9 +362,10 @@ if __name__ == '__main__':
 
     c, q = fem.Function(VC), ufl.TestFunction(VC)
     c0 = fem.Function(VC)
+    u_int = fem.Function(VC)
 
     c0.interpolate(lambda x: x[directions[args.transport_direction.lower()]] - x[directions[args.transport_direction.lower()]] + soc_init)
-    c.interpolate(c0)#lambda x: soc_init * (1 - np.exp(-x[directions[args.transport_direction.lower()]])))
+    # c.interpolate(c0)#lambda x: soc_init * (1 - np.exp(-x[directions[args.transport_direction.lower()]])))
 
     q_r = ufl.TestFunction(c.function_space)(r_res)
     q_l = ufl.TestFunction(c.function_space)(l_res)
@@ -516,60 +520,74 @@ if __name__ == '__main__':
 
     log_viewer = PETSc.Viewer().STDOUT()
     log_viewer.setFileName(log_datafile)
-
+    ########################################################################################################################################
     ## solve initial potential distribution at t = 0
-    n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs
-    F2D = F[:2]
-    J2D = [j2d[:2] for j2d in J[:2]]
-    Jmat2d = fem.petsc.create_matrix_block(J2D)
-    Fvec2d = fem.petsc.create_vector_block(F2D)
-    snes = PETSc.SNES().create(comm)
-    snes.setType('newtonls')
-    snes.setTolerances(rtol=1.0e-7, max_it=10000)
-    snes.getKSP().setType(PETSc.KSP.Type.CG)
-    snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
-    snes.getKSP().setOptionsPrefix("snes_")
-    snes.getKSP().setOperators(Jmat2d, Jmat2d)
-    snes.getKSP().setTolerances(rtol=1e-7)
-    snes.setErrorIfNotConverged(True)
-    snes.getKSP().setErrorIfNotConverged(True)
-    snes.getKSP().setConvergenceHistory()
-    opts = PETSc.Options()
-    opts['snes_linesearch_type'] = 'bt'
-    opts['snes_linesearch_monitor'] = None
-    opts['snes_monitor'] = None
-    opts[f"{snes.getKSP().getOptionsPrefix()}pc_factor_levels"] = 0
-    opts[f"{snes.getKSP().getOptionsPrefix()}pc_factor_fill"] = 1.0
-    snes.getKSP().setFromOptions()
-    snes.setFromOptions()
-    snes.view()
+    if args.improved_guess:
+        PETSc.Sys.Print("************Begin Solve for t = 0 Potential Distribution*******************")
+        n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs
+        F2D = F[:2]
+        J2D = [j2d[:2] for j2d in J[:2]]
+        Jmat2d = fem.petsc.create_matrix_block(J2D)
+        Fvec2d = fem.petsc.create_vector_block(F2D)
+        snes = PETSc.SNES().create(comm)
+        snes.setType('newtonls')
+        snes.setTolerances(rtol=1.0e-7, max_it=10000)
+        snes.getKSP().setType(PETSc.KSP.Type.CG)
+        snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
+        snes.getKSP().setOptionsPrefix("snes_")
+        snes.getKSP().setOperators(Jmat2d, Jmat2d)
+        snes.getKSP().setTolerances(rtol=1e-7)
+        snes.setErrorIfNotConverged(True)
+        snes.getKSP().setErrorIfNotConverged(True)
+        snes.getKSP().setConvergenceHistory()
+        opts = PETSc.Options()
+        opts['snes_linesearch_type'] = 'bt'
+        opts['snes_linesearch_monitor'] = None
+        opts['snes_monitor'] = None
+        opts[f"{snes.getKSP().getOptionsPrefix()}pc_factor_levels"] = 0
+        opts[f"{snes.getKSP().getOptionsPrefix()}pc_factor_fill"] = 1.0
+        snes.getKSP().setFromOptions()
+        snes.setFromOptions()
+        snes.view()
 
-    problem_t0 = solvers.NonlinearPDE_SNESProblem(F2D, J2D, [u_0, u_1], bcs, P=J2D)
-    snes.setFunction(problem_t0.F_block, Fvec2d)
-    snes.setJacobian(problem_t0.J_block, J=Jmat2d, P=Jmat2d)
-    x2d = fem.petsc.create_vector_block(F2D)
-    x2d.set(0.0)
-    t0 = time.time()
-    snes.solve(None, x2d)
-    t1 = time.time()
-    snes.destroy()
-    Jmat2d.destroy()
-    Fvec2d.destroy()
-    x2d.destroy()
-    PETSc.Sys.Print(f"Finished computation of initial (t = 0) potential distribution!\nn_dofs: {n_dofs_t0}\nsolve time: {t1 - t0:.3f}s")
-    # I_left_t0 = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * (phi_ref) * L_ref ** (tdim-2) * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
-    # I_right_t0 = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * (phi_ref) * L_ref ** (tdim-2) * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
-    # I_left_x_t0 = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * (phi_ref) * L_ref ** (tdim-2) * grad(u_0(n_l)), n_l) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
-    # I_right_x_t0 = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * (phi_ref) * L_ref ** (tdim-2) * grad(u_1(n_r)), n_r) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
-    # PETSc.Sys.Print("Finished computation of summary statistics for initial potential distribution!")
-    # PETSc.Sys.Print("************Begin Summary Results for t = 0 Potential Distribution*******************")
-    # PETSc.Sys.Print("I_left [A]: ", I_left_t0)
-    # PETSc.Sys.Print("I_left interface [A]: ", I_left_x_t0)
-    # PETSc.Sys.Print("I_right interface [A]: ", I_right_x_t0)
-    # PETSc.Sys.Print("I_right [A]: ", I_right_t0)
-    # PETSc.Sys.Print("solve time [s]: ", t1 - t0)
-    # PETSc.Sys.Print("n_dofs: ", n_dofs_t0)
-    # PETSc.Sys.Print("************End Summary Results for t = 0 Potential Distribution*******************")
+        problem_t0 = solvers.NonlinearPDE_SNESProblem(F2D, J2D, [u_0, u_1], bcs, P=J2D)
+        snes.setFunction(problem_t0.F_block, Fvec2d)
+        snes.setJacobian(problem_t0.J_block, J=Jmat2d, P=Jmat2d)
+        x2d = fem.petsc.create_vector_block(F2D)
+        x2d.set(0.0)
+        t0 = time.time()
+        snes.solve(None, x2d)
+        t1 = time.time()
+        snes.destroy()
+        Jmat2d.destroy()
+        Fvec2d.destroy()
+        x2d.destroy()
+        PETSc.Sys.Print(f"Finished computation of initial (t = 0) potential distribution!\nn_dofs: {n_dofs_t0}\nsolve time: {t1 - t0:.3f}s")
+        PETSc.Sys.Print("************Solve for Improved Guess for Concentration Distribution*******************")
+        n_dofs_c = VC_map.size_global*VC.dofmap.index_map_bs
+        u_int.interpolate(u_1)
+        F_c = (c - c0)/dt * q * dx_c + inner(ufl.grad(c), ufl.grad(q)) * dx_c
+        # F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_int), n_c) * q * ds_c(markers.electrolyte_v_positive_am)
+        F_c += -inner(grad(u_int), n_c) * q * ds_c(markers.electrolyte_v_positive_am)
+        problem_c = fem.petsc.NonlinearProblem(F_c, c, bcs=[])
+        solver = petsc_nls.NewtonSolver(comm, problem_c)
+        solver.convergence_criterion = "residual"
+        solver.maximum_iterations = 100
+        solver.rtol = 1e-7
+
+        ksp = solver.krylov_solver
+        opts = PETSc.Options()
+        option_prefix = ksp.getOptionsPrefix()
+        opts[f"{option_prefix}ksp_type"] = "cg"
+        opts[f"{option_prefix}pc_type"] = "hypre"
+        # opts[f"{option_prefix}pc_factor_levels"] = 0
+        # opts[f"{option_prefix}pc_factor_fill"] = 2.0
+        ksp.setFromOptions()
+        t0 = time.time()
+        n_iters, converged = solver.solve(c)
+        t1 = time.time()
+        PETSc.Sys.Print(f"Finished computation of improved guess of concentration distribution!\nn_dofs: {n_dofs_c}\nsolve time: {t1 - t0:.3f}s")
+    ########################################################################################################################################
 
     while t < TIME:
         t += dt.value
