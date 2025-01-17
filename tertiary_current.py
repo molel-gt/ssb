@@ -746,13 +746,15 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
-            ksp_u.setType(PETSc.KSP.Type.FGMRES)
+            ksp_u.setType(PETSc.KSP.Type.CG)
             ksp_u.getPC().setType(PETSc.PC.Type.ILU)
+            ksp_u.setTolerances(rtol=1e-7)
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
             ksp_c.setType(PETSc.KSP.Type.PREONLY)
             ksp_c.getPC().setType(args.amg_type)
+            ksp_c.setTolerances(rtol=1e-7)
             ksp_u.setConvergenceHistory()
             ksp_c.setConvergenceHistory()
 
