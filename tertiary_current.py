@@ -520,8 +520,10 @@ if __name__ == '__main__':
     ## solve initial potential distribution at t = 0
     n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs
     opts = {
-        'ksp_type': 'fgmres',
+        'ksp_type': 'cg',
         'pc_type': 'ilu',
+        'pc_factor_levels': 0,
+        'pc_factor_fill': 1.0,
         "relative_tolerance": 1e-7,
         "log_view": None,
         }
