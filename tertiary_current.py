@@ -935,6 +935,7 @@ if __name__ == '__main__':
         "kinetics": args.kinetics,
         "dofs": n_dofs,
         "n_procs": comm.Get_size(),
+        "sim_date": datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
     }
     if comm_rank == 0:
         utils.print_dict(metadata, padding=50)
