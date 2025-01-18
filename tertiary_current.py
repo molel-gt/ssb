@@ -531,12 +531,12 @@ if __name__ == '__main__':
         Fvec2d = fem.petsc.create_vector_block(F2D)
         snes = PETSc.SNES().create(comm)
         snes.setType('newtonls')
-        snes.setTolerances(rtol=1.0e-7, max_it=100)
+        snes.setTolerances(rtol=1.0e-7, max_it=15)
         snes.getKSP().setType(PETSc.KSP.Type.CG)
         snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
         snes.getKSP().setOptionsPrefix("snes_")
         snes.getKSP().setOperators(Jmat2d, Jmat2d)
-        snes.getKSP().setTolerances(rtol=1e-7)
+        snes.getKSP().setTolerances(rtol=1e-8)
         snes.setErrorIfNotConverged(True)
         snes.getKSP().setErrorIfNotConverged(True)
         snes.getKSP().setConvergenceHistory()
@@ -573,7 +573,7 @@ if __name__ == '__main__':
         solver = petsc_nls.NewtonSolver(comm, problem_c)
         solver.convergence_criterion = "residual"
         solver.maximum_iterations = 100
-        solver.rtol = 1e-7
+        solver.rtol = 1e-8
 
         ksp = solver.krylov_solver
         opts = PETSc.Options()
@@ -625,7 +625,7 @@ if __name__ == '__main__':
             Fvec = fem.petsc.create_vector_nest(F)
             snes = PETSc.SNES().create(comm)
             snes.setType('newtonls')
-            snes.setTolerances(rtol=1.0e-7, max_it=10000)
+            snes.setTolerances(rtol=1.0e-7, max_it=15)
             snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
             snes.getKSP().setOptionsPrefix("snes_")
             snes.getKSP().setOperators(Jmat, Pmat)
@@ -719,7 +719,7 @@ if __name__ == '__main__':
             Fvec = fem.petsc.create_vector_block(F)
             snes = PETSc.SNES().create(comm)
             snes.setType('newtonls')
-            snes.setTolerances(rtol=1.0e-7, max_it=100)
+            snes.setTolerances(rtol=1.0e-7, max_it=15)
             snes.getKSP().setType(PETSc.KSP.Type.PREONLY)
             snes.getKSP().setOptionsPrefix("snes_")
             snes.getKSP().setOperators(Jmat, Pmat)
