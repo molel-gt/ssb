@@ -164,6 +164,7 @@ if __name__ == '__main__':
     parser.add_argument("--u_ocv", help="open-circuit potential", nargs='?', const=1, default=0, type=float)
     parser.add_argument("--Wa_n", help="Wagna number for negative electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e-3, type=float)
     parser.add_argument("--Wa_p", help="Wagna number for positive electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
+    parser.add_argument("--D", help="Diffusivity [m2/s]", nargs='?', const=1, default=1e-14, type=float)
     parser.add_argument("--kr", help="ratio of ionic to electronic conductivity", nargs='?', const=1, default=1, type=float)
     parser.add_argument("--gamma", help="interior penalty parameter", nargs='?', const=1, default=15, type=float)
     parser.add_argument("-p", "--p", help="polynomial approximation order", nargs='?', const=1, default=4, type=int)
@@ -192,7 +193,7 @@ if __name__ == '__main__':
     gamma = args.gamma
     kappa_elec = args.kr * kappa_pos_am
     dt_ = args.dt
-    D = 1e-15
+    D = args.D
     TIME = 1 * dt_
 
     markers = commons.Markers()
@@ -929,6 +930,7 @@ if __name__ == '__main__':
         "t ref [s]": ref["t"],
         "min time step [s]": args.dt * ref["t"],
         "Positive Wa": args.Wa_p,
+        "Diffusivity [m2/s]": args.D,
         "Kr": args.kr,
         "polynomial approximation order (p)": args.p,
         "penalty parameter (gamma)": args.gamma,
