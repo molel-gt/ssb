@@ -581,8 +581,8 @@ if __name__ == '__main__':
         option_prefix = ksp.getOptionsPrefix()
         opts[f"{option_prefix}ksp_type"] = "cg"
         opts[f"{option_prefix}pc_type"] = args.amg_type
-        # for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
-        #         opts[f"{option_prefix}{optk}"] = optv
+        for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
+                opts[f"{option_prefix}{optk}"] = optv
         # opts[f"{option_prefix}pc_factor_levels"] = 0
         # opts[f"{option_prefix}pc_factor_fill"] = 2.0
         ksp.setFromOptions()
