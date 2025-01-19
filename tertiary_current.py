@@ -1038,7 +1038,7 @@ if __name__ == '__main__':
             u_vals = all_u_vals[all_u_vals[:, 2].argsort()]
 
             fig, ax = plt.subplots()
-            ax.plot(c_vals[:, 2], c_vals[:, 3], 'k', label=r'0.5$L_x$,0.5$L_y$', linewidth=1)
+            ax.plot(c_vals[:, 2], c_vals[:, 3]*c_ref/c_max, 'k', label=r'0.5$L_x$,0.5$L_y$', linewidth=1)
             ax.grid(True)
             ax.legend()
             ax.set_xlim([0, 1])
