@@ -533,7 +533,7 @@ if __name__ == '__main__':
         snes = PETSc.SNES().create(comm)
         snes.setType('newtonls')
         snes.setTolerances(rtol=1.0e-7, max_it=15)
-        snes.getKSP().setType(PETSc.KSP.Type.CG)
+        snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
         snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
         snes.getKSP().setOptionsPrefix("snes_")
         snes.getKSP().setOperators(Jmat2d, Jmat2d)
