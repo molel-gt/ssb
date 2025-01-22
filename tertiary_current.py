@@ -215,6 +215,13 @@ if __name__ == '__main__':
     # c_ref = c_max
     c_ref = kappa_elec * phi_ref / (faraday_const * D)
     ref = {"t": t_ref, "phi": phi_ref, "c": c_ref, "L": L_ref}
+    R_p_ref = 10e-6  # characteristic diffusion length
+
+    # exchange current densities
+    i0_n = kappa_elec * R * T / (Wa_n * faraday_const * L_ref)
+    i0_p = kappa_elec * R * T / (Wa_p * faraday_const * L_ref)
+
+    thiele = R_p_ref * i0_p * V_UCO / (R * T * D * c_max)
 
     soc_init = 0.75 * c_max / c_ref
 
@@ -350,10 +357,6 @@ if __name__ == '__main__':
     cd = ufl.CellDiameter(domain)
     h_l = cd(l_res)
     h_r = cd(r_res)
-
-    # exchange current densities
-    i0_n = kappa_elec * R * T / (Wa_n * faraday_const * L_ref)
-    i0_p = kappa_elec * R * T / (Wa_p * faraday_const * L_ref)
 
     # concentration problem
     dt = fem.Constant(submesh_positive_am, dt_)
@@ -542,6 +545,8 @@ if __name__ == '__main__':
         snes.getKSP().setErrorIfNotConverged(True)
         snes.getKSP().setConvergenceHistory()
         opts = PETSc.Options()
+        # for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
+        #         opts[f"{snes.getKSP().getOptionsPrefix()}{optk}"] = optv
         opts['snes_linesearch_type'] = 'bt'
         opts['snes_linesearch_monitor'] = None
         opts['snes_monitor'] = None
@@ -747,7 +752,7 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
-            ksp_u.setType(PETSc.KSP.Type.PREONLY)
+            ksp_u.setType(PETSc.KSP.Type.FGMRES)
             ksp_u.getPC().setType(PETSc.PC.Type.ILU)
             ksp_u.setTolerances(rtol=1e-7)
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
@@ -925,11 +930,13 @@ if __name__ == '__main__':
         "time elapsed [s]": time_elapsed,
         "solve time [s]": t1 - t0,
         "L ref [m]": ref["L"],
+        "R_p ref [m]": R_p_ref,
         "c ref [mol/m3]": ref["c"],
         "phi ref [V]": ref["phi"],
         "t ref [s]": ref["t"],
         "min time step [s]": args.dt * ref["t"],
         "Positive Wa": args.Wa_p,
+        "Thiele modulus": thiele,
         "Diffusivity [m2/s]": args.D,
         "Kr": args.kr,
         "polynomial approximation order (p)": args.p,
