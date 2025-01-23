@@ -45,7 +45,7 @@ AMG_TYPES = {
 }
 
 LINESEARCH = {
-    "snes_linesearch_type": "none", #"basic",
+    "snes_linesearch_type": "bt", #"basic",
     'snes_linesearch_monitor': None,
     'snes_monitor': None,
 }
