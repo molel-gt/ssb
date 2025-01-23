@@ -213,7 +213,7 @@ if __name__ == '__main__':
     t_ref = L_ref ** 2 / D
     phi_ref = V_UCO
     # c_ref = c_max
-    c_ref = kappa_elec * phi_ref / (faraday_const * D)
+    c_ref = kappa_pos_am * phi_ref / (faraday_const * D)
     ref = {"t": t_ref, "phi": phi_ref, "c": c_ref, "L": L_ref}
     R_p_ref = 10e-6  # characteristic diffusion length
 
