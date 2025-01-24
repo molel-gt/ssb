@@ -536,7 +536,7 @@ if __name__ == '__main__':
         snes = PETSc.SNES().create(comm)
         snes.setType('newtonls')
         snes.setTolerances(rtol=2.5e-5, max_it=100)
-        snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
+        snes.getKSP().setType(PETSc.KSP.Type.PREONLY)
         snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
         snes.getKSP().setOptionsPrefix("snes_")
         snes.getKSP().setOperators(Jmat2d, Jmat2d)
@@ -726,7 +726,7 @@ if __name__ == '__main__':
             snes = PETSc.SNES().create(comm)
             snes.setType('newtonls')
             snes.setTolerances(rtol=1.0e-7, max_it=100)
-            snes.getKSP().setType(PETSc.KSP.Type.PREONLY)
+            snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
             snes.getKSP().setOptionsPrefix("snes_")
             snes.getKSP().setOperators(Jmat, Pmat)
             nullspace = PETSc.NullSpace().create(constant=True)
@@ -738,6 +738,7 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setType("fieldsplit")
             snes.getKSP().getPC().setFieldSplitIS(("u", IS_u), ("c", IS_c))
             opts = PETSc.Options()
+            opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
             for kopt, vopt in solver_params.LINESEARCH.items():
                 opts[kopt] = vopt
 
@@ -752,7 +753,7 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
-            ksp_u.setType(PETSc.KSP.Type.FGMRES)
+            ksp_u.setType(PETSc.KSP.Type.PREONLY)
             ksp_u.getPC().setType(PETSc.PC.Type.ILU)
             ksp_u.setTolerances(rtol=1e-7)
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
