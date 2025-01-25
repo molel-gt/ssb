@@ -94,3 +94,12 @@ def get_surface_overpotential(kappa, i0, u, n, kinetics_type="butler_volmer"):
         return R * T * i_loc / (i0 * faraday_const)
     elif kinetics_type == "tafel":
         return ufl.sign(i_loc) * R * T / (0.5 * faraday_const) * ufl.ln(np.abs(i_loc)/i_0)
+
+
+def delete_numpy_rows(in_arr, to_delete):
+    out_arr = in_arr
+    for row in to_delete:
+        idx = np.where(np.all(out_arr == row, axis=1))[0][0]
+        out_arr = np.delete(out_arr, idx, axis=0)
+
+    return out_arr
