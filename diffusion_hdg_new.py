@@ -6,6 +6,7 @@
 import argparse
 import os
 import sys
+import time
 
 import dolfinx
 import matplotlib.pyplot as plt
@@ -23,7 +24,7 @@ from mpi4py import MPI
 from petsc4py import PETSc
 from ufl import div, dot, grad, inner
 
-import commons, solvers, utils
+import commons, solvers, solver_params, utils
 
 LX = 75e-6
 Wa_p = 1e-3
@@ -113,7 +114,7 @@ def delete_numpy_rows(in_arr, to_delete):
     return out_arr
 
 markers = commons.Markers()
-mesh_folder = "output/tertiary_current/75-40-0/unrefined/1/"
+mesh_folder = "output/tertiary_current/75-40-0/unrefined/0.5/"
 comm = MPI.COMM_WORLD
 rank = comm.rank
 dtype = PETSc.ScalarType
@@ -129,7 +130,7 @@ current_resultsfile = os.path.join(workdir, "current.bp")
 simulation_metafile = os.path.join(workdir, "simulation.json")
 
 partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
-domain, ct, ft = gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)
+domain, ct, ft = gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)[:3]
 tdim = domain.topology.dim
 fdim = tdim - 1
 domain.topology.create_connectivity(tdim, fdim)
@@ -152,7 +153,6 @@ right_facets = compute_interface_cell_boundary_facets(domain, ct, ft, phase1, ma
 
 out_arr1 = delete_numpy_rows(phase1_facets, left_facets)
 out_arr2 = delete_numpy_rows(out_arr1, right_facets)
-print(phase1_facets.shape, out_arr1.shape, out_arr2.shape, len(left_facets), len(right_facets))
 phase_1_facets = np.array(phase1_facets).flatten()
 # non_bc_facets = np.vstack((out_arr1, out_arr2)).flatten()
 
@@ -165,15 +165,26 @@ mesh_to_facet_mesh = np.full(num_facets, -1)
 mesh_to_facet_mesh[facet_mesh_to_mesh] = np.arange(len(facet_mesh_to_mesh))
 entity_maps = {facet_mesh: mesh_to_facet_mesh}
 
-kappa = 0.1
+D = 1e-14
+dt = 1e-4
 # function spaces
 k = 3
 VC = fem.functionspace(domain, ("Discontinuous Lagrange", k))
 VCbar = fem.functionspace(facet_mesh, ("Discontinuous Lagrange", k))
 
+
+VC_map = VC.dofmap.index_map
+VC_dofmap = VC.dofmap
+
+VCbar_map = VCbar.dofmap.index_map
+VCbar_dofmap = VCbar.dofmap
+
+n_dofs_t0 = VC_map.size_global*VC.dofmap.index_map_bs + VCbar_map.size_global*VCbar.dofmap.index_map_bs
+
 # Cell space
 c, q = fem.Function(VC), ufl.TestFunction(VC)
-
+c0 = fem.Function(VC)
+c0.interpolate(lambda x: 100.0 + x[0] - x[0])
 # Facet space
 cbar, qbar = fem.Function(VCbar), ufl.TestFunction(VCbar)
 
@@ -208,23 +219,24 @@ facet_mesh.topology.create_connectivity(fdim, fdim)
 # left_bc = fem.dirichletbc(dtype(0.0), left_dofs, VCbar)
 right_dofs = fem.locate_dofs_topological(VCbar, fdim, right_facet_mesh_boundary_facets)
 right_bc = fem.dirichletbc(dtype(voltage), right_dofs, VCbar)
-bcs = [right_bc]#, right_bc]
+bcs = []#[right_bc]#, right_bc]
 
 # ubar_right = fem.Function(VCbar)
 # ubar_right.interpolate(lambda x: 1.0 + x[0]-x[0])
 # with ubar_right.vector.localForm() as u0_loc:
 #     u0_loc.set(voltage)
 
-gbar = fem.Constant(facet_mesh, dtype(-1.333e3))
+gbar = fem.Constant(facet_mesh, dtype(-1.333e-3))
 
-F0 = kappa * inner(grad(c), grad(q)) * dx_c
-F0 += - kappa * inner(c - cbar, inner(grad(q), n)) * (ds_c(1) + ds_c(2) + ds_c(3))
-F0 += + kappa * inner(grad(c), n) * q * (ds_c(1) + ds_c(2)+ds_c(3))
-F0 += + gamma * kappa * inner(c - cbar, q) * (ds_c(1) + ds_c(2) + ds_c(3))
+F0 = (c - c0)/dt * q * dx_c
+F0 += D * inner(grad(c), grad(q)) * dx_c
+F0 += - D * inner(c - cbar, inner(grad(q), n)) * (ds_c(1) + ds_c(2) + ds_c(3))
+F0 += + D * inner(grad(c), n) * q * (ds_c(1) + ds_c(2)+ds_c(3))
+F0 += + gamma * D * inner(c - cbar, q) * (ds_c(1) + ds_c(2) + ds_c(3))
 
-F1 = kappa * inner(grad(c), n) * qbar * (ds_c(1) + ds_c(2))
-F1 += gamma * kappa * inner(c, qbar) * (ds_c(1) + ds_c(2))
-F1 += -gamma * kappa * inner(cbar, qbar) * (ds_c(1) + ds_c(2) + ds_c(3))
+F1 = D * inner(grad(c), n) * qbar * (ds_c(1) + ds_c(2) + ds_c(3))
+F1 += gamma * D * inner(c, qbar) * (ds_c(1) + ds_c(2) + ds_c(3))
+F1 += -gamma * D * inner(cbar, qbar) * (ds_c(1) + ds_c(2) + ds_c(3))
 F1 += gbar * qbar * (ds_c(2))
 
 jac00 = ufl.derivative(F0, c)
@@ -246,25 +258,64 @@ F = [
         fem.form(F1, entity_maps=entity_maps),
         ]
 
-solver = solvers.NewtonSolver(
-        F,
-        J,
-        [c, cbar],
-        bcs=bcs,
-        max_iterations=1000,
-        petsc_options={
-        "ksp_type": "preonly",
-        "pc_type": "lu",
-        "pc_factor_mat_solver_type": "superlu_dist",
-        },
-        )
-solver.solve(1e-5)
+# solver = solvers.NewtonSolver(
+#         F,
+#         J,
+#         [c, cbar],
+#         bcs=bcs,
+#         max_iterations=1000,
+#         petsc_options={
+#         "ksp_type": "preonly",
+#         "pc_type": "lu",
+#         "pc_factor_mat_solver_type": "superlu_dist",
+#         },
+#         )
+# t0 = time.time()
+# solver.solve(1e-5)
+# t1 = time.time()
+Jmat2d = fem.petsc.create_matrix_block(J)
+Fvec2d = fem.petsc.create_vector_block(F)
+snes = PETSc.SNES().create(comm)
+snes.setType('newtonls')
+snes.setTolerances(rtol=2.5e-5, max_it=100)
+snes.getKSP().setType(PETSc.KSP.Type.CG)
+snes.getKSP().getPC().setType(PETSc.PC.Type.HYPRE)
+snes.getKSP().setOptionsPrefix("snes_")
+snes.getKSP().setOperators(Jmat2d, Jmat2d)
+snes.getKSP().setTolerances(rtol=1e-8)
+snes.setErrorIfNotConverged(True)
+snes.getKSP().setErrorIfNotConverged(True)
+snes.getKSP().setConvergenceHistory()
+opts = PETSc.Options()
+for optk, optv in solver_params.AMG_TYPES["hypre"].items():
+        opts[f"{snes.getKSP().getOptionsPrefix()}{optk}"] = optv
+opts['snes_linesearch_type'] = 'bt'
+opts['snes_linesearch_monitor'] = None
+opts['snes_monitor'] = None
+# opts[f"{snes.getKSP().getOptionsPrefix()}pc_factor_levels"] = 0
+# opts[f"{snes.getKSP().getOptionsPrefix()}pc_factor_fill"] = 1.0
+snes.getKSP().setFromOptions()
+snes.setFromOptions()
+snes.view()
 
+problem_t0 = solvers.NonlinearPDE_SNESProblem(F, J, [c, cbar], bcs, P=J)
+snes.setFunction(problem_t0.F_block, Fvec2d)
+snes.setJacobian(problem_t0.J_block, J=Jmat2d, P=Jmat2d)
+x2d = fem.petsc.create_vector_block(F)
+x2d.set(0.0)
+t0 = time.time()
+snes.solve(None, x2d)
+t1 = time.time()
+snes.destroy()
+Jmat2d.destroy()
+Fvec2d.destroy()
+x2d.destroy()
+PETSc.Sys.Print(f"Finished computation of initial (t = 0) potential distribution!\nn_dofs: {n_dofs_t0:,}\nsolve time: {t1 - t0:.3f}s")
 # Write to file
-with VTXWriter(domain.comm, u_resultsfile, c, "bp5") as f:
+with VTXWriter(domain.comm, u_resultsfile, [c], "bp5") as f:
     f.write(0.0)
 
-with VTXWriter(domain.comm, ubar_resultsfile, cbar, "bp5") as f:
+with VTXWriter(domain.comm, ubar_resultsfile, [cbar], "bp5") as f:
     f.write(0.0)
 
 
@@ -274,23 +325,23 @@ with VTXWriter(domain.comm, ubar_resultsfile, cbar, "bp5") as f:
 W_DG = fem.functionspace(domain, ('DG', 1))
 c_dg = fem.Function(W_DG)
 c_dg.interpolate(c)
-W_CG = fem.functionspace(domain, ('CG', 1, (3,)))
-current_cg = fem.Function(W_CG)
-current_expr = fem.Expression(-grad(c_dg), W_CG.element.interpolation_points())
-current_cg.interpolate(current_expr)
-I_left = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-kappa * grad(c_dg), n) * ds(markers.left))), op=MPI.SUM)
-I_middle = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-(kappa * grad(c_dg))('+'), n('+')) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
-I_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-kappa * grad(c_dg), n) * ds(markers.right))), op=MPI.SUM)
-I_insulated = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(-kappa * grad(c_dg), n)) * ds(markers.insulated))), op=MPI.SUM)
-print(f"I_left       : {np.abs(I_left):.4e} A")
-print(f"I_middle     : {np.abs(I_middle):.4e} A")
-print(f"I_right      : {np.abs(I_right):.4e} A")
-print(f"I_insulated  : {np.abs(I_insulated):.4e} A")
-with VTXWriter(domain.comm, potential_resultsfile, c_dg, "bp5") as f:
-    f.write(0.0)
+# W_CG = fem.functionspace(domain, ('CG', 1, (3,)))
+# current_cg = fem.Function(W_CG)
+# current_expr = fem.Expression(-D*grad(c_dg), W_CG.element.interpolation_points())
+# current_cg.interpolate(current_expr)
+I_left = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-D * grad(c_dg), n) * ds(markers.left))), op=MPI.SUM)
+I_middle = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-(D * grad(c_dg))('+'), n('+')) * dS(markers.electrolyte_v_positive_am))), op=MPI.SUM)
+I_right = domain.comm.allreduce(fem.assemble_scalar(fem.form(inner(-D * grad(c_dg), n) * ds(markers.right))), op=MPI.SUM)
+I_insulated = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(-D * grad(c_dg), n)) * ds(markers.insulated))), op=MPI.SUM)
+PETSc.Sys.Print(f"I_left       : {np.abs(I_left):.4e} A")
+PETSc.Sys.Print(f"I_middle     : {np.abs(I_middle):.4e} A")
+PETSc.Sys.Print(f"I_right      : {np.abs(I_right):.4e} A")
+PETSc.Sys.Print(f"I_insulated  : {np.abs(I_insulated):.4e} A")
+# with VTXWriter(domain.comm, potential_resultsfile, c_dg, "bp5") as f:
+#     f.write(0.0)
 
-with VTXWriter(domain.comm, current_resultsfile, current_cg, "bp5") as f:
-    f.write(0.0)
+# with VTXWriter(domain.comm, current_resultsfile, current_cg, "bp5") as f:
+#     f.write(0.0)
 
 
 
@@ -320,7 +371,7 @@ fig, ax = plt.subplots()
 ax.plot((1/1e-6) * points_on_proc[:, 0], u_values, "k", linewidth=2)
 # ax.grid(True)
 ax.axvline(x=25, linestyle='--', color='red', linewidth=0.5)
-ax.set_xlim([0, 75])
+# ax.set_xlim([0, 75])
 # ax.set_ylim([0, voltage])
 ax.set_ylabel(r'$\phi$ [V]', rotation=0, labelpad=30, fontsize='xx-large')
 ax.set_xlabel(r'x [$\mu$m]')
