@@ -9,8 +9,6 @@ from dolfinx.io import gmshio, VTXWriter
 from mpi4py import MPI
 from petsc4py import PETSc
 
-import mesh_utils, solvers
-
 
 class Boundaries:
     def __init__(self):
