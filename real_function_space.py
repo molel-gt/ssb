@@ -198,7 +198,6 @@ if __name__ == '__main__':
 
     all_facets = compute_cell_boundary_facets(domain, ct, markers.domain)
     right_facets = compute_interface_cell_boundary_facets(domain, ct, ft, markers.domain, markers.right)
-
     minus_right_facets = delete_numpy_rows(all_facets, right_facets)
     right_bndry_facets = np.array(right_facets).flatten()
 
