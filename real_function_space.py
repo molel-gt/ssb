@@ -1,19 +1,15 @@
 
 import gmsh
-from packaging.version import Version
+import numpy as np
+import scifem
+import ufl
+
+from dolfinx import cpp, default_scalar_type, fem, mesh
+from dolfinx.io import gmshio, VTXWriter
 from mpi4py import MPI
 from petsc4py import PETSc
 
-from dolfinx import fem, mesh
-from dolfinx.io import gmshio, VTXWriter
-from dolfinx.cpp.la.petsc import scatter_local_vectors, get_local_vectors
-import dolfinx.fem.petsc
-
-import numpy as np
-from scifem import create_real_functionspace, assemble_scalar
-import ufl
-
-import mesh_utils, solvers, utils
+import mesh_utils, solvers
 
 
 class Boundaries:
@@ -92,12 +88,84 @@ def build_mesh(output_path, markers, Lx=10, Ly=1):
     return 0
 
 
+def compute_cell_boundary_facets(domain, ct, marker):
+    """Compute the integration entities for integrals around the
+    boundaries of all cells in domain.
+
+    Parameters:
+        domain: The mesh.
+        ct: cell tags
+        marker: physical group label
+
+    Returns:
+        Facets to integrate over, identified by ``(cell, local facet
+        index)`` pairs.
+    """
+    tdim = domain.topology.dim
+    fdim = tdim - 1
+    n_f = cpp.mesh.cell_num_entities(domain.topology.cell_type, fdim)
+
+    cells_1 = ct.find(marker)
+    perm = np.argsort(cells_1)
+    n_c = cells_1.shape[0]
+
+    return np.vstack((np.repeat(cells_1[perm], n_f), np.tile(np.arange(n_f), n_c))).T
+
+
+def compute_interface_cell_boundary_facets(domain, ct, ft, cell_marker, facet_marker):
+    """
+    Compute integration entities for integrals around the boundaries of cells at the
+    location of prescribed flux expression
+
+    domain: the mesh
+    ct: cell tags
+    ft: facet tags
+    cell_marker: marker for subdomain
+    facet_marker: marker for interface
+    """
+    tdim = domain.topology.dim
+    fdim = tdim - 1
+    f_to_c = domain.topology.connectivity(fdim, tdim)
+    c_to_f = domain.topology.connectivity(tdim, fdim)
+    ft_imap = domain.topology.index_map(fdim)
+    num_facets = ft_imap.size_local + ft_imap.num_ghosts
+    interface_facets = ft.find(facet_marker)
+
+    int_facet_domain = []
+    lcells = []
+    for f in interface_facets:
+        if f >= ft_imap.size_local:
+            continue
+        c_0 = f_to_c.links(f)[0]
+        subdomain_0 = ct.values[c_0]
+        local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
+        if subdomain_0 == cell_marker:
+            int_facet_domain.append([c_0, local_f_0])
+
+        if len(f_to_c.links(f)) == 2:
+            c_1 = f_to_c.links(f)[1]
+            subdomain_1 = ct.values[c_1]
+            if subdomain_1 == cell_marker:
+                local_f_1 = np.where(c_to_f.links(c_1) == f)[0][0]
+                int_facet_domain.append([c_1, local_f_1])
+
+    return int_facet_domain
+
+
+def delete_numpy_rows(in_arr, to_delete):
+    out_arr = in_arr
+    for row in to_delete:
+        idx = np.where(np.all(out_arr == row, axis=1))[0][0]
+        out_arr = np.delete(out_arr, idx, axis=0)
+
+    return out_arr
+
+
 if __name__ == '__main__':
     markers = Boundaries()
     output_mesh_path = 'mesh.msh'
     output_potential_path = 'potential.bp'
-    output_current_path = 'current.bp'
-    # build_mesh(output_mesh_path, markers, Lx=1)
+    build_mesh(output_mesh_path, markers, Lx=1)
 
     comm = MPI.COMM_WORLD
     partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
@@ -113,14 +181,14 @@ if __name__ == '__main__':
 
     ds = ufl.Measure("ds", domain=domain, subdomain_data=ft)
 
-    V = dolfinx.fem.functionspace(domain, ("Lagrange", 1))
+    V = fem.functionspace(domain, ("Lagrange", 2))
 
     x = ufl.SpatialCoordinate(domain)
     n = ufl.FacetNormal(domain)
 
     # facets submesh
     submesh_facets, submesh_facets_to_mesh, f_v_map = mesh.create_submesh(
-        domain, fdim, ft.indices)[:3]
+        domain, fdim, ft.find(markers.right))[:3]
     num_facets_local = (
         domain.topology.index_map(fdim).size_local + domain.topology.index_map(fdim).num_ghosts
     )
@@ -128,37 +196,39 @@ if __name__ == '__main__':
     parent_to_facets[submesh_facets_to_mesh] = np.arange(len(submesh_facets_to_mesh), dtype=np.int32)
     entity_maps = {submesh_facets: parent_to_facets}
 
-    all_facets = mesh_utils.compute_cell_boundary_facets(domain, ct, markers.domain)
-    right_facets = mesh_utils.compute_interface_cell_boundary_facets(domain, ct, ft, markers.domain, markers.right)
+    all_facets = compute_cell_boundary_facets(domain, ct, markers.domain)
+    right_facets = compute_interface_cell_boundary_facets(domain, ct, ft, markers.domain, markers.right)
 
-    minus_right_facets = utils.delete_numpy_rows(all_facets, right_facets)
+    minus_right_facets = delete_numpy_rows(all_facets, right_facets)
     right_bndry_facets = np.array(right_facets).flatten()
 
     # # Create the measure
     dx = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.domain)
     ds_c = ufl.Measure("ds", subdomain_data=[(1, minus_right_facets.flatten()), (2, right_bndry_facets)], domain=domain)
 
-    R = create_real_functionspace(submesh_facets)
-    h = fem.Constant(submesh_facets, PETSc.ScalarType(1.0))
+    R = scifem.create_real_functionspace(submesh_facets)
+    I_tot = fem.Constant(submesh_facets, PETSc.ScalarType(-1.0))
 
     u_left = fem.Function(V)
     with u_left.x.petsc_vec.localForm() as u0_loc:
-        u0_loc.set(1.0)
+        u0_loc.set(0)
     left_dofs = fem.locate_dofs_topological(V, 1, left_boundary)
     left_bc = fem.dirichletbc(u_left, left_dofs)
 
     u, lmbda = fem.Function(V), fem.Function(R)
     du, dl = ufl.TestFunction(V), ufl.TestFunction(R)
 
-    zero = dolfinx.fem.Constant(submesh_facets, dolfinx.default_scalar_type(0.0))
+    zero = fem.Constant(submesh_facets, default_scalar_type(0.0))
 
-    a00 = ufl.inner(ufl.grad(u), ufl.grad(du)) * dx
-    L0 = ufl.inner(ufl.grad(du), n) * lmbda * ds_c(2)
+    kappa = fem.Constant(domain, default_scalar_type(1.0))
+
+    a00 = ufl.inner(kappa * ufl.grad(u), ufl.grad(du)) * dx
+    L0 = ufl.inner(kappa * ufl.grad(du), n) * lmbda * ds_c(2)
     L1 = ufl.inner(zero, dl) * ds_c(2) 
-    L1 += ufl.inner(ufl.grad(u), n) * dl * ds_c(2)
+    L1 += ufl.inner(kappa * ufl.grad(u), n) * dl * ds_c(2)
 
-    a = dolfinx.fem.form([[a00, None], [None, None]], entity_maps=entity_maps)
-    L = dolfinx.fem.form([L0, L1], entity_maps=entity_maps)
+    a = fem.form([[a00, None], [None, None]], entity_maps=entity_maps)
+    L = fem.form([L0, L1], entity_maps=entity_maps)
     maps = [(Wi.dofmap.index_map, Wi.dofmap.index_map_bs) for Wi in [V, R]]
 
     F0 = a00 + L0
@@ -180,24 +250,12 @@ if __name__ == '__main__':
     opts = {
                 'ksp_type': 'preonly',
                 'pc_type': 'lu',
-                'pc_factor_mat_solver_type': 'mumps',
+                'pc_factor_mat_solver_type': 'superlu_dist',
                 }
-
-    solver = solvers.NewtonSolver(
-                F,
-                J,
-                [u, lmbda],
-                bcs=[left_bc],
-                max_iterations=10,
-                petsc_options=opts,
-                maps=maps,
-                h=h
-                )
+    solver = scifem.NewtonSolver(F, J, [u, lmbda], bcs=[left_bc], petsc_options=opts)
     solver.solve()
 
     current_l = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(-ufl.grad(u), n)) * ds(markers.left))), op=MPI.SUM)
     current_r = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(-ufl.grad(u), n)) * ds(markers.right))), op=MPI.SUM)
-    print(current_l, current_r)
-
-    with VTXWriter(comm, "potential.bp", [u], engine="BP4") as vtx:
-        vtx.write(0.0)
+    current_ins = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(-ufl.grad(u), n)) * ds(markers.insulated))), op=MPI.SUM)
+    print(current_l, current_r, current_ins)
