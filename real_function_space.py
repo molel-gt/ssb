@@ -223,7 +223,7 @@ if __name__ == '__main__':
 
     zero = fem.Constant(submesh_facets, default_scalar_type(0.0))
 
-    kappa = fem.Constant(domain, default_scalar_type(0.01))
+    kappa = fem.Constant(domain, default_scalar_type(0.1))
     I_tot = fem.Constant(submesh_facets, PETSc.ScalarType(-1.0))
 
     # a00 = ufl.inner(kappa * ufl.grad(u), ufl.grad(du)) * dx
@@ -233,7 +233,7 @@ if __name__ == '__main__':
 
     # a = fem.form([[a00, None], [None, None]], entity_maps=entity_maps)
     # L = fem.form([L0, L1], entity_maps=entity_maps)
-    maps = [(Wi.dofmap.index_map, Wi.dofmap.index_map_bs) for Wi in [V, R]]
+    maps = [(Wi.dofmap.index_map, Wi.dofmap.index_map_bs) for Wi in [V, R, Vg]]
 
     # F0 = a00 + L0
     # F1 = L1
@@ -284,9 +284,9 @@ if __name__ == '__main__':
                 )
     solver.solve()
 
-    current_l = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(-kappa*ufl.grad(u), n)) * ds(markers.left))), op=MPI.SUM)
-    current_r = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(-kappa*ufl.grad(u), n)) * ds(markers.right))), op=MPI.SUM)
-    current_ins = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(-kappa*ufl.grad(u), n)) * ds(markers.insulated))), op=MPI.SUM)
+    current_l = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(-kappa * grad(u), n)) * ds(markers.left))), op=MPI.SUM)
+    current_r = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(-kappa * grad(u), n)) * ds(markers.right))), op=MPI.SUM)
+    current_ins = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(-kappa * grad(u), n)) * ds(markers.insulated))), op=MPI.SUM)
     print(current_l, current_r, current_ins)
 
     with VTXWriter(comm, "potential.bp", [u], engine="BP5") as vtx:
