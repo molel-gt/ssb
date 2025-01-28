@@ -51,7 +51,7 @@ def build_mesh(output_path, markers, Lx=10, Ly=1):
     coords = [
     (0, 0, 0),
     (Lx, 0, 0),
-    (Lx, Ly, 0),
+    (3*Lx, Ly, 0),
     (0, Ly, 0),
     ]
     points = []
@@ -294,7 +294,11 @@ if __name__ == '__main__':
     current_l = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(-kappa * grad(u), n)) * ds(markers.left))), op=MPI.SUM)
     current_r = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(-kappa * grad(u), n)) * ds(markers.right))), op=MPI.SUM)
     current_ins = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(-kappa * grad(u), n)) * ds(markers.insulated))), op=MPI.SUM)
+    L_right = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.right))), op=MPI.SUM)
+    u_avg_right = comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.right))), op=MPI.SUM) / L_right
+    sd_right = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form((u-u_avg_right) ** 2 * ds(markers.right))), op=MPI.SUM) / L_right)
     print(current_l, current_r, current_ins)
+    print(f"Avg potential right: {u_avg_right}, std potential right: {sd_right}")
 
     with VTXWriter(comm, "potential.bp", [u], engine="BP5") as vtx:
         vtx.write(0.0)
