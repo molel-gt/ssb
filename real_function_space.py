@@ -198,8 +198,10 @@ if __name__ == '__main__':
 
     all_facets = compute_cell_boundary_facets(domain, ct, markers.domain)
     right_facets = compute_interface_cell_boundary_facets(domain, ct, ft, markers.domain, markers.right)
+    left_facets = compute_interface_cell_boundary_facets(domain, ct, ft, markers.domain, markers.left)
     minus_right_facets = delete_numpy_rows(all_facets, right_facets)
     right_bndry_facets = np.array(right_facets).flatten()
+    left_bndry_facets = np.array(left_facets).flatten()
 
     Vg = fem.functionspace(submesh_facets, ("Lagrange", 2))
     g = fem.Function(Vg)
@@ -207,7 +209,7 @@ if __name__ == '__main__':
 
     # # Create the measure
     dx = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.domain)
-    ds_c = ufl.Measure("ds", subdomain_data=[(1, minus_right_facets.flatten()), (2, right_bndry_facets)], domain=domain)
+    ds_c = ufl.Measure("ds", subdomain_data=[(1, minus_right_facets.flatten()), (2, right_bndry_facets), (3, left_bndry_facets)], domain=domain)
     dx_f = ufl.Measure('dx', domain=submesh_facets)
 
     R = scifem.create_real_functionspace(submesh_facets)
@@ -237,7 +239,12 @@ if __name__ == '__main__':
 
     # F0 = a00 + L0
     # F1 = L1
+    gamma = 5
+    h = ufl.CellDiameter(domain)
     F0 = kappa * inner(grad(u), grad(du)) * dx - g * du * ds_c(2)
+    # Left Dirichlet bc - Nitsche's method
+    # F0 += - kappa * (u - u_left) * inner(n, grad(du)) * ds_c(3)
+    # F0 += -gamma / h * (u - u_left) * du * ds_c(3)
     F1 = dl * g * ds_c(2) + zero * dl * ds_c(2)
     F2 = - dg * u * ds_c(2) + lmbda * dg * ds_c(2)
 
