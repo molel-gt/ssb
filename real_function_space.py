@@ -8,7 +8,9 @@ from dolfinx import cpp, default_scalar_type, fem, mesh
 from dolfinx.io import gmshio, VTXWriter
 from mpi4py import MPI
 from petsc4py import PETSc
+from ufl import inner, grad
 
+import solvers
 
 class Boundaries:
     def __init__(self):
@@ -199,12 +201,16 @@ if __name__ == '__main__':
     minus_right_facets = delete_numpy_rows(all_facets, right_facets)
     right_bndry_facets = np.array(right_facets).flatten()
 
+    Vg = fem.functionspace(submesh_facets, ("Lagrange", 2))
+    g = fem.Function(Vg)
+    dg = ufl.TestFunction(Vg)
+
     # # Create the measure
     dx = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.domain)
     ds_c = ufl.Measure("ds", subdomain_data=[(1, minus_right_facets.flatten()), (2, right_bndry_facets)], domain=domain)
+    dx_f = ufl.Measure('dx', domain=submesh_facets)
 
     R = scifem.create_real_functionspace(submesh_facets)
-    I_tot = fem.Constant(submesh_facets, PETSc.ScalarType(-1.0))
 
     u_left = fem.Function(V)
     with u_left.x.petsc_vec.localForm() as u0_loc:
@@ -217,42 +223,71 @@ if __name__ == '__main__':
 
     zero = fem.Constant(submesh_facets, default_scalar_type(0.0))
 
-    kappa = fem.Constant(domain, default_scalar_type(1.0))
+    kappa = fem.Constant(domain, default_scalar_type(0.01))
+    I_tot = fem.Constant(submesh_facets, PETSc.ScalarType(-1.0))
 
-    a00 = ufl.inner(kappa * ufl.grad(u), ufl.grad(du)) * dx
-    L0 = ufl.inner(kappa * ufl.grad(du), n) * lmbda * ds_c(2)
-    L1 = ufl.inner(zero, dl) * ds_c(2) 
-    L1 += ufl.inner(kappa * ufl.grad(u), n) * dl * ds_c(2)
+    # a00 = ufl.inner(kappa * ufl.grad(u), ufl.grad(du)) * dx
+    # L0 = ufl.inner(kappa * ufl.grad(du), n) * lmbda * ds_c(2)
+    # L1 = ufl.inner(zero, dl) * ds_c(2)
+    # L1 += ufl.inner(kappa * ufl.grad(u), n) * dl * ds_c(2) #+ I_tot * dl
 
-    a = fem.form([[a00, None], [None, None]], entity_maps=entity_maps)
-    L = fem.form([L0, L1], entity_maps=entity_maps)
+    # a = fem.form([[a00, None], [None, None]], entity_maps=entity_maps)
+    # L = fem.form([L0, L1], entity_maps=entity_maps)
     maps = [(Wi.dofmap.index_map, Wi.dofmap.index_map_bs) for Wi in [V, R]]
 
-    F0 = a00 + L0
-    F1 = L1
+    # F0 = a00 + L0
+    # F1 = L1
+    F0 = kappa * inner(grad(u), grad(du)) * dx - g * du * ds_c(2)
+    F1 = dl * g * ds_c(2) + zero * dl * ds_c(2)
+    F2 = - dg * u * ds_c(2) + lmbda * dg * ds_c(2)
 
-    F = [fem.form(F0, entity_maps=entity_maps), fem.form(F1, entity_maps=entity_maps)]
+    F = [fem.form(F0, entity_maps=entity_maps), fem.form(F1, entity_maps=entity_maps), fem.form(F2, entity_maps=entity_maps)]
     j00 = ufl.derivative(F0, u)
     j01 = ufl.derivative(F0, lmbda)
+    j02 = ufl.derivative(F0, g)
     j10 = ufl.derivative(F1, u)
     j11 = ufl.derivative(F1, lmbda)
+    j12 = ufl.derivative(F1, g)
+
+    j20 = ufl.derivative(F2, u)
+    j21 = ufl.derivative(F2, lmbda)
+    j22 = ufl.derivative(F2, g)
 
     J00 = fem.form(j00, entity_maps=entity_maps)
     J01 = fem.form(j01, entity_maps=entity_maps)
+    J02 = fem.form(j02, entity_maps=entity_maps)
+
     J10 = fem.form(j10, entity_maps=entity_maps)
     J11 = fem.form(j11, entity_maps=entity_maps)
+    J12 = fem.form(j12, entity_maps=entity_maps)
 
-    J = [[J00, J01], [J10, J11]]
+    J20 = fem.form(j20, entity_maps=entity_maps)
+    J21 = fem.form(j21, entity_maps=entity_maps)
+    J22 = fem.form(j22, entity_maps=entity_maps)
+
+    J = [[J00, J01, J02], [J10, J11, J12], [J20, J21, J22]]
 
     opts = {
                 'ksp_type': 'preonly',
                 'pc_type': 'lu',
                 'pc_factor_mat_solver_type': 'superlu_dist',
                 }
-    solver = scifem.NewtonSolver(F, J, [u, lmbda], bcs=[left_bc], petsc_options=opts)
+    # solver = scifem.NewtonSolver(F, J, [u, lmbda, g], bcs=[left_bc], petsc_options=opts)
+    solver = solvers.NewtonSolver(F,
+                J,
+                [u, lmbda, g],
+                bcs=[left_bc],
+                max_iterations=1,
+                petsc_options=opts,
+                maps=maps,
+                h=I_tot
+                )
     solver.solve()
 
-    current_l = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(-ufl.grad(u), n)) * ds(markers.left))), op=MPI.SUM)
-    current_r = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(-ufl.grad(u), n)) * ds(markers.right))), op=MPI.SUM)
-    current_ins = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(-ufl.grad(u), n)) * ds(markers.insulated))), op=MPI.SUM)
+    current_l = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(-kappa*ufl.grad(u), n)) * ds(markers.left))), op=MPI.SUM)
+    current_r = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(-kappa*ufl.grad(u), n)) * ds(markers.right))), op=MPI.SUM)
+    current_ins = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(ufl.inner(-kappa*ufl.grad(u), n)) * ds(markers.insulated))), op=MPI.SUM)
     print(current_l, current_r, current_ins)
+
+    with VTXWriter(comm, "potential.bp", [u], engine="BP5") as vtx:
+        vtx.write(0.0)
