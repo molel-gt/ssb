@@ -10,7 +10,6 @@ from mpi4py import MPI
 from petsc4py import PETSc
 from ufl import inner, grad
 
-import solvers
 
 class Boundaries:
     def __init__(self):
