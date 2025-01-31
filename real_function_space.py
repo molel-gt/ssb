@@ -219,9 +219,6 @@ if __name__ == '__main__':
     with u_left.x.petsc_vec.localForm() as u0_loc:
         u0_loc.set(0)
 
-    u_right = fem.Function(R)
-    with u_right.x.petsc_vec.localForm() as u1_loc:
-        u1_loc.set(1)
     left_dofs = fem.locate_dofs_topological(V, 1, left_boundary)
     left_bc = fem.dirichletbc(u_left, left_dofs)
 
@@ -275,13 +272,8 @@ if __name__ == '__main__':
                 'pc_type': 'lu',
                 'pc_factor_mat_solver_type': 'superlu_dist',
                 }
-    solver = solvers.NewtonSolver(F,
-                J,
-                [u, lmbda, g],
-                bcs=[left_bc],
-                max_iterations=10,
-                petsc_options=opts,
-                )
+    solver = scifem.NewtonSolver(F, J, [u, lmbda, g], bcs=[left_bc], petsc_options=opts)
+
     PETSc.Sys.Print(f"Solving problem with total current condition of {np.abs(I_tot.value):.3f} [A]")
     solver.solve()
 
