@@ -51,6 +51,7 @@ def build_mesh(output_path, markers, Lx=10, Ly=1):
     coords = [
     (0, 0, 0),
     (Lx, 0, 0),
+    (5*Lx, 0.5*Ly, 0),
     (3*Lx, Ly, 0),
     (0, Ly, 0),
     ]
@@ -76,9 +77,9 @@ def build_mesh(output_path, markers, Lx=10, Ly=1):
     # add boundary markers
     gmsh.model.addPhysicalGroup(1, [lines[0]], markers.left, "left")
     gmsh.model.addPhysicalGroup(1, [lines[1]], markers.bottom, "bottom")
-    gmsh.model.addPhysicalGroup(1, [lines[2]], markers.right, "right")
-    gmsh.model.addPhysicalGroup(1, [lines[3]], markers.top, "top")
-    gmsh.model.addPhysicalGroup(1, [lines[1], lines[3]], markers.insulated, "insulated")
+    gmsh.model.addPhysicalGroup(1, [lines[2], lines[3]], markers.right, "right")
+    gmsh.model.addPhysicalGroup(1, [lines[4]], markers.top, "top")
+    gmsh.model.addPhysicalGroup(1, [lines[1], lines[4]], markers.insulated, "insulated")
     gmsh.model.addPhysicalGroup(2, [surf], markers.domain, "domain")
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(2)
