@@ -47,7 +47,7 @@ def build_mesh(output_path, markers, Lx=10, Ly=1):
     """
     gmsh.initialize()
     gmsh.model.add('2D')
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.01)
     coords = [
     (0, 0, 0),
     (Lx, 0, 0),
@@ -218,6 +218,10 @@ if __name__ == '__main__':
     u_left = fem.Function(V)
     with u_left.x.petsc_vec.localForm() as u0_loc:
         u0_loc.set(0)
+
+    u_right = fem.Function(R)
+    with u_right.x.petsc_vec.localForm() as u1_loc:
+        u1_loc.set(1)
     left_dofs = fem.locate_dofs_topological(V, 1, left_boundary)
     left_bc = fem.dirichletbc(u_left, left_dofs)
 
@@ -228,25 +232,16 @@ if __name__ == '__main__':
 
     kappa = fem.Constant(domain, default_scalar_type(0.1))
     I_tot = fem.Constant(submesh_facets, PETSc.ScalarType(-1.0))
-
-    # a00 = ufl.inner(kappa * ufl.grad(u), ufl.grad(du)) * dx
-    # L0 = ufl.inner(kappa * ufl.grad(du), n) * lmbda * ds_c(2)
-    # L1 = ufl.inner(zero, dl) * ds_c(2)
-    # L1 += ufl.inner(kappa * ufl.grad(u), n) * dl * ds_c(2) #+ I_tot * dl
-
-    # a = fem.form([[a00, None], [None, None]], entity_maps=entity_maps)
-    # L = fem.form([L0, L1], entity_maps=entity_maps)
     maps = [(Wi.dofmap.index_map, Wi.dofmap.index_map_bs) for Wi in [V, R, Vg]]
+    L_right = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.right))), op=MPI.SUM)
 
-    # F0 = a00 + L0
-    # F1 = L1
     gamma = 5
     h = ufl.CellDiameter(domain)
     F0 = kappa * inner(grad(u), grad(du)) * dx - g * du * ds_c(2)
     # Left Dirichlet bc - Nitsche's method
     # F0 += - kappa * (u - u_left) * inner(n, grad(du)) * ds_c(3)
     # F0 += -gamma / h * (u - u_left) * du * ds_c(3)
-    F1 = dl * g * ds_c(2) + zero * dl * ds_c(2)
+    F1 = dl * g * ds_c(2) + I_tot/L_right * dl * ds_c(2)
     F2 = - dg * u * ds_c(2) + lmbda * dg * ds_c(2)
 
     F = [fem.form(F0, entity_maps=entity_maps), fem.form(F1, entity_maps=entity_maps), fem.form(F2, entity_maps=entity_maps)]
@@ -280,15 +275,12 @@ if __name__ == '__main__':
                 'pc_type': 'lu',
                 'pc_factor_mat_solver_type': 'superlu_dist',
                 }
-    # solver = scifem.NewtonSolver(F, J, [u, lmbda, g], bcs=[left_bc], petsc_options=opts)
     solver = solvers.NewtonSolver(F,
                 J,
                 [u, lmbda, g],
                 bcs=[left_bc],
-                max_iterations=1,
+                max_iterations=10,
                 petsc_options=opts,
-                maps=maps,
-                h=I_tot
                 )
     PETSc.Sys.Print(f"Solving problem with total current condition of {np.abs(I_tot.value):.3f} [A]")
     solver.solve()
@@ -296,11 +288,13 @@ if __name__ == '__main__':
     current_l = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(-kappa * grad(u), n)) * ds(markers.left))), op=MPI.SUM)
     current_r = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(-kappa * grad(u), n)) * ds(markers.right))), op=MPI.SUM)
     current_ins = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(-kappa * grad(u), n)) * ds(markers.insulated))), op=MPI.SUM)
-    L_right = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.right))), op=MPI.SUM)
+    i_sup_right = current_r / L_right
+    i_stdev_right = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form((inner(kappa*grad(u), n)-i_sup_right) ** 2 * ds(markers.right))), op=MPI.SUM) / L_right)
     u_avg_right = comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.right))), op=MPI.SUM) / L_right
     sd_right = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form((u-u_avg_right) ** 2 * ds(markers.right))), op=MPI.SUM) / L_right)
     print(f"Current left boundary: {current_l:.3f} [A],", f"Current right boundary: {current_r:.3f} [A], ", f"Current insulated boundary: {current_ins:.3f} [A]")
     print(f"Avg potential right: {u_avg_right}, std potential right: {sd_right}")
+    print(f"Avg i right: {i_sup_right}, std i right: {i_stdev_right}")
 
     with VTXWriter(comm, "potential.bp", [u], engine="BP5") as vtx:
         vtx.write(0.0)
