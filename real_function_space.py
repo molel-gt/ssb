@@ -165,7 +165,7 @@ if __name__ == '__main__':
     markers = Boundaries()
     output_mesh_path = 'mesh.msh'
     output_potential_path = 'potential.bp'
-    build_mesh(output_mesh_path, markers, Lx=1)
+    # build_mesh(output_mesh_path, markers, Lx=1)
 
     comm = MPI.COMM_WORLD
     partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
@@ -226,7 +226,7 @@ if __name__ == '__main__':
 
     zero = fem.Constant(submesh_facets, default_scalar_type(0.0))
 
-    kappa = fem.Constant(domain, default_scalar_type(0.1))
+    kappa = fem.Constant(domain, default_scalar_type(0.01))
     I_tot = fem.Constant(submesh_facets, PETSc.ScalarType(-1.0))
     maps = [(Wi.dofmap.index_map, Wi.dofmap.index_map_bs) for Wi in [V, R, Vg]]
     L_right = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.right))), op=MPI.SUM)
@@ -269,6 +269,7 @@ if __name__ == '__main__':
     opts = {
                 'ksp_type': 'preonly',
                 'pc_type': 'lu',
+                # 'pc_factor_nonzeros_along_diagonal': 10**(-8)
                 'pc_factor_mat_solver_type': 'superlu_dist',
                 }
     solver = scifem.NewtonSolver(F, J, [u, lmbda, g], bcs=[left_bc], petsc_options=opts)
@@ -283,9 +284,9 @@ if __name__ == '__main__':
     i_stdev_right = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form((inner(kappa*grad(u), n)-i_sup_right) ** 2 * ds(markers.right))), op=MPI.SUM) / L_right)
     u_avg_right = comm.allreduce(fem.assemble_scalar(fem.form(u * ds(markers.right))), op=MPI.SUM) / L_right
     sd_right = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form((u-u_avg_right) ** 2 * ds(markers.right))), op=MPI.SUM) / L_right)
-    print(f"Current left boundary: {current_l:.3f} [A],", f"Current right boundary: {current_r:.3f} [A], ", f"Current insulated boundary: {current_ins:.3f} [A]")
-    print(f"Avg potential right: {u_avg_right}, std potential right: {sd_right}")
-    print(f"Avg i right: {i_sup_right}, std i right: {i_stdev_right}")
+    PETSc.Sys.Print(f"Current left boundary: {current_l:.3f} [A],", f"Current right boundary: {current_r:.3f} [A], ", f"Current insulated boundary: {current_ins:.3f} [A]")
+    PETSc.Sys.Print(f"Avg potential right: {u_avg_right}, std potential right: {sd_right}")
+    PETSc.Sys.Print(f"Avg i right: {i_sup_right}, std i right: {i_stdev_right}")
 
     with VTXWriter(comm, "potential.bp", [u], engine="BP5") as vtx:
         vtx.write(0.0)
