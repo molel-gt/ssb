@@ -170,6 +170,7 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--p", help="polynomial approximation order", nargs='?', const=1, default=4, type=int)
     parser.add_argument("-cell_type", "--cell_type", help="cell type to use", nargs='?', const=1, default="tetrahedron", type=str)
     parser.add_argument("-dt", "--dt", help="minimum normalized time step", nargs='?', const=1, default=2e-7, type=float)
+    parser.add_argument("-t_steps", "--t_steps", help="number of dt time steps", nargs='?', const=1, default=1, type=int)
     parser.add_argument("--atol", help="solver absolute tolerance", nargs='?', const=1, default=1e-12, type=float)
     parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-9, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
@@ -194,7 +195,7 @@ if __name__ == '__main__':
     kappa_elec = args.kr * kappa_pos_am
     dt_ = args.dt
     D = args.D
-    TIME = 1 * dt_
+    TIME = args.t_steps * dt_
 
     markers = commons.Markers()
     solver_types = SolverTypes()
@@ -1033,6 +1034,8 @@ if __name__ == '__main__':
             req2 = comm.send(u_plot_vals, dest=0, tag=13)
 
         if comm_rank == 0:
+            c_json = {}
+            p_json = {}
             all_c_vals = c_plot_vals
             all_u_vals = u_plot_vals
             for rank in range(1, comm_size):
@@ -1044,6 +1047,34 @@ if __name__ == '__main__':
 
             c_vals = all_c_vals[all_c_vals[:, 2].argsort()]
             u_vals = all_u_vals[all_u_vals[:, 2].argsort()]
+            t_str = f"{t*t_ref:.3f}"
+
+            c_json = {
+                "t": t * t_ref,
+                "Wa": args.Wa_p,
+                "D": args.D,
+                "kr": args.kr,
+                "x": c_vals[:, 2].tolist(),
+                "y": (c_vals[:, 3]*c_ref/c_max).tolist()
+            }
+
+            p_json = {
+                "t": t * t_ref,
+                "Wa": args.Wa_p,
+                "D": args.D,
+                "kr": args.kr,
+                "x": u_vals[:, 2].tolist(),
+                "y": u_vals[:, 3].tolist()
+            }
+
+            potential_json_path = os.path.join(results_dir, f"potential-{t_str}.json")
+            concentration_json_path = os.path.join(results_dir, f"concentration-{t_str}.json")
+
+            with open(potential_json_path, "w", encoding='utf-8') as f:
+                json.dump(p_json, f, ensure_ascii=False, indent=4)
+
+            with open(concentration_json_path, "w", encoding='utf-8') as f:
+                json.dump(c_json, f, ensure_ascii=False, indent=4)
 
             fig, ax = plt.subplots()
             ax.plot(c_vals[:, 2], c_vals[:, 3]*c_ref/c_max, 'k', label=r'0.5$L_x$,0.5$L_y$', linewidth=1)
@@ -1054,9 +1085,9 @@ if __name__ == '__main__':
             ax.set_box_aspect(1)
             ax.set_ylabel(r'$\hat{c}$', rotation=90, labelpad=0, fontsize='xx-large')
             ax.set_xlabel(r'$\hat{x}$')
-            ax.set_title(r'$\mathrm{Wa}$ = ' + f'{args.Wa_p}' + ',' + r'$\frac{\kappa}{\sigma}$ = ' + f'{args.kr}')
+            ax.set_title(r'$\mathrm{Wa}$ = ' + f'{args.Wa_p}' + ',' + r'$\frac{\kappa}{\sigma}$ = ' + f'{args.kr}' + f' t = {t*t_ref:.3f}s')
             plt.tight_layout()
-            plt.savefig(concentration_plot_file)
+            plt.savefig(concentration_plot_file.replace(".eps", f"{t_str}.eps"))
 
             fig, ax = plt.subplots()
             ax.plot(u_vals[:, 2], u_vals[:, 3], 'k', label=r'0.5$L_x$,0.5$L_y$', linewidth=1)
@@ -1067,6 +1098,6 @@ if __name__ == '__main__':
             ax.set_box_aspect(1)
             ax.set_ylabel(r'$\hat{\phi}$', rotation=90, labelpad=0, fontsize='xx-large')
             ax.set_xlabel(r'$\hat{x}$')
-            ax.set_title(r'$\mathrm{Wa}$ = ' + f'{args.Wa_p}' + ',' + r'$\frac{\kappa}{\sigma}$ = ' + f'{args.kr}')
+            ax.set_title(r'$\mathrm{Wa}$ = ' + f'{args.Wa_p}' + ',' + r'$\frac{\kappa}{\sigma}$ = ' + f'{args.kr}' + f' t = {t*t_ref:.3f}s')
             plt.tight_layout()
-            plt.savefig(potential_plot_file)
+            plt.savefig(potential_plot_file.replace(".eps", f"{t_str}.eps"))
