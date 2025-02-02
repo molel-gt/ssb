@@ -36,8 +36,8 @@ if __name__ == '__main__':
     gmsh.initialize()
     gmsh.model.add('ellipsoidals')
     gmsh.option.setNumber("Mesh.MeshSizeMin", args.resolution)
+    gmsh.option.setNumber('Geometry.ToleranceBoolean', 0.001)
 
-    box_se = gmsh.model.occ.addBox(0, 0, 0, LX/L_CELL, LY/L_CELL, (L_CELL - L_slab_am)/L_CELL)
     box_am = gmsh.model.occ.addBox(0, 0, (L_CELL - L_slab_am)/L_CELL, LX/L_CELL, LY/L_CELL, L_slab_am/L_CELL)
     ellipsoids = []
 
@@ -51,17 +51,22 @@ if __name__ == '__main__':
                 sphere = gmsh.model.occ.addSphere(x, y, z_pos, 2/L_CELL)
                 gmsh.model.occ.dilate([(3, sphere)], x, y, z_pos, 1, 1, 5/4)
                 ellipsoids.append((3, sphere))
+                gmsh.model.occ.synchronize()
         z_pos -= 4.0/L_CELL
 
     gmsh.model.occ.synchronize()
 
-    res = gmsh.model.occ.fragment([(3, box_se)], ellipsoids, removeTool=False)
-    gmsh.model.occ.synchronize()
     ov, ovv = gmsh.model.occ.fuse([(3, box_am)], ellipsoids)
     gmsh.model.occ.synchronize()
-    # vols = gmsh.model.getEntities(3)
-    # gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.electrolyte, "electrolyte")
-    # gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.positive_am, "positive am")
+    vols = gmsh.model.getEntities(3)
+    box_se = gmsh.model.occ.addBox(0, 0, 0, LX/L_CELL, LY/L_CELL, 1)
+    gmsh.model.occ.synchronize()
+    res = gmsh.model.occ.cut([(3, box_se)], vols, removeTool=False)
+    gmsh.model.occ.synchronize()
+    vols = gmsh.model.getEntities(3)
+    print(vols)
+    gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.electrolyte, "electrolyte")
+    gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.positive_am, "positive am")
     left = []
     right = []
     insulated_am = []
@@ -85,13 +90,16 @@ if __name__ == '__main__':
             continue
         else:
             area = gmsh.model.occ.getMass(*surf)
-            print(com[2]*L_CELL, area)
             if np.isclose(area, (LX/L_CELL) ** 2):
                 main_xface.append(surf)
             else:
                 pieces.append(surf)
             if not np.isclose(com[2], 1 - L_slab_am/L_CELL, atol=1e-6):
+                # pass
                 interface.append(surf[1])
+            else:
+                interface.append(surf[1])
+                print(com[2]*L_CELL, area)
     # new_interface = gmsh.model.occ.cut(main_xface, pieces, removeTool=False)
     # print(new_interface)
     gmsh.model.addPhysicalGroup(2, left, markers.left, "left")
@@ -100,6 +108,6 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, insulated_se, markers.insulated_electrolyte, "insulated_electrolyte")
     gmsh.model.addPhysicalGroup(2, interface, markers.electrolyte_v_positive_am, "electrolyte_v_positive_am")
     gmsh.model.occ.synchronize()
-    gmsh.model.mesh.generate(2)
+    gmsh.model.mesh.generate(3)
     gmsh.write(mshpath)
     gmsh.finalize()
