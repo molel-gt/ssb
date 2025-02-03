@@ -35,7 +35,7 @@ if __name__ == '__main__':
     geometry_metafile = os.path.join(workdir, "geometry.json")
     gmsh.initialize()
     gmsh.model.add('ellipsoidals')
-    gmsh.option.setNumber("Mesh.MeshSizeMin", args.resolution)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
     gmsh.option.setNumber('Geometry.ToleranceBoolean', 0.001)
 
     box_am = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, (L_CELL - L_slab_am)/L_CELL, LX/L_CELL, LY/L_CELL, L_slab_am/L_CELL)
