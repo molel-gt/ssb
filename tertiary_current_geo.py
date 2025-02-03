@@ -38,11 +38,11 @@ if __name__ == '__main__':
     gmsh.option.setNumber("Mesh.MeshSizeMin", args.resolution)
     gmsh.option.setNumber('Geometry.ToleranceBoolean', 0.001)
 
-    box_am = gmsh.model.occ.addBox(0, 0, (L_CELL - L_slab_am)/L_CELL, LX/L_CELL, LY/L_CELL, L_slab_am/L_CELL)
+    box_am = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, (L_CELL - L_slab_am)/L_CELL, LX/L_CELL, LY/L_CELL, L_slab_am/L_CELL)
     ellipsoids = []
 
-    lxs = np.linspace(2.5/L_CELL, (LX-5)/L_CELL, num=4, endpoint=True)
-    lys = np.linspace(2.5/L_CELL, (LY-5)/L_CELL, num=4, endpoint=True)
+    lxs = np.arange(-0.5*LX/L_CELL+2.5/80, 0.5*LX/L_CELL, 5/L_CELL)
+    lys = np.arange(-0.5*LY/L_CELL+2.5/80, 0.5*LY/L_CELL, 5/L_CELL)
 
     z_pos = (L_CELL - L_slab_am)/L_CELL
     while z_pos > 0.3175:
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     ov, ovv = gmsh.model.occ.fuse([(3, box_am)], ellipsoids)
     gmsh.model.occ.synchronize()
     vols = gmsh.model.getEntities(3)
-    box_se = gmsh.model.occ.addBox(0, 0, 0, LX/L_CELL, LY/L_CELL, 1)
+    box_se = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, 0, LX/L_CELL, LY/L_CELL, 1)
     gmsh.model.occ.synchronize()
     res = gmsh.model.occ.cut([(3, box_se)], vols, removeTool=False)
     gmsh.model.occ.synchronize()
