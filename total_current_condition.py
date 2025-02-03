@@ -1,4 +1,6 @@
-
+#!/usr/bin/env python3
+import argparse
+import time
 import gmsh
 import numpy as np
 import scifem
@@ -9,6 +11,27 @@ from dolfinx.io import gmshio, VTXWriter
 from mpi4py import MPI
 from petsc4py import PETSc
 from ufl import inner, grad
+
+
+class SolverTypes:
+    def __init__(self):
+        pass
+
+    @property
+    def direct(self):
+        return "direct"
+
+    @property
+    def nested_iterative(self):
+        return "nested_iterative"
+
+    @property
+    def block_iterative(self):
+        return "block_iterative"
+
+    @property
+    def block_gs(self):
+        return "block_gs"
 
 
 class Boundaries:
@@ -46,12 +69,12 @@ def build_mesh(output_path, markers, Lx=10, Ly=1):
     """
     gmsh.initialize()
     gmsh.model.add('2D')
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.01)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.005)
     coords = [
     (0, 0, 0),
     (Lx, 0, 0),
-    (5*Lx, 0.5*Ly, 0),
-    (3*Lx, Ly, 0),
+    (Lx, 0.5*Ly, 0),
+    (5*Lx, Ly, 0),
     (0, Ly, 0),
     ]
     points = []
@@ -162,10 +185,16 @@ def delete_numpy_rows(in_arr, to_delete):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='secondary current distribution')
+    parser.add_argument('--solver_type', help='solver type to use', nargs='?',
+                        const=1, default='direct', type=str)
+
+    args = parser.parse_args()
+    solver_types = SolverTypes()
     markers = Boundaries()
     output_mesh_path = 'mesh.msh'
     output_potential_path = 'potential.bp'
-    # build_mesh(output_mesh_path, markers, Lx=1)
+    build_mesh(output_mesh_path, markers, Lx=1)
 
     comm = MPI.COMM_WORLD
     partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
@@ -233,10 +262,17 @@ if __name__ == '__main__':
 
     gamma = 5
     h = ufl.CellDiameter(domain)
+    V_map = V.dofmap.index_map
+    V_dofmap = V.dofmap
+    R_map = R.dofmap.index_map
+    R_dofmap = R.dofmap
+    Vg_map = Vg.dofmap.index_map
+    Vg_dofmap = Vg.dofmap
+    n_dofs = V_map.size_global*V.dofmap.index_map_bs + R_map.size_global*R.dofmap.index_map_bs + Vg_map.size_global*Vg.dofmap.index_map_bs
     F0 = kappa * inner(grad(u), grad(du)) * dx - g * du * ds_c(2)
     # Left Dirichlet bc - Nitsche's method
-    # F0 += - kappa * (u - u_left) * inner(n, grad(du)) * ds_c(3)
-    # F0 += -gamma / h * (u - u_left) * du * ds_c(3)
+    F0 += - kappa * (u - u_left) * inner(n, grad(du)) * ds_c(3)
+    F0 += -gamma / h * (u - u_left) * du * ds_c(3)
     F1 = dl * g * ds_c(2) + I_tot/L_right * dl * ds_c(2)
     F2 = - dg * u * ds_c(2) + lmbda * dg * ds_c(2)
 
@@ -266,16 +302,77 @@ if __name__ == '__main__':
 
     J = [[J00, J01, J02], [J10, J11, J12], [J20, J21, J22]]
 
-    opts = {
+    if args.solver_type == solver_types.direct:
+        opts = {
                 'ksp_type': 'preonly',
                 'pc_type': 'lu',
-                # 'pc_factor_nonzeros_along_diagonal': 10**(-8)
                 'pc_factor_mat_solver_type': 'superlu_dist',
                 }
-    solver = scifem.NewtonSolver(F, J, [u, lmbda, g], bcs=[left_bc], petsc_options=opts)
+        solver = scifem.NewtonSolver(F, J, [u, lmbda, g], bcs=[], petsc_options=opts)
+        PETSc.Sys.Print(f"Solving problem with total current condition of {np.abs(I_tot.value):.3f} [A], n_dofs: {n_dofs:,}")
+        t0 = time.time()
+        solver.solve()
+        t1 = time.time()
+        PETSc.Sys.Print(f"Solve time: {t1 - t0:.3f}s, n_dofs: {n_dofs:,}")
+    elif args.solver_type == solver_types.block_iterative:
 
-    PETSc.Sys.Print(f"Solving problem with total current condition of {np.abs(I_tot.value):.3f} [A]")
-    solver.solve()
+        Jmat = fem.petsc.create_matrix_nest(J)
+        nested_IS = Jmat.getNestISs()
+        IS_u = nested_IS[0][0]
+        IS_l = nested_IS[0][1]
+        IS_g = nested_IS[0][2]
+        IS_other = IS_l.sum(IS_g)
+
+        opts = {
+                    'ksp_type': 'preonly',
+                    'pc_type': 'fieldsplit',
+                    # 'pc_fieldsplit_detect_saddle_point': True
+                    # 'pc_factor_nonzeros_along_diagonal': 10**(-8)
+                    # 'pc_factor_mat_solver_type': 'superlu_dist',
+                    }
+        # opts[f"{option_prefix}pc_fieldsplit_type"] = "schur"
+        # opts[f"{option_prefix}pc_fieldsplit_schur_fact_type"] = "full"
+        # opts[f"{option_prefix}pc_fieldsplit_schur_precondition"] = "selfp"
+        # opts[f"{option_prefix}fieldsplit_vel_ksp_type"] = "preonly"
+        # opts[f"{option_prefix}fieldsplit_vel_pc_type"] = "jacobi"
+        # opts[f"{option_prefix}fieldsplit_vel_ksp_rtol"] = 1e-10
+        # opts[f"{option_prefix}fieldsplit_press_ksp_type"] = "cg"
+        # opts[f"{option_prefix}fieldsplit_press_pc_type"] = "none"
+        # opts[f"{option_prefix}fieldsplit_press_ksp_rtol"] = 1e-10
+
+        solver = scifem.NewtonSolver(F, J, [u, lmbda, g], bcs=[], petsc_options=opts)
+        ksp = solver._solver
+        opts = PETSc.Options()
+        opts["pc_fieldsplit_off_diag_use_amat"] = True
+        opts['pc_fieldsplit_detect_saddle_point'] = True
+        # opts["mat_schur_complement_ainv_type"] = "lump"
+
+        # ksp.setUp()
+        # ksp.getPC().setValue('fieldsplit_detect_saddle_point', True)
+        # ksp.getPC().setFieldSplitIS(("u", IS_u), ("l", IS_l), ('g', IS_g))
+        ksp.getPC().setFieldSplitIS(("u", IS_u), ("other", IS_other))
+        ksp_u, ksp_other = ksp.getPC().getFieldSplitSubKSP()
+        ksp.getPC().setFieldSplitType(PETSc.PC.CompositeType.SCHUR)
+        # ksp.getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
+        # ksp.getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
+        ksp_u.setType('minres')
+        ksp_u.getPC().setType('ilu')
+        ksp_other.setType('minres')
+        ksp_other.getPC().setType('ilu')
+        opts[f'{ksp_u.getOptionsPrefix()}ksp_monitor_singular_value'] = None
+        ksp.setFromOptions()
+        # ksp_g.setType('preonly')
+        # ksp_g.getPC().setType('lu')
+
+
+        PETSc.Sys.Print(f"Solving problem with total current condition of {np.abs(I_tot.value):.3f} [A], n_dofs: {n_dofs:,}")
+
+        t0 = time.time()
+        solver.solve()
+        t1 = time.time()
+        PETSc.Sys.Print(f"Solve time: {t1 - t0:.3f}s, n_dofs: {n_dofs:,}")
+    else:
+        raise ValueError(f"Not implemented for solver type {args.solver_type}")
 
     current_l = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(-kappa * grad(u), n)) * ds(markers.left))), op=MPI.SUM)
     current_r = domain.comm.allreduce(fem.assemble_scalar(fem.form(np.abs(inner(-kappa * grad(u), n)) * ds(markers.right))), op=MPI.SUM)
