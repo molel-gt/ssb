@@ -12,6 +12,8 @@ from mpi4py import MPI
 from petsc4py import PETSc
 from ufl import inner, grad
 
+import solver_params
+
 
 class SolverTypes:
     def __init__(self):
@@ -63,13 +65,13 @@ class Boundaries:
         return 5
 
 
-def build_mesh(output_path, markers, Lx=10, Ly=1):
+def build_mesh(output_path, markers, Lx=10, Ly=1, resolution=0.05):
     """
     generate mesh for given dimensions (`Lx` `Ly`) and write output to `output_path`
     """
     gmsh.initialize()
     gmsh.model.add('2D')
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.005)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", resolution)
     coords = [
     (0, 0, 0),
     (Lx, 0, 0),
@@ -188,13 +190,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='secondary current distribution')
     parser.add_argument('--solver_type', help='solver type to use', nargs='?',
                         const=1, default='direct', type=str)
+    parser.add_argument("--regenerate_mesh", help="whether to regenerate mesh", default=False, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
     solver_types = SolverTypes()
     markers = Boundaries()
     output_mesh_path = 'mesh.msh'
     output_potential_path = 'potential.bp'
-    build_mesh(output_mesh_path, markers, Lx=1)
+    if args.regenerate_mesh:
+        build_mesh(output_mesh_path, markers, Lx=1, resolution=0.01)
 
     comm = MPI.COMM_WORLD
     partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
@@ -232,13 +236,13 @@ if __name__ == '__main__':
     right_bndry_facets = np.array(right_facets).flatten()
     left_bndry_facets = np.array(left_facets).flatten()
 
-    Vg = fem.functionspace(submesh_facets, ("Lagrange", 2))
+    Vg = fem.functionspace(submesh_facets, ("Lagrange", 1))
     g = fem.Function(Vg)
     dg = ufl.TestFunction(Vg)
 
     # # Create the measure
     dx = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.domain)
-    ds_c = ufl.Measure("ds", subdomain_data=[(1, minus_right_facets.flatten()), (2, right_bndry_facets), (3, left_bndry_facets)], domain=domain)
+    ds_c = ufl.Measure("ds", subdomain_data=[(1, minus_right_facets.flatten()), (2, left_bndry_facets), (3, right_bndry_facets)], domain=domain)
     dx_f = ufl.Measure('dx', domain=submesh_facets)
 
     R = scifem.create_real_functionspace(submesh_facets)
@@ -269,12 +273,14 @@ if __name__ == '__main__':
     Vg_map = Vg.dofmap.index_map
     Vg_dofmap = Vg.dofmap
     n_dofs = V_map.size_global*V.dofmap.index_map_bs + R_map.size_global*R.dofmap.index_map_bs + Vg_map.size_global*Vg.dofmap.index_map_bs
-    F0 = kappa * inner(grad(u), grad(du)) * dx - g * du * ds_c(2)
+    F0 = kappa * inner(grad(u), grad(du)) * dx - g * du * ds_c(3)
+
     # Left Dirichlet bc - Nitsche's method
-    F0 += - kappa * (u - u_left) * inner(n, grad(du)) * ds_c(3)
-    F0 += -gamma / h * (u - u_left) * du * ds_c(3)
-    F1 = dl * g * ds_c(2) + I_tot/L_right * dl * ds_c(2)
-    F2 = - dg * u * ds_c(2) + lmbda * dg * ds_c(2)
+    F0 += - kappa * (u - u_left) * inner(n, grad(du)) * ds_c(2)
+    F0 += -gamma / h * (u - u_left) * du * ds_c(2)
+
+    F1 = dl * g * ds_c(3) + I_tot/L_right * dl * ds_c(3)
+    F2 = - dg * u * ds_c(3) + lmbda * dg * ds_c(3)
 
     F = [fem.form(F0, entity_maps=entity_maps), fem.form(F1, entity_maps=entity_maps), fem.form(F2, entity_maps=entity_maps)]
     j00 = ufl.derivative(F0, u)
@@ -326,44 +332,39 @@ if __name__ == '__main__':
         opts = {
                     'ksp_type': 'preonly',
                     'pc_type': 'fieldsplit',
-                    # 'pc_fieldsplit_detect_saddle_point': True
-                    # 'pc_factor_nonzeros_along_diagonal': 10**(-8)
-                    # 'pc_factor_mat_solver_type': 'superlu_dist',
                     }
-        # opts[f"{option_prefix}pc_fieldsplit_type"] = "schur"
-        # opts[f"{option_prefix}pc_fieldsplit_schur_fact_type"] = "full"
-        # opts[f"{option_prefix}pc_fieldsplit_schur_precondition"] = "selfp"
-        # opts[f"{option_prefix}fieldsplit_vel_ksp_type"] = "preonly"
-        # opts[f"{option_prefix}fieldsplit_vel_pc_type"] = "jacobi"
-        # opts[f"{option_prefix}fieldsplit_vel_ksp_rtol"] = 1e-10
-        # opts[f"{option_prefix}fieldsplit_press_ksp_type"] = "cg"
-        # opts[f"{option_prefix}fieldsplit_press_pc_type"] = "none"
-        # opts[f"{option_prefix}fieldsplit_press_ksp_rtol"] = 1e-10
 
         solver = scifem.NewtonSolver(F, J, [u, lmbda, g], bcs=[], petsc_options=opts)
         ksp = solver._solver
         opts = PETSc.Options()
-        opts["pc_fieldsplit_off_diag_use_amat"] = True
+        opts["pc_fieldsplit_off_diag_use_amat"] = False
         opts['pc_fieldsplit_detect_saddle_point'] = True
-        # opts["mat_schur_complement_ainv_type"] = "lump"
 
-        # ksp.setUp()
-        # ksp.getPC().setValue('fieldsplit_detect_saddle_point', True)
-        # ksp.getPC().setFieldSplitIS(("u", IS_u), ("l", IS_l), ('g', IS_g))
         ksp.getPC().setFieldSplitIS(("u", IS_u), ("other", IS_other))
         ksp_u, ksp_other = ksp.getPC().getFieldSplitSubKSP()
         ksp.getPC().setFieldSplitType(PETSc.PC.CompositeType.SCHUR)
-        # ksp.getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
-        # ksp.getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
+        ksp.getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
+        ksp.getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
         ksp_u.setType('minres')
-        ksp_u.getPC().setType('ilu')
+        ksp_u.getPC().setType('hypre')
         ksp_other.setType('minres')
-        ksp_other.getPC().setType('ilu')
-        opts[f'{ksp_u.getOptionsPrefix()}ksp_monitor_singular_value'] = None
-        ksp.setFromOptions()
-        # ksp_g.setType('preonly')
-        # ksp_g.getPC().setType('lu')
+        ksp_other.getPC().setType('hypre')
+        # opts[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
+        # opts[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
+        # opts[f'{ksp_u.getOptionsPrefix()}ksp_monitor_singular_value'] = None
 
+        opts[f"{ksp_other.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
+        opts[f"{ksp_other.getOptionsPrefix()}inner_ksp_type"] = "preonly"
+        opts[f"{ksp_other.getOptionsPrefix()}inner_pc_type"] = "ilu"
+        opts[f"{ksp_other.getOptionsPrefix()}inner_pc_factor_levels"] = 0
+        opts[f"{ksp_other.getOptionsPrefix()}inner_pc_factor_fill"] = 2.0
+        opts[f"{ksp_other.getOptionsPrefix()}upper_ksp_type"] = "preonly"
+        opts[f"{ksp_other.getOptionsPrefix()}upper_pc_type"] = "ilu"
+        opts[f"{ksp_other.getOptionsPrefix()}upper_pc_factor_levels"] = 0
+        opts[f"{ksp_other.getOptionsPrefix()}upper_pc_factor_fill"] = 2.0
+        ksp.setMonitor(lambda _, it, residual: PETSc.Sys.Print(it, residual))
+        ksp.setFromOptions()
+        ksp.view()
 
         PETSc.Sys.Print(f"Solving problem with total current condition of {np.abs(I_tot.value):.3f} [A], n_dofs: {n_dofs:,}")
 
