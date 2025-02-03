@@ -12,8 +12,6 @@ from mpi4py import MPI
 from petsc4py import PETSc
 from ufl import inner, grad
 
-import solver_params
-
 
 class SolverTypes:
     def __init__(self):
