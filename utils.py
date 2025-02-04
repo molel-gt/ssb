@@ -54,6 +54,13 @@ def c_rate_current(capacity, c_rate=1):
     return capacity * c_rate
 
 
+def get_c_rate_current(c_max, c_rate, volume):
+    faraday_constant = 96485  # A.s/mol
+    capacity = c_max * volume * faraday_constant / 3600 # A.h
+    return capacity * c_rate
+
+
+
 def lithium_concentration_nmc(density, Ni=0.6, Mn=0.2, Co=0.2):
     """
     :density: [kg/m3]
