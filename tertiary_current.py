@@ -14,6 +14,7 @@ import dolfinx.fem.petsc
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import scifem
 import scipy
 import scipy.special as sp
 import ufl
@@ -184,6 +185,8 @@ if __name__ == '__main__':
     parser.add_argument("--plot", help="whether to plot results", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("--plot_sparsity", help="whether to plot results", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("--improved_guess", help="whether to solve for improved guess", default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--galvanostatic", help="whether to galvanostatic mode", default=True, action=argparse.BooleanOptionalAction)
+    parser.add_argument("-C_rate", "--C_rate", help="cycling rate", nargs='?', const=1, default=0.1, type=float)
 
     args = parser.parse_args()
 
@@ -337,17 +340,24 @@ if __name__ == '__main__':
     int_facet_domains = [(markers.electrolyte_v_positive_am, int_facet_domain)]
 
     dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
+    dx = ufl.Measure('dx', domain=domain, subdomain_data=ct)
     dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
     dx_c = ufl.Measure('dx', domain=submesh_positive_am)
     ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
     ds_c = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
+
+    vol_pos_am = comm.allreduce(fem.assemble_scalar(fem.form(1 * dx(markers.positive_am), entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 3
+    I_tot_ = utils.get_c_rate_current(c_max, args.C_rate, vol_pos_am)
     l_res = "-"
     r_res = "+"
     V0 = u_0.function_space
     V1 = u_1.function_space
 
-    v_l = ufl.TestFunction(V0)(l_res)
-    v_r = ufl.TestFunction(V1)(r_res)
+    v_0 = ufl.TestFunction(V0)
+    v_1 = ufl.TestFunction(V1)
+
+    v_l = v_0(l_res)
+    v_r = v_1(r_res)
     u_l = u_0(l_res)
     u_r = u_1(r_res)
 
@@ -378,6 +388,34 @@ if __name__ == '__main__':
 
     jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) + ocv_chen2020(c(r_res), cmax=c_max/c_ref)/phi_ref
 
+    # for galvanostatic mode
+    # facets submesh
+    submesh_facets, submesh_facets_to_mesh, f_v_map = mesh.create_submesh(
+        domain, fdim, ft.find(markers.right))[:3]
+    num_facets_local = (
+        domain.topology.index_map(fdim).size_local + domain.topology.index_map(fdim).num_ghosts
+    )
+    parent_to_facets = np.full(num_facets_local, -1, dtype=np.int32)
+    parent_to_facets[submesh_facets_to_mesh] = np.arange(len(submesh_facets_to_mesh), dtype=np.int32)
+    entity_maps[submesh_facets] = parent_to_facets
+
+    all_facets = mesh_utils.compute_cell_boundary_facets(domain, ct, [markers.positive_am, markers.electrolyte])
+    right_facets = mesh_utils.compute_interface_cell_boundary_facets(domain, ct, ft, markers.positive_am, markers.right)
+    left_facets = mesh_utils.compute_interface_cell_boundary_facets(domain, ct, ft, markers.electrolyte, markers.left)
+    minus_right_facets = utils.delete_numpy_rows(all_facets, right_facets)
+    right_bndry_facets = np.array(right_facets).flatten()
+    left_bndry_facets = np.array(left_facets).flatten()
+    ds_f = ufl.Measure("ds", subdomain_data=[(1, minus_right_facets.flatten()), (2, left_bndry_facets), (3, right_bndry_facets)], domain=domain)
+    A_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.right))), op=MPI.SUM)
+    A_right = A_right_tilde * (L_ref ** 2)
+
+    R = scifem.create_real_functionspace(submesh_facets)
+    lmbda, dl = fem.Function(R), ufl.TestFunction(R)
+    Vg = fem.functionspace(submesh_facets, ("Lagrange", 1))
+    g, dg = fem.Function(Vg), ufl.TestFunction(Vg)
+
+    I_tot = fem.Constant(submesh_facets, PETSc.ScalarType(-I_tot_))
+
     F_0 = (
         - 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
         - 0.5 * mixed_term(0.5 * (kappa_elec + kappa_pos_am) * v_l, (u_r - u_l - jump_u), n_l) * dInterface
@@ -389,6 +427,11 @@ if __name__ == '__main__':
     )
     F_0 += -2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
     F_1 += +2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_r * dInterface
+    # galvanostatic mode
+    F_1 +=  - g * v_1 * ds_f(3)
+
+    F_1a = dl * g * ds_f(3) + I_tot/(A_right_tilde * L_ref * phi_ref) * dl * ds_f(3)# - h**2/gamma * inner(dl, lmbda) * ds_c(3)
+    F_1b = - dg * u_1 * ds_f(3) + lmbda * dg * ds_f(3)
 
     F_0 += F_00
     F_1 += F_11
@@ -399,36 +442,82 @@ if __name__ == '__main__':
 
     jac00 = ufl.derivative(F_0, u_0)
     jac01 = ufl.derivative(F_0, u_1)
-    jac02 = ufl.derivative(F_0, c)
+    jac02 = ufl.derivative(F_0, lmbda)
+    jac03 = ufl.derivative(F_0, g)
+    jac04 = ufl.derivative(F_0, c)
 
     jac10 = ufl.derivative(F_1, u_0)
     jac11 = ufl.derivative(F_1, u_1)
-    jac12 = ufl.derivative(F_1, c)
+    jac12 = ufl.derivative(F_1, lmbda)
+    jac13 = ufl.derivative(F_1, g)
+    jac14 = ufl.derivative(F_1, c)
 
-    jac20 = ufl.derivative(F_2, u_0)
-    jac21 = ufl.derivative(F_2, u_1)
-    jac22 = ufl.derivative(F_2, c)
+    jac20 = ufl.derivative(F_1a, u_0)
+    jac21 = ufl.derivative(F_1a, u_1)
+    jac22 = ufl.derivative(F_1a, lmbda)
+    jac23 = ufl.derivative(F_1a, g)
+    jac24 = ufl.derivative(F_1a, c)
+
+    jac30 = ufl.derivative(F_1b, u_0)
+    jac31 = ufl.derivative(F_1b, u_1)
+    jac32 = ufl.derivative(F_1b, lmbda)
+    jac33 = ufl.derivative(F_1b, g)
+    jac34 = ufl.derivative(F_1b, c)
+
+    jac40 = ufl.derivative(F_2, u_0)
+    jac41 = ufl.derivative(F_2, u_1)
+    jac42 = ufl.derivative(F_2, lmbda)
+    jac43 = ufl.derivative(F_2, g)
+    jac44 = ufl.derivative(F_2, c)
 
     J00 = fem.form(jac00, entity_maps=entity_maps)
     J01 = fem.form(jac01, entity_maps=entity_maps)
     J02 = fem.form(jac02, entity_maps=entity_maps)
+    J03 = fem.form(jac03, entity_maps=entity_maps)
+    J04 = fem.form(jac04, entity_maps=entity_maps)
 
     J10 = fem.form(jac10, entity_maps=entity_maps)
     J11 = fem.form(jac11, entity_maps=entity_maps)
     J12 = fem.form(jac12, entity_maps=entity_maps)
+    J13 = fem.form(jac13, entity_maps=entity_maps)
+    J14 = fem.form(jac14, entity_maps=entity_maps)
 
     J20 = fem.form(jac20, entity_maps=entity_maps)
     J21 = fem.form(jac21, entity_maps=entity_maps)
     J22 = fem.form(jac22, entity_maps=entity_maps)
+    J23 = fem.form(jac23, entity_maps=entity_maps)
+    J24 = fem.form(jac24, entity_maps=entity_maps)
+
+    J30 = fem.form(jac30, entity_maps=entity_maps)
+    J31 = fem.form(jac31, entity_maps=entity_maps)
+    J32 = fem.form(jac32, entity_maps=entity_maps)
+    J33 = fem.form(jac33, entity_maps=entity_maps)
+    J34 = fem.form(jac34, entity_maps=entity_maps)
+
+    J40 = fem.form(jac40, entity_maps=entity_maps)
+    J41 = fem.form(jac41, entity_maps=entity_maps)
+    J42 = fem.form(jac42, entity_maps=entity_maps)
+    J43 = fem.form(jac43, entity_maps=entity_maps)
+    J44 = fem.form(jac44, entity_maps=entity_maps)
     
-    J = [[J00, J01, J02], [J10, J11, J12], [J20, J21, J22]]
+    J = [
+        [J00, J01, J02, J03, J04],
+        [J10, J11, J12, J13, J14],
+        [J20, J21, J22, J23, J24],
+        [J30, J31, J32, J33, J34],
+        [J40, J41, J42, J43, J44],
+        ]
 
     V0_map = V0.dofmap.index_map
     V1_map = V1.dofmap.index_map
     VC_map = VC.dofmap.index_map
+    Vg_map = Vg.dofmap.index_map
+    R_map = R.dofmap.index_map
     V0_dofmap = V0.dofmap
     V1_dofmap = V1.dofmap
     VC_dofmap = VC.dofmap
+    Vg_dofmap = Vg.dofmap
+    R_dofmap = R.dofmap
 
     ###################### sparsity structure ##################################
     if args.plot_sparsity:
@@ -481,6 +570,8 @@ if __name__ == '__main__':
     F = [
         fem.form(F_0, entity_maps=entity_maps),
         fem.form(F_1, entity_maps=entity_maps),
+        fem.form(F_1a, entity_maps=entity_maps),
+        fem.form(F_1b, entity_maps=entity_maps),
         fem.form(F_2, entity_maps=entity_maps),
     ]
     left_bc = fem.Function(V0)
@@ -500,28 +591,15 @@ if __name__ == '__main__':
     bc_right = fem.dirichletbc(
         right_bc, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right))
     )
-    bcs = [bc_left, bc_right]
+    bcs = [bc_left]
 
-    local_dofs_u0 = np.setdiff1d(V0_map.local_to_global(np.arange(V0_map.size_local + V0_map.num_ghosts,
-                                                                  dtype=np.int32)),
-                                 V0_map.ghosts)
-    local_dofs_u1 = np.setdiff1d(V1_map.local_to_global(np.arange(V1_map.size_local + V1_map.num_ghosts, dtype=np.int32)),
-                                 V1_map.ghosts)
-    local_dofs_u = np.sort(np.hstack((local_dofs_u0, local_dofs_u1)))
-    local_dofs_c = np.sort(np.setdiff1d(VC_map.local_to_global(np.arange(VC_map.size_local + VC_map.num_ghosts, dtype=np.int32)), VC_map.ghosts))
-    offset_u1 = V0_map.size_local*V0.dofmap.index_map_bs
-    offset_c = V0_map.size_local*V0.dofmap.index_map_bs + V1_map.size_local*V1.dofmap.index_map_bs
-    n_dofs = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs + VC_map.size_global*VC.dofmap.index_map_bs
+    n_dofs = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs + VC_map.size_global*VC.dofmap.index_map_bs +\
+            Vg_map.size_global*Vg.dofmap.index_map_bs + R_map.size_global*R.dofmap.index_map_bs
 
-    # index sets
-    IS_u0 = PETSc.IS().createGeneral(np.array(local_dofs_u0, dtype=np.int32), comm=comm).sort()
-    IS_u1 = PETSc.IS().createGeneral(np.array(local_dofs_u1, dtype=np.int32), comm=comm).sort()
-    IS_u = IS_u0.sum(IS_u1)
-    IS_c = PETSc.IS().createGeneral(np.array(local_dofs_c, dtype=np.int32), comm=comm).sort()
     t = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
     PETSc.Sys.Print(f"Setting up problem Wa: {args.Wa_p}, Kr: {args.kr}, #DoFs: {n_dofs:,}, nprocs: {comm.Get_size()}")
-    P = J  # [[J00, J01, J02], [None, J11, J12], [None, None, J22]]
+    P = J
 
     log_viewer = PETSc.Viewer().STDOUT()
     log_viewer.setFileName(log_datafile)
@@ -529,15 +607,16 @@ if __name__ == '__main__':
     ## solve initial potential distribution at t = 0
     if args.improved_guess:
         PETSc.Sys.Print("************Begin Solve for t = 0 Potential Distribution*******************")
-        n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs
-        F2D = F[:2]
-        J2D = [j2d[:2] for j2d in J[:2]]
+        n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs +\
+                Vg_map.size_global*Vg.dofmap.index_map_bs + R_map.size_global*R.dofmap.index_map_bs
+        F2D = F[:4]
+        J2D = [j2d[:4] for j2d in J[:4]]
         Jmat2d = fem.petsc.create_matrix_block(J2D)
         Fvec2d = fem.petsc.create_vector_block(F2D)
         snes = PETSc.SNES().create(comm)
         snes.setType('newtonls')
         snes.setTolerances(rtol=2.5e-5, max_it=100)
-        snes.getKSP().setType(PETSc.KSP.Type.PREONLY)
+        snes.getKSP().setType(PETSc.KSP.Type.MINRES)
         snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
         snes.getKSP().setOptionsPrefix("snes_")
         snes.getKSP().setOperators(Jmat2d, Jmat2d)
@@ -552,12 +631,12 @@ if __name__ == '__main__':
         opts['snes_linesearch_monitor'] = None
         opts['snes_monitor'] = None
         opts[f"{snes.getKSP().getOptionsPrefix()}pc_factor_levels"] = 0
-        opts[f"{snes.getKSP().getOptionsPrefix()}pc_factor_fill"] = 1.0
+        opts[f"{snes.getKSP().getOptionsPrefix()}pc_factor_fill"] = 2.0
         snes.getKSP().setFromOptions()
         snes.setFromOptions()
         snes.view()
 
-        problem_t0 = solvers.NonlinearPDE_SNESProblem(F2D, J2D, [u_0, u_1], bcs, P=J2D)
+        problem_t0 = solvers.NonlinearPDE_SNESProblem(F2D, J2D, [u_0, u_1, lmbda, g], bcs, P=J2D)
         snes.setFunction(problem_t0.F_block, Fvec2d)
         snes.setJacobian(problem_t0.J_block, J=Jmat2d, P=Jmat2d)
         x2d = fem.petsc.create_vector_block(F2D)
@@ -597,7 +676,7 @@ if __name__ == '__main__':
         t1 = time.time()
         PETSc.Sys.Print(f"Finished computation of improved guess of concentration distribution!\nn_dofs: {n_dofs_c}\nsolve time: {t1 - t0:.3f}s")
     ########################################################################################################################################
-
+    idx = 0
     while t < TIME:
         t += dt.value
         PETSc.Sys.Print(f"Time: {t:.1e}\n")
@@ -719,8 +798,10 @@ if __name__ == '__main__':
             nested_IS = Jmat.getNestISs()
             IS_u0 = nested_IS[0][0]
             IS_u1 = nested_IS[0][1]
-            IS_u = IS_u0.sum(IS_u1)
-            IS_c = nested_IS[0][2]
+            IS_l = nested_IS[0][2]
+            IS_g = nested_IS[0][3]
+            IS_u = IS_u0.sum(IS_u1).sum(IS_l).sum(IS_g)
+            IS_c = nested_IS[0][4]
             Jmat = fem.petsc.create_matrix_block(J)
             Pmat = fem.petsc.create_matrix_block(P)
             Fvec = fem.petsc.create_vector_block(F)
@@ -785,7 +866,7 @@ if __name__ == '__main__':
             ksp_c.setFromOptions()
             snes.getKSP().setFromOptions()
 
-            problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, c], bcs, P=P)
+            problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, lmbda, g, c], bcs, P=P)
             snes.setFunction(problem.F_block, Fvec)
             snes.setJacobian(problem.J_block, J=Jmat, P=Pmat)
             snes.setFromOptions()
@@ -797,8 +878,9 @@ if __name__ == '__main__':
             t0 = time.time()
             snes.solve(None, x)
             t1 = time.time()
-            PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}")
+            PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}, solve time: {t1-t0:.3f}s")
             PETSc.Log().view(log_viewer)
+            dt.value = 5 * dt.value
             if comm_rank == 0 and args.plot:
                 fig, ax = plt.subplots()
                 ax.semilogy(snes.getKSP().getConvergenceHistory(), 'x-')
@@ -913,12 +995,24 @@ if __name__ == '__main__':
             Pmat.destroy()
         else:
             raise ValueError("Unknown solver type!")
+        if idx % 3 == 0:
+            dt.value = 10 * args.dt
+        elif idx % 3 == 1:
+            dt.value = 5 * args.dt
+        else:
+            dt.value = 0.5 * args.dt
+        idx += 1
 
         c0.x.array[:] = c.x.array
         cvtx.write(t)
         I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * (phi_ref) * L_ref ** (tdim-2) * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
         I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * (phi_ref) * L_ref ** (tdim-2) * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
         I_interface = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * (c_ref) * L_ref ** (tdim-2) * grad(c(r_res)), n_r) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+
+        u_avg_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_1 * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
+        u_avg_right = u_avg_right_tilde * phi_ref * L_ref ** 2 / A_right
+        u_stdev_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form((u_1 - u_avg_right_tilde) ** 2 * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
+        u_stdev_right = np.sqrt(u_stdev_right_tilde  * (phi_ref * L_ref ** 2) ** 2 / A_right)
     cvtx.close()
 
     time_elapsed = timeit.default_timer() - start_time
@@ -928,6 +1022,10 @@ if __name__ == '__main__':
         "I left [A]": I_left,
         "I interface [A]": I_interface,
         "I right [A]": I_right,
+        "I (target) right [A]": I_tot_,
+        "C-rate": args.C_rate,
+        "u (avg) right [V]": u_avg_right,
+        "u (stdev) right [v]": u_stdev_right,
         "resistance [ohm.cm2]": resistance,
         "time elapsed [s]": time_elapsed,
         "solve time [s]": t1 - t0,
