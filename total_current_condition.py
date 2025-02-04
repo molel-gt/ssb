@@ -237,6 +237,7 @@ if __name__ == '__main__':
     Vg = fem.functionspace(submesh_facets, ("Lagrange", 1))
     g = fem.Function(Vg)
     dg = ufl.TestFunction(Vg)
+    h = ufl.CellDiameter(submesh_facets)
 
     # # Create the measure
     dx = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.domain)
@@ -277,7 +278,7 @@ if __name__ == '__main__':
     F0 += - kappa * (u - u_left) * inner(n, grad(du)) * ds_c(2)
     F0 += -gamma / h * (u - u_left) * du * ds_c(2)
 
-    F1 = dl * g * ds_c(3) + I_tot/L_right * dl * ds_c(3)
+    F1 = dl * g * ds_c(3) + I_tot/L_right * dl * ds_c(3) - 5/h * inner(dl, lmbda) * ds_c(3)
     F2 = - dg * u * ds_c(3) + lmbda * dg * ds_c(3)
 
     F = [fem.form(F0, entity_maps=entity_maps), fem.form(F1, entity_maps=entity_maps), fem.form(F2, entity_maps=entity_maps)]
