@@ -263,50 +263,6 @@ if __name__ == '__main__':
     # viewer = PETSc.Viewer().DRAW(comm)
     J_view.view()
 
-    # eigen values
-    E = SLEPc.EPS()
-    E.create()
-    E.setOperators(J_view)
-    E.setProblemType(SLEPc.EPS.ProblemType.HEP)
-    E.setFromOptions()
-    E.solve()
-    Print = PETSc.Sys.Print
-    Print()
-    Print("******************************")
-    Print("*** SLEPc Solution Results ***")
-    Print("******************************")
-    Print()
-
-    its = E.getIterationNumber()
-    Print("Number of iterations of the method: %d" % its)
-
-    eps_type = E.getType()
-    Print("Solution method: %s" % eps_type)
-
-    nev, ncv, mpd = E.getDimensions()
-    Print("Number of requested eigenvalues: %d" % nev)
-
-    tol, maxit = E.getTolerances()
-    Print("Stopping condition: tol=%.4g, maxit=%d" % (tol, maxit))
-    nconv = E.getConverged()
-    Print("Number of converged eigenpairs %d" % nconv)
-    if nconv > 0:
-        # Create the results vectors
-        vr, wr = J_view.getVecs()
-        vi, wi = J_view.getVecs()
-        #
-        Print()
-        Print("        k          ||Ax-kx||/||kx|| ")
-        Print("----------------- ------------------")
-        for i in range(nconv):
-            k = E.getEigenpair(i, vr, vi)
-            error = E.computeError(i)
-            if k.imag != 0.0:
-                Print(" %9f%+9f j %12g" % (k.real, k.imag, error))
-            else:
-                Print(" %12f      %12g" % (k.real, error))
-        Print()
-
     F = [
         fem.form(F_0, entity_maps=entity_maps),
         fem.form(F_1, entity_maps=entity_maps),
