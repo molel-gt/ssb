@@ -1,3 +1,4 @@
+import numbers
 from dolfinx import cpp
 from mpi4py import MPI
 import dolfinx
@@ -112,12 +113,14 @@ def compute_cell_boundary_facets(domain, ct, marker):
     tdim = domain.topology.dim
     fdim = tdim - 1
     n_f = cpp.mesh.cell_num_entities(domain.topology.cell_type, fdim)
-
-    cells_1 = ct.find(marker)
+    if isinstance(marker, numbers.Number):
+        cells_1 = ct.find(marker)
+    else:
+        cells_1 = np.hstack([ct.find(m) for m in marker])
     perm = np.argsort(cells_1)
     n_c = cells_1.shape[0]
 
-    return np.vstack((np.repeat(cells_1[perm], n_f), np.tile(np.arange(n_f), n_c))).T#.flatten()
+    return np.vstack((np.repeat(cells_1[perm], n_f), np.tile(np.arange(n_f), n_c))).T
 
 
 def compute_interface_cell_boundary_facets(domain, ct, ft, cell_marker, facet_marker):
@@ -131,6 +134,8 @@ def compute_interface_cell_boundary_facets(domain, ct, ft, cell_marker, facet_ma
     cell_marker: marker for subdomain
     facet_marker: marker for interface
     """
+    tdim = domain.topology.dim
+    fdim = tdim - 1
     f_to_c = domain.topology.connectivity(fdim, tdim)
     c_to_f = domain.topology.connectivity(tdim, fdim)
     ft_imap = domain.topology.index_map(fdim)
