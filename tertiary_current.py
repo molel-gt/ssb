@@ -389,15 +389,24 @@ if __name__ == '__main__':
     jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) + ocv_chen2020(c(r_res), cmax=c_max/c_ref)/phi_ref
 
     # for galvanostatic mode
-    # facets submesh
-    submesh_facets, submesh_facets_to_mesh, f_v_map = mesh.create_submesh(
-        domain, fdim, ft.find(markers.right))[:3]
+    # left facets submesh
+    submesh_facets_left, submesh_facets_left_to_mesh = mesh.create_submesh(
+        domain, fdim, ft.find(markers.left))[:2]
     num_facets_local = (
         domain.topology.index_map(fdim).size_local + domain.topology.index_map(fdim).num_ghosts
     )
-    parent_to_facets = np.full(num_facets_local, -1, dtype=np.int32)
-    parent_to_facets[submesh_facets_to_mesh] = np.arange(len(submesh_facets_to_mesh), dtype=np.int32)
-    entity_maps[submesh_facets] = parent_to_facets
+    parent_to_facets_left = np.full(num_facets_local, -1, dtype=np.int32)
+    parent_to_facets_left[submesh_facets_left_to_mesh] = np.arange(len(submesh_facets_left_to_mesh), dtype=np.int32)
+    entity_maps[submesh_facets_left] = parent_to_facets_left
+    # right facets submesh
+    submesh_facets_right, submesh_facets_right_to_mesh = mesh.create_submesh(
+        domain, fdim, ft.find(markers.right))[:2]
+    num_facets_local = (
+        domain.topology.index_map(fdim).size_local + domain.topology.index_map(fdim).num_ghosts
+    )
+    parent_to_facets_right = np.full(num_facets_local, -1, dtype=np.int32)
+    parent_to_facets_right[submesh_facets_right_to_mesh] = np.arange(len(submesh_facets_right_to_mesh), dtype=np.int32)
+    entity_maps[submesh_facets_right] = parent_to_facets_right
 
     all_facets = mesh_utils.compute_cell_boundary_facets(domain, ct, [markers.positive_am, markers.electrolyte])
     right_facets = mesh_utils.compute_interface_cell_boundary_facets(domain, ct, ft, markers.positive_am, markers.right)
@@ -409,12 +418,14 @@ if __name__ == '__main__':
     A_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.right))), op=MPI.SUM)
     A_right = A_right_tilde * (L_ref ** 2)
 
-    R = scifem.create_real_functionspace(submesh_facets)
-    lmbda, dl = fem.Function(R), ufl.TestFunction(R)
-    Vg = fem.functionspace(submesh_facets, ("Lagrange", 1))
-    g, dg = fem.Function(Vg), ufl.TestFunction(Vg)
+    R_right = scifem.create_real_functionspace(submesh_facets_right)
+    V_r = fem.functionspace(submesh_facets_right, ("Lagrange", 1))
+    lmbda, mu = fem.Function(V_r), ufl.TestFunction(V_r)
 
-    I_tot = fem.Constant(submesh_facets, PETSc.ScalarType(-I_tot_))
+    V_cell, w = fem.Function(R_right), ufl.TestFunction(R_right)
+
+    I_tot = fem.Constant(submesh_facets_right, PETSc.ScalarType(-I_tot_))
+    h = ufl.CellDiameter(submesh_facets_right)
 
     F_0 = (
         - 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
@@ -428,10 +439,9 @@ if __name__ == '__main__':
     F_0 += -2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
     F_1 += +2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_r * dInterface
     # galvanostatic mode
-    F_1 +=  - g * v_1 * ds_f(3)
-
-    F_1a = dl * g * ds_f(3) + I_tot/(A_right_tilde * L_ref * phi_ref) * dl * ds_f(3)# - h**2/gamma * inner(dl, lmbda) * ds_c(3)
-    F_1b = - dg * u_1 * ds_f(3) + lmbda * dg * ds_f(3)
+    F_1 += - v_1 * lmbda * ds_f(3)
+    F_1a = (V_cell - u_1) * mu * ds_f(3)
+    F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3) #- h/50 * inner(w, V_cell) * ds_f(3)
 
     F_0 += F_00
     F_1 += F_11
@@ -443,31 +453,31 @@ if __name__ == '__main__':
     jac00 = ufl.derivative(F_0, u_0)
     jac01 = ufl.derivative(F_0, u_1)
     jac02 = ufl.derivative(F_0, lmbda)
-    jac03 = ufl.derivative(F_0, g)
+    jac03 = ufl.derivative(F_0, V_cell)
     jac04 = ufl.derivative(F_0, c)
 
     jac10 = ufl.derivative(F_1, u_0)
     jac11 = ufl.derivative(F_1, u_1)
     jac12 = ufl.derivative(F_1, lmbda)
-    jac13 = ufl.derivative(F_1, g)
+    jac13 = ufl.derivative(F_1, V_cell)
     jac14 = ufl.derivative(F_1, c)
 
     jac20 = ufl.derivative(F_1a, u_0)
     jac21 = ufl.derivative(F_1a, u_1)
     jac22 = ufl.derivative(F_1a, lmbda)
-    jac23 = ufl.derivative(F_1a, g)
+    jac23 = ufl.derivative(F_1a, V_cell)
     jac24 = ufl.derivative(F_1a, c)
 
     jac30 = ufl.derivative(F_1b, u_0)
     jac31 = ufl.derivative(F_1b, u_1)
     jac32 = ufl.derivative(F_1b, lmbda)
-    jac33 = ufl.derivative(F_1b, g)
+    jac33 = ufl.derivative(F_1b, V_cell)
     jac34 = ufl.derivative(F_1b, c)
 
     jac40 = ufl.derivative(F_2, u_0)
     jac41 = ufl.derivative(F_2, u_1)
     jac42 = ufl.derivative(F_2, lmbda)
-    jac43 = ufl.derivative(F_2, g)
+    jac43 = ufl.derivative(F_2, V_cell)
     jac44 = ufl.derivative(F_2, c)
 
     J00 = fem.form(jac00, entity_maps=entity_maps)
@@ -511,13 +521,13 @@ if __name__ == '__main__':
     V0_map = V0.dofmap.index_map
     V1_map = V1.dofmap.index_map
     VC_map = VC.dofmap.index_map
-    Vg_map = Vg.dofmap.index_map
-    R_map = R.dofmap.index_map
+    V_r_map = V_r.dofmap.index_map
+    R_right_map = R_right.dofmap.index_map
     V0_dofmap = V0.dofmap
     V1_dofmap = V1.dofmap
     VC_dofmap = VC.dofmap
-    Vg_dofmap = Vg.dofmap
-    R_dofmap = R.dofmap
+    V_r_dofmap = V_r.dofmap
+    R_right_dofmap = R_right.dofmap
 
     ###################### sparsity structure ##################################
     if args.plot_sparsity:
@@ -594,7 +604,7 @@ if __name__ == '__main__':
     bcs = [bc_left]
 
     n_dofs = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs + VC_map.size_global*VC.dofmap.index_map_bs +\
-            Vg_map.size_global*Vg.dofmap.index_map_bs + R_map.size_global*R.dofmap.index_map_bs
+            V_r_map.size_global*V_r.dofmap.index_map_bs + R_right_map.size_global*R_right.dofmap.index_map_bs
 
     t = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
@@ -608,35 +618,38 @@ if __name__ == '__main__':
     if args.improved_guess:
         PETSc.Sys.Print("************Begin Solve for t = 0 Potential Distribution*******************")
         n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs +\
-                Vg_map.size_global*Vg.dofmap.index_map_bs + R_map.size_global*R.dofmap.index_map_bs
+                V_r_map.size_global*V_r.dofmap.index_map_bs + R_right_map.size_global*R_right.dofmap.index_map_bs
         F2D = F[:4]
         J2D = [j2d[:4] for j2d in J[:4]]
         Jmat2d = fem.petsc.create_matrix_block(J2D)
         Fvec2d = fem.petsc.create_vector_block(F2D)
         snes = PETSc.SNES().create(comm)
         snes.setType('newtonls')
-        snes.setTolerances(rtol=2.5e-5, max_it=100)
-        snes.getKSP().setType(PETSc.KSP.Type.MINRES)
+        snes.setTolerances(rtol=5e-4, max_it=200)
+        snes.setMonitor(lambda _, it, residual: PETSc.Sys.Print("it:", it, "res:", residual))
+        snes.getKSP().setType(PETSc.KSP.Type.PREONLY)
         snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
         snes.getKSP().setOptionsPrefix("snes_")
         snes.getKSP().setOperators(Jmat2d, Jmat2d)
-        snes.getKSP().setTolerances(rtol=1e-8)
+        snes.getKSP().setTolerances(rtol=1e-7)
         snes.setErrorIfNotConverged(True)
         snes.getKSP().setErrorIfNotConverged(True)
         snes.getKSP().setConvergenceHistory()
         opts = PETSc.Options()
-        # for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
+        # for optk, optv in solver_params.AMG_TYPES["gamg"].items():
         #         opts[f"{snes.getKSP().getOptionsPrefix()}{optk}"] = optv
-        opts['snes_linesearch_type'] = 'bt'
-        opts['snes_linesearch_monitor'] = None
-        opts['snes_monitor'] = None
+        # opts['snes_linesearch_type'] = 'bt'
+        # opts['snes_linesearch_monitor'] = None
+        # opts['snes_monitor'] = None
+        for kopt, vopt in solver_params.LINESEARCH.items():
+                opts[kopt] = vopt
         opts[f"{snes.getKSP().getOptionsPrefix()}pc_factor_levels"] = 0
         opts[f"{snes.getKSP().getOptionsPrefix()}pc_factor_fill"] = 2.0
         snes.getKSP().setFromOptions()
         snes.setFromOptions()
         snes.view()
 
-        problem_t0 = solvers.NonlinearPDE_SNESProblem(F2D, J2D, [u_0, u_1, lmbda, g], bcs, P=J2D)
+        problem_t0 = solvers.NonlinearPDE_SNESProblem(F2D, J2D, [u_0, u_1, lmbda, V_cell], bcs, P=J2D)
         snes.setFunction(problem_t0.F_block, Fvec2d)
         snes.setJacobian(problem_t0.J_block, J=Jmat2d, P=Jmat2d)
         x2d = fem.petsc.create_vector_block(F2D)
@@ -835,15 +848,15 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
-            ksp_u.setType(PETSc.KSP.Type.PREONLY)
+            ksp_u.setType(PETSc.KSP.Type.FGMRES)
             ksp_u.getPC().setType(PETSc.PC.Type.ILU)
-            ksp_u.setTolerances(rtol=1e-7)
+            ksp_u.setTolerances(rtol=1e-7, max_it=1000)
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
             ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(args.amg_type)
-            ksp_c.setTolerances(rtol=1e-7)
+            ksp_c.setTolerances(rtol=1e-7, max_it=1000)
             # ksp_u.setConvergenceHistory()
             # ksp_c.setConvergenceHistory()
 
@@ -866,7 +879,7 @@ if __name__ == '__main__':
             ksp_c.setFromOptions()
             snes.getKSP().setFromOptions()
 
-            problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, lmbda, g, c], bcs, P=P)
+            problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, lmbda, V_cell, c], bcs, P=P)
             snes.setFunction(problem.F_block, Fvec)
             snes.setJacobian(problem.J_block, J=Jmat, P=Pmat)
             snes.setFromOptions()
