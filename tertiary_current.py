@@ -310,8 +310,8 @@ if __name__ == '__main__':
     u_1.name = "u_t"
 
     # initial guess
-    u_0.interpolate(lambda x: x[directions[args.transport_direction.lower()]]*0.95)
-    u_1.interpolate(lambda x: 1.05*x[directions[args.transport_direction.lower()]]/1.1)
+    u_0.interpolate(lambda x: x[0]-x[0])#x[directions[args.transport_direction.lower()]]*0.95)
+    u_1.interpolate(lambda x: 0.5 + x[0]-x[0])#1.05*x[directions[args.transport_direction.lower()]]/1.1)
 
     # Add coupling term to the interface
     # Get interface markers on submesh b
