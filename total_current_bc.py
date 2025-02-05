@@ -254,17 +254,8 @@ if __name__ == '__main__':
     # # Create the measure
     dx = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.domain)
     ds_c = ufl.Measure("ds", subdomain_data=[(1, minus_right_facets.flatten()), (2, left_bndry_facets), (3, right_bndry_facets)], domain=domain)
-    # dx_f = ufl.Measure('dx', domain=submesh_facets)
 
-    R_left = scifem.create_real_functionspace(submesh_facets_left)
     R_right = scifem.create_real_functionspace(submesh_facets_right)
-
-    u_left = fem.Function(V)
-    with u_left.x.petsc_vec.localForm() as u0_loc:
-        u0_loc.set(0)
-
-    left_dofs = fem.locate_dofs_topological(V, 1, left_boundary)
-    left_bc = fem.dirichletbc(u_left, left_dofs)
 
     u, du = fem.Function(V), ufl.TestFunction(V)
     lmbda1, mu1 = fem.Function(V_l), ufl.TestFunction(V_l)
@@ -276,15 +267,16 @@ if __name__ == '__main__':
     I_tot = fem.Constant(submesh_facets_right, PETSc.ScalarType(args.current))
     L_right = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.right))), op=MPI.SUM)
 
-    gamma = 5
-    h = ufl.CellDiameter(domain)
     V_map = V.dofmap.index_map
     V_dofmap = V.dofmap
     R_map = R_right.dofmap.index_map
     R_dofmap = R_right.dofmap
+    V_l_map = V_l.dofmap.index_map
+    V_l_dofmap = V_l.dofmap
     V_r_map = V_r.dofmap.index_map
     V_r_dofmap = V_r.dofmap
-    n_dofs = V_map.size_global*V.dofmap.index_map_bs + R_map.size_global*R_right.dofmap.index_map_bs + V_r_map.size_global*V_r.dofmap.index_map_bs
+    n_dofs = V_map.size_global*V.dofmap.index_map_bs + R_map.size_global*R_right.dofmap.index_map_bs \
+        + V_l_map.size_global*V_l.dofmap.index_map_bs + V_r_map.size_global*V_r.dofmap.index_map_bs
     F0 = kappa * inner(grad(u), grad(du)) * dx - du * lmbda1 * ds_c(2)  - du * lmbda2 * ds_c(3)
     F1 = u * mu1 * ds_c(2)
     F2 = (V_cell - u) * mu2 * ds_c(3)
