@@ -81,8 +81,7 @@ def define_interior_eq(domain, degree,  submesh, submesh_to_mesh, value, kappa, 
     mesh_to_submesh = np.full(num_entities, -1)
     mesh_to_submesh[submesh_to_mesh] = np.arange(len(submesh_to_mesh), dtype=np.int32)
 
-    # el = basix.ufl.element(basix.ElementFamily.P, cell_type, degree, basix.LagrangeVariant.gll_warped, dtype=dolfinx.default_real_type)
-    el = ("CG", degree)
+    el = basix.ufl.element(basix.ElementFamily.P, cell_type, degree, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
     V = fem.functionspace(submesh, el)
     u = fem.Function(V)
     v = ufl.TestFunction(V)
@@ -371,8 +370,7 @@ if __name__ == '__main__':
 
     # concentration problem
     dt = fem.Constant(submesh_positive_am, dt_)
-    # el = basix.ufl.element(basix.ElementFamily.P, cell_type, args.p, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
-    el = ("CG", args.p)
+    el = basix.ufl.element(basix.ElementFamily.P, cell_type, args.p, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
     VC = fem.functionspace(submesh_positive_am, el)
 
     c, q = fem.Function(VC), ufl.TestFunction(VC)
@@ -436,8 +434,8 @@ if __name__ == '__main__':
         + 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, n_l) * dInterface
         - 0.5 * mixed_term(0.5 * (kappa_elec + kappa_pos_am) * v_r, (u_r - u_l - jump_u), n_l) * dInterface
     )
-    F_0 += -2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
-    F_1 += +2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_r * dInterface
+    F_0 += -2 * gamma / (h_l + h_r) * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
+    F_1 += +2 * gamma / (h_l + h_r) * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_r * dInterface
     # galvanostatic mode
     F_1 += - v_1 * lmbda * ds_f(3)
     F_1a = (V_cell - u_1) * mu * ds_f(3)
@@ -627,7 +625,7 @@ if __name__ == '__main__':
         snes.setType('newtonls')
         snes.setTolerances(rtol=5e-4, max_it=200)
         snes.setMonitor(lambda _, it, residual: PETSc.Sys.Print("it:", it, "res:", residual))
-        snes.getKSP().setType(PETSc.KSP.Type.PREONLY)
+        snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
         snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
         snes.getKSP().setOptionsPrefix("snes_")
         snes.getKSP().setOperators(Jmat2d, Jmat2d)
