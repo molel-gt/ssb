@@ -3,10 +3,8 @@ import argparse
 import time
 
 import gmsh
-import matspy
 import numpy as np
 import scifem
-import scipy
 import ufl
 
 from dolfinx import cpp, default_scalar_type, fem, mesh
@@ -76,8 +74,7 @@ def build_mesh(output_path, markers, Lx=10, Ly=1, resolution=0.05):
     coords = [
     (0, 0, 0),
     (Lx, 0, 0),
-    (Lx, 0.5*Ly, 0),
-    (5*Lx, Ly, 0),
+    (Lx, Ly, 0),
     (0, Ly, 0),
     ]
     points = []
@@ -102,9 +99,9 @@ def build_mesh(output_path, markers, Lx=10, Ly=1, resolution=0.05):
     # add boundary markers
     gmsh.model.addPhysicalGroup(1, [lines[0]], markers.left, "left")
     gmsh.model.addPhysicalGroup(1, [lines[1]], markers.bottom, "bottom")
-    gmsh.model.addPhysicalGroup(1, [lines[2], lines[3]], markers.right, "right")
-    gmsh.model.addPhysicalGroup(1, [lines[4]], markers.top, "top")
-    gmsh.model.addPhysicalGroup(1, [lines[1], lines[4]], markers.insulated, "insulated")
+    gmsh.model.addPhysicalGroup(1, [lines[2]], markers.right, "right")
+    gmsh.model.addPhysicalGroup(1, [lines[3]], markers.top, "top")
+    gmsh.model.addPhysicalGroup(1, [lines[1], lines[3]], markers.insulated, "insulated")
     gmsh.model.addPhysicalGroup(2, [surf], markers.domain, "domain")
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(2)
@@ -200,7 +197,7 @@ if __name__ == '__main__':
     output_mesh_path = 'mesh.msh'
     output_potential_path = 'potential.bp'
     if args.regenerate_mesh:
-        build_mesh(output_mesh_path, markers, Lx=1, resolution=0.0025)
+        build_mesh(output_mesh_path, markers, Lx=50, Ly=1)
 
     comm = MPI.COMM_WORLD
     partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
@@ -263,7 +260,7 @@ if __name__ == '__main__':
 
     V_cell, w = fem.Function(R_right), ufl.TestFunction(R_right)
 
-    kappa = fem.Constant(domain, default_scalar_type(0.01))
+    kappa = fem.Constant(domain, default_scalar_type(1.0))
     I_tot = fem.Constant(submesh_facets_right, PETSc.ScalarType(args.current))
     L_right = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.right))), op=MPI.SUM)
 
