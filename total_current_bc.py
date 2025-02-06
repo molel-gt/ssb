@@ -4,10 +4,11 @@ import time
 
 import gmsh
 import numpy as np
+import pyvista as pv
 import scifem
 import ufl
 
-from dolfinx import cpp, default_scalar_type, fem, mesh
+from dolfinx import cpp, default_scalar_type, fem, mesh, plot
 from dolfinx.io import gmshio, VTXWriter
 from mpi4py import MPI
 from petsc4py import PETSc
@@ -262,7 +263,10 @@ if __name__ == '__main__':
 
     kappa = fem.Constant(domain, default_scalar_type(1.0))
     I_tot = fem.Constant(submesh_facets_right, PETSc.ScalarType(args.current))
+    L_left = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.left))), op=MPI.SUM)
+    L_bottom = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.bottom))), op=MPI.SUM)
     L_right = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.right))), op=MPI.SUM)
+    L_top = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.top))), op=MPI.SUM)
 
     V_map = V.dofmap.index_map
     V_dofmap = V.dofmap
@@ -373,6 +377,23 @@ if __name__ == '__main__':
     PETSc.Sys.Print(f"Current left boundary: {current_l:.3f} [A],", f"Current right boundary: {current_r:.3f} [A], ", f"Current insulated boundary: {current_ins:.3f} [A]")
     PETSc.Sys.Print(f"Avg potential right: {u_avg_right}, std potential right: {sd_right}")
     PETSc.Sys.Print(f"Avg i right: {i_sup_right}, std i right: {i_stdev_right}")
+    PETSc.Sys.Print(f"L_left: {L_left:.1f}, L_bottom: {L_bottom:.1f}, L_right: {L_right:.1f}, L_top: {L_top:.1f}")
 
     with VTXWriter(comm, "potential.bp", [u], engine="BP5") as vtx:
         vtx.write(0.0)
+
+    cells, types, x = plot.vtk_mesh(V)
+    grid = pv.UnstructuredGrid(cells, types, x)
+    grid.point_data["u"] = u.x.array.real
+    grid.set_active_scalars("u")
+    plotter = pv.Plotter()
+
+    # plot potential heatmap
+    plotter.add_mesh(grid, show_edges=False, opacity=0.25)
+
+    # plot isopotential lines
+    contour_levels = 10
+    contours = grid.contour(contour_levels, scalars="u")
+    plotter.add_mesh(contours, line_width=1)
+    plotter.view_xy() # orientation
+    plotter.show()
