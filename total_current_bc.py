@@ -345,14 +345,6 @@ if __name__ == '__main__':
         t1 = time.time()
         PETSc.Sys.Print(f"Solve time: {t1 - t0:.3f}s, n_dofs: {n_dofs:,}")
     elif args.solver_type == solver_types.block_iterative:
-
-        Jmat = fem.petsc.create_matrix_nest(J)
-        nested_IS = Jmat.getNestISs()
-        IS_u = nested_IS[0][0]
-        IS_l = nested_IS[0][1]
-        IS_g = nested_IS[0][2]
-        IS_other = IS_l.sum(IS_g)
-
         opts = {
                     'ksp_type': 'fgmres',
                     'pc_type': 'ilu',
