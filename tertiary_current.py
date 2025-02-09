@@ -1063,12 +1063,10 @@ if __name__ == '__main__':
     V = fem.functionspace(submesh_positive_am, ("CG", 1))
     i_left = fem.Function(V)
     i_right = fem.Function(V)
-    # PETSc.Sys.Print(V3.element.interpolation_points)
     D_scale = fem.Constant(submesh_positive_am, PETSc.ScalarType(faraday_const * D * c_ref * L_ref ** (tdim-2)))
     i_expr = fem.Expression(D_scale * grad(c), V3.element.interpolation_points)
     i_n = fem.Function(V3)
     i_n.interpolate(i_expr)
-    # compute_local_current_density_distribution(comm, i_expr, cd_bands, A_se_am, dInterface, entity_maps, domain)
     rank = comm.Get_rank()
     size = comm.Get_size()
     n = bands.shape[0]
@@ -1086,7 +1084,6 @@ if __name__ == '__main__':
                                                            ufl.conditional(ufl.And(expr_1, expr_2), 1, 0) * dInterface,
                                                            entity_maps=entity_maps)), op=MPI.SUM) / A_se_am_tilde
         distribution[rank * n_bands_per_proc + idx] = freq
-        # print(f"band: {vleft} - {vright}, freq: {freq}")
 
     if comm.rank == 0:
         fig, ax = plt.subplots()
