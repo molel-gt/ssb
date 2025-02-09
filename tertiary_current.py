@@ -240,6 +240,7 @@ if __name__ == '__main__':
     concentration_plot_file = os.path.join(results_dir, "concentration.eps")
     simulation_metafile = os.path.join(results_dir, "simulation.json")
     convergence_history = os.path.join(results_dir, "convergence.eps")
+    se_am_frequency_plot = os.path.join(results_dir, "se_am_frequency.eps")
     log_datafile = os.path.join(results_dir, "log.txt")
 
     # load mesh
@@ -416,6 +417,9 @@ if __name__ == '__main__':
     A_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.right))), op=MPI.SUM)
     A_right = A_right_tilde * (L_ref ** 2)
 
+    A_se_am_tilde = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds_c(markers.electrolyte_v_positive_am))), op=MPI.SUM)
+    A_se_am = A_se_am_tilde * (L_ref ** 2)
+
     R_right = scifem.create_real_functionspace(submesh_facets_right)
     V_r = fem.functionspace(submesh_facets_right, ("Lagrange", 1))
     lmbda, mu = fem.Function(V_r), ufl.TestFunction(V_r)
@@ -529,33 +533,6 @@ if __name__ == '__main__':
 
     ###################### sparsity structure ##################################
     if args.plot_sparsity:
-        # for i_x in range(3):
-            # for i_y in range(3):
-            #     if i_x != i_y:
-            #         continue
-            #     J_ = J[i_x][i_y]
-            #     PETSc.Sys.Print(f"################# {i_x},{i_y} ##########################")
-            #     J_00 = fem.petsc.assemble_matrix(J_)
-            #     J_00.assemble()
-            #     PETSc.Sys.Print(f"Symmetric: {J_00.isSymmetric()}")
-            #     J_new = J_00.duplicate()
-            #     J_new.zeroEntries()
-            #     rowsum = J_new.createVecRight()
-            #     n_rows, _ = J_00.getSize()
-            #     for idx in range(*J_00.getOwnershipRange()):
-            #         _, row_v = J_00.getRow(idx)
-            #         max_v = np.average(np.abs(row_v))
-            #         rowsum.setValue(idx, max_v)
-            #     J_00.getDiagonal(result=rowsum)
-            #     rowsum.abs()
-            #     rowsum.reciprocal()
-            #     J_new.setDiagonal(rowsum)
-            #     J_res = J_00.matMult(J_new)
-            #     try:
-            #         get_eigenvalues(J_res)
-            #     except PETSc.Error:
-            #         PETSc.Sys.Print(f"Could not converge for block {i_x},{i_y}")
-
         J_full = fem.petsc.assemble_matrix_block(J)
         J_full.assemble()
 
@@ -1080,6 +1057,45 @@ if __name__ == '__main__':
 
     with io.VTXWriter(comm, positive_am_potential_file, [u_1], engine="BP5") as vtx:
         vtx.write(0)
+
+    bands = np.linspace(1e-14, 5 * np.abs(I_tot_)/A_se_am_tilde, num=101)
+    V3 = fem.functionspace(submesh_positive_am, ("CG", 1, (3,)))
+    V = fem.functionspace(submesh_positive_am, ("CG", 1))
+    i_left = fem.Function(V)
+    i_right = fem.Function(V)
+    # PETSc.Sys.Print(V3.element.interpolation_points)
+    D_scale = fem.Constant(submesh_positive_am, PETSc.ScalarType(faraday_const * D * c_ref * L_ref ** (tdim-2)))
+    i_expr = fem.Expression(D_scale * grad(c), V3.element.interpolation_points)
+    i_n = fem.Function(V3)
+    i_n.interpolate(i_expr)
+    # compute_local_current_density_distribution(comm, i_expr, cd_bands, A_se_am, dInterface, entity_maps, domain)
+    rank = comm.Get_rank()
+    size = comm.Get_size()
+    n = bands.shape[0]
+    distribution = np.zeros((n-1,))
+    n_bands_per_proc = int(np.ceil((n - 1) / size))
+    for idx in range(n_bands_per_proc):
+        vleft = bands[rank * n_bands_per_proc + idx]
+        vright = bands[rank * n_bands_per_proc + idx + 1]
+        i_left.interpolate(lambda x: x[0] - x[0] + vleft)
+        i_right.interpolate(lambda x: x[0] - x[0] + vright)
+        expr_1 = ufl.ge(np.abs(inner(i_n(r_res), n_r)), i_left)
+        expr_2 = ufl.lt(np.abs(inner(i_n(r_res), n_r)), i_right)
+
+        freq = comm.allreduce(fem.assemble_scalar(fem.form(
+                                                           ufl.conditional(ufl.And(expr_1, expr_2), 1, 0) * dInterface,
+                                                           entity_maps=entity_maps)), op=MPI.SUM) / A_se_am_tilde
+        distribution[rank * n_bands_per_proc + idx] = freq
+        # print(f"band: {vleft} - {vright}, freq: {freq}")
+
+    if comm.rank == 0:
+        fig, ax = plt.subplots()
+        ax.plot(0.5 * (bands[:-1] + bands[1:]) * (A_se_am_tilde/np.abs(I_tot_)), distribution)
+        ax.set_xlabel(r'$\widehat{\tilde{i}}_{\mathrm{SE/AM}}$')
+        ax.set_ylabel(r'$\frac{A_i}{A_{\mathrm{SE/AM}}}$')
+        ax.set_box_aspect(1)
+        plt.tight_layout()
+        plt.savefig(se_am_frequency_plot, bbox_inches="tight")
 
     if args.plot:
         n_points = 1000
