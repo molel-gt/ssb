@@ -186,6 +186,7 @@ if __name__ == '__main__':
     parser.add_argument("--improved_guess", help="whether to solve for improved guess", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("--galvanostatic", help="whether to galvanostatic mode", default=True, action=argparse.BooleanOptionalAction)
     parser.add_argument("-C_rate", "--C_rate", help="cycling rate", nargs='?', const=1, default=0.1, type=float)
+    parser.add_argument("--compute_distribution", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
 
@@ -1056,47 +1057,48 @@ if __name__ == '__main__':
 
     with io.VTXWriter(comm, positive_am_potential_file, [u_1], engine="BP5") as vtx:
         vtx.write(0)
-    n_bands = 200
-    bands = np.linspace(0, 100 * i_sup, num=n_bands+1)
-    V3 = fem.functionspace(submesh_positive_am, ("CG", args.p-1, (3,)))
-    V = fem.functionspace(submesh_positive_am, ("CG", args.p-1))
-    i_left = fem.Function(V)
-    i_right = fem.Function(V)
-    D_scale = fem.Constant(submesh_positive_am, PETSc.ScalarType(faraday_const * D * c_ref * L_ref ** (2 - tdim)))
-    i_expr = fem.Expression(-D_scale * grad(c), V3.element.interpolation_points)
-    i_n = fem.Function(V3)
-    i_n.interpolate(i_expr)
-    rank = comm.Get_rank()
-    size = comm.Get_size()
-    n = bands.shape[0]
-    distribution = np.zeros((n-1,))
-    n_bands_per_proc = int(np.ceil((n - 1) / size))
-    n_r = ufl.FacetNormal(submesh_positive_am)
+    if args.compute_distribution:
+        n_bands = 200
+        bands = np.linspace(0, 100 * i_sup, num=n_bands+1)
+        V3 = fem.functionspace(submesh_positive_am, ("CG", args.p-1, (3,)))
+        V = fem.functionspace(submesh_positive_am, ("CG", args.p-1))
+        i_left = fem.Function(V)
+        i_right = fem.Function(V)
+        D_scale = fem.Constant(submesh_positive_am, PETSc.ScalarType(faraday_const * D * c_ref * L_ref ** (2 - tdim)))
+        i_expr = fem.Expression(-D_scale * grad(c), V3.element.interpolation_points)
+        i_n = fem.Function(V3)
+        i_n.interpolate(i_expr)
+        rank = comm.Get_rank()
+        size = comm.Get_size()
+        n = bands.shape[0]
+        distribution = np.zeros((n-1,))
+        n_bands_per_proc = int(np.ceil((n - 1) / size))
+        n_r = ufl.FacetNormal(submesh_positive_am)
 
-    for idx in range(n_bands_per_proc):
-        if (rank * n_bands_per_proc + idx) >= n_bands:
-            break
-        vleft = bands[rank * n_bands_per_proc + idx]
-        vright = bands[rank * n_bands_per_proc + idx + 1]
-        i_left.interpolate(lambda x: x[0] - x[0] + vleft)
-        i_right.interpolate(lambda x: x[0] - x[0] + vright)
-        expr_1 = ufl.ge(np.abs(inner(i_n, n_r)), i_left)
-        expr_2 = ufl.lt(np.abs(inner(i_n, n_r)), i_right)
+        for idx in range(n_bands_per_proc):
+            if (rank * n_bands_per_proc + idx) >= n_bands:
+                break
+            vleft = bands[rank * n_bands_per_proc + idx]
+            vright = bands[rank * n_bands_per_proc + idx + 1]
+            i_left.interpolate(lambda x: x[0] - x[0] + vleft)
+            i_right.interpolate(lambda x: x[0] - x[0] + vright)
+            expr_1 = ufl.ge(np.abs(inner(i_n, n_r)), i_left)
+            expr_2 = ufl.lt(np.abs(inner(i_n, n_r)), i_right)
 
-        freq = comm.allreduce(fem.assemble_scalar(fem.form(
-                                                           ufl.conditional(ufl.And(expr_1, expr_2), 1, 0) * ds_c(markers.electrolyte_v_positive_am),
-                                                           entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 2 / A_se_am
-        distribution[rank * n_bands_per_proc + idx] = freq
+            freq = comm.allreduce(fem.assemble_scalar(fem.form(
+                                                               ufl.conditional(ufl.And(expr_1, expr_2), 1, 0) * ds_c(markers.electrolyte_v_positive_am),
+                                                               entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 2 / A_se_am
+            distribution[rank * n_bands_per_proc + idx] = freq
 
-    expr_1 = ufl.ge(np.abs(inner(i_n, n_r)), 0)
-    expr_2 = ufl.lt(np.abs(inner(i_n, n_r)), 100 * i_sup)
+        expr_1 = ufl.ge(np.abs(inner(i_n, n_r)), 0)
+        expr_2 = ufl.lt(np.abs(inner(i_n, n_r)), 100 * i_sup)
 
-    freq_p = comm.allreduce(fem.assemble_scalar(fem.form(
-                                                   ufl.conditional(ufl.And(expr_1, expr_2), 1, 0) * ds_c(markers.electrolyte_v_positive_am),
-                                                   entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 2
-    PETSc.Sys.Print(freq_p/A_se_am)
+        freq_p = comm.allreduce(fem.assemble_scalar(fem.form(
+                                                       ufl.conditional(ufl.And(expr_1, expr_2), 1, 0) * ds_c(markers.electrolyte_v_positive_am),
+                                                       entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 2
+        PETSc.Sys.Print(freq_p/A_se_am)
 
-    if comm.rank == 0:
+    if args.compute_distribution and comm.rank == 0:
 
         PETSc.Sys.Print(np.sum(distribution)*A_se_am_tilde, A_se_am)
         fig, ax = plt.subplots()
