@@ -170,7 +170,7 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--p", help="polynomial approximation order", nargs='?', const=1, default=4, type=int)
     parser.add_argument("-cell_type", "--cell_type", help="cell type to use", nargs='?', const=1, default="tetrahedron", type=str)
     parser.add_argument("-dt", "--dt", help="minimum normalized time step", nargs='?', const=1, default=2e-7, type=float)
-    parser.add_argument("-t_steps", "--t_steps", help="number of dt time steps", nargs='?', const=1, default=1, type=int)
+    parser.add_argument("-sim_time", "--sim_time", help="simulation time in seconds", nargs='?', const=1, default=15, type=float)
     parser.add_argument("--atol", help="solver absolute tolerance", nargs='?', const=1, default=1e-12, type=float)
     parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-9, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
@@ -193,11 +193,8 @@ if __name__ == '__main__':
     voltage = args.voltage
     Wa_n = args.Wa_n
     Wa_p = args.Wa_p
-    gamma = args.gamma
     kappa_elec = args.kr * kappa_pos_am
-    dt_ = args.dt
     D = args.D
-    TIME = args.t_steps * dt_
 
     markers = commons.Markers()
     solver_types = SolverTypes()
@@ -220,6 +217,8 @@ if __name__ == '__main__':
     ref = {"t": t_ref, "phi": phi_ref, "c": c_ref, "L": L_ref}
     R_p_ref = 10e-6  # characteristic diffusion length
 
+    TIME = args.dt#args.sim_time / t_ref
+
     # exchange current densities
     i0_n = kappa_elec * R * T / (Wa_n * faraday_const * L_ref)
     i0_p = kappa_elec * R * T / (Wa_p * faraday_const * L_ref)
@@ -241,6 +240,7 @@ if __name__ == '__main__':
     simulation_metafile = os.path.join(results_dir, "simulation.json")
     convergence_history = os.path.join(results_dir, "convergence.eps")
     se_am_frequency_plot = os.path.join(results_dir, "se_am_frequency.eps")
+    se_am_cdf_plot = os.path.join(results_dir, "se_am_cdf.eps")
     log_datafile = os.path.join(results_dir, "log.txt")
 
     # load mesh
@@ -344,7 +344,7 @@ if __name__ == '__main__':
     dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
     dx_c = ufl.Measure('dx', domain=submesh_positive_am)
     ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
-    ds_c = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
+    ds_c = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am, metadata={"quadrature_degree": 3})
 
     vol_pos_am = comm.allreduce(fem.assemble_scalar(fem.form(1 * dx(markers.positive_am), entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 3
     I_tot_ = utils.get_c_rate_current(c_max, args.C_rate, vol_pos_am)
@@ -370,7 +370,7 @@ if __name__ == '__main__':
     h_r = cd(r_res)
 
     # concentration problem
-    dt = fem.Constant(submesh_positive_am, dt_)
+    dt = fem.Constant(submesh_positive_am, args.dt)
     el = basix.ufl.element(basix.ElementFamily.P, cell_type, args.p, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
     VC = fem.functionspace(submesh_positive_am, el)
 
@@ -419,6 +419,8 @@ if __name__ == '__main__':
 
     A_se_am_tilde = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds_c(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     A_se_am = A_se_am_tilde * (L_ref ** 2)
+    A_se_am_to_vol_am = A_se_am / vol_pos_am
+    PETSc.Sys.Print(f"charge transfer area to volume ratio: {A_se_am_to_vol_am:,.0f}")
 
     R_right = scifem.create_real_functionspace(submesh_facets_right)
     V_r = fem.functionspace(submesh_facets_right, ("Lagrange", 1))
@@ -427,7 +429,9 @@ if __name__ == '__main__':
     V_cell, w = fem.Function(R_right), ufl.TestFunction(R_right)
 
     I_tot = fem.Constant(submesh_facets_right, PETSc.ScalarType(-I_tot_))
+    i_sup = np.abs(I_tot.value) / A_right
     h = ufl.CellDiameter(submesh_facets_right)
+    gamma = fem.Constant(domain, PETSc.ScalarType(args.gamma))
 
     F_0 = (
         - 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
@@ -983,14 +987,9 @@ if __name__ == '__main__':
             Pmat.destroy()
         else:
             raise ValueError("Unknown solver type!")
-        if idx % 3 == 0:
-            dt.value = 10 * args.dt
-        elif idx % 3 == 1:
-            dt.value = 5 * args.dt
-        else:
-            dt.value = 0.5 * args.dt
-        idx += 1
-
+        # exact simulation time
+        dt.value = 5 * dt.value #min(args.dt, TIME - t)
+        # gamma.value = args.gamma * 10
         c0.x.array[:] = c.x.array
         cvtx.write(t)
         I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * (phi_ref) * L_ref ** (tdim-2) * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
@@ -1057,14 +1056,14 @@ if __name__ == '__main__':
 
     with io.VTXWriter(comm, positive_am_potential_file, [u_1], engine="BP5") as vtx:
         vtx.write(0)
-
-    bands = np.linspace(1e-14, 5 * np.abs(I_tot_)/A_se_am_tilde, num=101)
-    V3 = fem.functionspace(submesh_positive_am, ("CG", 1, (3,)))
-    V = fem.functionspace(submesh_positive_am, ("CG", 1))
+    n_bands = 200
+    bands = np.linspace(0, 100 * i_sup, num=n_bands+1)
+    V3 = fem.functionspace(submesh_positive_am, ("CG", args.p-1, (3,)))
+    V = fem.functionspace(submesh_positive_am, ("CG", args.p-1))
     i_left = fem.Function(V)
     i_right = fem.Function(V)
-    D_scale = fem.Constant(submesh_positive_am, PETSc.ScalarType(faraday_const * D * c_ref * L_ref ** (tdim-2)))
-    i_expr = fem.Expression(D_scale * grad(c), V3.element.interpolation_points)
+    D_scale = fem.Constant(submesh_positive_am, PETSc.ScalarType(faraday_const * D * c_ref * L_ref ** (2 - tdim)))
+    i_expr = fem.Expression(-D_scale * grad(c), V3.element.interpolation_points)
     i_n = fem.Function(V3)
     i_n.interpolate(i_expr)
     rank = comm.Get_rank()
@@ -1072,27 +1071,51 @@ if __name__ == '__main__':
     n = bands.shape[0]
     distribution = np.zeros((n-1,))
     n_bands_per_proc = int(np.ceil((n - 1) / size))
+    n_r = ufl.FacetNormal(submesh_positive_am)
+
     for idx in range(n_bands_per_proc):
+        if (rank * n_bands_per_proc + idx) >= n_bands:
+            break
         vleft = bands[rank * n_bands_per_proc + idx]
         vright = bands[rank * n_bands_per_proc + idx + 1]
         i_left.interpolate(lambda x: x[0] - x[0] + vleft)
         i_right.interpolate(lambda x: x[0] - x[0] + vright)
-        expr_1 = ufl.ge(np.abs(inner(i_n(r_res), n_r)), i_left)
-        expr_2 = ufl.lt(np.abs(inner(i_n(r_res), n_r)), i_right)
+        expr_1 = ufl.ge(np.abs(inner(i_n, n_r)), i_left)
+        expr_2 = ufl.lt(np.abs(inner(i_n, n_r)), i_right)
 
         freq = comm.allreduce(fem.assemble_scalar(fem.form(
-                                                           ufl.conditional(ufl.And(expr_1, expr_2), 1, 0) * dInterface,
-                                                           entity_maps=entity_maps)), op=MPI.SUM) / A_se_am_tilde
+                                                           ufl.conditional(ufl.And(expr_1, expr_2), 1, 0) * ds_c(markers.electrolyte_v_positive_am),
+                                                           entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 2 / A_se_am
         distribution[rank * n_bands_per_proc + idx] = freq
 
+    expr_1 = ufl.ge(np.abs(inner(i_n, n_r)), 0)
+    expr_2 = ufl.lt(np.abs(inner(i_n, n_r)), 100 * i_sup)
+
+    freq_p = comm.allreduce(fem.assemble_scalar(fem.form(
+                                                   ufl.conditional(ufl.And(expr_1, expr_2), 1, 0) * ds_c(markers.electrolyte_v_positive_am),
+                                                   entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 2
+    PETSc.Sys.Print(freq_p/A_se_am)
+
     if comm.rank == 0:
+
+        PETSc.Sys.Print(np.sum(distribution)*A_se_am_tilde, A_se_am)
         fig, ax = plt.subplots()
-        ax.plot(0.5 * (bands[:-1] + bands[1:]) * (A_se_am_tilde/np.abs(I_tot_)), distribution)
+        ax.plot(0.5 * (bands[:-1] + bands[1:]) * (A_right/np.abs(I_tot_)), distribution, 'o', markersize=1)
         ax.set_xlabel(r'$\widehat{\tilde{i}}_{\mathrm{SE/AM}}$')
         ax.set_ylabel(r'$\frac{A_i}{A_{\mathrm{SE/AM}}}$')
         ax.set_box_aspect(1)
         plt.tight_layout()
         plt.savefig(se_am_frequency_plot, bbox_inches="tight")
+
+        fig, ax = plt.subplots()
+        ax.plot(bands[1:] * (A_right/np.abs(I_tot_)), np.cumsum(distribution), 'o', markersize=1)
+        ax.set_xlabel(r'$\widehat{\tilde{i}}_{\mathrm{SE/AM}}$')
+        ax.set_ylabel(r'$\frac{\sum^{i*}A_i}{A_{\mathrm{SE/AM}}}$')
+        ax.set_box_aspect(1)
+        plt.tight_layout()
+        ax.set_ylim([0, 1])
+        plt.savefig(se_am_cdf_plot, bbox_inches="tight")
+
 
     if args.plot:
         n_points = 1000
