@@ -415,6 +415,9 @@ if __name__ == '__main__':
     right_bndry_facets = np.array(right_facets).flatten()
     left_bndry_facets = np.array(left_facets).flatten()
     ds_f = ufl.Measure("ds", subdomain_data=[(1, minus_right_facets.flatten()), (2, left_bndry_facets), (3, right_bndry_facets)], domain=domain)
+    A_left_tilde = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.left))), op=MPI.SUM)
+    A_left = A_left_tilde * (L_ref ** 2)
+
     A_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.right))), op=MPI.SUM)
     A_right = A_right_tilde * (L_ref ** 2)
 
@@ -993,14 +996,36 @@ if __name__ == '__main__':
         # gamma.value = args.gamma * 10
         c0.x.array[:] = c.x.array
         cvtx.write(t)
-        I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_elec * (phi_ref) * L_ref ** (tdim-2) * grad(u_0), n) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
-        I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa_pos_am * (phi_ref) * L_ref ** (tdim-2) * grad(u_1), n) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
-        I_interface = comm.allreduce(fem.assemble_scalar(fem.form(inner(faraday_const * D * (c_ref) * L_ref ** (tdim-2) * grad(c(r_res)), n_r) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+        I_left = comm.allreduce(fem.assemble_scalar(fem.form(
+                                inner(kappa_elec * (phi_ref) * L_ref ** (tdim-2) * grad(u_0), n) * ds(markers.left),
+                                entity_maps=entity_maps)), op=MPI.SUM)
+        I_right = comm.allreduce(fem.assemble_scalar(fem.form(
+                                inner(kappa_pos_am * (phi_ref) * L_ref ** (tdim-2) * grad(u_1), n) * ds(markers.right),
+                                entity_maps=entity_maps)), op=MPI.SUM)
+        I_interface = comm.allreduce(fem.assemble_scalar(fem.form(
+                                inner(faraday_const * D * (c_ref) * L_ref ** (tdim-2) * grad(c(r_res)), n_r) * dInterface,
+                                entity_maps=entity_maps)), op=MPI.SUM)
 
-        u_avg_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_1 * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
+        u_avg_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_1 * ds(markers.right),
+                                                                        entity_maps=entity_maps)), op=MPI.SUM)
         u_avg_right = u_avg_right_tilde * phi_ref * L_ref ** 2 / A_right
-        u_stdev_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form((u_1 - u_avg_right_tilde) ** 2 * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
+        u_stdev_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(
+                                            (u_1 - u_avg_right_tilde) ** 2 * ds(markers.right),
+                                            entity_maps=entity_maps)), op=MPI.SUM)
         u_stdev_right = np.sqrt(u_stdev_right_tilde  * (phi_ref * L_ref ** 2) ** 2 / A_right)
+        i_avg_se_am = np.abs(I_interface / A_se_am)
+        i_avg_left = np.abs(I_left / A_left)
+        i_avg_right = np.abs(I_right / A_right)
+        n_r = ufl.FacetNormal(submesh_positive_am)
+        i_stdev_left = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
+                                (kappa_elec * phi_ref * L_ref ** (tdim - 2) * inner(grad(u_0), n) - i_avg_left*L_ref**2) ** 2 * ds(markers.left),
+                                entity_maps=entity_maps)), op=MPI.SUM) / A_left)
+        i_stdev_se_am = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
+                                (faraday_const * D * c_ref * L_ref ** (tdim - 2) * inner(grad(c), n_r) - i_avg_se_am*L_ref**2) ** 2 * ds_c(markers.electrolyte_v_positive_am),
+                                entity_maps=entity_maps)), op=MPI.SUM) / A_se_am)
+        i_stdev_right = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
+                                (kappa_pos_am * (phi_ref) * L_ref ** (tdim - 2) * inner(grad(u_1), n) - i_avg_right*L_ref**2) ** 2 * ds(markers.right),
+                                entity_maps=entity_maps)), op=MPI.SUM) / A_right)
     cvtx.close()
 
     time_elapsed = timeit.default_timer() - start_time
@@ -1014,6 +1039,12 @@ if __name__ == '__main__':
         "C-rate": args.C_rate,
         "u (avg) right [V]": u_avg_right,
         "u (stdev) right [v]": u_stdev_right,
+        "i (avg) left [A/m2]": i_avg_left,
+        "i (stdev) left [A/m2]": i_stdev_left,
+        "i (avg) se/am [A/m2]": i_avg_se_am,
+        "i (stdev) se/am [A/m2]": i_stdev_se_am,
+        "i (avg) right [A/m2]": i_avg_right,
+        "i (stdev) right [A/m2]": i_stdev_right,
         "resistance [ohm.cm2]": resistance,
         "time elapsed [s]": time_elapsed,
         "solve time [s]": t1 - t0,
