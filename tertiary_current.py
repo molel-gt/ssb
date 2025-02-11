@@ -52,17 +52,6 @@ directions = {'x': 0, 'y': 1, 'z': 2}
 log.set_log_level(dolfinx.log.LogLevel.WARNING)
 
 
-class CycleMode:
-    def __init__(self, mode_name):
-        if mode_name not in modes:
-            raise ValueError(f"Unknown mode. Only modes allowed are {modes.__repr__()}!")
-        self._name = mode_name
-
-    @property
-    def name(self):
-        return self._name
-
-
 class SolverTypes:
     def __init__(self):
         pass
@@ -185,7 +174,7 @@ if __name__ == '__main__':
     parser.add_argument("-cell_type", "--cell_type", help="cell type to use", nargs='?', const=1, default="tetrahedron", type=str)
     parser.add_argument("-dt", "--dt", help="minimum normalized time step", nargs='?', const=1, default=2e-7, type=float)
     parser.add_argument("-sim_time", "--sim_time", help="simulation time in seconds", nargs='?', const=1, default=15, type=float)
-    parser.add_argument("-cycle_mode", "--cycle_mode", help="mode of cycling", nargs='?', const=1, default="galvanostatic", type=CycleMode)
+    parser.add_argument("-cycle_mode", "--cycle_mode", help="mode of cycling", nargs='?', const=1, default="galvanostatic", type=str)
     parser.add_argument("--atol", help="solver absolute tolerance", nargs='?', const=1, default=1e-12, type=float)
     parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-9, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
@@ -203,6 +192,9 @@ if __name__ == '__main__':
     parser.add_argument("--compute_distribution", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
+    if args.cycle_mode not in modes:
+        raise ValueError(f"Only {modes.__repr__()} allowed")
+    PETSc.Sys.Print(args.cycle_mode)
 
     start_time = timeit.default_timer()
     voltage = args.voltage
@@ -243,7 +235,7 @@ if __name__ == '__main__':
     soc_init = 0.75 * c_max / c_ref
 
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
-    results_dir = os.path.join(args.mesh_folder, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), str(args.gamma), str(comm.Get_size()))
+    results_dir = os.path.join(args.mesh_folder, args.cycle_mode, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), str(args.gamma), str(comm.Get_size()))
     utils.make_dir_if_missing(results_dir)
     output_potential_file = os.path.join(results_dir, "potential.bp")
     elec_potential_file = os.path.join(results_dir, "electrolyte_potential.bp")
@@ -462,10 +454,11 @@ if __name__ == '__main__':
     )
     F_0 += -2 * gamma / (h_l + h_r) * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
     F_1 += +2 * gamma / (h_l + h_r) * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_r * dInterface
-    # galvanostatic mode
-    F_1 += - v_1 * lmbda * ds_f(3)
-    F_1a = (V_cell - u_1) * mu * ds_f(3)
-    F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3) #- h/50 * inner(w, V_cell) * ds_f(3)
+
+    if args.cycle_mode == galvanostatic:
+        F_1 += - v_1 * lmbda * ds_f(3)
+        F_1a = (V_cell - u_1) * mu * ds_f(3)
+        F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3) #- h/50 * inner(w, V_cell) * ds_f(3)
 
     F_0 += F_00
     F_1 += F_11
@@ -474,73 +467,124 @@ if __name__ == '__main__':
     # F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_r), n_r) * q_r * dInterface
     F_2 += -inner(grad(u_r), n_r) * q_r * dInterface
 
-    jac00 = ufl.derivative(F_0, u_0)
-    jac01 = ufl.derivative(F_0, u_1)
-    jac02 = ufl.derivative(F_0, lmbda)
-    jac03 = ufl.derivative(F_0, V_cell)
-    jac04 = ufl.derivative(F_0, c)
 
-    jac10 = ufl.derivative(F_1, u_0)
-    jac11 = ufl.derivative(F_1, u_1)
-    jac12 = ufl.derivative(F_1, lmbda)
-    jac13 = ufl.derivative(F_1, V_cell)
-    jac14 = ufl.derivative(F_1, c)
+    left_bc = fem.Function(V0)
+    left_bc.x.array[:] = 0/phi_ref
+    submesh_electrolyte.topology.create_connectivity(
+        submesh_electrolyte.topology.dim - 1, submesh_electrolyte.topology.dim
+    )
+    bc_left = fem.dirichletbc(
+        left_bc, fem.locate_dofs_topological(u_0.function_space, fdim, ft_electrolyte.find(markers.left))
+    )
 
-    jac20 = ufl.derivative(F_1a, u_0)
-    jac21 = ufl.derivative(F_1a, u_1)
-    jac22 = ufl.derivative(F_1a, lmbda)
-    jac23 = ufl.derivative(F_1a, V_cell)
-    jac24 = ufl.derivative(F_1a, c)
+    if args.cycle_mode == galvanostatic:
+        jac00 = ufl.derivative(F_0, u_0)
+        jac01 = ufl.derivative(F_0, u_1)
+        jac02 = ufl.derivative(F_0, lmbda)
+        jac03 = ufl.derivative(F_0, V_cell)
+        jac04 = ufl.derivative(F_0, c)
 
-    jac30 = ufl.derivative(F_1b, u_0)
-    jac31 = ufl.derivative(F_1b, u_1)
-    jac32 = ufl.derivative(F_1b, lmbda)
-    jac33 = ufl.derivative(F_1b, V_cell)
-    jac34 = ufl.derivative(F_1b, c)
+        jac10 = ufl.derivative(F_1, u_0)
+        jac11 = ufl.derivative(F_1, u_1)
+        jac12 = ufl.derivative(F_1, lmbda)
+        jac13 = ufl.derivative(F_1, V_cell)
+        jac14 = ufl.derivative(F_1, c)
 
-    jac40 = ufl.derivative(F_2, u_0)
-    jac41 = ufl.derivative(F_2, u_1)
-    jac42 = ufl.derivative(F_2, lmbda)
-    jac43 = ufl.derivative(F_2, V_cell)
-    jac44 = ufl.derivative(F_2, c)
+        jac20 = ufl.derivative(F_1a, u_0)
+        jac21 = ufl.derivative(F_1a, u_1)
+        jac22 = ufl.derivative(F_1a, lmbda)
+        jac23 = ufl.derivative(F_1a, V_cell)
+        jac24 = ufl.derivative(F_1a, c)
 
-    J00 = fem.form(jac00, entity_maps=entity_maps)
-    J01 = fem.form(jac01, entity_maps=entity_maps)
-    J02 = fem.form(jac02, entity_maps=entity_maps)
-    J03 = fem.form(jac03, entity_maps=entity_maps)
-    J04 = fem.form(jac04, entity_maps=entity_maps)
+        jac30 = ufl.derivative(F_1b, u_0)
+        jac31 = ufl.derivative(F_1b, u_1)
+        jac32 = ufl.derivative(F_1b, lmbda)
+        jac33 = ufl.derivative(F_1b, V_cell)
+        jac34 = ufl.derivative(F_1b, c)
 
-    J10 = fem.form(jac10, entity_maps=entity_maps)
-    J11 = fem.form(jac11, entity_maps=entity_maps)
-    J12 = fem.form(jac12, entity_maps=entity_maps)
-    J13 = fem.form(jac13, entity_maps=entity_maps)
-    J14 = fem.form(jac14, entity_maps=entity_maps)
+        jac40 = ufl.derivative(F_2, u_0)
+        jac41 = ufl.derivative(F_2, u_1)
+        jac42 = ufl.derivative(F_2, lmbda)
+        jac43 = ufl.derivative(F_2, V_cell)
+        jac44 = ufl.derivative(F_2, c)
 
-    J20 = fem.form(jac20, entity_maps=entity_maps)
-    J21 = fem.form(jac21, entity_maps=entity_maps)
-    J22 = fem.form(jac22, entity_maps=entity_maps)
-    J23 = fem.form(jac23, entity_maps=entity_maps)
-    J24 = fem.form(jac24, entity_maps=entity_maps)
+        J00 = fem.form(jac00, entity_maps=entity_maps)
+        J01 = fem.form(jac01, entity_maps=entity_maps)
+        J02 = fem.form(jac02, entity_maps=entity_maps)
+        J03 = fem.form(jac03, entity_maps=entity_maps)
+        J04 = fem.form(jac04, entity_maps=entity_maps)
 
-    J30 = fem.form(jac30, entity_maps=entity_maps)
-    J31 = fem.form(jac31, entity_maps=entity_maps)
-    J32 = fem.form(jac32, entity_maps=entity_maps)
-    J33 = fem.form(jac33, entity_maps=entity_maps)
-    J34 = fem.form(jac34, entity_maps=entity_maps)
+        J10 = fem.form(jac10, entity_maps=entity_maps)
+        J11 = fem.form(jac11, entity_maps=entity_maps)
+        J12 = fem.form(jac12, entity_maps=entity_maps)
+        J13 = fem.form(jac13, entity_maps=entity_maps)
+        J14 = fem.form(jac14, entity_maps=entity_maps)
 
-    J40 = fem.form(jac40, entity_maps=entity_maps)
-    J41 = fem.form(jac41, entity_maps=entity_maps)
-    J42 = fem.form(jac42, entity_maps=entity_maps)
-    J43 = fem.form(jac43, entity_maps=entity_maps)
-    J44 = fem.form(jac44, entity_maps=entity_maps)
-    
-    J = [
-        [J00, J01, J02, J03, J04],
-        [J10, J11, J12, J13, J14],
-        [J20, J21, J22, J23, J24],
-        [J30, J31, J32, J33, J34],
-        [J40, J41, J42, J43, J44],
+        J20 = fem.form(jac20, entity_maps=entity_maps)
+        J21 = fem.form(jac21, entity_maps=entity_maps)
+        J22 = fem.form(jac22, entity_maps=entity_maps)
+        J23 = fem.form(jac23, entity_maps=entity_maps)
+        J24 = fem.form(jac24, entity_maps=entity_maps)
+
+        J30 = fem.form(jac30, entity_maps=entity_maps)
+        J31 = fem.form(jac31, entity_maps=entity_maps)
+        J32 = fem.form(jac32, entity_maps=entity_maps)
+        J33 = fem.form(jac33, entity_maps=entity_maps)
+        J34 = fem.form(jac34, entity_maps=entity_maps)
+
+        J40 = fem.form(jac40, entity_maps=entity_maps)
+        J41 = fem.form(jac41, entity_maps=entity_maps)
+        J42 = fem.form(jac42, entity_maps=entity_maps)
+        J43 = fem.form(jac43, entity_maps=entity_maps)
+        J44 = fem.form(jac44, entity_maps=entity_maps)
+
+        J = [
+            [J00, J01, J02, J03, J04],
+            [J10, J11, J12, J13, J14],
+            [J20, J21, J22, J23, J24],
+            [J30, J31, J32, J33, J34],
+            [J40, J41, J42, J43, J44],
         ]
+        bcs = [bc_left]
+    elif args.cycle_mode == potentiostatic:
+        jac00 = ufl.derivative(F_0, u_0)
+        jac01 = ufl.derivative(F_0, u_1)
+        jac02 = ufl.derivative(F_0, c)
+
+        jac10 = ufl.derivative(F_1, u_0)
+        jac11 = ufl.derivative(F_1, u_1)
+        jac12 = ufl.derivative(F_1, c)
+
+        jac20 = ufl.derivative(F_2, u_0)
+        jac21 = ufl.derivative(F_2, u_1)
+        jac22 = ufl.derivative(F_2, c)
+
+        J00 = fem.form(jac00, entity_maps=entity_maps)
+        J01 = fem.form(jac01, entity_maps=entity_maps)
+        J02 = fem.form(jac02, entity_maps=entity_maps)
+
+        J10 = fem.form(jac10, entity_maps=entity_maps)
+        J11 = fem.form(jac11, entity_maps=entity_maps)
+        J12 = fem.form(jac12, entity_maps=entity_maps)
+
+        J20 = fem.form(jac20, entity_maps=entity_maps)
+        J21 = fem.form(jac21, entity_maps=entity_maps)
+        J22 = fem.form(jac22, entity_maps=entity_maps)
+
+        J = [
+            [J00, J01, J02,],
+            [J10, J11, J12,],
+            [J20, J21, J22,],
+        ]
+        right_bc = fem.Function(V1)
+        right_bc.x.array[:] = args.voltage/phi_ref
+        submesh_positive_am.topology.create_connectivity(
+            submesh_positive_am.topology.dim - 1, submesh_positive_am.topology.dim
+        )
+        bc_right = fem.dirichletbc(
+            right_bc, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right))
+        )
+        bcs = [bc_left, bc_right]
 
     V0_map = V0.dofmap.index_map
     V1_map = V1.dofmap.index_map
@@ -574,34 +618,25 @@ if __name__ == '__main__':
         ax.set_box_aspect(1);
         plt.savefig(os.path.join(results_dir, "jacobian-sparsity.png"), bbox_inches='tight')#, transparent=True)
     ############################################################################
-    F = [
-        fem.form(F_0, entity_maps=entity_maps),
-        fem.form(F_1, entity_maps=entity_maps),
-        fem.form(F_1a, entity_maps=entity_maps),
-        fem.form(F_1b, entity_maps=entity_maps),
-        fem.form(F_2, entity_maps=entity_maps),
-    ]
-    left_bc = fem.Function(V0)
-    left_bc.x.array[:] = 0/phi_ref
-    submesh_electrolyte.topology.create_connectivity(
-        submesh_electrolyte.topology.dim - 1, submesh_electrolyte.topology.dim
-    )
-    bc_left = fem.dirichletbc(
-        left_bc, fem.locate_dofs_topological(u_0.function_space, fdim, ft_electrolyte.find(markers.left))
-    )
+    if args.cycle_mode == galvanostatic:
+        F = [
+            fem.form(F_0, entity_maps=entity_maps),
+            fem.form(F_1, entity_maps=entity_maps),
+            fem.form(F_1a, entity_maps=entity_maps),
+            fem.form(F_1b, entity_maps=entity_maps),
+            fem.form(F_2, entity_maps=entity_maps),
+        ]
 
-    right_bc = fem.Function(V1)
-    right_bc.x.array[:] = args.voltage/phi_ref
-    submesh_positive_am.topology.create_connectivity(
-        submesh_positive_am.topology.dim - 1, submesh_positive_am.topology.dim
-    )
-    bc_right = fem.dirichletbc(
-        right_bc, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right))
-    )
-    bcs = [bc_left]
+        n_dofs = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs + VC_map.size_global*VC.dofmap.index_map_bs +\
+                V_r_map.size_global*V_r.dofmap.index_map_bs + R_right_map.size_global*R_right.dofmap.index_map_bs
+    elif args.cycle_mode == potentiostatic:
+        F = [
+            fem.form(F_0, entity_maps=entity_maps),
+            fem.form(F_1, entity_maps=entity_maps),
+            fem.form(F_2, entity_maps=entity_maps),
+        ]
+        n_dofs = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs + VC_map.size_global*VC.dofmap.index_map_bs
 
-    n_dofs = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs + VC_map.size_global*VC.dofmap.index_map_bs +\
-            V_r_map.size_global*V_r.dofmap.index_map_bs + R_right_map.size_global*R_right.dofmap.index_map_bs
 
     t = 0
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
@@ -614,10 +649,15 @@ if __name__ == '__main__':
     ## solve initial potential distribution at t = 0
     if args.improved_guess:
         PETSc.Sys.Print("************Begin Solve for t = 0 Potential Distribution*******************")
-        n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs +\
+        if args.cycle_mode == galvanostatic:
+            n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs +\
                 V_r_map.size_global*V_r.dofmap.index_map_bs + R_right_map.size_global*R_right.dofmap.index_map_bs
-        F2D = F[:4]
-        J2D = [j2d[:4] for j2d in J[:4]]
+            F2D = F[:4]
+            J2D = [j2d[:4] for j2d in J[:4]]
+        elif args.cycle_mode == potentiostatic:
+            n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs
+            F2D = F[:2]
+            J2D = [j2d[:2] for j2d in J[:2]]
         Jmat2d = fem.petsc.create_matrix_block(J2D)
         Fvec2d = fem.petsc.create_vector_block(F2D)
         snes = PETSc.SNES().create(comm)
@@ -646,7 +686,12 @@ if __name__ == '__main__':
         snes.setFromOptions()
         snes.view()
 
-        problem_t0 = solvers.NonlinearPDE_SNESProblem(F2D, J2D, [u_0, u_1, lmbda, V_cell], bcs, P=J2D)
+        if args.cycle_mode == galvanostatic:
+            _sol_vars = [u_0, u_1, lmbda, V_cell]
+        elif args.cycle_mode == potentiostatic:
+            _sol_vars = [u_0, u_1]
+
+        problem_t0 = solvers.NonlinearPDE_SNESProblem(F2D, J2D, _sol_vars, bcs, P=J2D)
         snes.setFunction(problem_t0.F_block, Fvec2d)
         snes.setJacobian(problem_t0.J_block, J=Jmat2d, P=Jmat2d)
         x2d = fem.petsc.create_vector_block(F2D)
@@ -686,6 +731,11 @@ if __name__ == '__main__':
         t1 = time.time()
         PETSc.Sys.Print(f"Finished computation of improved guess of concentration distribution!\nn_dofs: {n_dofs_c}\nsolve time: {t1 - t0:.3f}s")
     ########################################################################################################################################
+    if args.cycle_mode == galvanostatic:
+        sol_vars = [u_0, u_1, lmbda, V_cell, c]
+    elif args.cycle_mode == potentiostatic:
+        sol_vars = [u_0, u_1, c]
+
     idx = 0
     while t < TIME:
         t += dt.value
@@ -700,7 +750,7 @@ if __name__ == '__main__':
             solver = solvers.NewtonSolver(
                 F,
                 J,
-                [u_0, u_1, c],
+                soln_vars,
                 bcs=bcs,
                 max_iterations=1000,
                 petsc_options=opts,
@@ -771,7 +821,7 @@ if __name__ == '__main__':
             ksp_c.setFromOptions()
             snes.getKSP().setFromOptions()
 
-            problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, c], bcs, P=P)
+            problem = solvers.NonlinearPDE_SNESProblem(F, J, sol_vars, bcs, P=P)
             snes.setFunction(problem.F_nest, Fvec)
             snes.setJacobian(problem.J_nest, J=Jmat, P=Pmat)
             snes.setFromOptions()
@@ -808,10 +858,15 @@ if __name__ == '__main__':
             nested_IS = Jmat.getNestISs()
             IS_u0 = nested_IS[0][0]
             IS_u1 = nested_IS[0][1]
-            IS_l = nested_IS[0][2]
-            IS_g = nested_IS[0][3]
-            IS_u = IS_u0.sum(IS_u1).sum(IS_l).sum(IS_g)
-            IS_c = nested_IS[0][4]
+            if args.cycle_mode == galvanostatic:
+                IS_l = nested_IS[0][2]
+                IS_g = nested_IS[0][3]
+                IS_u = IS_u0.sum(IS_u1).sum(IS_l).sum(IS_g)
+                IS_c = nested_IS[0][4]
+            elif args.cycle_mode == potentiostatic:
+                IS_u = IS_u0.sum(IS_u1)
+                IS_c = nested_IS[0][2]
+
             Jmat = fem.petsc.create_matrix_block(J)
             Pmat = fem.petsc.create_matrix_block(P)
             Fvec = fem.petsc.create_vector_block(F)
@@ -854,11 +909,7 @@ if __name__ == '__main__':
             ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(args.amg_type)
             ksp_c.setTolerances(rtol=1e-7, max_it=1000)
-            # ksp_u.setConvergenceHistory()
-            # ksp_c.setConvergenceHistory()
 
-            # opts[f'{ksp_u.getOptionsPrefix()}ksp_monitor_singular_value'] = None
-            # opts[f'{ksp_c.getOptionsPrefix()}ksp_monitor_singular_value'] = None
             opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
             opts[f"{ksp_c.getOptionsPrefix()}inner_ksp_type"] = "preonly"
             opts[f"{ksp_c.getOptionsPrefix()}inner_pc_type"] = "ilu"
@@ -876,7 +927,7 @@ if __name__ == '__main__':
             ksp_c.setFromOptions()
             snes.getKSP().setFromOptions()
 
-            problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, lmbda, V_cell, c], bcs, P=P)
+            problem = solvers.NonlinearPDE_SNESProblem(F, J, sol_vars, bcs, P=P)
             snes.setFunction(problem.F_block, Fvec)
             snes.setJacobian(problem.J_block, J=Jmat, P=Pmat)
             snes.setFromOptions()
@@ -979,7 +1030,7 @@ if __name__ == '__main__':
             ksp_c.setFromOptions()
             snes.getKSP().setFromOptions()
 
-            problem = solvers.NonlinearPDE_SNESProblem(F, J, [u_0, u_1, c], bcs, P=P)
+            problem = solvers.NonlinearPDE_SNESProblem(F, J, sol_vars, bcs, P=P)
             snes.setFunction(problem.F_block, Fvec)
             snes.setJacobian(problem.J_block, J=Jmat, P=Pmat)
             snes.setFromOptions()
