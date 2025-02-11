@@ -194,7 +194,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.cycle_mode not in modes:
         raise ValueError(f"Only {modes.__repr__()} allowed")
-    PETSc.Sys.Print(args.cycle_mode)
 
     start_time = timeit.default_timer()
     voltage = args.voltage
