@@ -1131,17 +1131,17 @@ if __name__ == '__main__':
             expr_2 = ufl.lt(np.abs(inner(i_n, n_r)), i_right)
 
             freq = comm.allreduce(fem.assemble_scalar(fem.form(
-                                                               ufl.conditional(ufl.And(expr_1, expr_2), 1, 0) * ds_c(markers.electrolyte_v_positive_am),
-                                                               entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 2 / A_se_am
+                                ufl.conditional(expr_1, 1, 0) * ufl.conditional(expr_2, 1, 0) * ds_c(markers.electrolyte_v_positive_am),
+                                entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 2 / A_se_am
             distribution[rank * n_bands_per_proc + idx] = freq
 
-        expr_1 = ufl.ge(np.abs(inner(i_n, n_r)), 0)
-        expr_2 = ufl.lt(np.abs(inner(i_n, n_r)), 100 * i_sup)
+        # expr_1 = ufl.ge(np.abs(inner(i_n, n_r)), 0)
+        # expr_2 = ufl.lt(np.abs(inner(i_n, n_r)), 100 * i_sup)
 
-        freq_p = comm.allreduce(fem.assemble_scalar(fem.form(
-                                                       ufl.conditional(ufl.And(expr_1, expr_2), 1, 0) * ds_c(markers.electrolyte_v_positive_am),
-                                                       entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 2
-        PETSc.Sys.Print(freq_p/A_se_am)
+        # freq_p = comm.allreduce(fem.assemble_scalar(fem.form(
+        #                         ufl.conditional(expr_1 * expr_2, 1, 0) * ds_c(markers.electrolyte_v_positive_am),
+        #                         entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 2
+        # PETSc.Sys.Print(freq_p/A_se_am)
 
     if args.compute_distribution and comm.rank == 0:
 
