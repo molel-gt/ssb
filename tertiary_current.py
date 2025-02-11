@@ -40,6 +40,9 @@ T = 298
 faraday_const = 96485
 kappa_pos_am = 0.1
 kinetics = ('linear', 'tafel', 'butler_volmer')
+galvanostatic = "galvanostatic"
+potentiostatic = "potentiostatic"
+modes = (galvanostatic, potentiostatic)
 micron = 1e-6
 V_UCO = 5.0  # upper cutoff voltage
 c_max = 35000
@@ -47,6 +50,17 @@ directions = {'x': 0, 'y': 1, 'z': 2}
 
 
 log.set_log_level(dolfinx.log.LogLevel.WARNING)
+
+
+class CycleMode:
+    def __init__(self, mode_name):
+        if mode_name not in modes:
+            raise ValueError(f"Unknown mode. Only modes allowed are {modes.__repr__()}!")
+        self._name = mode_name
+
+    @property
+    def name(self):
+        return self._name
 
 
 class SolverTypes:
@@ -171,6 +185,7 @@ if __name__ == '__main__':
     parser.add_argument("-cell_type", "--cell_type", help="cell type to use", nargs='?', const=1, default="tetrahedron", type=str)
     parser.add_argument("-dt", "--dt", help="minimum normalized time step", nargs='?', const=1, default=2e-7, type=float)
     parser.add_argument("-sim_time", "--sim_time", help="simulation time in seconds", nargs='?', const=1, default=15, type=float)
+    parser.add_argument("-cycle_mode", "--cycle_mode", help="mode of cycling", nargs='?', const=1, default="galvanostatic", type=CycleMode)
     parser.add_argument("--atol", help="solver absolute tolerance", nargs='?', const=1, default=1e-12, type=float)
     parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-9, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
@@ -184,7 +199,6 @@ if __name__ == '__main__':
     parser.add_argument("--plot", help="whether to plot results", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("--plot_sparsity", help="whether to plot results", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("--improved_guess", help="whether to solve for improved guess", default=False, action=argparse.BooleanOptionalAction)
-    parser.add_argument("--galvanostatic", help="whether to galvanostatic mode", default=True, action=argparse.BooleanOptionalAction)
     parser.add_argument("-C_rate", "--C_rate", help="cycling rate", nargs='?', const=1, default=0.1, type=float)
     parser.add_argument("--compute_distribution", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
 
@@ -1018,14 +1032,14 @@ if __name__ == '__main__':
         i_avg_right = np.abs(I_right / A_right)
         n_r = ufl.FacetNormal(submesh_positive_am)
         i_stdev_left = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
-                                (kappa_elec * phi_ref * L_ref ** (tdim - 2) * inner(grad(u_0), n) - i_avg_left*L_ref**2) ** 2 * ds(markers.left),
-                                entity_maps=entity_maps)), op=MPI.SUM) / A_left)
+                                (kappa_elec * phi_ref * L_ref ** (-tdim + 2) * inner(grad(u_0), n) - i_avg_left) ** 2 * ds(markers.left),
+                                entity_maps=entity_maps)), op=MPI.SUM) / A_left_tilde)
         i_stdev_se_am = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
-                                (faraday_const * D * c_ref * L_ref ** (tdim - 2) * inner(grad(c), n_r) - i_avg_se_am*L_ref**2) ** 2 * ds_c(markers.electrolyte_v_positive_am),
-                                entity_maps=entity_maps)), op=MPI.SUM) / A_se_am)
+                                (faraday_const * D * c_ref * L_ref ** (-tdim + 2) * inner(grad(c), n_r) - i_avg_se_am) ** 2 * ds_c(markers.electrolyte_v_positive_am),
+                                entity_maps=entity_maps)), op=MPI.SUM) / A_se_am_tilde)
         i_stdev_right = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
-                                (kappa_pos_am * (phi_ref) * L_ref ** (tdim - 2) * inner(grad(u_1), n) - i_avg_right*L_ref**2) ** 2 * ds(markers.right),
-                                entity_maps=entity_maps)), op=MPI.SUM) / A_right)
+                                (kappa_pos_am * (phi_ref) * L_ref ** (-tdim + 2) * inner(grad(u_1), n) - i_avg_right) ** 2 * ds(markers.right),
+                                entity_maps=entity_maps)), op=MPI.SUM) / A_right_tilde)
     cvtx.close()
 
     time_elapsed = timeit.default_timer() - start_time
