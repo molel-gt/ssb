@@ -195,6 +195,26 @@ if __name__ == '__main__':
     if args.cycle_mode not in modes:
         raise ValueError(f"Only {modes.__repr__()} allowed")
 
+    PETSc.Sys.Print("#################################### CYCLING PARAMETERS SUMMARY ####################################")
+    PETSc.Sys.Print("cycle mode                                             :", args.cycle_mode)
+    if args.cycle_mode == potentiostatic:
+        PETSc.Sys.Print("Voltage [V]                                            :", args.voltage)
+    elif args.cycle_mode == galvanostatic:
+        PETSc.Sys.Print("C-rate                                                 :", args.C_rate)
+    PETSc.Sys.Print("simulation time [s]                                    :", args.sim_time)
+    PETSc.Sys.Print("Positive electrode Wa                                  :", args.Wa_p)
+    PETSc.Sys.Print("Conductivity ratio (Kr)                                :", args.kr)
+    PETSc.Sys.Print("Lithium diffusivity in positive active material [m2/s] :", args.D)
+    PETSc.Sys.Print("Kinetics                                               :", args.kinetics)
+    PETSc.Sys.Print("#######################################################################################################")
+    PETSc.Sys.Print("##############################     SOLVER PARAMETERS       ############################################")
+    PETSc.Sys.Print("interior penalty parameter (gamma)                     :", args.gamma)
+    PETSc.Sys.Print("solve improved guesss                                  :", args.improved_guess)
+    PETSc.Sys.Print("minimum simulation dt        [diffusion time constant] :", args.dt)
+    PETSc.Sys.Print("#######################################################################################################")
+
+
+
     start_time = timeit.default_timer()
     voltage = args.voltage
     Wa_n = args.Wa_n
