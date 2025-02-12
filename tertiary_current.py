@@ -195,7 +195,7 @@ if __name__ == '__main__':
     if args.cycle_mode not in modes:
         raise ValueError(f"Only {modes.__repr__()} allowed")
 
-    PETSc.Sys.Print("#################################### CYCLING PARAMETERS SUMMARY ####################################")
+    PETSc.Sys.Print("************************************** CYCLING PARAMETERS SUMMARY *************************************")
     PETSc.Sys.Print("cycle mode                                             :", args.cycle_mode)
     if args.cycle_mode == potentiostatic:
         PETSc.Sys.Print("Voltage [V]                                            :", args.voltage)
@@ -206,12 +206,12 @@ if __name__ == '__main__':
     PETSc.Sys.Print("Conductivity ratio (Kr)                                :", args.kr)
     PETSc.Sys.Print("Lithium diffusivity in positive active material [m2/s] :", args.D)
     PETSc.Sys.Print("Kinetics                                               :", args.kinetics)
-    PETSc.Sys.Print("#######################################################################################################")
-    PETSc.Sys.Print("##############################     SOLVER PARAMETERS       ############################################")
+    PETSc.Sys.Print("*******************************************************************************************************")
+    PETSc.Sys.Print("************************************** SOLVER PARAMETERS **********************************************")
     PETSc.Sys.Print("interior penalty parameter (gamma)                     :", args.gamma)
     PETSc.Sys.Print("solve improved guesss                                  :", args.improved_guess)
     PETSc.Sys.Print("minimum simulation dt        [diffusion time constant] :", args.dt)
-    PETSc.Sys.Print("#######################################################################################################")
+    PETSc.Sys.Print("*******************************************************************************************************")
 
 
 
@@ -692,11 +692,8 @@ if __name__ == '__main__':
         snes.getKSP().setErrorIfNotConverged(True)
         snes.getKSP().setConvergenceHistory()
         opts = PETSc.Options()
-        # for optk, optv in solver_params.AMG_TYPES["gamg"].items():
+        # for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
         #         opts[f"{snes.getKSP().getOptionsPrefix()}{optk}"] = optv
-        # opts['snes_linesearch_type'] = 'bt'
-        # opts['snes_linesearch_monitor'] = None
-        # opts['snes_monitor'] = None
         for kopt, vopt in solver_params.LINESEARCH.items():
                 opts[kopt] = vopt
         opts[f"{snes.getKSP().getOptionsPrefix()}pc_factor_levels"] = 0
