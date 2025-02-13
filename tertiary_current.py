@@ -210,10 +210,8 @@ if __name__ == '__main__':
     PETSc.Sys.Print("************************************** SOLVER PARAMETERS **********************************************")
     PETSc.Sys.Print("interior penalty parameter (gamma)                     :", args.gamma)
     PETSc.Sys.Print("solve improved guesss                                  :", args.improved_guess)
-    PETSc.Sys.Print("minimum simulation dt        [diffusion time constant] :", args.dt)
+    PETSc.Sys.Print("minimum dt [normalized]                                :", args.dt)
     PETSc.Sys.Print("*******************************************************************************************************")
-
-
 
     start_time = timeit.default_timer()
     voltage = args.voltage
@@ -264,6 +262,7 @@ if __name__ == '__main__':
     potential_plot_file = os.path.join(results_dir, "potential.eps")
     concentration_plot_file = os.path.join(results_dir, "concentration.eps")
     simulation_metafile = os.path.join(results_dir, "simulation.json")
+    stats_metadata_file = os.path.join(results_dir, "stats.json")
     convergence_history = os.path.join(results_dir, "convergence.eps")
     se_am_frequency_plot = os.path.join(results_dir, "se_am_frequency.eps")
     se_am_cdf_plot = os.path.join(results_dir, "se_am_cdf.eps")
@@ -756,6 +755,8 @@ if __name__ == '__main__':
     elif args.cycle_mode == potentiostatic:
         sol_vars = [u_0, u_1, c]
 
+    stats = []
+
     idx = 0
     while t < TIME:
         t += dt.value
@@ -1111,11 +1112,33 @@ if __name__ == '__main__':
         i_stdev_right = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
                                 (kappa_pos_am * (phi_ref) * L_ref ** (-tdim + 2) * inner(grad(u_1), n) - i_avg_right) ** 2 * ds(markers.right),
                                 entity_maps=entity_maps)), op=MPI.SUM) / A_right_tilde)
+        stats.append(
+                     {
+                     "t [s]": t * t_ref,
+                    "I left [A]": I_left,
+                    "I interface [A]": I_interface,
+                    "I right [A]": I_right,
+                    "I (target) right [A]": I_tot_,
+                    "C-rate": args.C_rate,
+                    "u (avg) right [V]": u_avg_right,
+                    "u (stdev) right [v]": u_stdev_right,
+                    "i (avg) left [A/m2]": i_avg_left,
+                    "i (stdev) left [A/m2]": i_stdev_left,
+                    "i (avg) se/am [A/m2]": i_avg_se_am,
+                    "i (stdev) se/am [A/m2]": i_stdev_se_am,
+                    "i (avg) right [A/m2]": i_avg_right,
+                    "i (stdev) right [A/m2]": i_stdev_right,
+                    "Diffusivity [m2/s]": args.D,
+                    "Positive Wa": args.Wa_p,
+                    "Kr": args.kr,
+            }
+                     )
     cvtx.close()
+    with open(stats_metadata_file, 'w', encoding='utf-8') as f:
+        json.dump(stats, f, ensure_ascii=False, indent=4)
 
     time_elapsed = timeit.default_timer() - start_time
 
-    resistance = args.voltage / (np.abs(I_left) * A0)
     metadata = {
         "I left [A]": I_left,
         "I interface [A]": I_interface,
@@ -1130,7 +1153,6 @@ if __name__ == '__main__':
         "i (stdev) se/am [A/m2]": i_stdev_se_am,
         "i (avg) right [A/m2]": i_avg_right,
         "i (stdev) right [A/m2]": i_stdev_right,
-        "resistance [ohm.cm2]": resistance,
         "time elapsed [s]": time_elapsed,
         "solve time [s]": t1 - t0,
         "L ref [m]": ref["L"],
@@ -1173,67 +1195,6 @@ if __name__ == '__main__':
 
     with io.VTXWriter(comm, positive_am_potential_file, [u_1], engine="BP5") as vtx:
         vtx.write(0)
-    if args.compute_distribution:
-        n_bands = 200
-        bands = np.linspace(0, 100 * i_sup, num=n_bands+1)
-        V3 = fem.functionspace(submesh_positive_am, ("CG", args.p-1, (3,)))
-        V = fem.functionspace(submesh_positive_am, ("CG", args.p-1))
-        i_left = fem.Function(V)
-        i_right = fem.Function(V)
-        D_scale = fem.Constant(submesh_positive_am, PETSc.ScalarType(faraday_const * D * c_ref * L_ref ** (2 - tdim)))
-        i_expr = fem.Expression(-D_scale * grad(c), V3.element.interpolation_points)
-        i_n = fem.Function(V3)
-        i_n.interpolate(i_expr)
-        rank = comm.Get_rank()
-        size = comm.Get_size()
-        n = bands.shape[0]
-        distribution = np.zeros((n-1,))
-        n_bands_per_proc = int(np.ceil((n - 1) / size))
-        n_r = ufl.FacetNormal(submesh_positive_am)
-
-        for idx in range(n_bands_per_proc):
-            if (rank * n_bands_per_proc + idx) >= n_bands:
-                break
-            vleft = bands[rank * n_bands_per_proc + idx]
-            vright = bands[rank * n_bands_per_proc + idx + 1]
-            i_left.interpolate(lambda x: x[0] - x[0] + vleft)
-            i_right.interpolate(lambda x: x[0] - x[0] + vright)
-            expr_1 = ufl.ge(np.abs(inner(i_n, n_r)), i_left)
-            expr_2 = ufl.lt(np.abs(inner(i_n, n_r)), i_right)
-
-            freq = comm.allreduce(fem.assemble_scalar(fem.form(
-                                ufl.conditional(expr_1, 1, 0) * ufl.conditional(expr_2, 1, 0) * ds_c(markers.electrolyte_v_positive_am),
-                                entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 2 / A_se_am
-            distribution[rank * n_bands_per_proc + idx] = freq
-
-        # expr_1 = ufl.ge(np.abs(inner(i_n, n_r)), 0)
-        # expr_2 = ufl.lt(np.abs(inner(i_n, n_r)), 100 * i_sup)
-
-        # freq_p = comm.allreduce(fem.assemble_scalar(fem.form(
-        #                         ufl.conditional(expr_1 * expr_2, 1, 0) * ds_c(markers.electrolyte_v_positive_am),
-        #                         entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 2
-        # PETSc.Sys.Print(freq_p/A_se_am)
-
-    if args.compute_distribution and comm.rank == 0:
-
-        PETSc.Sys.Print(np.sum(distribution)*A_se_am_tilde, A_se_am)
-        fig, ax = plt.subplots()
-        ax.plot(0.5 * (bands[:-1] + bands[1:]) * (A_right/np.abs(I_tot_)), distribution, 'o', markersize=1)
-        ax.set_xlabel(r'$\widehat{\tilde{i}}_{\mathrm{SE/AM}}$')
-        ax.set_ylabel(r'$\frac{A_i}{A_{\mathrm{SE/AM}}}$')
-        ax.set_box_aspect(1)
-        plt.tight_layout()
-        plt.savefig(se_am_frequency_plot, bbox_inches="tight")
-
-        fig, ax = plt.subplots()
-        ax.plot(bands[1:] * (A_right/np.abs(I_tot_)), np.cumsum(distribution), 'o', markersize=1)
-        ax.set_xlabel(r'$\widehat{\tilde{i}}_{\mathrm{SE/AM}}$')
-        ax.set_ylabel(r'$\frac{\sum^{i*}A_i}{A_{\mathrm{SE/AM}}}$')
-        ax.set_box_aspect(1)
-        plt.tight_layout()
-        ax.set_ylim([0, 1])
-        plt.savefig(se_am_cdf_plot, bbox_inches="tight")
-
 
     if args.plot:
         n_points = 1000
