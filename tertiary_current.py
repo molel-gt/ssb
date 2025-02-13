@@ -487,14 +487,27 @@ if __name__ == '__main__':
     F_2 += -inner(grad(u_r), n_r) * q_r * dInterface
 
 
-    left_bc = fem.Function(V0)
-    left_bc.x.array[:] = 0/phi_ref
+    u_left = fem.Function(V0)
+    u_left.x.array[:] = 0/phi_ref
     submesh_electrolyte.topology.create_connectivity(
         submesh_electrolyte.topology.dim - 1, submesh_electrolyte.topology.dim
     )
     bc_left = fem.dirichletbc(
-        left_bc, fem.locate_dofs_topological(u_0.function_space, fdim, ft_electrolyte.find(markers.left))
+        u_left, fem.locate_dofs_topological(u_0.function_space, fdim, ft_electrolyte.find(markers.left))
     )
+
+    u_right = fem.Function(V1)
+    u_right.x.array[:] = args.voltage/phi_ref
+    submesh_positive_am.topology.create_connectivity(
+        submesh_positive_am.topology.dim - 1, submesh_positive_am.topology.dim
+    )
+    bc_right = fem.dirichletbc(
+        u_right, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right))
+    )
+
+    bcs = [bc_left]
+    if args.cycle_mode == potentiostatic:
+        bcs = [bc_left, bc_right]
 
     if args.cycle_mode == galvanostatic:
         jac00 = ufl.derivative(F_0, u_0)
@@ -564,7 +577,7 @@ if __name__ == '__main__':
             [J30, J31, J32, J33, J34],
             [J40, J41, J42, J43, J44],
         ]
-        bcs = [bc_left]
+        # bcs = [bc_left]
     elif args.cycle_mode == potentiostatic:
         jac00 = ufl.derivative(F_0, u_0)
         jac01 = ufl.derivative(F_0, u_1)
@@ -595,15 +608,7 @@ if __name__ == '__main__':
             [J10, J11, J12,],
             [J20, J21, J22,],
         ]
-        right_bc = fem.Function(V1)
-        right_bc.x.array[:] = args.voltage/phi_ref
-        submesh_positive_am.topology.create_connectivity(
-            submesh_positive_am.topology.dim - 1, submesh_positive_am.topology.dim
-        )
-        bc_right = fem.dirichletbc(
-            right_bc, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right))
-        )
-        bcs = [bc_left, bc_right]
+        # bcs = [bc_left, bc_right]
 
     V0_map = V0.dofmap.index_map
     V1_map = V1.dofmap.index_map
