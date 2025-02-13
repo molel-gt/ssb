@@ -577,7 +577,7 @@ if __name__ == '__main__':
             [J30, J31, J32, J33, J34],
             [J40, J41, J42, J43, J44],
         ]
-        # bcs = [bc_left]
+
     elif args.cycle_mode == potentiostatic:
         jac00 = ufl.derivative(F_0, u_0)
         jac01 = ufl.derivative(F_0, u_1)
@@ -608,7 +608,6 @@ if __name__ == '__main__':
             [J10, J11, J12,],
             [J20, J21, J22,],
         ]
-        # bcs = [bc_left, bc_right]
 
     V0_map = V0.dofmap.index_map
     V1_map = V1.dofmap.index_map
