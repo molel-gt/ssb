@@ -253,7 +253,7 @@ if __name__ == '__main__':
     soc_init = 0.75 * c_max / c_ref
 
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
-    results_dir = os.path.join(args.mesh_folder, args.cycle_mode, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), str(args.gamma), str(comm.Get_size()))
+    results_dir = os.path.join(args.mesh_folder, args.cycle_mode, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), f'{args.p_potential}-{args.p_concentration}', str(args.gamma), str(comm.Get_size()))
     utils.make_dir_if_missing(results_dir)
     output_potential_file = os.path.join(results_dir, "potential.bp")
     elec_potential_file = os.path.join(results_dir, "electrolyte_potential.bp")
@@ -330,8 +330,8 @@ if __name__ == '__main__':
 
     entity_maps = {submesh_electrolyte: parent_to_sub_electrolyte, submesh_positive_am: parent_to_sub_positive_am}
 
-    u_0, F_00, m_to_elec = define_interior_eq(domain, args.p_u, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec, cell_type)
-    u_1, F_11, m_to_pos_am = define_interior_eq(domain, args.p_u, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am, cell_type)
+    u_0, F_00, m_to_elec = define_interior_eq(domain, args.p_potential, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec, cell_type)
+    u_1, F_11, m_to_pos_am = define_interior_eq(domain, args.p_potential, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am, cell_type)
     u_0.name = "u_b"
     u_1.name = "u_t"
 
@@ -398,7 +398,7 @@ if __name__ == '__main__':
 
     # concentration problem
     dt = fem.Constant(submesh_positive_am, args.dt)
-    el = basix.ufl.element(basix.ElementFamily.P, cell_type, args.p_c, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
+    el = basix.ufl.element(basix.ElementFamily.P, cell_type, args.p_concentration, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
     VC = fem.functionspace(submesh_positive_am, el)
 
     c, q = fem.Function(VC), ufl.TestFunction(VC)
@@ -1167,8 +1167,8 @@ if __name__ == '__main__':
         "Thiele modulus": thiele,
         "Diffusivity [m2/s]": args.D,
         "Kr": args.kr,
-        "concentration field polynomial approximation order (p)": args.p_c,
-        "potential field polynomial approximation order (p)": args.p_u,
+        "concentration field polynomial approximation order (p)": args.p_concentration,
+        "potential field polynomial approximation order (p)": args.p_potential,
         "penalty parameter (gamma)": args.gamma,
         "kinetics": args.kinetics,
         "dofs": n_dofs,
