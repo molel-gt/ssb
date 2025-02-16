@@ -689,7 +689,51 @@ if __name__ == '__main__':
         snes.setTolerances(rtol=5e-4, max_it=200)
         snes.setMonitor(lambda _, it, residual: PETSc.Sys.Print("it:", it, "res:", residual))
         snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
-        snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
+        if args.cycle_mode == potentiostatic:
+            snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
+        elif args.cycle_mode == galvanostatic:
+            J2d_mat = fem.petsc.create_matrix_nest(J2D)
+            nested_IS = J2d_mat.getNestISs()
+            IS_u0 = nested_IS[0][0]
+            IS_u1 = nested_IS[0][1]
+            IS_l = nested_IS[0][2]
+            IS_g = nested_IS[0][3]
+            IS_u = IS_u0.sum(IS_u1)
+            IS_other = IS_l.sum(IS_g)#.sum(IS_l).sum(IS_g)
+            # IS_c = nested_IS[0][4]
+            snes.getKSP().getPC().setType("fieldsplit")
+            snes.getKSP().getPC().setFieldSplitIS(("u", IS_u), ("l", IS_l), ('g', IS_g))
+            opts = PETSc.Options()
+            opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
+            for kopt, vopt in solver_params.LINESEARCH.items():
+                opts[kopt] = vopt
+
+            opts['log_view'] = None
+
+            # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+            # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
+
+            ksp_u, ksp_l, ksp_g = snes.getKSP().getPC().getFieldSplitSubKSP()
+
+            snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
+            snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
+            snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
+
+            ksp_u.setType(PETSc.KSP.Type.PREONLY)
+            ksp_u.getPC().setType(PETSc.PC.Type.ILU)
+            ksp_u.setTolerances(rtol=1e-7, max_it=1000)
+            opts[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
+            opts[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
+
+            ksp_l.setType(PETSc.KSP.Type.PREONLY)
+            ksp_l.getPC().setType(PETSc.PC.Type.JACOBI)
+            ksp_l.setTolerances(rtol=1e-7, max_it=1000)
+
+            ksp_g.setType(PETSc.KSP.Type.PREONLY)
+            ksp_g.getPC().setType(PETSc.PC.Type.JACOBI)
+            ksp_g.setTolerances(rtol=1e-7, max_it=1000)
+
+
         snes.getKSP().setOptionsPrefix("snes_")
         snes.getKSP().setOperators(Jmat2d, Jmat2d)
         snes.getKSP().setTolerances(rtol=1e-7)
@@ -884,7 +928,8 @@ if __name__ == '__main__':
             if args.cycle_mode == galvanostatic:
                 IS_l = nested_IS[0][2]
                 IS_g = nested_IS[0][3]
-                IS_u = IS_u0.sum(IS_u1).sum(IS_l).sum(IS_g)
+                IS_u = IS_u0.sum(IS_u1)
+                IS_ulg = IS_u.sum(IS_l).sum(IS_g)
                 IS_c = nested_IS[0][4]
             elif args.cycle_mode == potentiostatic:
                 IS_u = IS_u0.sum(IS_u1)
@@ -906,7 +951,7 @@ if __name__ == '__main__':
             snes.getKSP().setErrorIfNotConverged(True)
             snes.getKSP().setConvergenceHistory()
             snes.getKSP().getPC().setType("fieldsplit")
-            snes.getKSP().getPC().setFieldSplitIS(("u", IS_u), ("c", IS_c))
+            snes.getKSP().getPC().setFieldSplitIS(("u", IS_ulg), ("c", IS_c))
             opts = PETSc.Options()
             opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
             for kopt, vopt in solver_params.LINESEARCH.items():
