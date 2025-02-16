@@ -170,7 +170,8 @@ if __name__ == '__main__':
     parser.add_argument("--D", help="Diffusivity [m2/s]", nargs='?', const=1, default=1e-14, type=float)
     parser.add_argument("--kr", help="ratio of ionic to electronic conductivity", nargs='?', const=1, default=1, type=float)
     parser.add_argument("--gamma", help="interior penalty parameter", nargs='?', const=1, default=15, type=float)
-    parser.add_argument("-p", "--p", help="polynomial approximation order", nargs='?', const=1, default=4, type=int)
+    parser.add_argument("-p_c", "--p_concentration", help="polynomial approximation order for concentration field", nargs='?', const=1, default=4, type=int)
+    parser.add_argument("-p_u", "--p_potential", help="polynomial approximation order for potential field", nargs='?', const=1, default=2, type=int)
     parser.add_argument("-cell_type", "--cell_type", help="cell type to use", nargs='?', const=1, default="tetrahedron", type=str)
     parser.add_argument("-dt", "--dt", help="minimum normalized time step", nargs='?', const=1, default=2e-7, type=float)
     parser.add_argument("-sim_time", "--sim_time", help="simulation time in seconds", nargs='?', const=1, default=15, type=float)
@@ -329,8 +330,8 @@ if __name__ == '__main__':
 
     entity_maps = {submesh_electrolyte: parent_to_sub_electrolyte, submesh_positive_am: parent_to_sub_positive_am}
 
-    u_0, F_00, m_to_elec = define_interior_eq(domain, 2, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec, cell_type)
-    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 2, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am, cell_type)
+    u_0, F_00, m_to_elec = define_interior_eq(domain, args.p_u, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec, cell_type)
+    u_1, F_11, m_to_pos_am = define_interior_eq(domain, args.p_u, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am, cell_type)
     u_0.name = "u_b"
     u_1.name = "u_t"
 
@@ -397,7 +398,7 @@ if __name__ == '__main__':
 
     # concentration problem
     dt = fem.Constant(submesh_positive_am, args.dt)
-    el = basix.ufl.element(basix.ElementFamily.P, cell_type, args.p, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
+    el = basix.ufl.element(basix.ElementFamily.P, cell_type, args.p_c, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
     VC = fem.functionspace(submesh_positive_am, el)
 
     c, q = fem.Function(VC), ufl.TestFunction(VC)
@@ -1166,7 +1167,8 @@ if __name__ == '__main__':
         "Thiele modulus": thiele,
         "Diffusivity [m2/s]": args.D,
         "Kr": args.kr,
-        "polynomial approximation order (p)": args.p,
+        "concentration field polynomial approximation order (p)": args.p_c,
+        "potential field polynomial approximation order (p)": args.p_u,
         "penalty parameter (gamma)": args.gamma,
         "kinetics": args.kinetics,
         "dofs": n_dofs,
