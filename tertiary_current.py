@@ -453,7 +453,8 @@ if __name__ == '__main__':
     PETSc.Sys.Print(f"charge transfer area to volume ratio: {A_se_am_to_vol_am:,.0f}")
 
     R_right = scifem.create_real_functionspace(submesh_facets_right)
-    V_r = fem.functionspace(submesh_facets_right, ("Lagrange", 1))
+    el_V_r = basix.ufl.element(basix.ElementFamily.P, basix.CellType.triangle, args.p_potential, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
+    V_r = fem.functionspace(submesh_facets_right, el_V_r)
     lmbda, mu = fem.Function(V_r), ufl.TestFunction(V_r)
 
     V_cell, w = fem.Function(R_right), ufl.TestFunction(R_right)
