@@ -329,14 +329,14 @@ if __name__ == '__main__':
 
     entity_maps = {submesh_electrolyte: parent_to_sub_electrolyte, submesh_positive_am: parent_to_sub_positive_am}
 
-    u_0, F_00, m_to_elec = define_interior_eq(domain, 1, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec, cell_type)
-    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 1, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am, cell_type)
+    u_0, F_00, m_to_elec = define_interior_eq(domain, 2, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec, cell_type)
+    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 2, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am, cell_type)
     u_0.name = "u_b"
     u_1.name = "u_t"
 
     # initial guess
-    u_0.interpolate(lambda x: x[0]-x[0])#x[directions[args.transport_direction.lower()]]*0.95)
-    u_1.interpolate(lambda x: 0.5 + x[0]-x[0])#1.05*x[directions[args.transport_direction.lower()]]/1.1)
+    # u_0.interpolate(lambda x: x[0]-x[0])#x[directions[args.transport_direction.lower()]]*0.95)
+    # u_1.interpolate(lambda x: 0.5 + x[0]-x[0])#1.05*x[directions[args.transport_direction.lower()]]/1.1)
 
     # Add coupling term to the interface
     # Get interface markers on submesh b
@@ -387,7 +387,8 @@ if __name__ == '__main__':
     u_r = u_1(r_res)
 
     n = ufl.FacetNormal(domain)
-    n_c = ufl.FacetNormal(submesh_positive_am)
+    n_0 = ufl.FacetNormal(submesh_electrolyte)
+    n_1 = ufl.FacetNormal(submesh_positive_am)
     n_l = n(l_res)
     n_r = n(r_res)
     cd = ufl.CellDiameter(domain)
@@ -727,8 +728,8 @@ if __name__ == '__main__':
         n_dofs_c = VC_map.size_global*VC.dofmap.index_map_bs
         u_int.interpolate(u_1)
         F_c = (c - c0)/dt * q * dx_c + inner(ufl.grad(c), ufl.grad(q)) * dx_c
-        # F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_int), n_c) * q * ds_c(markers.electrolyte_v_positive_am)
-        F_c += -inner(grad(u_int), n_c) * q * ds_c(markers.electrolyte_v_positive_am)
+        # F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_int), n_1) * q * ds_c(markers.electrolyte_v_positive_am)
+        F_c += -inner(grad(u_int), n_1) * q * ds_c(markers.electrolyte_v_positive_am)
         problem_c = fem.petsc.NonlinearProblem(F_c, c, bcs=[])
         solver = petsc_nls.NewtonSolver(comm, problem_c)
         solver.convergence_criterion = "residual"
