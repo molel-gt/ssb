@@ -393,6 +393,7 @@ if __name__ == '__main__':
     n_l = n(l_res)
     n_r = n(r_res)
     cd = ufl.CellDiameter(domain)
+    h_1 = ufl.CellDiameter(submesh_positive_am)
     h_l = cd(l_res)
     h_r = cd(r_res)
 
@@ -479,15 +480,16 @@ if __name__ == '__main__':
     if args.cycle_mode == galvanostatic:
         F_1 += - v_1 * lmbda * ds_f(3)
         F_1a = (V_cell - u_1) * mu * ds_f(3)
-        F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3) #- h/50 * inner(w, V_cell) * ds_f(3)
+        F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3) #- 1e-8/h_1 * inner(w, V_cell) * ds_f(3)
 
     F_0 += F_00
     F_1 += F_11
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
     # F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_r), n_r) * q_r * dInterface
+    alpha = 1e-8
     F_2 += -inner(grad(u_r), n_r) * q_r * dInterface
-
+    F_2 += alpha * h_r * inner(inner(grad(u_r) - grad(c_r), n_r), inner(grad(q_r), n_r)) * dInterface
 
     u_left = fem.Function(V0)
     u_left.x.array[:] = 0/phi_ref
