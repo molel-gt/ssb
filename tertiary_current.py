@@ -253,7 +253,7 @@ if __name__ == '__main__':
     soc_init = 0.75 * c_max / c_ref
 
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
-    results_dir = os.path.join(args.mesh_folder, args.cycle_mode, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), f'{args.p_potential}-{args.p_concentration}', str(args.gamma), str(comm.Get_size()))
+    results_dir = os.path.join(args.mesh_folder, args.cycle_mode, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), f'{args.C_rate}C',f'{args.p_potential}-{args.p_concentration}', str(args.gamma), str(comm.Get_size()))
     utils.make_dir_if_missing(results_dir)
     output_potential_file = os.path.join(results_dir, "potential.bp")
     elec_potential_file = os.path.join(results_dir, "electrolyte_potential.bp")
