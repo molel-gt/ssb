@@ -370,7 +370,7 @@ if __name__ == '__main__':
     dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
     dx_c = ufl.Measure('dx', domain=submesh_positive_am)
     ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
-    ds_c = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am, metadata={"quadrature_degree": 3})
+    ds_c = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
 
     vol_pos_am = comm.allreduce(fem.assemble_scalar(fem.form(1 * dx(markers.positive_am), entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 3
     I_tot_ = utils.get_c_rate_current(c_max, args.C_rate, vol_pos_am)
@@ -464,6 +464,7 @@ if __name__ == '__main__':
     i_sup = np.abs(I_tot.value) / A_right
     h = ufl.CellDiameter(submesh_facets_right)
     gamma = fem.Constant(domain, PETSc.ScalarType(args.gamma))
+    alpha = 1e-6 # preturbation penalty
 
     F_0 = (
         - 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
@@ -480,16 +481,16 @@ if __name__ == '__main__':
     if args.cycle_mode == galvanostatic:
         F_1 += - v_1 * lmbda * ds_f(3)
         F_1a = (V_cell - u_1) * mu * ds_f(3)
-        F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3) #- 1e-8/h_1 * inner(w, V_cell) * ds_f(3)
+        F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3) - 1e-8/h * (V_cell - u_1) * w * ds_f(3)
+        # F_1 += -(V_cell - u_1) * lmbda * ds_f(3)
 
     F_0 += F_00
     F_1 += F_11
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
     # F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_r), n_r) * q_r * dInterface
-    alpha = 1e-8
     F_2 += -inner(grad(u_r), n_r) * q_r * dInterface
-    F_2 += alpha * h_r * inner(inner(grad(u_r) - grad(c_r), n_r), inner(grad(q_r), n_r)) * dInterface
+    F_2 += alpha * h_r * inner(inner(-grad(u_r) + grad(c_r), n_r), inner(grad(q_r), n_r)) * dInterface
 
     u_left = fem.Function(V0)
     u_left.x.array[:] = 0/phi_ref
@@ -685,6 +686,7 @@ if __name__ == '__main__':
             n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs
             F2D = F[:2]
             J2D = [j2d[:2] for j2d in J[:2]]
+        opts = PETSc.Options()
         Jmat2d = fem.petsc.create_matrix_block(J2D)
         Fvec2d = fem.petsc.create_vector_block(F2D)
         snes = PETSc.SNES().create(comm)
@@ -699,9 +701,6 @@ if __name__ == '__main__':
         snes.setErrorIfNotConverged(True)
         snes.getKSP().setErrorIfNotConverged(True)
         snes.getKSP().setConvergenceHistory()
-        opts = PETSc.Options()
-        # for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
-        #         opts[f"{snes.getKSP().getOptionsPrefix()}{optk}"] = optv
         for kopt, vopt in solver_params.LINESEARCH.items():
                 opts[kopt] = vopt
         opts[f"{snes.getKSP().getOptionsPrefix()}pc_factor_levels"] = 0
@@ -880,6 +879,7 @@ if __name__ == '__main__':
             x.destroy()
             Pmat.destroy()
         elif args.solver_type == solver_types.block_iterative:
+            opts.clear()
             Jmat = fem.petsc.create_matrix_nest(J)
             nested_IS = Jmat.getNestISs()
             IS_u0 = nested_IS[0][0]
@@ -929,13 +929,13 @@ if __name__ == '__main__':
 
             ksp_u.setType(PETSc.KSP.Type.FGMRES)
             ksp_u.getPC().setType(PETSc.PC.Type.ILU)
-            ksp_u.setTolerances(rtol=1e-7, max_it=1000)
+            ksp_u.setTolerances(rtol=1e-4, max_it=1000)
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
             ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(args.amg_type)
-            ksp_c.setTolerances(rtol=1e-7, max_it=1000)
+            ksp_c.setTolerances(rtol=1e-4, max_it=1000)
 
             opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
             opts[f"{ksp_c.getOptionsPrefix()}inner_ksp_type"] = "preonly"
@@ -969,108 +969,6 @@ if __name__ == '__main__':
             PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}, solve time: {t1-t0:.3f}s")
             PETSc.Log().view(log_viewer)
             dt.value = 5 * dt.value
-            if comm_rank == 0 and args.plot:
-                fig, ax = plt.subplots()
-                ax.semilogy(snes.getKSP().getConvergenceHistory(), 'x-')
-                ax.set_box_aspect(1)
-                plt.tight_layout()
-                plt.savefig(convergence_history, bbox_inches="tight")
-            snes.destroy()
-            Jmat.destroy(), Fvec.destroy()
-            x.destroy()
-            Pmat.destroy()
-        elif args.solver_type == solver_types.block_gs:
-            Jmat = fem.petsc.create_matrix_nest(J)
-            nested_IS = Jmat.getNestISs()
-            IS_u0 = nested_IS[0][0]
-            IS_u1 = nested_IS[0][1]
-            IS_u = IS_u0.sum(IS_u1)
-            IS_c = nested_IS[0][2]
-            Jmat = fem.petsc.create_matrix_block(J)
-            Pmat = fem.petsc.create_matrix_block(P)
-            Fvec = fem.petsc.create_vector_block(F)
-            snes = PETSc.SNES().create(comm)
-            snes.setType('newtonls')
-            snes.setTolerances(rtol=1.0e-7, max_it=10000)
-            snes.getKSP().setType(PETSc.KSP.Type.PREONLY)
-            snes.getKSP().setOptionsPrefix("snes_")
-            snes.getKSP().setOperators(Jmat, Pmat)
-            nullspace = PETSc.NullSpace().create(constant=True)
-            PETSc.Mat.setNearNullSpace(Jmat, nullspace)
-            snes.getKSP().setTolerances(rtol=1e-7)
-            snes.setErrorIfNotConverged(True)
-            snes.getKSP().setErrorIfNotConverged(True)
-            snes.getKSP().setConvergenceHistory()
-            snes.getKSP().getPC().setType("fieldsplit")
-            snes.getKSP().getPC().setFieldSplitIS(("u", IS_u), ("c", IS_c))
-            opts = PETSc.Options()
-            opts['log_view'] = None
-            for kopt, vopt in solver_params.LINESEARCH.items():
-                opts[kopt] = vopt
-
-            # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_diag_use_amat"] = True
-            # opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
-            opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
-
-            ksp_u, ksp_c = snes.getKSP().getPC().getFieldSplitSubKSP()
-
-            snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.ADDITIVE)
-            # snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.A11)
-            # snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.DIAG)
-
-            ksp_u.setType(PETSc.KSP.Type.GMRES)
-            ksp_u.getPC().setType(PETSc.PC.Type.HYPRE)
-            opts[f"{ksp_u.getOptionsPrefix()}pc_hypre_type"] = "parasails"
-            # opts[f"{ksp_u.getOptionsPrefix()}pc_asm_type"] = "basic"
-            # opts[f"{ksp_u.getOptionsPrefix()}pc_asm_local_type"] = "multiplicative"
-            # opts[f"{ksp_u.getOptionsPrefix()}pc_asm_sub_ksp_type"] = "preonly"
-            # opts[f"{ksp_u.getOptionsPrefix()}pc_asm_sub_pc_type"] = "ilu"
-            # opts[f"{ksp_u.getOptionsPrefix()}pc_asm_sub_pc_factor_levels"] = 0
-            # opts[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
-            # opts[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
-
-            ksp_c.setType(PETSc.KSP.Type.CG)
-            ksp_c.getPC().setType(PETSc.PC.Type.ML)
-            opts[f"{ksp_c.getOptionsPrefix()}pc_asm_type"] = "basic"
-            opts[f"{ksp_c.getOptionsPrefix()}pc_asm_local_type"] = "multiplicative"
-            opts[f"{ksp_c.getOptionsPrefix()}sub_ksp_type"] = "preonly"
-            opts[f"{ksp_c.getOptionsPrefix()}sub_pc_type"] = "ilu"
-            opts[f"{ksp_c.getOptionsPrefix()}sub_pc_factor_levels"] = 0
-            ksp_c.setConvergenceHistory()
-
-            opts[f'{ksp_u.getOptionsPrefix()}ksp_monitor_singular_value'] = None
-            opts[f'{ksp_c.getOptionsPrefix()}ksp_monitor_singular_value'] = None
-            # opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "diag"
-            opts[f"{ksp_c.getOptionsPrefix()}inner_ksp_type"] = "preonly"
-            opts[f"{ksp_c.getOptionsPrefix()}inner_pc_type"] = "ilu"
-            # opts[f"{ksp_c.getOptionsPrefix()}inner_pc_factor_levels"] = 0
-            # opts[f"{ksp_c.getOptionsPrefix()}inner_pc_factor_fill"] = 2.0
-            # opts[f"{ksp_c.getOptionsPrefix()}upper_ksp_type"] = "preonly"
-            # opts[f"{ksp_c.getOptionsPrefix()}upper_pc_type"] = "ilu"
-            # opts[f"{ksp_c.getOptionsPrefix()}upper_pc_factor_levels"] = 0
-            # opts[f"{ksp_c.getOptionsPrefix()}upper_pc_factor_fill"] = 2.0
-
-            # for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
-            #     opts[f"{ksp_c.getOptionsPrefix()}{optk}"] = optv
-
-            ksp_u.setFromOptions()
-            ksp_c.setFromOptions()
-            snes.getKSP().setFromOptions()
-
-            problem = solvers.NonlinearPDE_SNESProblem(F, J, sol_vars, bcs, P=P)
-            snes.setFunction(problem.F_block, Fvec)
-            snes.setJacobian(problem.J_block, J=Jmat, P=Pmat)
-            snes.setFromOptions()
-            snes.view()
-
-            x = fem.petsc.create_vector_block(F)
-            x.set(0.0)
-            PETSc.Log().begin()
-            t0 = time.time()
-            snes.solve(None, x)
-            t1 = time.time()
-            PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}")
-            PETSc.Log().view(log_viewer)
             if comm_rank == 0 and args.plot:
                 fig, ax = plt.subplots()
                 ax.semilogy(snes.getKSP().getConvergenceHistory(), 'x-')
