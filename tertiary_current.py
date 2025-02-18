@@ -882,17 +882,19 @@ if __name__ == '__main__':
             opts.clear()
             Jmat = fem.petsc.create_matrix_nest(J)
             nested_IS = Jmat.getNestISs()
-            IS_u0 = nested_IS[0][0]
-            IS_u1 = nested_IS[0][1]
             if args.cycle_mode == galvanostatic:
+                IS_u0 = nested_IS[0][0]
+                IS_u1 = nested_IS[0][1]
                 IS_l = nested_IS[0][2]
                 IS_g = nested_IS[0][3]
+                IS_c = nested_IS[0][4]
                 IS_u = IS_u0.sum(IS_u1)
                 IS_ulg = IS_u.sum(IS_l).sum(IS_g)
-                IS_c = nested_IS[0][4]
-            elif args.cycle_mode == potentiostatic:
-                IS_u = IS_u0.sum(IS_u1)
-                IS_c = nested_IS[0][2]
+            elif cycle_mode == potentiostatic:
+                IS_u0 = nested_IS[0][0]
+                IS_u1 = nested_IS[0][1]
+                IS_c = nested_IS[0][3]
+                IS_ulg = IS_u0.sum(IS_u1)
 
             Jmat = fem.petsc.create_matrix_block(J)
             Pmat = fem.petsc.create_matrix_block(P)
