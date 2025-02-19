@@ -890,7 +890,7 @@ if __name__ == '__main__':
                 IS_c = nested_IS[0][4]
                 IS_u = IS_u0.sum(IS_u1)
                 IS_ulg = IS_u.sum(IS_l).sum(IS_g)
-            elif cycle_mode == potentiostatic:
+            elif args.cycle_mode == potentiostatic:
                 IS_u0 = nested_IS[0][0]
                 IS_u1 = nested_IS[0][1]
                 IS_c = nested_IS[0][3]
