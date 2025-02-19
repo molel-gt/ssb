@@ -232,7 +232,6 @@ if __name__ == '__main__':
     LX, LY, LZ = [float(vv) * micron for vv in dimensions.split("-")]
 
     L_ref = get_Lref([LX, LY, LZ], args.transport_direction)
-    A0 = cross_section_area([LX, LY, LZ], args.transport_direction) * 1e4  # [cm^2]
 
     # reference values
     t_ref = L_ref ** 2 / D
@@ -336,8 +335,8 @@ if __name__ == '__main__':
     u_1.name = "u_t"
 
     # initial guess
-    # u_0.interpolate(lambda x: x[0]-x[0])#x[directions[args.transport_direction.lower()]]*0.95)
-    # u_1.interpolate(lambda x: 0.5 + x[0]-x[0])#1.05*x[directions[args.transport_direction.lower()]]/1.1)
+    u_0.interpolate(lambda x: x[0]-x[0])#x[directions[args.transport_direction.lower()]]*0.95)
+    u_1.interpolate(lambda x: 0.5 + x[0]-x[0])#1.05*x[directions[args.transport_direction.lower()]]/1.1)
 
     # Add coupling term to the interface
     # Get interface markers on submesh b
@@ -935,13 +934,13 @@ if __name__ == '__main__':
 
             ksp_u.setType(PETSc.KSP.Type.FGMRES)
             ksp_u.getPC().setType(PETSc.PC.Type.ILU)
-            ksp_u.setTolerances(rtol=1e-4, max_it=1000)
+            ksp_u.setTolerances(rtol=1e-7, max_it=1000)
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
             opts[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
             ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(args.amg_type)
-            ksp_c.setTolerances(rtol=1e-4, max_it=1000)
+            ksp_c.setTolerances(rtol=1e-7, max_it=1000)
 
             opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
             opts[f"{ksp_c.getOptionsPrefix()}inner_ksp_type"] = "preonly"
