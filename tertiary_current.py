@@ -451,7 +451,11 @@ if __name__ == '__main__':
     A_se_am_tilde = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds_c(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     A_se_am = A_se_am_tilde * (L_ref ** 2)
     A_se_am_to_vol_am = A_se_am / vol_pos_am
-    PETSc.Sys.Print(f"charge transfer area to volume ratio: {A_se_am_to_vol_am:,.0f}")
+    PETSc.Sys.Print("Area Left [m2]                        :", A_left)
+    PETSc.Sys.Print("Area Right [m2]                       :", A_right)
+    PETSc.Sys.Print("Area SE/AM [m2]                       :", A_se_am)
+    PETSc.Sys.Print("SE/AM area to cross-section area      :", f"{A_se_am/A_right:,.0f}")
+    PETSc.Sys.Print("SE/AM area to volume ratio            :", f"{A_se_am_to_vol_am:,.0f}")
 
     R_right = scifem.create_real_functionspace(submesh_facets_right)
     el_V_r = basix.ufl.element(basix.ElementFamily.P, basix.CellType.triangle, args.p_potential, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
@@ -893,7 +897,7 @@ if __name__ == '__main__':
             elif args.cycle_mode == potentiostatic:
                 IS_u0 = nested_IS[0][0]
                 IS_u1 = nested_IS[0][1]
-                IS_c = nested_IS[0][3]
+                IS_c = nested_IS[0][2]
                 IS_ulg = IS_u0.sum(IS_u1)
 
             Jmat = fem.petsc.create_matrix_block(J)
@@ -988,14 +992,15 @@ if __name__ == '__main__':
         # gamma.value = args.gamma * 10
         c0.x.array[:] = c.x.array
         cvtx.write(t)
+        k = tdim - 2
         I_left = comm.allreduce(fem.assemble_scalar(fem.form(
-                                inner(kappa_elec * (phi_ref) * L_ref ** (tdim-2) * grad(u_0), n) * ds(markers.left),
+                                inner(kappa_elec * phi_ref * L_ref ** (k) * grad(u_0), n) * ds(markers.left),
                                 entity_maps=entity_maps)), op=MPI.SUM)
         I_right = comm.allreduce(fem.assemble_scalar(fem.form(
-                                inner(kappa_pos_am * (phi_ref) * L_ref ** (tdim-2) * grad(u_1), n) * ds(markers.right),
+                                inner(kappa_pos_am * phi_ref * L_ref ** (k) * grad(u_1), n) * ds(markers.right),
                                 entity_maps=entity_maps)), op=MPI.SUM)
         I_interface = comm.allreduce(fem.assemble_scalar(fem.form(
-                                inner(faraday_const * D * (c_ref) * L_ref ** (tdim-2) * grad(c(r_res)), n_r) * dInterface,
+                                inner(faraday_const * D * c_ref * L_ref ** (k) * grad(c(r_res)), n_r) * dInterface,
                                 entity_maps=entity_maps)), op=MPI.SUM)
 
         u_avg_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_1 * ds(markers.right),
@@ -1005,18 +1010,18 @@ if __name__ == '__main__':
                                             (u_1 - u_avg_right_tilde) ** 2 * ds(markers.right),
                                             entity_maps=entity_maps)), op=MPI.SUM)
         u_stdev_right = np.sqrt(u_stdev_right_tilde  * (phi_ref * L_ref ** 2) ** 2 / A_right)
-        i_avg_se_am = np.abs(I_interface / A_se_am)
-        i_avg_left = np.abs(I_left / A_left)
-        i_avg_right = np.abs(I_right / A_right)
-        n_r = ufl.FacetNormal(submesh_positive_am)
+        i_avg_se_am = I_interface / A_se_am
+        i_avg_left = I_left / A_left
+        i_avg_right = I_right / A_right
+
         i_stdev_left = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
-                                (kappa_elec * phi_ref * L_ref ** (-tdim + 2) * inner(grad(u_0), n) - i_avg_left) ** 2 * ds(markers.left),
+                                (kappa_elec * phi_ref * L_ref ** (-k) * inner(grad(u_0), n) - i_avg_left) ** 2 * ds(markers.left),
                                 entity_maps=entity_maps)), op=MPI.SUM) / A_left_tilde)
         i_stdev_se_am = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
-                                (faraday_const * D * c_ref * L_ref ** (-tdim + 2) * inner(grad(c), n_r) - i_avg_se_am) ** 2 * ds_c(markers.electrolyte_v_positive_am),
+                                (faraday_const * D * c_ref * L_ref ** (-k) * inner(grad(c(r_res)), n_r) - i_avg_se_am) ** 2 * dInterface,
                                 entity_maps=entity_maps)), op=MPI.SUM) / A_se_am_tilde)
         i_stdev_right = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
-                                (kappa_pos_am * (phi_ref) * L_ref ** (-tdim + 2) * inner(grad(u_1), n) - i_avg_right) ** 2 * ds(markers.right),
+                                (kappa_pos_am * phi_ref * L_ref ** (-k) * inner(grad(u_1), n) - i_avg_right) ** 2 * ds(markers.right),
                                 entity_maps=entity_maps)), op=MPI.SUM) / A_right_tilde)
         stats.append(
                      {
