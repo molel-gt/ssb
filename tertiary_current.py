@@ -450,9 +450,9 @@ if __name__ == '__main__':
     A_se_am_tilde = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds_c(markers.electrolyte_v_positive_am))), op=MPI.SUM)
     A_se_am = A_se_am_tilde * (L_ref ** 2)
     A_se_am_to_vol_am = A_se_am / vol_pos_am
-    PETSc.Sys.Print("Area Left [m2]                        :", f"{A_left:.0e}")
-    PETSc.Sys.Print("Area Right [m2]                       :", f"{A_right:.0e}")
-    PETSc.Sys.Print("Area SE/AM [m2]                       :", f"{A_se_am:.0e}")
+    PETSc.Sys.Print("Area Left [m2]                        :", f"{A_left:.1e}")
+    PETSc.Sys.Print("Area Right [m2]                       :", f"{A_right:.1e}")
+    PETSc.Sys.Print("Area SE/AM [m2]                       :", f"{A_se_am:.1e}")
     PETSc.Sys.Print("SE/AM area to cross-section area      :", f"{A_se_am/A_right:,.0f}")
     PETSc.Sys.Print("SE/AM area to volume ratio            :", f"{A_se_am_to_vol_am:,.0f}")
 
