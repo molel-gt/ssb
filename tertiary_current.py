@@ -1087,6 +1087,17 @@ if __name__ == '__main__':
                                 inner(faraday_const * D * c_ref * L_ref ** (k) * grad(c(r_res)), n_r) * dInterface,
                                 entity_maps=entity_maps)), op=MPI.SUM)
 
+        I_interface_l = comm.allreduce(fem.assemble_scalar(fem.form(
+                        inner(kappa_elec * phi_ref * L_ref ** (k) * grad(u_l), n_l) * dInterface,
+                        entity_maps=entity_maps)), op=MPI.SUM)
+
+        I_interface_r = comm.allreduce(fem.assemble_scalar(fem.form(
+                inner(kappa_pos_am * phi_ref * L_ref ** (k) * grad(u_r), n_r) * dInterface,
+                entity_maps=entity_maps)), op=MPI.SUM)
+
+        PETSc.Sys.Print("Interface current (using electrolyte potential)     [A]  :", I_interface_l)
+        PETSc.Sys.Print("Interface current (using lithium surface reaction)  [A]  :", I_interface)
+        PETSc.Sys.Print("Interface current (using active material potential) [A]  :", I_interface_r)
         u_avg_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_1 * ds(markers.right),
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
         u_avg_right = u_avg_right_tilde * phi_ref * L_ref ** 2 / A_right
