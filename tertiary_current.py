@@ -144,7 +144,7 @@ def get_eigenvalues(M):
         E.create(M.getComm().tompi4py())
         E.setOperators(M)
         E.setWhichEigenpairs(eps_type)
-        opts = PETSc.Options()
+        petsc_options = PETSc.Options()
         E.setProblemType(SLEPc.EPS.ProblemType.GNHEP)
         E.setFromOptions()
         E.solve()
@@ -191,12 +191,14 @@ if __name__ == '__main__':
     parser.add_argument("--improved_guess", help="whether to solve for improved guess", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("-C_rate", "--C_rate", help="cycling rate", nargs='?', const=1, default=0.1, type=float)
     parser.add_argument("--compute_distribution", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--nested_fieldsplit", help="whether to use chain of fieldsplit preconditioners", default=False, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
     if args.cycle_mode not in modes:
         raise ValueError(f"Only {modes.__repr__()} allowed")
 
-    PETSc.Sys.Print("************************************** CYCLING PARAMETERS SUMMARY *************************************")
+    # PETSc.Sys.Print("************************************** CYCLING PARAMETERS SUMMARY *************************************")
+    PETSc.Sys.Print(utils.starpad(" CYCLING PARAMETERS SUMMARY "))
     PETSc.Sys.Print("cycle mode                                             :", args.cycle_mode)
     if args.cycle_mode == potentiostatic:
         PETSc.Sys.Print("Voltage [V]                                            :", args.voltage)
@@ -207,12 +209,12 @@ if __name__ == '__main__':
     PETSc.Sys.Print("Conductivity ratio (Kr)                                :", args.kr)
     PETSc.Sys.Print("Lithium diffusivity in positive active material [m2/s] :", args.D)
     PETSc.Sys.Print("Kinetics                                               :", args.kinetics)
-    PETSc.Sys.Print("*******************************************************************************************************")
-    PETSc.Sys.Print("************************************** SOLVER PARAMETERS **********************************************")
+    PETSc.Sys.Print(utils.starpad("*"))
+    PETSc.Sys.Print(" SOLVER PARAMETERS ".center(90, "*"))
     PETSc.Sys.Print("interior penalty parameter (gamma)                     :", args.gamma)
     PETSc.Sys.Print("solve improved guesss                                  :", args.improved_guess)
     PETSc.Sys.Print("minimum dt [normalized]                                :", args.dt)
-    PETSc.Sys.Print("*******************************************************************************************************")
+    PETSc.Sys.Print(utils.starpad("*"))
 
     start_time = timeit.default_timer()
     voltage = args.voltage
@@ -676,6 +678,7 @@ if __name__ == '__main__':
 
     log_viewer = PETSc.Viewer().STDOUT()
     log_viewer.setFileName(log_datafile)
+    petsc_options = PETSc.Options()
     ########################################################################################################################################
     ## solve initial potential distribution at t = 0
     if args.improved_guess:
@@ -689,28 +692,72 @@ if __name__ == '__main__':
             n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs
             F2D = F[:2]
             J2D = [j2d[:2] for j2d in J[:2]]
-        opts = PETSc.Options()
+        petsc_options.clear()
         Jmat2d = fem.petsc.create_matrix_block(J2D)
         Fvec2d = fem.petsc.create_vector_block(F2D)
         snes = PETSc.SNES().create(comm)
         snes.setType('newtonls')
-        snes.setTolerances(rtol=5e-4, max_it=200)
+        snes.setTolerances(rtol=1e-7, max_it=200)
         snes.setMonitor(lambda _, it, residual: PETSc.Sys.Print("it:", it, "res:", residual))
-        snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
-        snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
-        snes.getKSP().setOptionsPrefix("snes_")
-        snes.getKSP().setOperators(Jmat2d, Jmat2d)
-        snes.getKSP().setTolerances(rtol=1e-7)
-        snes.setErrorIfNotConverged(True)
-        snes.getKSP().setErrorIfNotConverged(True)
-        snes.getKSP().setConvergenceHistory()
-        for kopt, vopt in solver_params.LINESEARCH.items():
-                opts[kopt] = vopt
-        opts[f"{snes.getKSP().getOptionsPrefix()}pc_factor_levels"] = 0
-        opts[f"{snes.getKSP().getOptionsPrefix()}pc_factor_fill"] = 2.0
-        snes.getKSP().setFromOptions()
-        snes.setFromOptions()
-        snes.view()
+
+        # set preconditioners
+        petsc_options['log_view'] = None
+        if args.nested_fieldsplit:
+            J2d_mat = fem.petsc.create_matrix_nest(J2D)
+            nested_IS = J2d_mat.getNestISs()
+            IS_u0 = nested_IS[0][0]
+            IS_u1 = nested_IS[0][1]
+            IS_l = nested_IS[0][2]
+            IS_v = nested_IS[0][3]
+            IS_u = IS_u0.sum(IS_u1)
+            IS_lv = IS_l.sum(IS_v)
+            IS_u1lv = IS_u1.sum(IS_lv)
+
+            snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
+            snes.getKSP().getPC().setType("fieldsplit")
+            snes.getKSP().getPC().setFieldSplitIS(("u01", IS_u), ("l", IS_l), ('v', IS_v))
+            petsc_options = PETSc.Options()
+            petsc_options[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
+            for kopt, vopt in solver_params.LINESEARCH.items():
+                petsc_options[kopt] = vopt
+
+            petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+            petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
+
+            ksp_u01, ksp_l, ksp_v = snes.getKSP().getPC().getFieldSplitSubKSP()
+            snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
+            snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
+            snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
+
+            ksp_u01.setType(PETSc.KSP.Type.FGMRES)
+            ksp_u01.getPC().setType(PETSc.PC.Type.ILU)
+            ksp_u01.setTolerances(rtol=1e-7, max_it=1000)
+            petsc_options[f"{ksp_u01.getOptionsPrefix()}pc_factor_levels"] = 0
+            petsc_options[f"{ksp_u01.getOptionsPrefix()}pc_factor_fill"] = 2.0
+
+            ksp_l.setType(PETSc.KSP.Type.PREONLY)
+            ksp_l.getPC().setType(PETSc.PC.Type.JACOBI)
+            ksp_l.setTolerances(rtol=1e-7, max_it=1000)
+
+            ksp_v.setType(PETSc.KSP.Type.CG)
+            ksp_v.getPC().setType(PETSc.PC.Type.JACOBI)
+            ksp_v.setTolerances(rtol=1e-7, max_it=1000)
+        else:
+            snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
+            snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
+            snes.getKSP().setOptionsPrefix("snes_")
+            snes.getKSP().setOperators(Jmat2d, Jmat2d)
+            snes.getKSP().setTolerances(rtol=1e-4)
+            snes.setErrorIfNotConverged(True)
+            snes.getKSP().setErrorIfNotConverged(True)
+            snes.getKSP().setConvergenceHistory()
+            for kopt, vopt in solver_params.LINESEARCH.items():
+                    petsc_options[kopt] = vopt
+            petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_factor_levels"] = 0
+            petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_factor_fill"] = 2.0
+            snes.getKSP().setFromOptions()
+            snes.setFromOptions()
+            snes.view()
 
         if args.cycle_mode == galvanostatic:
             _sol_vars = [u_0, u_1, lmbda, V_cell]
@@ -729,8 +776,13 @@ if __name__ == '__main__':
         Jmat2d.destroy()
         Fvec2d.destroy()
         x2d.destroy()
-        PETSc.Sys.Print(f"Finished computation of initial (t = 0) potential distribution!\nn_dofs: {n_dofs_t0}\nsolve time: {t1 - t0:.3f}s")
+        petsc_options.clear()
+
+        PETSc.Sys.Print("V_cell (initial guess) [V]:", f"{V_cell.x.array[0] * ref["phi"]:.3f}")
+
+        PETSc.Sys.Print(f"Finished computation of initial (t = 0) potential distribution!\nn_dofs: {n_dofs_t0:,}\nsolve time: {t1 - t0:.3f}s")
         PETSc.Sys.Print("************Solve for Improved Guess for Concentration Distribution*******************")
+        petsc_options.clear()
         n_dofs_c = VC_map.size_global*VC.dofmap.index_map_bs
         u_int.interpolate(u_1)
         F_c = (c - c0)/dt * q * dx_c + inner(ufl.grad(c), ufl.grad(q)) * dx_c
@@ -743,19 +795,18 @@ if __name__ == '__main__':
         solver.rtol = 1e-8
 
         ksp = solver.krylov_solver
-        opts = PETSc.Options()
         option_prefix = ksp.getOptionsPrefix()
-        opts[f"{option_prefix}ksp_type"] = "cg"
-        opts[f"{option_prefix}pc_type"] = args.amg_type
+        petsc_options[f"{option_prefix}ksp_type"] = "cg"
+        petsc_options[f"{option_prefix}pc_type"] = args.amg_type
         for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
-                opts[f"{option_prefix}{optk}"] = optv
-        # opts[f"{option_prefix}pc_factor_levels"] = 0
-        # opts[f"{option_prefix}pc_factor_fill"] = 2.0
+                petsc_options[f"{option_prefix}{optk}"] = optv
+        # petsc_options[f"{option_prefix}pc_factor_levels"] = 0
+        # petsc_options[f"{option_prefix}pc_factor_fill"] = 2.0
         ksp.setFromOptions()
         t0 = time.time()
         n_iters, converged = solver.solve(c)
         t1 = time.time()
-        PETSc.Sys.Print(f"Finished computation of improved guess of concentration distribution!\nn_dofs: {n_dofs_c}\nsolve time: {t1 - t0:.3f}s")
+        PETSc.Sys.Print(f"Finished computation of improved guess of concentration distribution!\nn_dofs: {n_dofs_c:,}\nsolve time: {t1 - t0:.3f}s")
     ########################################################################################################################################
     if args.cycle_mode == galvanostatic:
         sol_vars = [u_0, u_1, lmbda, V_cell, c]
@@ -769,19 +820,19 @@ if __name__ == '__main__':
         t += dt.value
         PETSc.Sys.Print(f"Time: {t:.1e}\n")
         if args.solver_type == solver_types.direct:
-            opts = {
+            petsc_options = {
                 'ksp_type': 'preonly',
                 'pc_type': 'lu',
                 'pc_factor_mat_solver_type': 'mumps',
                 }
-            opts['log_view'] = None
+            petsc_options['log_view'] = None
             solver = solvers.NewtonSolver(
                 F,
                 J,
                 soln_vars,
                 bcs=bcs,
                 max_iterations=1000,
-                petsc_options=opts,
+                petsc_options=petsc_options,
                 )
             PETSc.Log().begin()
             t0 = time.time()
@@ -815,12 +866,12 @@ if __name__ == '__main__':
             IS_u = IS_u0.sum(IS_u1)
             IS_c = nested_IS[0][2]
             snes.getKSP().getPC().setFieldSplitIS(("u", IS_u), ("c", IS_c))
-            opts = PETSc.Options()
+            petsc_options = PETSc.Options()
             for kopt, vopt in solver_params.LINESEARCH.items():
-                opts[kopt] = vopt
+                petsc_options[kopt] = vopt
 
-            opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
-            opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
+            petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+            petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
 
             ksp_u, ksp_c = snes.getKSP().getPC().getFieldSplitSubKSP()
 
@@ -830,20 +881,20 @@ if __name__ == '__main__':
 
             ksp_u.setType(PETSc.KSP.Type.FGMRES)
             ksp_u.getPC().setType(PETSc.PC.Type.JACOBI)
-            opts[f"{ksp_u.getOptionsPrefix()}pc_jacobi_fixdiagonal"] = True
+            petsc_options[f"{ksp_u.getOptionsPrefix()}pc_jacobi_fixdiagonal"] = True
             ksp_u.setConvergenceHistory()
             ksp_c.setType(PETSc.KSP.Type.FGMRES)
             ksp_c.getPC().setType(args.amg_type)
             ksp_c.setConvergenceHistory()
 
-            opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 75
-            opts[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 75
-            opts[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 75
+            petsc_options[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 75
+            petsc_options[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 75
+            petsc_options[f'{ksp_c.getOptionsPrefix()}ksp_gmres_restart'] = 75
 
-            opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
+            petsc_options[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
 
             for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
-                opts[f"{ksp_c.getOptionsPrefix()}{optk}"] = optv
+                petsc_options[f"{ksp_c.getOptionsPrefix()}{optk}"] = optv
 
             ksp_u.setFromOptions()
             ksp_c.setFromOptions()
@@ -882,17 +933,17 @@ if __name__ == '__main__':
             x.destroy()
             Pmat.destroy()
         elif args.solver_type == solver_types.block_iterative:
-            opts.clear()
+            petsc_options.clear()
             Jmat = fem.petsc.create_matrix_nest(J)
             nested_IS = Jmat.getNestISs()
             if args.cycle_mode == galvanostatic:
                 IS_u0 = nested_IS[0][0]
                 IS_u1 = nested_IS[0][1]
                 IS_l = nested_IS[0][2]
-                IS_g = nested_IS[0][3]
+                IS_v = nested_IS[0][3]
                 IS_c = nested_IS[0][4]
                 IS_u = IS_u0.sum(IS_u1)
-                IS_ulg = IS_u.sum(IS_l).sum(IS_g)
+                IS_ulg = IS_u.sum(IS_l).sum(IS_v)
             elif args.cycle_mode == potentiostatic:
                 IS_u0 = nested_IS[0][0]
                 IS_u1 = nested_IS[0][1]
@@ -915,16 +966,16 @@ if __name__ == '__main__':
             snes.getKSP().setErrorIfNotConverged(True)
             snes.getKSP().setConvergenceHistory()
             snes.getKSP().getPC().setType("fieldsplit")
-            snes.getKSP().getPC().setFieldSplitIS(("u", IS_ulg), ("c", IS_c))
-            opts = PETSc.Options()
-            opts[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
+            snes.getKSP().getPC().setFieldSplitIS(("un", IS_ulg), ("c", IS_c))
+            petsc_options = PETSc.Options()
+            petsc_options[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
             for kopt, vopt in solver_params.LINESEARCH.items():
-                opts[kopt] = vopt
+                petsc_options[kopt] = vopt
 
-            opts['log_view'] = None
+            petsc_options['log_view'] = None
 
-            opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
-            opts[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
+            petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+            petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
 
             ksp_u, ksp_c = snes.getKSP().getPC().getFieldSplitSubKSP()
 
@@ -932,28 +983,70 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
-            ksp_u.setType(PETSc.KSP.Type.FGMRES)
-            ksp_u.getPC().setType(PETSc.PC.Type.ILU)
-            ksp_u.setTolerances(rtol=1e-7, max_it=1000)
-            opts[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
-            opts[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
+            # add fieldsplit branch to ksp_u
+            if args.nested_fieldsplit:
+                ksp_u.setType(PETSc.KSP.Type.FGMRES)
+                ksp_u.getPC().setType("fieldsplit")
+                # ksp_u.getPC().setFieldSplitIS(("u01", IS_u0), ("u1", IS_u1), ("l", IS_l), ('v', IS_v))
+                ksp_u.getPC().setFieldSplitIS(("u01", IS_u), ("l", IS_l), ('v', IS_v))
+                petsc_options = PETSc.Options()
+                petsc_options[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 100
+                for kopt, vopt in solver_params.LINESEARCH.items():
+                    petsc_options[kopt] = vopt
+
+                petsc_options['log_view'] = None
+
+                # petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+                # petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
+
+                ksp_u01, ksp_l, ksp_v = ksp_u.getPC().getFieldSplitSubKSP()
+
+                ksp_u.getPC().setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
+                # ksp_u.getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
+                # ksp_u.getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.DIAG)
+
+                ksp_u01.setType(PETSc.KSP.Type.FGMRES)
+                ksp_u01.getPC().setType(PETSc.PC.Type.ILU)
+                ksp_u01.setTolerances(rtol=1e-7, max_it=1000)
+                petsc_options[f"{ksp_u01.getOptionsPrefix()}pc_factor_levels"] = 0
+                petsc_options[f"{ksp_u01.getOptionsPrefix()}pc_factor_fill"] = 2.0
+
+                # ksp_u1.setType(PETSc.KSP.Type.FGMRES)
+                # ksp_u1.getPC().setType(PETSc.PC.Type.ILU)
+                # ksp_u1.setTolerances(rtol=1e-7, max_it=1000)
+                # petsc_options[f"{ksp_u1.getOptionsPrefix()}pc_factor_levels"] = 0
+                # petsc_options[f"{ksp_u1.getOptionsPrefix()}pc_factor_fill"] = 2.0
+
+                ksp_l.setType(PETSc.KSP.Type.PREONLY)
+                ksp_l.getPC().setType(PETSc.PC.Type.JACOBI)
+                ksp_l.setTolerances(rtol=1e-7, max_it=1000)
+
+                ksp_v.setType(PETSc.KSP.Type.CG)
+                ksp_v.getPC().setType(PETSc.PC.Type.JACOBI)
+                ksp_v.setTolerances(rtol=1e-7, max_it=1000)
+            else:
+                ksp_u.setType(PETSc.KSP.Type.FGMRES)
+                ksp_u.getPC().setType(PETSc.PC.Type.ILU)
+                ksp_u.setTolerances(rtol=1e-7, max_it=1000)
+                petsc_options[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
+                petsc_options[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
             ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(args.amg_type)
             ksp_c.setTolerances(rtol=1e-7, max_it=1000)
 
-            opts[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
-            opts[f"{ksp_c.getOptionsPrefix()}inner_ksp_type"] = "preonly"
-            opts[f"{ksp_c.getOptionsPrefix()}inner_pc_type"] = "ilu"
-            opts[f"{ksp_c.getOptionsPrefix()}inner_pc_factor_levels"] = 0
-            opts[f"{ksp_c.getOptionsPrefix()}inner_pc_factor_fill"] = 2.0
-            opts[f"{ksp_c.getOptionsPrefix()}upper_ksp_type"] = "preonly"
-            opts[f"{ksp_c.getOptionsPrefix()}upper_pc_type"] = "ilu"
-            opts[f"{ksp_c.getOptionsPrefix()}upper_pc_factor_levels"] = 0
-            opts[f"{ksp_c.getOptionsPrefix()}upper_pc_factor_fill"] = 2.0
+            petsc_options[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
+            petsc_options[f"{ksp_c.getOptionsPrefix()}inner_ksp_type"] = "preonly"
+            petsc_options[f"{ksp_c.getOptionsPrefix()}inner_pc_type"] = "ilu"
+            petsc_options[f"{ksp_c.getOptionsPrefix()}inner_pc_factor_levels"] = 0
+            petsc_options[f"{ksp_c.getOptionsPrefix()}inner_pc_factor_fill"] = 2.0
+            petsc_options[f"{ksp_c.getOptionsPrefix()}upper_ksp_type"] = "preonly"
+            petsc_options[f"{ksp_c.getOptionsPrefix()}upper_pc_type"] = "ilu"
+            petsc_options[f"{ksp_c.getOptionsPrefix()}upper_pc_factor_levels"] = 0
+            petsc_options[f"{ksp_c.getOptionsPrefix()}upper_pc_factor_fill"] = 2.0
 
             for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
-                opts[f"{ksp_c.getOptionsPrefix()}{optk}"] = optv
+                petsc_options[f"{ksp_c.getOptionsPrefix()}{optk}"] = optv
 
             ksp_u.setFromOptions()
             ksp_c.setFromOptions()
