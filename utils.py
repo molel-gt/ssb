@@ -110,3 +110,6 @@ def delete_numpy_rows(in_arr, to_delete):
         out_arr = np.delete(out_arr, idx, axis=0)
 
     return out_arr
+
+def starpad(text, n=90):
+    return text.center(n, "*")
