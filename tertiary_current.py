@@ -487,15 +487,14 @@ if __name__ == '__main__':
         F_1 += - v_1 * lmbda * ds_f(3)
         F_1a = (V_cell - u_1) * mu * ds_f(3)
         F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3) - 1e-8/h * (V_cell - u_1) * w * ds_f(3)
-        # F_1 += -(V_cell - u_1) * lmbda * ds_f(3)
 
     F_0 += F_00
     F_1 += F_11
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
     # F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_r), n_r) * q_r * dInterface
-    F_2 += -inner(grad(u_r), n_r) * q_r * dInterface
-    F_2 += alpha * h_r * inner(inner(-grad(u_r) + grad(c_r), n_r), inner(grad(q_r), n_r)) * dInterface
+    F_2 += -inner(1/2*grad(args.kr * u_l + u_r), n_r) * q_r * dInterface
+    F_2 += alpha * h_r * inner(inner(-1/2*grad(args.kr * u_l + u_r) + grad(c_r), n_r), inner(grad(q_r), n_r)) * dInterface
 
     u_left = fem.Function(V0)
     u_left.x.array[:] = 0/phi_ref
@@ -987,7 +986,6 @@ if __name__ == '__main__':
             if args.nested_fieldsplit:
                 ksp_u.setType(PETSc.KSP.Type.FGMRES)
                 ksp_u.getPC().setType("fieldsplit")
-                # ksp_u.getPC().setFieldSplitIS(("u01", IS_u0), ("u1", IS_u1), ("l", IS_l), ('v', IS_v))
                 ksp_u.getPC().setFieldSplitIS(("u01", IS_u), ("l", IS_l), ('v', IS_v))
                 petsc_options = PETSc.Options()
                 petsc_options[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 100
@@ -996,26 +994,20 @@ if __name__ == '__main__':
 
                 petsc_options['log_view'] = None
 
-                # petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
-                # petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
+                petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+                petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
 
                 ksp_u01, ksp_l, ksp_v = ksp_u.getPC().getFieldSplitSubKSP()
 
                 ksp_u.getPC().setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
-                # ksp_u.getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
-                # ksp_u.getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.DIAG)
+                ksp_u.getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
+                ksp_u.getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.DIAG)
 
                 ksp_u01.setType(PETSc.KSP.Type.FGMRES)
                 ksp_u01.getPC().setType(PETSc.PC.Type.ILU)
                 ksp_u01.setTolerances(rtol=1e-7, max_it=1000)
                 petsc_options[f"{ksp_u01.getOptionsPrefix()}pc_factor_levels"] = 0
                 petsc_options[f"{ksp_u01.getOptionsPrefix()}pc_factor_fill"] = 2.0
-
-                # ksp_u1.setType(PETSc.KSP.Type.FGMRES)
-                # ksp_u1.getPC().setType(PETSc.PC.Type.ILU)
-                # ksp_u1.setTolerances(rtol=1e-7, max_it=1000)
-                # petsc_options[f"{ksp_u1.getOptionsPrefix()}pc_factor_levels"] = 0
-                # petsc_options[f"{ksp_u1.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
                 ksp_l.setType(PETSc.KSP.Type.PREONLY)
                 ksp_l.getPC().setType(PETSc.PC.Type.JACOBI)
