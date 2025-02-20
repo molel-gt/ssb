@@ -37,10 +37,14 @@ if __name__ == '__main__':
     gmsh.model.add('ellipsoidals')
     gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
     # gmsh.option.setNumber('Geometry.ToleranceBoolean', 0.001)
-    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
-    gmsh.option.setNumber("Mesh.MinimumCirclePoints", 20)
-    gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', 15)
+    # gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
+    # gmsh.option.setNumber("Mesh.MinimumCirclePoints", 20)
+    # gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', 15)
     # gmsh.option.setNumber('Mesh.Algorithm', 6)
+    # gmsh.option.setNumber("Mesh.SmoothRatio", 3)
+    # gmsh.option.setNumber("Mesh.AnisoMax", 1000)
+    # gmsh.option.setNumber("Mesh.Algorithm", 7)
+
 
     box_am = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, (L_CELL - L_slab_am)/L_CELL, LX/L_CELL, LY/L_CELL, L_slab_am/L_CELL)
     ellipsoids = []
