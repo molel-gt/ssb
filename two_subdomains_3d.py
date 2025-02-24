@@ -11,20 +11,20 @@ import numpy as np
 import ufl
 import warnings
 
-import commons, configs, geometry, utils
+import commons, configs, utils
 
 warnings.simplefilter('ignore')
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
-    parser.add_argument("--name_of_study", help="name_of_study", nargs='?', const=1, default="lmb_planar")
+    parser.add_argument("-n", "--name_of_study", help="name_of_study", nargs='?', const=1, default="lmb_planar")
     parser.add_argument('--dimensions', help='integer representation of Lx-Ly-Lz of the grid',  nargs='?', const=1, default='150-40-40')
     parser.add_argument('--particle_radius', help='radius of particle in pixel units', nargs='?', const=1, default=10, type=float)
     parser.add_argument('--well_depth', help='depth of well in pixel units', nargs='?', const=1, default=20, type=float)
     parser.add_argument('--l_pos', help='thickness of positive electrode in pixel units', nargs='?', const=1, default=75, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='MICRON_TO_METER', type=str)
-    parser.add_argument('--resolution', help=f'max resolution resolution', nargs='?', const=1, default=1, type=float)
+    parser.add_argument("-r", '--resolution', help=f'max resolution resolution', nargs='?', const=1, default=1, type=float)
     parser.add_argument("--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
     micron = 1e-6
