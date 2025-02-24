@@ -486,7 +486,7 @@ if __name__ == '__main__':
     if args.cycle_mode == galvanostatic:
         F_1 += - v_1 * lmbda * ds_f(3)
         F_1a = (V_cell - u_1) * mu * ds_f(3)
-        F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3) - 1e-6/h * V_cell * w * ds_f(3)
+        F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3) #- 1e-6/h * V_cell * w * ds_f(3)
 
     F_0 += F_00
     F_1 += F_11
