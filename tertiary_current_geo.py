@@ -18,6 +18,7 @@ if __name__ == '__main__':
     parser.add_argument("-f", "--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("-hexahedron", "--hexahedron", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("-format", "--format", help="Mesh format", default="msh", nargs='?', const=1)
+    parser.add_argument("-min_elements_per_2pi", "--min_elements_per_2pi", help="minimum number of elements per two pi", default=-1, nargs='?', const=1, type=int)
     args = parser.parse_args()
 
     workdir = os.path.join("output", args.name_of_study, args.dimensions, str(args.resolution))
@@ -39,7 +40,8 @@ if __name__ == '__main__':
     # gmsh.option.setNumber('Geometry.ToleranceBoolean', 0.001)
     # gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
     # gmsh.option.setNumber("Mesh.MinimumCirclePoints", 20)
-    # gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', 15)
+    if args.min_elements_per_2pi > 0:
+        gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', args.min_elements_per_2pi)
     # gmsh.option.setNumber('Mesh.Algorithm', 6)
     # gmsh.option.setNumber("Mesh.SmoothRatio", 3)
     # gmsh.option.setNumber("Mesh.AnisoMax", 1000)
