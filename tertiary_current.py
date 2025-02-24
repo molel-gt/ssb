@@ -778,6 +778,8 @@ if __name__ == '__main__':
         petsc_options.clear()
 
         PETSc.Sys.Print("V_cell (initial guess) [V]:", f"{V_cell.x.array[0] * ref["phi"]:.3f}")
+        # scale down initial guess of cell voltage
+        V_cell.interpolate(lambda x: 0.75 * V_cell.x.array[0] + x[0] - x[0])
 
         PETSc.Sys.Print(f"Finished computation of initial (t = 0) potential distribution!\nn_dofs: {n_dofs_t0:,}\nsolve time: {t1 - t0:.3f}s")
         PETSc.Sys.Print("************Solve for Improved Guess for Concentration Distribution*******************")
