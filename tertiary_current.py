@@ -393,7 +393,7 @@ if __name__ == '__main__':
     n_1 = ufl.FacetNormal(submesh_positive_am)
     n_l = n(l_res)
     n_r = n(r_res)
-    cd = ufl.CellDiameter(domain)
+    cd = ufl.Circumradius(domain)
     h_1 = ufl.CellDiameter(submesh_positive_am)
     h_l = cd(l_res)
     h_r = cd(r_res)
@@ -1098,6 +1098,7 @@ if __name__ == '__main__':
         PETSc.Sys.Print("Interface current (using electrolyte potential)     [A]  :", I_interface_l)
         PETSc.Sys.Print("Interface current (using lithium surface reaction)  [A]  :", I_interface)
         PETSc.Sys.Print("Interface current (using active material potential) [A]  :", I_interface_r)
+
         u_avg_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_1 * ds(markers.right),
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
         u_avg_right = u_avg_right_tilde * phi_ref * L_ref ** 2 / A_right
@@ -1150,6 +1151,8 @@ if __name__ == '__main__':
         "I interface [A]": I_interface,
         "I right [A]": I_right,
         "I (target) right [A]": I_tot_,
+        "I interface (electrolyte potential) [A]": I_interface_l,
+        "I interface (active material potential) [A]": I_interface_r,
         "C-rate": args.C_rate,
         "u (avg) right [V]": u_avg_right,
         "u (stdev) right [v]": u_stdev_right,
