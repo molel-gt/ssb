@@ -393,10 +393,10 @@ if __name__ == '__main__':
     n_1 = ufl.FacetNormal(submesh_positive_am)
     n_l = n(l_res)
     n_r = n(r_res)
-    cd = ufl.Circumradius(domain)
+    h = ufl.CellDiameter(domain)
     h_1 = ufl.CellDiameter(submesh_positive_am)
-    h_l = cd(l_res)
-    h_r = cd(r_res)
+    h_l = h(l_res)
+    h_r = h(r_res)
 
     # concentration problem
     dt = fem.Constant(submesh_positive_am, args.dt)
@@ -459,7 +459,13 @@ if __name__ == '__main__':
     PETSc.Sys.Print("SE/AM area to volume ratio            :", f"{A_se_am_to_vol_am:,.0f}")
 
     R_right = scifem.create_real_functionspace(submesh_facets_right)
-    el_V_r = basix.ufl.element(basix.ElementFamily.P, basix.CellType.triangle, args.p_potential, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
+    if args.cell_type == "tetrahedron":
+        _2d_shape = basix.CellType.triangle
+    elif args.cell_type == "hexahedron":
+        _2d_shape = basix.CellType.quadrilateral
+    else:
+        raise ValueError("Unknown cell type")
+    el_V_r = basix.ufl.element(basix.ElementFamily.P, _2d_shape, args.p_potential, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
     V_r = fem.functionspace(submesh_facets_right, el_V_r)
     lmbda, mu = fem.Function(V_r), ufl.TestFunction(V_r)
 
