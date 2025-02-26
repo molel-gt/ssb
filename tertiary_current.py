@@ -1188,7 +1188,7 @@ if __name__ == '__main__':
         "Thiele modulus": thiele,
         "Diffusivity [m2/s]": args.D,
         "Kr": args.kr,
-        "concentration field polynomial approximation order (p)": args.p_concentration,
+        "concentration field polynomial degree (p)": args.p_concentration,
         "SE potential field polynomial degree (p)": args.p_u0,
         "AM potential field polynomial degree (p)": args.p_u1,
         "penalty parameter (gamma)": args.gamma,
