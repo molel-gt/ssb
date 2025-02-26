@@ -171,7 +171,8 @@ if __name__ == '__main__':
     parser.add_argument("--kr", help="ratio of ionic to electronic conductivity", nargs='?', const=1, default=1, type=float)
     parser.add_argument("--gamma", help="interior penalty parameter", nargs='?', const=1, default=15, type=float)
     parser.add_argument("-p_c", "--p_concentration", help="polynomial approximation order for concentration field", nargs='?', const=1, default=4, type=int)
-    parser.add_argument("-p_u", "--p_potential", help="polynomial approximation order for potential field", nargs='?', const=1, default=2, type=int)
+    parser.add_argument("-p_u0", "--p_u0", help="polynomial approximation order for potential field in SE", nargs='?', const=1, default=2, type=int)
+    parser.add_argument("-p_u1", "--p_u1", help="polynomial approximation order for potential field in AM", nargs='?', const=1, default=1, type=int)
     parser.add_argument("-cell_type", "--cell_type", help="cell type to use", nargs='?', const=1, default="tetrahedron", type=str)
     parser.add_argument("-dt", "--dt", help="minimum normalized time step", nargs='?', const=1, default=2e-7, type=float)
     parser.add_argument("-sim_time", "--sim_time", help="simulation time in seconds", nargs='?', const=1, default=15, type=float)
@@ -254,7 +255,7 @@ if __name__ == '__main__':
     soc_init = 0.75 * c_max / c_ref
 
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
-    results_dir = os.path.join(args.mesh_folder, args.cycle_mode, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), f'{args.C_rate}C',f'{args.p_potential}-{args.p_concentration}', str(args.gamma), str(comm.Get_size()))
+    results_dir = os.path.join(args.mesh_folder, args.cycle_mode, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), f'{args.C_rate}C',f'{args.p_u0}-{args.p_u1}-{args.p_concentration}', str(args.gamma), str(comm.Get_size()))
     utils.make_dir_if_missing(results_dir)
     output_potential_file = os.path.join(results_dir, "potential.bp")
     elec_potential_file = os.path.join(results_dir, "electrolyte_potential.bp")
@@ -331,8 +332,8 @@ if __name__ == '__main__':
 
     entity_maps = {submesh_electrolyte: parent_to_sub_electrolyte, submesh_positive_am: parent_to_sub_positive_am}
 
-    u_0, F_00, m_to_elec = define_interior_eq(domain, 2, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec, cell_type)
-    u_1, F_11, m_to_pos_am = define_interior_eq(domain, args.p_potential, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am, cell_type)
+    u_0, F_00, m_to_elec = define_interior_eq(domain, args.p_u0, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec, cell_type)
+    u_1, F_11, m_to_pos_am = define_interior_eq(domain, args.p_u1, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am, cell_type)
     u_0.name = "u_b"
     u_1.name = "u_t"
 
@@ -465,7 +466,7 @@ if __name__ == '__main__':
         _2d_shape = basix.CellType.quadrilateral
     else:
         raise ValueError("Unknown cell type")
-    el_V_r = basix.ufl.element(basix.ElementFamily.P, _2d_shape, args.p_potential, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
+    el_V_r = basix.ufl.element(basix.ElementFamily.P, _2d_shape, args.p_u1, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
     V_r = fem.functionspace(submesh_facets_right, el_V_r)
     lmbda, mu = fem.Function(V_r), ufl.TestFunction(V_r)
 
