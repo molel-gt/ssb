@@ -1105,7 +1105,7 @@ if __name__ == '__main__':
                 entity_maps=entity_maps)), op=MPI.SUM)
 
         I_interface_error = comm.allreduce(fem.assemble_scalar(fem.form(
-                        phi_ref * L_ref ** (k) * np.abs(inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), n_l)) * dInterface,
+                        phi_ref * L_ref ** (k) * np.abs(inner(kappa_elec * grad(u_l), n_l) + inner(kappa_pos_am * grad(u_r), n_r)) * dInterface,
                         entity_maps=entity_maps)), op=MPI.SUM)
 
         PETSc.Sys.Print("Interface current (using electrolyte potential)     [A]  :", I_interface_l)
@@ -1167,6 +1167,7 @@ if __name__ == '__main__':
         "I (target) right [A]": I_tot_,
         "I interface (electrolyte potential) [A]": I_interface_l,
         "I interface (active material potential) [A]": I_interface_r,
+        "I_interface error (potential) [A]": I_interface_error,
         "C-rate": args.C_rate,
         "u (avg) right [V]": u_avg_right,
         "u (stdev) right [v]": u_stdev_right,
