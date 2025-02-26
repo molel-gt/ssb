@@ -42,7 +42,7 @@ if __name__ == '__main__':
     if args.hexahedron:
         gmsh.option.setNumber('Mesh.SubdivisionAlgorithm', 2)
     if args.min_elements_per_2pi > 0:
-        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", args.resolution/10)
+        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0.001)
         gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', args.min_elements_per_2pi)
     # gmsh.option.setNumber('Mesh.Algorithm', 6)
     gmsh.option.setNumber("Mesh.SmoothRatio", 10)
