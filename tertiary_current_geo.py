@@ -42,10 +42,10 @@ if __name__ == '__main__':
     if args.hexahedron:
         gmsh.option.setNumber('Mesh.SubdivisionAlgorithm', 2)
     if args.min_elements_per_2pi > 0:
-        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0.001)
-        gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', args.min_elements_per_2pi)
+        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 20.0)
+        # gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', args.min_elements_per_2pi)
     # gmsh.option.setNumber('Mesh.Algorithm', 6)
-    gmsh.option.setNumber("Mesh.SmoothRatio", 10)
+    # gmsh.option.setNumber("Mesh.SmoothRatio", 10)
     # gmsh.option.setNumber("Mesh.AnisoMax", 1000)
     # gmsh.option.setNumber("Mesh.Algorithm", 10)
 
@@ -74,6 +74,8 @@ if __name__ == '__main__':
     box_se = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, 0, LX/L_CELL, LY/L_CELL, 1)
     gmsh.model.occ.synchronize()
     res = gmsh.model.occ.cut([(3, box_se)], vols, removeTool=False)
+    gmsh.model.occ.synchronize()
+    gmsh.model.mesh.removeDuplicateElements()
     gmsh.model.occ.synchronize()
     vols = gmsh.model.getEntities(3)
     gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.electrolyte, "electrolyte")
