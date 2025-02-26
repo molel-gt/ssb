@@ -476,18 +476,25 @@ if __name__ == '__main__':
     h = ufl.CellDiameter(submesh_facets_right)
     gamma = fem.Constant(domain, PETSc.ScalarType(args.gamma))
     alpha = 1e-6 # preturbation penalty
+    V_kappa = fem.functionspace(domain, ("DG", 0))
+    kappa = fem.Function(V_kappa)
+    kappa.interpolate(lambda x: kappa_pos_am * args.kr + x[0] - [0], cells1=submesh_electrolyte_to_mesh, cells0=np.arange(len(submesh_electrolyte_to_mesh)))
+    kappa.interpolate(lambda x: kappa_pos_am + x[0] - [0], cells1=submesh_positive_am_to_mesh, cells0=np.arange(len(submesh_positive_am_to_mesh)))
+    kappa.x.scatter_forward()
+    kappa_l = kappa(l_res)
+    kappa_r = kappa(r_res)
 
     F_0 = (
-        - 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
-        - 0.5 * mixed_term(kappa_elec * v_l, (u_r - u_l - jump_u), n_l) * dInterface
+        - 0.5 * mixed_term(kappa_l * u_l + kappa_r * u_r, v_l, n_l) * dInterface
+        - 0.5 * mixed_term(kappa_l * v_l, (u_r - u_l - jump_u), n_l) * dInterface
     )
 
     F_1 = (
-        + 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, n_l) * dInterface
-        - 0.5 * mixed_term(kappa_pos_am * v_r, (u_r - u_l - jump_u), n_l) * dInterface
+        + 0.5 * mixed_term(kappa_l * u_l + kappa_r * u_r, v_r, n_l) * dInterface
+        - 0.5 * mixed_term(kappa_r * v_r, (u_r - u_l - jump_u), n_l) * dInterface
     )
-    F_0 += -2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
-    F_1 += +2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_r * dInterface
+    F_0 += -2 * gamma / (h_l + h_r) * 0.5 * ufl.avg(kappa) * (u_r - u_l - jump_u) * v_l * dInterface
+    F_1 += +2 * gamma / (h_l + h_r) * 0.5 * ufl.avg(kappa) * (u_r - u_l - jump_u) * v_r * dInterface
 
     if args.cycle_mode == galvanostatic:
         F_1 += - v_1 * lmbda * ds_f(3)
@@ -702,7 +709,7 @@ if __name__ == '__main__':
         Fvec2d = fem.petsc.create_vector_block(F2D)
         snes = PETSc.SNES().create(comm)
         snes.setType('newtonls')
-        snes.setTolerances(rtol=1e-7, max_it=200)
+        snes.setTolerances(rtol=1e-4, max_it=200)
         snes.setMonitor(lambda _, it, residual: PETSc.Sys.Print("it:", it, "res:", residual))
 
         # set preconditioners
@@ -785,7 +792,7 @@ if __name__ == '__main__':
 
         PETSc.Sys.Print("V_cell (initial guess) [V]:", f"{V_cell.x.array[0] * ref["phi"]:.3f}")
         # scale down initial guess of cell voltage
-        V_cell.interpolate(lambda x: 0.75 * V_cell.x.array[0] + x[0] - x[0])
+        # V_cell.interpolate(lambda x: 0.75 * V_cell.x.array[0] + x[0] - x[0])
 
         PETSc.Sys.Print(f"Finished computation of initial (t = 0) potential distribution!\nn_dofs: {n_dofs_t0:,}\nsolve time: {t1 - t0:.3f}s")
         PETSc.Sys.Print("************Solve for Improved Guess for Concentration Distribution*******************")
@@ -1086,26 +1093,31 @@ if __name__ == '__main__':
         cvtx.write(t)
         k = tdim - 2
         I_left = comm.allreduce(fem.assemble_scalar(fem.form(
-                                inner(kappa_elec * phi_ref * L_ref ** (k) * grad(u_0), n) * ds(markers.left),
+                                inner(kappa * phi_ref * L_ref ** (k) * grad(u_0), n) * ds(markers.left),
                                 entity_maps=entity_maps)), op=MPI.SUM)
         I_right = comm.allreduce(fem.assemble_scalar(fem.form(
-                                inner(kappa_pos_am * phi_ref * L_ref ** (k) * grad(u_1), n) * ds(markers.right),
+                                inner(kappa * phi_ref * L_ref ** (k) * grad(u_1), n) * ds(markers.right),
                                 entity_maps=entity_maps)), op=MPI.SUM)
         I_interface = comm.allreduce(fem.assemble_scalar(fem.form(
                                 inner(faraday_const * D * c_ref * L_ref ** (k) * grad(c(r_res)), n_r) * dInterface,
                                 entity_maps=entity_maps)), op=MPI.SUM)
 
         I_interface_l = comm.allreduce(fem.assemble_scalar(fem.form(
-                        inner(kappa_elec * phi_ref * L_ref ** (k) * grad(u_l), n_l) * dInterface,
+                        inner(kappa_l * phi_ref * L_ref ** (k) * grad(u_l), n_l) * dInterface,
                         entity_maps=entity_maps)), op=MPI.SUM)
 
         I_interface_r = comm.allreduce(fem.assemble_scalar(fem.form(
-                inner(kappa_pos_am * phi_ref * L_ref ** (k) * grad(u_r), n_r) * dInterface,
+                inner(kappa_r * phi_ref * L_ref ** (k) * grad(u_r), n_r) * dInterface,
                 entity_maps=entity_maps)), op=MPI.SUM)
+
+        I_interface_error = comm.allreduce(fem.assemble_scalar(fem.form(
+                        phi_ref * L_ref ** (k) * np.abs(inner(kappa_l * grad(u_l) - kappa_r * grad(u_r), n_l)) * dInterface,
+                        entity_maps=entity_maps)), op=MPI.SUM)
 
         PETSc.Sys.Print("Interface current (using electrolyte potential)     [A]  :", I_interface_l)
         PETSc.Sys.Print("Interface current (using lithium surface reaction)  [A]  :", I_interface)
         PETSc.Sys.Print("Interface current (using active material potential) [A]  :", I_interface_r)
+        PETSc.Sys.Print("I_interface error (potential)                       [A]  :", I_interface_error)
 
         u_avg_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_1 * ds(markers.right),
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
