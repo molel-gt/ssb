@@ -152,6 +152,12 @@ if __name__ == '__main__':
     entity_maps = {submesh_electrolyte: parent_to_sub_electrolyte, submesh_positive_am: parent_to_sub_positive_am}
 
     # facets submesh
+    submesh_facets, submesh_facets_to_mesh = mesh.create_submesh(
+    domain, fdim, ft.indices)[:2]
+    parent_to_facets = np.full(num_facets_local, -1, dtype=np.int32)
+    parent_to_facets[submesh_facets_to_mesh] = np.arange(len(submesh_facets_to_mesh), dtype=np.int32)
+    entity_maps[submesh_facets] = parent_to_facets
+
     submesh_facets_se, submesh_facets_se_to_mesh = mesh.create_submesh(
         domain, fdim, ft_electrolyte.indices)[:2]
     parent_to_facets_se = np.full(num_facets_local, -1, dtype=np.int32)
@@ -166,16 +172,20 @@ if __name__ == '__main__':
 
     # function spaces
     k = 2
+    V = fem.functionspace(domain, ("DG", k))
+    Vbar = fem.functionspace(submesh_facets, ("DG", k))
     V0 = fem.functionspace(submesh_electrolyte, ("DG", k))
     V0bar = fem.functionspace(submesh_facets_se, ("DG", k))
     V1 = fem.functionspace(submesh_positive_am, ("DG", k))
     V1bar = fem.functionspace(submesh_facets_se, ("DG", k))
 
     # Cell space
+    u, v = fem.Function(V), ufl.TestFunction(V)
     u0, v0 = fem.Function(V0), ufl.TestFunction(V0)
     u1, v1 = fem.Function(V1), ufl.TestFunction(V1)
 
     # Facet space
+    ubar, vbar = fem.Function(Vbar), ufl.TestFunction(Vbar)
     u0bar, v0bar = fem.Function(V0bar), ufl.TestFunction(V0bar)
     u1bar, v1bar = fem.Function(V1bar), ufl.TestFunction(V1bar)
 
@@ -218,14 +228,24 @@ if __name__ == '__main__':
     # gamma = 10
     h_avg = avg(h)
     u_ocv = 0
+    kappa_elec = 0.1
+    kappa_pos_am = 0.1
 
-    F0 = kappa * inner(grad(u), grad(v)) * dx_c
-    F0 += - kappa * inner(u - ubar, inner(grad(v), n)) * ds_c(1)
-    F0 += + kappa * inner(grad(u), n) * v * ds_c(1)
-    F0 += + gamma * kappa * inner(u - ubar, v) * ds_c(1)
+    F0a = kappa * inner(grad(u), grad(v)) * dx_c
+    F0a += - kappa * inner(u - ubar, inner(grad(v), n)) * ds_c(1)
+    F0a += + kappa * inner(grad(u), n) * v * ds_c(1)
+    F0a += + gamma * kappa * inner(u - ubar, v) * ds_c(1)
 
-    F1 = kappa * inner(grad(u), n) * vbar * ds_c(1)
-    F1 += - gamma * kappa * inner(u - ubar, vbar) * ds_c(1)
+    F0b = kappa * inner(grad(u), n) * vbar * ds_c(1)
+    F0b += - gamma * kappa * inner(u - ubar, vbar) * ds_c(1)
+
+    # F1a = kappa_pos_am * inner(grad(u1), grad(v1)) * dx_c
+    # F1a += - kappa_pos_am * inner(u1 - u1bar, inner(grad(v1), n)) * ds_c(1)
+    # F1a += + kappa_pos_am * inner(grad(u1), n) * v1 * ds_c(1)
+    # F1a += + gamma * kappa_pos_am * inner(u1 - u1bar, v1) * ds_c(1)
+
+    # F1b = kappa_elec * inner(grad(u1), n) * v1bar * ds_c(1)
+    # F1b += - gamma * kappa_pos_am * inner(u1 - u1bar, v1bar) * ds_c(1)
 
     # F_2a = (c - c0)/dt * q * dx_r + inner(grad(c), grad(q)) * dx_r
     # F_2a += - inner(c - cbar, inner(grad(q), n_c)) * ds_c(99)
