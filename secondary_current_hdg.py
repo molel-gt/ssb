@@ -324,11 +324,11 @@ if __name__ == '__main__':
     F1b += - gamma_p * kappa_p * inner(up - upbar, vpbar) * dsp(1)
 
     # add charge transfer coupling terms
-    # F0a += - 0.5 * inner(kappa_e * grad(ve), ne) * (up - ue - u_step) * dSx
-    # F0b += - gamma / 0.5 / (he + hp) * (up - ue - u_step) * vebar * dSx
+    F0a += - 0.5 * inner(kappa_e * grad(ve), ne) * (up - ue - u_step) * dse(2)
+    F0b += - gamma_e / 0.5 / (he + hp) * (up - ue - u_step) * vebar * dse(2)
 
-    # F1a += - 0.5 * inner(kappa_p * grad(vp), ne) * (up - ue - u_step) * dSx
-    # F1b += + gamma / 0.5 / (he + hp) * (up - ue - u_step) * vpbar * dSx
+    F1a += - 0.5 * inner(kappa_p * grad(vp), ne) * (up - ue - u_step) * dsp(2)
+    F1b += + gamma_p / 0.5 / (he + hp) * (up - ue - u_step) * vpbar * dsp(2)
 
     jac00 = ufl.derivative(F0a, ue)
     jac01 = ufl.derivative(F0a, uebar)
