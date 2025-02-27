@@ -100,7 +100,10 @@ def mixed_term(u, v, n):
 
 
 def surface_overpotential(kappa, u, n, i0, kinetics_type='linear', ref={"L": 1, "phi": 1, "t": 1, "c": 1}):
-    i_loc = -inner((kappa * grad(u)), n) * ref["phi"]/ref["L"]
+    if isinstance(kappa, list):
+        i_loc = 0.5 * ref["phi"] / ref["L"] * (kappa[0] * inner(grad(u[0]), n[0]) + kappa[1] * inner(grad(u[1]), n[1]))
+    else:
+        i_loc = -inner((kappa * grad(u)), n) * ref["phi"] / ref["L"]
     if kinetics_type == "butler_volmer":
         return 2 * ufl.ln(0.5 * i_loc/i0 + ufl.sqrt((0.5 * i_loc/i0)**2 + 1)) * (R * T / (faraday_const * ref["phi"]))
     elif kinetics_type == "linear":
@@ -415,7 +418,7 @@ if __name__ == '__main__':
     q_l = ufl.TestFunction(c.function_space)(l_res)
     c_r = c(r_res)
 
-    jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) + ocv_chen2020(c(r_res), cmax=c_max/c_ref)/phi_ref
+    jump_u = surface_overpotential([kappa_elec, kappa_pos_am], [u_l, u_r], [n_l, n_r], i0_p, kinetics_type=args.kinetics, ref=ref) + ocv_chen2020(c(r_res), cmax=c_max/c_ref)/phi_ref
 
     # for galvanostatic mode
     # left facets submesh
@@ -1107,11 +1110,6 @@ if __name__ == '__main__':
         I_interface_error = comm.allreduce(fem.assemble_scalar(fem.form(
                         phi_ref * L_ref ** (k) * np.abs(inner(kappa_elec * grad(u_l), n_l) + inner(kappa_pos_am * grad(u_r), n_r)) * dInterface,
                         entity_maps=entity_maps)), op=MPI.SUM)
-
-        PETSc.Sys.Print("Interface current (using electrolyte potential)     [A]  :", I_interface_l)
-        PETSc.Sys.Print("Interface current (using lithium surface reaction)  [A]  :", I_interface)
-        PETSc.Sys.Print("Interface current (using active material potential) [A]  :", I_interface_r)
-        PETSc.Sys.Print("I_interface error (potential)                       [A]  :", I_interface_error)
 
         u_avg_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_1 * ds(markers.right),
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
