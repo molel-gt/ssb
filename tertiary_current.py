@@ -163,6 +163,16 @@ def get_eigenvalues(M):
             Print( "No eigenpairs converged" )
 
 
+def IS_chainsum(IS_main, parts):
+    if len(parts) == 0:
+        return IS_main
+
+    if len(parts) == 1:
+        return IS_main.sum(parts[0])
+
+    return IS_chainsum(IS_main.sum(parts[0]), parts[1:])
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='secondary current distribution')
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
@@ -723,36 +733,35 @@ if __name__ == '__main__':
             IS_u = IS_u0.sum(IS_u1)
             IS_lv = IS_l.sum(IS_v)
             IS_u1lv = IS_u1.sum(IS_lv)
+            IS_ur = IS_chainsum(IS_u1, [IS_l, IS_v])
 
             snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
             snes.getKSP().getPC().setType("fieldsplit")
-            snes.getKSP().getPC().setFieldSplitIS(("u01", IS_u), ("l", IS_l), ('v', IS_v))
+            snes.getKSP().getPC().setFieldSplitIS(("ul", IS_u0), ("ur", IS_ur))
             petsc_options = PETSc.Options()
             petsc_options[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
             for kopt, vopt in solver_params.LINESEARCH.items():
                 petsc_options[kopt] = vopt
 
-            petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+            # petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
             petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
 
-            ksp_u01, ksp_l, ksp_v = snes.getKSP().getPC().getFieldSplitSubKSP()
-            snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
+            ksp_ul, ksp_ur = snes.getKSP().getPC().getFieldSplitSubKSP()
+            # snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.ADDITIVE)
             snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
-            ksp_u01.setType(PETSc.KSP.Type.FGMRES)
-            ksp_u01.getPC().setType(PETSc.PC.Type.ILU)
-            ksp_u01.setTolerances(rtol=1e-7, max_it=1000)
-            petsc_options[f"{ksp_u01.getOptionsPrefix()}pc_factor_levels"] = 0
-            petsc_options[f"{ksp_u01.getOptionsPrefix()}pc_factor_fill"] = 2.0
+            ksp_ul.setType(PETSc.KSP.Type.CG)
+            ksp_ul.getPC().setType(PETSc.PC.Type.ILU)
+            ksp_ul.setTolerances(rtol=1e-7, max_it=1000)
+            petsc_options[f"{ksp_ul.getOptionsPrefix()}pc_factor_levels"] = 0
+            petsc_options[f"{ksp_ul.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
-            ksp_l.setType(PETSc.KSP.Type.PREONLY)
-            ksp_l.getPC().setType(PETSc.PC.Type.JACOBI)
-            ksp_l.setTolerances(rtol=1e-7, max_it=1000)
-
-            ksp_v.setType(PETSc.KSP.Type.CG)
-            ksp_v.getPC().setType(PETSc.PC.Type.JACOBI)
-            ksp_v.setTolerances(rtol=1e-7, max_it=1000)
+            ksp_ur.setType(PETSc.KSP.Type.PREONLY)
+            ksp_ur.getPC().setType(PETSc.PC.Type.ILU)
+            ksp_ur.setTolerances(rtol=1e-7, max_it=1000)
+            petsc_options[f"{ksp_ur.getOptionsPrefix()}pc_factor_levels"] = 0
+            petsc_options[f"{ksp_ur.getOptionsPrefix()}pc_factor_fill"] = 2.0
         else:
             snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
             snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
