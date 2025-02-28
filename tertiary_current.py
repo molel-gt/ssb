@@ -101,7 +101,7 @@ def mixed_term(u, v, n):
 
 def surface_overpotential(kappa, u, n, i0, kinetics_type='linear', ref={"L": 1, "phi": 1, "t": 1, "c": 1}):
     if isinstance(kappa, list):
-        i_loc = 0.5 * ref["phi"] / ref["L"] * (kappa[0] * inner(grad(u[0]), n[0]) + kappa[1] * inner(grad(u[1]), n[1]))
+        i_loc = -0.5 * ref["phi"] / ref["L"] * (kappa[0] * inner(grad(u[0]), n[1]) + kappa[1] * inner(grad(u[1]), n[1]))
     else:
         i_loc = -inner((kappa * grad(u)), n) * ref["phi"] / ref["L"]
     if kinetics_type == "butler_volmer":
@@ -283,6 +283,8 @@ if __name__ == '__main__':
     domain.topology.create_connectivity(tdim, tdim)
     domain.topology.create_connectivity(fdim, fdim)
 
+    ct_imap = domain.topology.index_map(tdim)
+    num_entities_local = ct_imap.size_local + ct_imap.num_ghosts
     # tag internal facets as 0
     ft_imap = domain.topology.index_map(fdim)
     num_facets_local = ft_imap.size_local + ft_imap.num_ghosts
@@ -312,9 +314,9 @@ if __name__ == '__main__':
     submesh_positive_am, submesh_positive_am_to_mesh, t_v_map = mesh.create_submesh(
         domain, tdim, ct.find(markers.positive_am)
     )[0:3]
-    parent_to_sub_electrolyte = np.full(num_facets_local, -1, dtype=np.int32)
+    parent_to_sub_electrolyte = np.full(num_entities_local, -1, dtype=np.int32)
     parent_to_sub_electrolyte[submesh_electrolyte_to_mesh] = np.arange(len(submesh_electrolyte_to_mesh), dtype=np.int32)
-    parent_to_sub_positive_am = np.full(num_facets_local, -1, dtype=np.int32)
+    parent_to_sub_positive_am = np.full(num_entities_local, -1, dtype=np.int32)
     parent_to_sub_positive_am[submesh_positive_am_to_mesh] = np.arange(len(submesh_positive_am_to_mesh), dtype=np.int32)
 
     ft_electrolyte = mesh_utils.transfer_meshtags(domain, submesh_electrolyte, submesh_electrolyte_to_mesh, ft)
