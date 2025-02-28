@@ -420,7 +420,7 @@ if __name__ == '__main__':
     q_l = ufl.TestFunction(c.function_space)(l_res)
     c_r = c(r_res)
 
-    jump_u = surface_overpotential([kappa_elec, kappa_pos_am], [u_l, u_r], [n_l, n_r], i0_p, kinetics_type=args.kinetics, ref=ref) + ocv_chen2020(c(r_res), cmax=c_max/c_ref)/phi_ref
+    jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) + ocv_chen2020(c(r_res), cmax=c_max/c_ref)/phi_ref
 
     # for galvanostatic mode
     # left facets submesh
@@ -505,7 +505,7 @@ if __name__ == '__main__':
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
     # F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_r), n_r) * q_r * dInterface
-    F_2 += - inner(1/2 * grad(args.kr * u_l + u_r), n_r) * q_r * dInterface
+    F_2 += - inner(grad(u_r), n_r) * q_r * dInterface
     # F_2 += alpha * h_r * inner(inner(1/2 * grad(args.kr * u_l + u_r) - grad(c_r), n_r), inner(grad(q_r), n_r)) * dInterface
 
     u_left = fem.Function(V0)
