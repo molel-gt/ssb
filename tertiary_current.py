@@ -990,47 +990,11 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.SCHUR)
             snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
-
-            # add fieldsplit branch to ksp_u
-            if args.nested_fieldsplit:
-                ksp_u.setType(PETSc.KSP.Type.FGMRES)
-                ksp_u.getPC().setType("fieldsplit")
-                ksp_u.getPC().setFieldSplitIS(("u01", IS_u), ("l", IS_l), ('v', IS_v))
-                petsc_options = PETSc.Options()
-                petsc_options[f'{ksp_u.getOptionsPrefix()}ksp_gmres_restart'] = 100
-                for kopt, vopt in solver_params.LINESEARCH.items():
-                    petsc_options[kopt] = vopt
-
-                petsc_options['log_view'] = None
-
-                petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
-                petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
-
-                ksp_u01, ksp_l, ksp_v = ksp_u.getPC().getFieldSplitSubKSP()
-
-                ksp_u.getPC().setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
-                ksp_u.getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
-                ksp_u.getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.DIAG)
-
-                ksp_u01.setType(PETSc.KSP.Type.FGMRES)
-                ksp_u01.getPC().setType(PETSc.PC.Type.ILU)
-                ksp_u01.setTolerances(rtol=1e-7, max_it=1000)
-                petsc_options[f"{ksp_u01.getOptionsPrefix()}pc_factor_levels"] = 0
-                petsc_options[f"{ksp_u01.getOptionsPrefix()}pc_factor_fill"] = 2.0
-
-                ksp_l.setType(PETSc.KSP.Type.PREONLY)
-                ksp_l.getPC().setType(PETSc.PC.Type.JACOBI)
-                ksp_l.setTolerances(rtol=1e-7, max_it=1000)
-
-                ksp_v.setType(PETSc.KSP.Type.CG)
-                ksp_v.getPC().setType(PETSc.PC.Type.JACOBI)
-                ksp_v.setTolerances(rtol=1e-7, max_it=1000)
-            else:
-                ksp_u.setType(PETSc.KSP.Type.FGMRES)
-                ksp_u.getPC().setType(PETSc.PC.Type.ILU)
-                ksp_u.setTolerances(rtol=1e-7, max_it=1000)
-                petsc_options[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
-                petsc_options[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
+            ksp_u.setType(PETSc.KSP.Type.FGMRES)
+            ksp_u.getPC().setType(PETSc.PC.Type.ILU)
+            ksp_u.setTolerances(rtol=1e-7, max_it=1000)
+            petsc_options[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
+            petsc_options[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
             ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(args.amg_type)
