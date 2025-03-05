@@ -100,7 +100,10 @@ def mixed_term(u, v, n):
 
 
 def surface_overpotential(kappa, u, n, i0, kinetics_type='linear', ref={"L": 1, "phi": 1, "t": 1, "c": 1}):
-    i_loc = -inner((kappa * grad(u)), n) * ref["phi"]/ref["L"]
+    if isinstance(kappa, list):
+        i_loc = -0.5 * ref["phi"] / ref["L"] * (kappa[0] * inner(grad(u[0]), n[1]) + kappa[1] * inner(grad(u[1]), n[1]))
+    else:
+        i_loc = -inner((kappa * grad(u)), n) * ref["phi"] / ref["L"]
     if kinetics_type == "butler_volmer":
         return 2 * ufl.ln(0.5 * i_loc/i0 + ufl.sqrt((0.5 * i_loc/i0)**2 + 1)) * (R * T / (faraday_const * ref["phi"]))
     elif kinetics_type == "linear":
@@ -158,6 +161,16 @@ def get_eigenvalues(M):
             E.errorView(viewer=vw)
         else:
             Print( "No eigenpairs converged" )
+
+
+def IS_chainsum(IS_main, parts):
+    if len(parts) == 0:
+        return IS_main
+
+    if len(parts) == 1:
+        return IS_main.sum(parts[0])
+
+    return IS_chainsum(IS_main.sum(parts[0]), parts[1:])
 
 
 if __name__ == '__main__':
@@ -280,6 +293,8 @@ if __name__ == '__main__':
     domain.topology.create_connectivity(tdim, tdim)
     domain.topology.create_connectivity(fdim, fdim)
 
+    ct_imap = domain.topology.index_map(tdim)
+    num_entities_local = ct_imap.size_local + ct_imap.num_ghosts
     # tag internal facets as 0
     ft_imap = domain.topology.index_map(fdim)
     num_facets_local = ft_imap.size_local + ft_imap.num_ghosts
@@ -309,9 +324,9 @@ if __name__ == '__main__':
     submesh_positive_am, submesh_positive_am_to_mesh, t_v_map = mesh.create_submesh(
         domain, tdim, ct.find(markers.positive_am)
     )[0:3]
-    parent_to_sub_electrolyte = np.full(num_facets_local, -1, dtype=np.int32)
+    parent_to_sub_electrolyte = np.full(num_entities_local, -1, dtype=np.int32)
     parent_to_sub_electrolyte[submesh_electrolyte_to_mesh] = np.arange(len(submesh_electrolyte_to_mesh), dtype=np.int32)
-    parent_to_sub_positive_am = np.full(num_facets_local, -1, dtype=np.int32)
+    parent_to_sub_positive_am = np.full(num_entities_local, -1, dtype=np.int32)
     parent_to_sub_positive_am[submesh_positive_am_to_mesh] = np.arange(len(submesh_positive_am_to_mesh), dtype=np.int32)
 
     ft_electrolyte = mesh_utils.transfer_meshtags(domain, submesh_electrolyte, submesh_electrolyte_to_mesh, ft)
@@ -493,15 +508,15 @@ if __name__ == '__main__':
     if args.cycle_mode == galvanostatic:
         F_1 += - v_1 * lmbda * ds_f(3)
         F_1a = (V_cell - u_1) * mu * ds_f(3)
-        F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3) #- 1e-6/h * V_cell * w * ds_f(3)
+        F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3) - 1e-6/h * V_cell * w * ds_f(3)
 
     F_0 += F_00
     F_1 += F_11
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
     # F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_r), n_r) * q_r * dInterface
-    F_2 += - inner(1/2 * grad(args.kr * u_l + u_r), n_r) * q_r * dInterface
-    # F_2 += alpha * h_r * inner(inner(1/2 * grad(args.kr * u_l + u_r) - grad(c_r), n_r), inner(grad(q_r), n_r)) * dInterface
+    F_2 += - inner(0.5 * grad(args.kr * u_l + u_r), n_r) * q_r * dInterface
+    F_2 += alpha * h_r * inner(inner(0.5 * grad(args.kr * u_l + u_r) - grad(c_r), n_r), inner(grad(q_r), n_r)) * dInterface
 
     u_left = fem.Function(V0)
     u_left.x.array[:] = 0/phi_ref
@@ -718,36 +733,35 @@ if __name__ == '__main__':
             IS_u = IS_u0.sum(IS_u1)
             IS_lv = IS_l.sum(IS_v)
             IS_u1lv = IS_u1.sum(IS_lv)
+            IS_ur = IS_chainsum(IS_u1, [IS_l, IS_v])
 
             snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
             snes.getKSP().getPC().setType("fieldsplit")
-            snes.getKSP().getPC().setFieldSplitIS(("u01", IS_u), ("l", IS_l), ('v', IS_v))
+            snes.getKSP().getPC().setFieldSplitIS(("ul", IS_u0), ("ur", IS_ur))
             petsc_options = PETSc.Options()
             petsc_options[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
             for kopt, vopt in solver_params.LINESEARCH.items():
                 petsc_options[kopt] = vopt
 
-            petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+            # petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
             petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
 
-            ksp_u01, ksp_l, ksp_v = snes.getKSP().getPC().getFieldSplitSubKSP()
-            snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.MULTIPLICATIVE)
+            ksp_ul, ksp_ur = snes.getKSP().getPC().getFieldSplitSubKSP()
+            # snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.ADDITIVE)
             snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
-            ksp_u01.setType(PETSc.KSP.Type.FGMRES)
-            ksp_u01.getPC().setType(PETSc.PC.Type.ILU)
-            ksp_u01.setTolerances(rtol=1e-7, max_it=1000)
-            petsc_options[f"{ksp_u01.getOptionsPrefix()}pc_factor_levels"] = 0
-            petsc_options[f"{ksp_u01.getOptionsPrefix()}pc_factor_fill"] = 2.0
+            ksp_ul.setType(PETSc.KSP.Type.CG)
+            ksp_ul.getPC().setType(PETSc.PC.Type.ILU)
+            ksp_ul.setTolerances(rtol=1e-7, max_it=1000)
+            petsc_options[f"{ksp_ul.getOptionsPrefix()}pc_factor_levels"] = 0
+            petsc_options[f"{ksp_ul.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
-            ksp_l.setType(PETSc.KSP.Type.PREONLY)
-            ksp_l.getPC().setType(PETSc.PC.Type.JACOBI)
-            ksp_l.setTolerances(rtol=1e-7, max_it=1000)
-
-            ksp_v.setType(PETSc.KSP.Type.CG)
-            ksp_v.getPC().setType(PETSc.PC.Type.JACOBI)
-            ksp_v.setTolerances(rtol=1e-7, max_it=1000)
+            ksp_ur.setType(PETSc.KSP.Type.PREONLY)
+            ksp_ur.getPC().setType(PETSc.PC.Type.ILU)
+            ksp_ur.setTolerances(rtol=1e-7, max_it=1000)
+            petsc_options[f"{ksp_ur.getOptionsPrefix()}pc_factor_levels"] = 0
+            petsc_options[f"{ksp_ur.getOptionsPrefix()}pc_factor_fill"] = 2.0
         else:
             snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
             snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
@@ -1071,11 +1085,6 @@ if __name__ == '__main__':
         I_interface_error = comm.allreduce(fem.assemble_scalar(fem.form(
                         phi_ref * L_ref ** (k) * np.abs(inner(kappa_elec * grad(u_l), n_l) + inner(kappa_pos_am * grad(u_r), n_r)) * dInterface,
                         entity_maps=entity_maps)), op=MPI.SUM)
-
-        PETSc.Sys.Print("Interface current (using electrolyte potential)     [A]  :", I_interface_l)
-        PETSc.Sys.Print("Interface current (using lithium surface reaction)  [A]  :", I_interface)
-        PETSc.Sys.Print("Interface current (using active material potential) [A]  :", I_interface_r)
-        PETSc.Sys.Print("I_interface error (potential)                       [A]  :", I_interface_error)
 
         u_avg_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_1 * ds(markers.right),
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
