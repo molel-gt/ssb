@@ -1086,6 +1086,10 @@ if __name__ == '__main__':
                         phi_ref * L_ref ** (k) * np.abs(inner(kappa_elec * grad(u_l), n_l) + inner(kappa_pos_am * grad(u_r), n_r)) * dInterface,
                         entity_maps=entity_maps)), op=MPI.SUM)
 
+        I_interface_error_sq = comm.allreduce(fem.assemble_scalar(fem.form(
+                        (phi_ref * L_ref ** (k) * (inner(kappa_elec * grad(u_l), n_l) + inner(kappa_pos_am * grad(u_r), n_r))) ** 2 * dInterface,
+                        entity_maps=entity_maps)), op=MPI.SUM)
+
         u_avg_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_1 * ds(markers.right),
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
         u_avg_right = u_avg_right_tilde * phi_ref * L_ref ** 2 / A_right
@@ -1141,6 +1145,7 @@ if __name__ == '__main__':
         "I interface (electrolyte potential) [A]": I_interface_l,
         "I interface (active material potential) [A]": I_interface_r,
         "I_interface error (potential) [A]": I_interface_error,
+        "I_interface error sqrt of square sums (potential) [A]": I_interface_error_sq ** 0.5,
         "C-rate": args.C_rate,
         "u (avg) right [V]": u_avg_right,
         "u (stdev) right [v]": u_stdev_right,
