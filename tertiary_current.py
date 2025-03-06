@@ -707,7 +707,7 @@ if __name__ == '__main__':
     ########################################################################################################################################
     ## solve initial potential distribution at t = 0
     if args.improved_guess:
-        PETSc.Sys.Print("************Begin Solve for t = 0 Potential Distribution*******************")
+        PETSc.Sys.Print(utils.starpad(" Begin Solve for t = 0 Potential Distribution "))
         if args.cycle_mode == galvanostatic:
             n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs +\
                 V_r_map.size_global*V_r.dofmap.index_map_bs + R_right_map.size_global*R_right.dofmap.index_map_bs
@@ -802,8 +802,9 @@ if __name__ == '__main__':
         # scale down initial guess of cell voltage
         # V_cell.interpolate(lambda x: 0.75 * V_cell.x.array[0] + x[0] - x[0])
 
-        PETSc.Sys.Print(f"Finished computation of initial (t = 0) potential distribution!\nn_dofs: {n_dofs_t0:,}\nsolve time: {t1 - t0:.3f}s")
-        PETSc.Sys.Print("************Solve for Improved Guess for Concentration Distribution*******************")
+        PETSc.Sys.Print(f"n_dofs: {n_dofs_t0:,}\nsolve time: {t1 - t0:.3f}s")
+        PETSc.Sys.Print(utils.starpad("*"))
+        PETSc.Sys.Print(utils.starpad(" Solve for Improved Guess for Concentration Distribution "))
         petsc_options.clear()
         n_dofs_c = VC_map.size_global*VC.dofmap.index_map_bs
         u_int.interpolate(u_1)
@@ -826,7 +827,8 @@ if __name__ == '__main__':
         t0 = time.time()
         n_iters, converged = solver.solve(c)
         t1 = time.time()
-        PETSc.Sys.Print(f"Finished computation of improved guess of concentration distribution!\nn_dofs: {n_dofs_c:,}\nsolve time: {t1 - t0:.3f}s")
+        PETSc.Sys.Print(f"n_dofs: {n_dofs_c:,}\nsolve time: {t1 - t0:.3f}s")
+        PETSc.Sys.Print(utils.starpad("*"))
     ########################################################################################################################################
     if args.cycle_mode == galvanostatic:
         sol_vars = [u_0, u_1, lmbda, V_cell, c]
