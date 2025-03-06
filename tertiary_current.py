@@ -8,6 +8,7 @@ import resource
 import time
 import timeit
 
+os.environ["XDG_CACHE_HOME"] = __file__.replace("/", "_") + datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%d %H:%M:%s')
 import basix
 import dolfinx
 import dolfinx.fem.petsc
@@ -270,7 +271,6 @@ if __name__ == '__main__':
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
     results_dir = os.path.join(args.mesh_folder, args.cycle_mode, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), f'{args.C_rate}C',f'{args.p_u0}-{args.p_u1}-{args.p_concentration}', str(args.gamma), str(comm.Get_size()))
     utils.make_dir_if_missing(results_dir)
-    os.environ["XDG_CACHE_HOME"] = results_dir
     output_potential_file = os.path.join(results_dir, "potential.bp")
     elec_potential_file = os.path.join(results_dir, "electrolyte_potential.bp")
     positive_am_potential_file = os.path.join(results_dir, "positive_am_potential.bp")
