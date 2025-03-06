@@ -509,8 +509,13 @@ if __name__ == '__main__':
     F_1 += F_11
 
     # additional penalty terms, e.g. 5e3, or (1 + Wa)*(1 + Kr)/(1 + Wa * Kr)
-    F_0 += + kappa_elec * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_l)) * dInterface
-    F_1 += - kappa_pos_am * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_r)) * dInterface
+    # factor = 5e-2#(args.Wa_p ** 2) * args.kr
+    # F_0 += + factor * kappa_pos_am * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_l)) * dInterface
+    # F_1 += - factor * kappa_pos_am * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_r)) * dInterface
+    F_0 += - 0.5 * mixed_term(kappa_elec * v_l, (u_r - u_l), n_l) * dInterface
+    F_1 += - 0.5 * mixed_term(kappa_pos_am * v_r, (u_r - u_l), n_l) * dInterface
+    F_0 += -2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l) * v_l * dInterface
+    F_1 += +2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l) * v_r * dInterface
 
     if args.cycle_mode == galvanostatic:
         F_1 += - v_1 * lmbda * ds_f(3)
