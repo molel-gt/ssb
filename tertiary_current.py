@@ -508,14 +508,14 @@ if __name__ == '__main__':
     F_0 += F_00
     F_1 += F_11
 
-    # additional penalty terms
-    F_0 += gamma * h_l * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_l)) * dInterface
-    F_1 += -gamma * h_r * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_r)) * dInterface
+    # additional penalty terms, e.g. 5e3, or (1 + Wa)*(1 + Kr)/(1 + Wa * Kr)
+    F_0 += + kappa_elec * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_l)) * dInterface
+    F_1 += - kappa_pos_am * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_r)) * dInterface
 
     if args.cycle_mode == galvanostatic:
         F_1 += - v_1 * lmbda * ds_f(3)
         F_1a = (V_cell - u_1) * mu * ds_f(3)
-        F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3) #- 1e-6/h * V_cell * w * ds_f(3)
+        F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3)
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
     # F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_r), n_r) * q_r * dInterface
@@ -722,10 +722,11 @@ if __name__ == '__main__':
         Fvec2d = fem.petsc.create_vector_block(F2D)
         snes = PETSc.SNES().create(comm)
         snes.setType('newtonls')
-        snes.setTolerances(rtol=args.rtol, max_it=200)
-        snes.setMonitor(lambda _, it, residual: PETSc.Sys.Print("it:", it, "res:", residual))
+        snes.setTolerances(rtol=args.rtol*100, max_it=200)
+        snes.setMonitor(lambda _, it, rtol: PETSc.Sys.Print(f"{it}:", rtol))
         snes.setErrorIfNotConverged(True)
         snes.getKSP().setErrorIfNotConverged(True)
+        snes.getKSP().setOptionsPrefix("snes_")
 
         # set preconditioners
         petsc_options['log_view'] = None
@@ -775,9 +776,9 @@ if __name__ == '__main__':
                     petsc_options[kopt] = vopt
             petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_factor_levels"] = 0
             petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_factor_fill"] = 2.0
-            snes.getKSP().setFromOptions()
-            snes.setFromOptions()
-            snes.view()
+        snes.getKSP().setFromOptions()
+        snes.setFromOptions()
+        snes.view()
 
         if args.cycle_mode == galvanostatic:
             _sol_vars = [u_0, u_1, lmbda, V_cell]
