@@ -724,6 +724,8 @@ if __name__ == '__main__':
         snes.setType('newtonls')
         snes.setTolerances(rtol=1e-4, max_it=200)
         snes.setMonitor(lambda _, it, residual: PETSc.Sys.Print("it:", it, "res:", residual))
+        snes.setErrorIfNotConverged(True)
+        snes.getKSP().setErrorIfNotConverged(True)
 
         # set preconditioners
         petsc_options['log_view'] = None
@@ -772,8 +774,6 @@ if __name__ == '__main__':
             snes.getKSP().setOptionsPrefix("snes_")
             snes.getKSP().setOperators(Jmat2d, Jmat2d)
             snes.getKSP().setTolerances(rtol=1e-4)
-            snes.setErrorIfNotConverged(True)
-            snes.getKSP().setErrorIfNotConverged(True)
             snes.getKSP().setConvergenceHistory()
             for kopt, vopt in solver_params.LINESEARCH.items():
                     petsc_options[kopt] = vopt
