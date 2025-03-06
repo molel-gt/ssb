@@ -270,6 +270,7 @@ if __name__ == '__main__':
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
     results_dir = os.path.join(args.mesh_folder, args.cycle_mode, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), f'{args.C_rate}C',f'{args.p_u0}-{args.p_u1}-{args.p_concentration}', str(args.gamma), str(comm.Get_size()))
     utils.make_dir_if_missing(results_dir)
+    jit.DOLFINX_DEFAULT_JIT_OPTIONS.update({"cache_dir": results_dir})
     output_potential_file = os.path.join(results_dir, "potential.bp")
     elec_potential_file = os.path.join(results_dir, "electrolyte_potential.bp")
     positive_am_potential_file = os.path.join(results_dir, "positive_am_potential.bp")
@@ -512,10 +513,10 @@ if __name__ == '__main__':
     # factor = 5e-2#(args.Wa_p ** 2) * args.kr
     # F_0 += + factor * kappa_pos_am * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_l)) * dInterface
     # F_1 += - factor * kappa_pos_am * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_r)) * dInterface
-    F_0 += - 0.5 * mixed_term(kappa_elec * v_l, (u_r - u_l), n_l) * dInterface
-    F_1 += - 0.5 * mixed_term(kappa_pos_am * v_r, (u_r - u_l), n_l) * dInterface
-    F_0 += -2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l) * v_l * dInterface
-    F_1 += +2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l) * v_r * dInterface
+    # F_0 += - 0.5 * mixed_term(kappa_elec * v_l, (u_r - u_l), n_l) * dInterface
+    # F_1 += - 0.5 * mixed_term(kappa_pos_am * v_r, (u_r - u_l), n_l) * dInterface
+    # F_0 += -2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l) * v_l * dInterface
+    # F_1 += +2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l) * v_r * dInterface
 
     if args.cycle_mode == galvanostatic:
         F_1 += - v_1 * lmbda * ds_f(3)
