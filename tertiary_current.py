@@ -191,7 +191,7 @@ if __name__ == '__main__':
     parser.add_argument("-sim_time", "--sim_time", help="simulation time in seconds", nargs='?', const=1, default=15, type=float)
     parser.add_argument("-cycle_mode", "--cycle_mode", help="mode of cycling", nargs='?', const=1, default="galvanostatic", type=str)
     parser.add_argument("--atol", help="solver absolute tolerance", nargs='?', const=1, default=1e-12, type=float)
-    parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-9, type=float)
+    parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-7, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='MICRON_TO_METER', type=str)
     parser.add_argument('--solver_type', help='solver type to use', nargs='?',
@@ -722,7 +722,7 @@ if __name__ == '__main__':
         Fvec2d = fem.petsc.create_vector_block(F2D)
         snes = PETSc.SNES().create(comm)
         snes.setType('newtonls')
-        snes.setTolerances(rtol=1e-4, max_it=200)
+        snes.setTolerances(rtol=args.rtol, max_it=200)
         snes.setMonitor(lambda _, it, residual: PETSc.Sys.Print("it:", it, "res:", residual))
         snes.setErrorIfNotConverged(True)
         snes.getKSP().setErrorIfNotConverged(True)
@@ -745,12 +745,8 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setType("fieldsplit")
             snes.getKSP().getPC().setFieldSplitIS(("ul", IS_u0), ("ur", IS_ur))
             petsc_options = PETSc.Options()
-            petsc_options[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
             for kopt, vopt in solver_params.LINESEARCH.items():
                 petsc_options[kopt] = vopt
-
-            # petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
-            petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
 
             ksp_ul, ksp_ur = snes.getKSP().getPC().getFieldSplitSubKSP()
             # snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.ADDITIVE)
@@ -759,13 +755,13 @@ if __name__ == '__main__':
 
             ksp_ul.setType(PETSc.KSP.Type.CG)
             ksp_ul.getPC().setType(PETSc.PC.Type.ILU)
-            ksp_ul.setTolerances(rtol=1e-7, max_it=1000)
+            ksp_ul.setTolerances(rtol=args.rtol, max_it=1000)
             petsc_options[f"{ksp_ul.getOptionsPrefix()}pc_factor_levels"] = 0
             petsc_options[f"{ksp_ul.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
             ksp_ur.setType(PETSc.KSP.Type.PREONLY)
             ksp_ur.getPC().setType(PETSc.PC.Type.ILU)
-            ksp_ur.setTolerances(rtol=1e-7, max_it=1000)
+            ksp_ur.setTolerances(rtol=args.rtol, max_it=1000)
             petsc_options[f"{ksp_ur.getOptionsPrefix()}pc_factor_levels"] = 0
             petsc_options[f"{ksp_ur.getOptionsPrefix()}pc_factor_fill"] = 2.0
         else:
@@ -816,9 +812,9 @@ if __name__ == '__main__':
         F_c += -inner(grad(u_int), n_1) * q * ds_c(markers.electrolyte_v_positive_am)
         problem_c = fem.petsc.NonlinearProblem(F_c, c, bcs=[])
         solver = petsc_nls.NewtonSolver(comm, problem_c)
-        solver.convergence_criterion = "residual"
+        solver.convergence_criterion = "incremental"
         solver.maximum_iterations = 100
-        solver.rtol = 1e-8
+        solver.rtol = args.rtol
 
         ksp = solver.krylov_solver
         option_prefix = ksp.getOptionsPrefix()
@@ -826,8 +822,6 @@ if __name__ == '__main__':
         petsc_options[f"{option_prefix}pc_type"] = args.amg_type
         for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
                 petsc_options[f"{option_prefix}{optk}"] = optv
-        # petsc_options[f"{option_prefix}pc_factor_levels"] = 0
-        # petsc_options[f"{option_prefix}pc_factor_fill"] = 2.0
         ksp.setFromOptions()
         t0 = time.time()
         n_iters, converged = solver.solve(c)
@@ -1010,13 +1004,13 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
             ksp_u.setType(PETSc.KSP.Type.FGMRES)
             ksp_u.getPC().setType(PETSc.PC.Type.ILU)
-            ksp_u.setTolerances(rtol=1e-7, max_it=1000)
+            ksp_u.setTolerances(rtol=args.rtol, max_it=1000)
             petsc_options[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
             petsc_options[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
             ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(args.amg_type)
-            ksp_c.setTolerances(rtol=1e-7, max_it=1000)
+            ksp_c.setTolerances(rtol=args.rtol, max_it=1000)
 
             petsc_options[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
             petsc_options[f"{ksp_c.getOptionsPrefix()}inner_ksp_type"] = "preonly"
