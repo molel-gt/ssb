@@ -5,10 +5,11 @@ import json
 import logging
 import os
 import resource
+import sys
 import time
 import timeit
 
-os.environ["XDG_CACHE_HOME"] = __file__.replace("/", "_") + datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%d %H:%M:%s')
+os.environ["XDG_CACHE_HOME"] = os.path.join(os.environ['HOME'], ".cache/fenics", str(hash(tuple(sys.argv))), datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%d %H:%M:%s'))
 import basix
 import dolfinx
 import dolfinx.fem.petsc
