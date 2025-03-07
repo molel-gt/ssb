@@ -9,7 +9,7 @@ import sys
 import time
 import timeit
 
-os.environ["XDG_CACHE_HOME"] = os.path.join(os.getcwd(), ".cache/fenics", str(hash(tuple(sys.argv))), datetime.datetime.now(datetime.UTC).strftime('%Y-%m-%d %H:%M:%s'))
+os.environ["XDG_CACHE_HOME"] = os.path.join(os.getcwd(), ".cache/fenics", str(hash(tuple(sys.argv))))
 import basix
 import dolfinx
 import dolfinx.fem.petsc
