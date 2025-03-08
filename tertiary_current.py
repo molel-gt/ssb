@@ -1093,8 +1093,18 @@ if __name__ == '__main__':
                         entity_maps=entity_maps)), op=MPI.SUM)
 
         I_interface_error_sq = comm.allreduce(fem.assemble_scalar(fem.form(
-                        (phi_ref * L_ref ** (k) * (inner(kappa_elec * grad(u_l), n_l) + inner(kappa_pos_am * grad(u_r), n_r))) ** 2 * dInterface,
+                        (phi_ref * L_ref ** (-k) * (inner(kappa_elec * grad(u_l), n_l) + inner(kappa_pos_am * grad(u_r), n_r))) ** 2 * L_ref ** 2 * dInterface,
                         entity_maps=entity_maps)), op=MPI.SUM)
+
+        error = phi_ref * L_ref ** (-k) * (inner(kappa_elec * grad(u_l), n_l) + inner(kappa_pos_am * grad(u_r), n_r))
+        i_x = inner(kappa_pos_am * grad(u_r), n_r) * phi_ref * L_ref ** (-k)
+        I_x_norm = comm.allreduce(fem.assemble_scalar(
+                                    fem.form(inner(i_x, i_x) * L_ref ** 2 * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+
+        I_interface_error_norm = comm.allreduce(fem.assemble_scalar(
+                                    fem.form(inner(error, error) * L_ref ** 2 * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+
+        PETSc.Sys.Print(f"Normalize interface error:", (I_interface_error_norm / I_x_norm) ** 0.5)
 
         u_avg_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_1 * ds(markers.right),
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
