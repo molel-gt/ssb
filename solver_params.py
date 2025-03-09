@@ -23,7 +23,7 @@ boomeramg = {
     # "pc_hypre_boomeramg_smooth_type": "pilut",
     "pc_hypre_boomeramg_vec_interp_variant": 3,
     "pc_hypre_boomeramg_nodal_coarsen": 4,
-    "pc_hypre_boomeramg_max_iter": 4,
+    # "pc_hypre_boomeramg_max_iter": 4,
     "pc_hypre_boomeramg_max_levels": 5,
     # "pc_hypre_boomeramg_relax_type_all": "chebyshev",
     'pc_hypre_boomeramg_p_max': 4,
