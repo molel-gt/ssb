@@ -175,6 +175,12 @@ def IS_chainsum(IS_main, parts):
     return IS_chainsum(IS_main.sum(parts[0]), parts[1:])
 
 
+def get_interior_penalty(kappa_elec, kappa_pos_am, p, theta=np.pi/6):
+    k0 = np.min([kappa_elec, kappa_pos_am])
+    k1 = np.max([kappa_elec, kappa_pos_am])
+    return 2.25 * 6 * k1 ** 2 / k0 * p * (p + 2) / np.tan(theta)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='secondary current distribution')
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
@@ -384,11 +390,31 @@ if __name__ == '__main__':
             int_facet_domain.append(local_f_0)
     int_facet_domains = [(markers.electrolyte_v_positive_am, int_facet_domain)]
 
+    left_facets = []
+    for f in ft.find(markers.left):
+        if f >= ft_imap.size_local:
+            continue
+        c_0 = f_to_c.links(f)[0]
+        local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
+        left_facets.extend([c_0, local_f_0])
+
+    right_facets = []
+    for f in ft.find(markers.right):
+        if f >= ft_imap.size_local:
+            continue
+        c_0 = f_to_c.links(f)[0]
+        local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
+        right_facets.extend([c_0, local_f_0])
+
+
     dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
+    # dS_l = ufl.Measure("dS", domain=domain, subdomain_data=)
     dx = ufl.Measure('dx', domain=domain, subdomain_data=ct)
     dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
     dx_c = ufl.Measure('dx', domain=submesh_positive_am)
     ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
+    ds_l = ufl.Measure('ds', domain=domain, subdomain_data=[(markers.left, left_facets)], subdomain_id=markers.left)
+    ds_r = ufl.Measure('ds', domain=domain, subdomain_data=[(markers.right, right_facets)], subdomain_id=markers.right)
     ds_c = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
 
     vol_pos_am = comm.allreduce(fem.assemble_scalar(fem.form(1 * dx(markers.positive_am), entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 3
@@ -412,6 +438,7 @@ if __name__ == '__main__':
     n_l = n(l_res)
     n_r = n(r_res)
     h = ufl.CellDiameter(domain)
+    h_0 = ufl.CellDiameter(submesh_electrolyte)
     h_1 = ufl.CellDiameter(submesh_positive_am)
     h_l = h(l_res)
     h_r = h(r_res)
@@ -492,7 +519,10 @@ if __name__ == '__main__':
     I_tot = fem.Constant(submesh_facets_right, PETSc.ScalarType(-I_tot_))
     i_sup = np.abs(I_tot.value) / A_right
     h = ufl.CellDiameter(submesh_facets_right)
-    gamma = fem.Constant(domain, PETSc.ScalarType(args.gamma))
+    gamma_2 = fem.Constant(domain, PETSc.ScalarType(args.gamma))
+    gamma_1 = fem.Constant(domain, PETSc.ScalarType(20 * L_ref))
+    gamma = fem.Constant(domain, PETSc.ScalarType(L_ref * get_interior_penalty(kappa_elec, kappa_pos_am, args.p_u1)))
+    PETSc.Sys.Print(gamma.value, gamma_1.value, gamma_2.value)
     alpha = 1e-6 # preturbation penalty
 
     F_0 = (
@@ -511,8 +541,8 @@ if __name__ == '__main__':
     F_1 += F_11
 
     # additional penalty terms, e.g. 5e3, or (1 + Wa)*(1 + Kr)/(1 + Wa * Kr)
-    factor = L_ref * args.Wa_p
-    PETSc.Sys.Print(factor)
+    factor = 1 * (args.kr ** 2) * args.Wa_p / L_ref
+    PETSc.Sys.Print(factor, L_ref * args.Wa_p * args.kr)
     F_0 += + factor * kappa_elec * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_l)) * dInterface
     F_1 += - factor * kappa_pos_am * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_r)) * dInterface
     # F_0 += - 0.5 * mixed_term(kappa_elec * v_l, (u_r - u_l), n_l) * dInterface
@@ -548,9 +578,15 @@ if __name__ == '__main__':
         u_right, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right))
     )
 
-    bcs = [bc_left]
+    bcs = []
+    F_0 += gamma/h_0 * (u_0 - u_left) * v_0 * ds_l(markers.left)
+    F_0 += - kappa_elec * inner(grad(u_0), n_0) * v_0 * ds_l(markers.left)
+    F_0 += - kappa_elec * inner(grad(v_0), n_0) * (u_0  - u_left) * ds_l(markers.left)
+
     if args.cycle_mode == potentiostatic:
-        bcs = [bc_left, bc_right]
+        F_1 += gamma/h_1 * (u_1 - u_right) * v_1 * ds_r(markers.right)
+        F_1 += - kappa_pos_am * inner(grad(u_1), n_1) * v_1 * ds_r(markers.right)
+        F_1 += - kappa_pos_am * inner(grad(v_1), n_1) * (u_1  - u_right) * ds_r(markers.right)
 
     if args.cycle_mode == galvanostatic:
         jac00 = ufl.derivative(F_0, u_0)
