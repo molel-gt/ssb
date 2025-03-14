@@ -520,20 +520,17 @@ if __name__ == '__main__':
     i_sup = np.abs(I_tot.value) / A_right
     h = ufl.CellDiameter(submesh_facets_right)
     gamma = fem.Constant(domain, PETSc.ScalarType(args.gamma))
-    # gamma_1 = fem.Constant(domain, PETSc.ScalarType(20 * L_ref))
+    # gamma = fem.Constant(domain, PETSc.ScalarType(20 * L_ref))
     # gamma = fem.Constant(domain, PETSc.ScalarType(L_ref * get_interior_penalty(kappa_elec, kappa_pos_am, args.p_u1)))
-    # PETSc.Sys.Print(gamma.value, gamma_1.value, gamma_2.value)
     alpha = 1e-6 # preturbation penalty
 
     F_0 = (
-        - 1.0 * mixed_term(kappa_pos_am * u_r, v_l, n_l) * dInterface
-        # - inner(faraday_const * D * c_ref * grad(c_r), n_l) * v_l * dInterface
+        - 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
         - 0.5 * mixed_term(kappa_elec * v_l, (u_r - u_l - jump_u), n_l) * dInterface
     )
 
     F_1 = (
-        + 1.0 * mixed_term(kappa_elec * u_l, v_r, n_l) * dInterface
-        # - inner(faraday_const * D * c_ref * grad(c_r), n_r) * v_r * dInterface
+        + 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, n_l) * dInterface
         - 0.5 * mixed_term(kappa_pos_am * v_r, (u_r - u_l - jump_u), n_l) * dInterface
     )
     F_0 += -2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
@@ -543,7 +540,7 @@ if __name__ == '__main__':
     F_1 += F_11
 
     # additional penalty terms, e.g. 5e3, or (1 + Wa)*(1 + Kr)/(1 + Wa * Kr)
-    factor = 1 * (args.kr ** 2) * args.Wa_p / L_ref
+    factor = 1.0 * (args.kr ** 2) * args.Wa_p / L_ref
     PETSc.Sys.Print(factor, L_ref * args.Wa_p * args.kr)
     F_0 += + factor * kappa_elec * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_l)) * dInterface
     F_1 += - factor * kappa_pos_am * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_r)) * dInterface
