@@ -5,11 +5,9 @@ import json
 import logging
 import os
 import resource
-import sys
 import time
 import timeit
 
-os.environ["XDG_CACHE_HOME"] = os.path.join(os.getcwd(), ".cache/fenics", str(hash(tuple(sys.argv))))
 import basix
 import dolfinx
 import dolfinx.fem.petsc
@@ -175,12 +173,6 @@ def IS_chainsum(IS_main, parts):
     return IS_chainsum(IS_main.sum(parts[0]), parts[1:])
 
 
-def get_interior_penalty(kappa_elec, kappa_pos_am, p, theta=np.pi/6):
-    k0 = np.min([kappa_elec, kappa_pos_am])
-    k1 = np.max([kappa_elec, kappa_pos_am])
-    return 2.25 * 6 * k1 ** 2 / k0 * p * (p + 2) / np.tan(theta)
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='secondary current distribution')
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
@@ -199,7 +191,7 @@ if __name__ == '__main__':
     parser.add_argument("-sim_time", "--sim_time", help="simulation time in seconds", nargs='?', const=1, default=15, type=float)
     parser.add_argument("-cycle_mode", "--cycle_mode", help="mode of cycling", nargs='?', const=1, default="galvanostatic", type=str)
     parser.add_argument("--atol", help="solver absolute tolerance", nargs='?', const=1, default=1e-12, type=float)
-    parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-7, type=float)
+    parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-9, type=float)
     parser.add_argument('--scaling', help='scaling key in `configs.cfg` to ensure geometry in meters', nargs='?',
                         const=1, default='MICRON_TO_METER', type=str)
     parser.add_argument('--solver_type', help='solver type to use', nargs='?',
@@ -390,31 +382,11 @@ if __name__ == '__main__':
             int_facet_domain.append(local_f_0)
     int_facet_domains = [(markers.electrolyte_v_positive_am, int_facet_domain)]
 
-    left_facets = []
-    for f in ft.find(markers.left):
-        if f >= ft_imap.size_local:
-            continue
-        c_0 = f_to_c.links(f)[0]
-        local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
-        left_facets.extend([c_0, local_f_0])
-
-    right_facets = []
-    for f in ft.find(markers.right):
-        if f >= ft_imap.size_local:
-            continue
-        c_0 = f_to_c.links(f)[0]
-        local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
-        right_facets.extend([c_0, local_f_0])
-
-
     dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
-    # dS_l = ufl.Measure("dS", domain=domain, subdomain_data=)
     dx = ufl.Measure('dx', domain=domain, subdomain_data=ct)
     dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
     dx_c = ufl.Measure('dx', domain=submesh_positive_am)
     ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
-    ds_l = ufl.Measure('ds', domain=domain, subdomain_data=[(markers.left, left_facets)], subdomain_id=markers.left)
-    ds_r = ufl.Measure('ds', domain=domain, subdomain_data=[(markers.right, right_facets)], subdomain_id=markers.right)
     ds_c = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
 
     vol_pos_am = comm.allreduce(fem.assemble_scalar(fem.form(1 * dx(markers.positive_am), entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 3
@@ -438,7 +410,6 @@ if __name__ == '__main__':
     n_l = n(l_res)
     n_r = n(r_res)
     h = ufl.CellDiameter(domain)
-    h_0 = ufl.CellDiameter(submesh_electrolyte)
     h_1 = ufl.CellDiameter(submesh_positive_am)
     h_l = h(l_res)
     h_r = h(r_res)
@@ -520,10 +491,7 @@ if __name__ == '__main__':
     i_sup = np.abs(I_tot.value) / A_right
     h = ufl.CellDiameter(submesh_facets_right)
     gamma = fem.Constant(domain, PETSc.ScalarType(args.gamma))
-    # gamma = fem.Constant(domain, PETSc.ScalarType(20 * L_ref))
-    gamma = fem.Constant(domain, PETSc.ScalarType(L_ref * get_interior_penalty(kappa_elec, kappa_pos_am, args.p_u1)))
     alpha = 1e-6 # preturbation penalty
-    h_avg = (h_l + h_r) / 2
 
     F_0 = (
         - 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
@@ -534,24 +502,20 @@ if __name__ == '__main__':
         + 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, n_l) * dInterface
         - 0.5 * mixed_term(kappa_pos_am * v_r, (u_r - u_l - jump_u), n_l) * dInterface
     )
-    F_0 += - gamma / h_avg * (u_r - u_l - jump_u) * v_l * dInterface
-    F_1 += + gamma / h_avg * (u_r - u_l - jump_u) * v_r * dInterface
-
-    F_0 += F_00
-    F_1 += F_11
-
-    # additional penalty terms, e.g. 5e3, or (1 + Wa)*(1 + Kr)/(1 + Wa * Kr)
-    # factor = 5e2 #1.0 * (args.kr ** 2) * args.Wa_p / L_ref
-    # F_0 += + factor * kappa_elec * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_l)) * dInterface
-    # F_1 += - factor * kappa_pos_am * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_r)) * dInterface
+    F_0 += -2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
+    F_1 += +2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_r * dInterface
 
     if args.cycle_mode == galvanostatic:
         F_1 += - v_1 * lmbda * ds_f(3)
         F_1a = (V_cell - u_1) * mu * ds_f(3)
-        F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3) #+ 1e-6/h * (V_cell - u_1) * w * ds_f(3)
+        F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3) #- 1e-6/h * V_cell * w * ds_f(3)
+
+    F_0 += F_00
+    F_1 += F_11
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
-    F_2 += - inner(grad(0.5 * args.kr * u_l + 0.5 * u_r), n_r) * q_r * dInterface
+    # F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_r), n_r) * q_r * dInterface
+    F_2 += - inner(0.5 * grad(args.kr * u_l + u_r), n_r) * q_r * dInterface
     F_2 += alpha * h_r * inner(inner(0.5 * grad(args.kr * u_l + u_r) - grad(c_r), n_r), inner(grad(q_r), n_r)) * dInterface
 
     u_left = fem.Function(V0)
@@ -572,15 +536,9 @@ if __name__ == '__main__':
         u_right, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right))
     )
 
-    bcs = []
-    F_0 += gamma/h_0 * (u_0 - u_left) * v_0 * ds_l(markers.left)
-    F_0 += - kappa_elec * inner(grad(u_0), n_0) * v_0 * ds_l(markers.left)
-    F_0 += - kappa_elec * inner(grad(v_0), n_0) * (u_0  - u_left) * ds_l(markers.left)
-
+    bcs = [bc_left]
     if args.cycle_mode == potentiostatic:
-        F_1 += gamma/h_1 * (u_1 - u_right) * v_1 * ds_r(markers.right)
-        F_1 += - kappa_pos_am * inner(grad(u_1), n_1) * v_1 * ds_r(markers.right)
-        F_1 += - kappa_pos_am * inner(grad(v_1), n_1) * (u_1  - u_right) * ds_r(markers.right)
+        bcs = [bc_left, bc_right]
 
     if args.cycle_mode == galvanostatic:
         jac00 = ufl.derivative(F_0, u_0)
@@ -745,7 +703,7 @@ if __name__ == '__main__':
     ########################################################################################################################################
     ## solve initial potential distribution at t = 0
     if args.improved_guess:
-        PETSc.Sys.Print(utils.starpad(" Begin Solve for t = 0 Potential Distribution "))
+        PETSc.Sys.Print("************Begin Solve for t = 0 Potential Distribution*******************")
         if args.cycle_mode == galvanostatic:
             n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs +\
                 V_r_map.size_global*V_r.dofmap.index_map_bs + R_right_map.size_global*R_right.dofmap.index_map_bs
@@ -760,11 +718,8 @@ if __name__ == '__main__':
         Fvec2d = fem.petsc.create_vector_block(F2D)
         snes = PETSc.SNES().create(comm)
         snes.setType('newtonls')
-        snes.setTolerances(rtol=args.rtol*100, max_it=200)
-        snes.setMonitor(lambda _, it, rtol: PETSc.Sys.Print(f"{it}:", rtol))
-        snes.setErrorIfNotConverged(True)
-        snes.getKSP().setErrorIfNotConverged(True)
-        snes.getKSP().setOptionsPrefix("snes_")
+        snes.setTolerances(rtol=1e-4, max_it=200)
+        snes.setMonitor(lambda _, it, residual: PETSc.Sys.Print("it:", it, "res:", residual))
 
         # set preconditioners
         petsc_options['log_view'] = None
@@ -784,8 +739,12 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setType("fieldsplit")
             snes.getKSP().getPC().setFieldSplitIS(("ul", IS_u0), ("ur", IS_ur))
             petsc_options = PETSc.Options()
+            petsc_options[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
             for kopt, vopt in solver_params.LINESEARCH.items():
                 petsc_options[kopt] = vopt
+
+            # petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+            petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
 
             ksp_ul, ksp_ur = snes.getKSP().getPC().getFieldSplitSubKSP()
             # snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.ADDITIVE)
@@ -794,13 +753,13 @@ if __name__ == '__main__':
 
             ksp_ul.setType(PETSc.KSP.Type.CG)
             ksp_ul.getPC().setType(PETSc.PC.Type.ILU)
-            ksp_ul.setTolerances(rtol=args.rtol, max_it=1000)
+            ksp_ul.setTolerances(rtol=1e-7, max_it=1000)
             petsc_options[f"{ksp_ul.getOptionsPrefix()}pc_factor_levels"] = 0
             petsc_options[f"{ksp_ul.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
             ksp_ur.setType(PETSc.KSP.Type.PREONLY)
             ksp_ur.getPC().setType(PETSc.PC.Type.ILU)
-            ksp_ur.setTolerances(rtol=args.rtol, max_it=1000)
+            ksp_ur.setTolerances(rtol=1e-7, max_it=1000)
             petsc_options[f"{ksp_ur.getOptionsPrefix()}pc_factor_levels"] = 0
             petsc_options[f"{ksp_ur.getOptionsPrefix()}pc_factor_fill"] = 2.0
         else:
@@ -809,14 +768,16 @@ if __name__ == '__main__':
             snes.getKSP().setOptionsPrefix("snes_")
             snes.getKSP().setOperators(Jmat2d, Jmat2d)
             snes.getKSP().setTolerances(rtol=1e-4)
+            snes.setErrorIfNotConverged(True)
+            snes.getKSP().setErrorIfNotConverged(True)
             snes.getKSP().setConvergenceHistory()
             for kopt, vopt in solver_params.LINESEARCH.items():
                     petsc_options[kopt] = vopt
             petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_factor_levels"] = 0
             petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_factor_fill"] = 2.0
-        snes.getKSP().setFromOptions()
-        snes.setFromOptions()
-        snes.view()
+            snes.getKSP().setFromOptions()
+            snes.setFromOptions()
+            snes.view()
 
         if args.cycle_mode == galvanostatic:
             _sol_vars = [u_0, u_1, lmbda, V_cell]
@@ -838,18 +799,11 @@ if __name__ == '__main__':
         petsc_options.clear()
 
         PETSc.Sys.Print("V_cell (initial guess) [V]:", f"{V_cell.x.array[0] * ref["phi"]:.3f}")
+        # scale down initial guess of cell voltage
+        # V_cell.interpolate(lambda x: 0.75 * V_cell.x.array[0] + x[0] - x[0])
 
-        PETSc.Sys.Print(f"n_dofs: {n_dofs_t0:,}\nsolve time: {t1 - t0:.3f}s")
-        k = 1
-        error = phi_ref * L_ref ** (-k) * (inner(kappa_elec * grad(u_l), n_l) + inner(kappa_pos_am * grad(u_r), n_r))
-        I_interface_error_norm = np.sqrt(comm.allreduce(fem.assemble_scalar(
-                                    fem.form(inner(error, error) * L_ref ** 2 * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
-        i_x = inner(kappa_pos_am * grad(u_r), n_r) * phi_ref * L_ref ** (-k)
-        I_x_norm = np.sqrt(comm.allreduce(fem.assemble_scalar(
-                                    fem.form(inner(i_x, i_x) * L_ref ** 2 * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
-        PETSc.Sys.Print(I_interface_error_norm / I_x_norm)
-        PETSc.Sys.Print(utils.starpad("*"))
-        PETSc.Sys.Print(utils.starpad(" Solve for Improved Guess for Concentration Distribution "))
+        PETSc.Sys.Print(f"Finished computation of initial (t = 0) potential distribution!\nn_dofs: {n_dofs_t0:,}\nsolve time: {t1 - t0:.3f}s")
+        PETSc.Sys.Print("************Solve for Improved Guess for Concentration Distribution*******************")
         petsc_options.clear()
         n_dofs_c = VC_map.size_global*VC.dofmap.index_map_bs
         u_int.interpolate(u_1)
@@ -858,9 +812,9 @@ if __name__ == '__main__':
         F_c += -inner(grad(u_int), n_1) * q * ds_c(markers.electrolyte_v_positive_am)
         problem_c = fem.petsc.NonlinearProblem(F_c, c, bcs=[])
         solver = petsc_nls.NewtonSolver(comm, problem_c)
-        solver.convergence_criterion = "incremental"
+        solver.convergence_criterion = "residual"
         solver.maximum_iterations = 100
-        solver.rtol = args.rtol
+        solver.rtol = 1e-8
 
         ksp = solver.krylov_solver
         option_prefix = ksp.getOptionsPrefix()
@@ -868,12 +822,13 @@ if __name__ == '__main__':
         petsc_options[f"{option_prefix}pc_type"] = args.amg_type
         for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
                 petsc_options[f"{option_prefix}{optk}"] = optv
+        # petsc_options[f"{option_prefix}pc_factor_levels"] = 0
+        # petsc_options[f"{option_prefix}pc_factor_fill"] = 2.0
         ksp.setFromOptions()
         t0 = time.time()
         n_iters, converged = solver.solve(c)
         t1 = time.time()
-        PETSc.Sys.Print(f"n_dofs: {n_dofs_c:,}\nsolve time: {t1 - t0:.3f}s")
-        PETSc.Sys.Print(utils.starpad("*"))
+        PETSc.Sys.Print(f"Finished computation of improved guess of concentration distribution!\nn_dofs: {n_dofs_c:,}\nsolve time: {t1 - t0:.3f}s")
     ########################################################################################################################################
     if args.cycle_mode == galvanostatic:
         sol_vars = [u_0, u_1, lmbda, V_cell, c]
@@ -1049,15 +1004,15 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.SCHUR)
             snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.SELFP)
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
-            ksp_u.setType(PETSc.KSP.Type.PREONLY)
+            ksp_u.setType(PETSc.KSP.Type.FGMRES)
             ksp_u.getPC().setType(PETSc.PC.Type.ILU)
-            ksp_u.setTolerances(rtol=args.rtol, max_it=1000)
+            ksp_u.setTolerances(rtol=1e-7, max_it=1000)
             petsc_options[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
             petsc_options[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
             ksp_c.setType(PETSc.KSP.Type.CG)
             ksp_c.getPC().setType(args.amg_type)
-            ksp_c.setTolerances(rtol=args.rtol, max_it=1000)
+            ksp_c.setTolerances(rtol=1e-7, max_it=1000)
 
             petsc_options[f"{ksp_c.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
             petsc_options[f"{ksp_c.getOptionsPrefix()}inner_ksp_type"] = "preonly"
@@ -1142,7 +1097,6 @@ if __name__ == '__main__':
 
         I_interface_error_norm = np.sqrt(comm.allreduce(fem.assemble_scalar(
                                     fem.form(inner(error, error) * L_ref ** 2 * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
-
         u_avg_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_1 * ds(markers.right),
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
         u_avg_right = u_avg_right_tilde * phi_ref * L_ref ** 2 / A_right
