@@ -492,6 +492,7 @@ if __name__ == '__main__':
     h = ufl.CellDiameter(submesh_facets_right)
     gamma = fem.Constant(domain, PETSc.ScalarType(args.gamma))
     alpha = 1e-6 # preturbation penalty
+    h_avg = 0.5 * (h_l + h_r)
 
     F_0 = (
         - 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
@@ -502,8 +503,8 @@ if __name__ == '__main__':
         + 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, n_l) * dInterface
         - 0.5 * mixed_term(kappa_pos_am * v_r, (u_r - u_l - jump_u), n_l) * dInterface
     )
-    F_0 += -2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
-    F_1 += +2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_r * dInterface
+    F_0 += -2 * gamma / h_avg * (u_r - u_l - jump_u) * v_l * dInterface
+    F_1 += +2 * gamma / h_avg * (u_r - u_l - jump_u) * v_r * dInterface
 
     if args.cycle_mode == galvanostatic:
         F_1 += - v_1 * lmbda * ds_f(3)
