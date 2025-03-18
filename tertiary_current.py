@@ -541,11 +541,8 @@ if __name__ == '__main__':
 
     # additional penalty terms, e.g. 5e3, or (1 + Wa)*(1 + Kr)/(1 + Wa * Kr)
     factor = 5e3 #1.0 * (args.kr ** 2) * args.Wa_p / L_ref
-    # PETSc.Sys.Print(factor, L_ref * args.Wa_p * args.kr)
     F_0 += + factor * kappa_elec * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_l)) * dInterface
-    F_0 += + factor * kappa_elec * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(c_r), grad(v_l)) * dInterface
     F_1 += - factor * kappa_pos_am * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_r)) * dInterface
-    F_1 += - factor * kappa_pos_am * gamma * (h_l + h_r) * inner(kappa_pos_am * grad(c_r) - kappa_pos_am * grad(u_r), grad(v_r)) * dInterface
 
     if args.cycle_mode == galvanostatic:
         F_1 += - v_1 * lmbda * ds_f(3)
