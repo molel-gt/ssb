@@ -521,8 +521,9 @@ if __name__ == '__main__':
     h = ufl.CellDiameter(submesh_facets_right)
     gamma = fem.Constant(domain, PETSc.ScalarType(args.gamma))
     # gamma = fem.Constant(domain, PETSc.ScalarType(20 * L_ref))
-    # gamma = fem.Constant(domain, PETSc.ScalarType(L_ref * get_interior_penalty(kappa_elec, kappa_pos_am, args.p_u1)))
+    gamma = fem.Constant(domain, PETSc.ScalarType(L_ref * get_interior_penalty(kappa_elec, kappa_pos_am, args.p_u1)))
     alpha = 1e-6 # preturbation penalty
+    h_avg = (h_l + h_r) / 2
 
     F_0 = (
         - 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_l, n_l) * dInterface
@@ -533,14 +534,14 @@ if __name__ == '__main__':
         + 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, n_l) * dInterface
         - 0.5 * mixed_term(kappa_pos_am * v_r, (u_r - u_l - jump_u), n_l) * dInterface
     )
-    F_0 += -2 * gamma / (h_l + h_r) * (kappa_elec/2 + kappa_pos_am/2) * (u_r - u_l - jump_u) * v_l * dInterface
-    F_1 += +2 * gamma / (h_l + h_r) * (kappa_elec/2 + kappa_pos_am/2) * (u_r - u_l - jump_u) * v_r * dInterface
+    F_0 += - gamma / h_avg * (u_r - u_l - jump_u) * v_l * dInterface
+    F_1 += + gamma / h_avg * (u_r - u_l - jump_u) * v_r * dInterface
 
     F_0 += F_00
     F_1 += F_11
 
     # additional penalty terms, e.g. 5e3, or (1 + Wa)*(1 + Kr)/(1 + Wa * Kr)
-    factor = 5e3 #1.0 * (args.kr ** 2) * args.Wa_p / L_ref
+    factor = 5e2 #1.0 * (args.kr ** 2) * args.Wa_p / L_ref
     F_0 += + factor * kappa_elec * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_l)) * dInterface
     F_1 += - factor * kappa_pos_am * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_r)) * dInterface
 
