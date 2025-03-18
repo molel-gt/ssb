@@ -533,17 +533,19 @@ if __name__ == '__main__':
         + 0.5 * mixed_term(kappa_elec * u_l + kappa_pos_am * u_r, v_r, n_l) * dInterface
         - 0.5 * mixed_term(kappa_pos_am * v_r, (u_r - u_l - jump_u), n_l) * dInterface
     )
-    F_0 += -2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_l * dInterface
-    F_1 += +2 * gamma / (h_l + h_r) * 0.5 * (kappa_elec + kappa_pos_am) * (u_r - u_l - jump_u) * v_r * dInterface
+    F_0 += -2 * gamma / (h_l + h_r) * (kappa_elec/2 + kappa_pos_am/2) * (u_r - u_l - jump_u) * v_l * dInterface
+    F_1 += +2 * gamma / (h_l + h_r) * (kappa_elec/2 + kappa_pos_am/2) * (u_r - u_l - jump_u) * v_r * dInterface
 
     F_0 += F_00
     F_1 += F_11
 
     # additional penalty terms, e.g. 5e3, or (1 + Wa)*(1 + Kr)/(1 + Wa * Kr)
-    factor = 1.0 * (args.kr ** 2) * args.Wa_p / L_ref
-    PETSc.Sys.Print(factor, L_ref * args.Wa_p * args.kr)
+    factor = 5e3 #1.0 * (args.kr ** 2) * args.Wa_p / L_ref
+    # PETSc.Sys.Print(factor, L_ref * args.Wa_p * args.kr)
     F_0 += + factor * kappa_elec * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_l)) * dInterface
+    F_0 += + factor * kappa_elec * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(c_r), grad(v_l)) * dInterface
     F_1 += - factor * kappa_pos_am * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_r)) * dInterface
+    F_1 += - factor * kappa_pos_am * gamma * (h_l + h_r) * inner(kappa_pos_am * grad(c_r) - kappa_pos_am * grad(u_r), grad(v_r)) * dInterface
 
     if args.cycle_mode == galvanostatic:
         F_1 += - v_1 * lmbda * ds_f(3)
@@ -551,10 +553,8 @@ if __name__ == '__main__':
         F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3) #+ 1e-6/h * (V_cell - u_1) * w * ds_f(3)
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
-    # F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_r), n_r) * q_r * dInterface
     F_2 += - inner(grad(0.5 * args.kr * u_l + 0.5 * u_r), n_r) * q_r * dInterface
-    # F_2 += 2 * (L_ref/phi_ref) * i0_p * ufl.sinh(0.5 * faraday_const / (R * T) * phi_ref * (u_r - u_l - ocv_chen2020(c(r_res), cmax=c_max/c_ref)/phi_ref)) * q_r * dInterface
-    # F_2 += alpha * h_r * inner(inner(0.5 * grad(args.kr * u_l + u_r) - grad(c_r), n_r), inner(grad(q_r), n_r)) * dInterface
+    F_2 += alpha * h_r * inner(inner(0.5 * grad(args.kr * u_l + u_r) - grad(c_r), n_r), inner(grad(q_r), n_r)) * dInterface
 
     u_left = fem.Function(V0)
     u_left.x.array[:] = 0/phi_ref
