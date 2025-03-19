@@ -185,7 +185,8 @@ if __name__ == '__main__':
     parser.add_argument("--Wa_p", help="Wagna number for positive electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
     parser.add_argument("--D", help="Diffusivity [m2/s]", nargs='?', const=1, default=1e-14, type=float)
     parser.add_argument("--kr", help="ratio of ionic to electronic conductivity", nargs='?', const=1, default=1, type=float)
-    parser.add_argument("--gamma", help="interior penalty parameter", nargs='?', const=1, default=15, type=float)
+    parser.add_argument("--gamma", help="interior penalty parameter", nargs='?', const=1, default=1e-2, type=float)
+    parser.add_argument("--alpha", help="interior penalty parameter", nargs='?', const=1, default=0, type=float)
     parser.add_argument("-p_c", "--p_concentration", help="polynomial approximation order for concentration field", nargs='?', const=1, default=4, type=int)
     parser.add_argument("-p_u0", "--p_u0", help="polynomial approximation order for potential field in SE", nargs='?', const=1, default=2, type=int)
     parser.add_argument("-p_u1", "--p_u1", help="polynomial approximation order for potential field in AM", nargs='?', const=1, default=1, type=int)
@@ -518,9 +519,9 @@ if __name__ == '__main__':
     F_1 += F_11
 
     # additional penalty terms, e.g. 5e3, or (1 + Wa)*(1 + Kr)/(1 + Wa * Kr)
-    # factor = 5e2 #1.0 * (args.kr ** 2) * args.Wa_p / L_ref
-    # F_0 += + factor * kappa_elec * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_l)) * dInterface
-    # F_1 += - factor * kappa_pos_am * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_r)) * dInterface
+    if args.alpha > 0:
+        F_0 += + args.alpha * kappa_elec * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_l)) * dInterface
+        F_1 += - args.alpha * kappa_pos_am * gamma * (h_l + h_r) * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_r)) * dInterface
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
     # F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_r), n_r) * q_r * dInterface
