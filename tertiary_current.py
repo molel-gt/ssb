@@ -20,6 +20,8 @@ import scipy.special as sp
 import ufl
 import warnings
 
+os.environ["XDG_CACHE_HOME"] = os.path.join(os.getcwd(), ".cache/fenics", str(hash(tuple(sys.argv))))
+
 from dolfinx import cpp, default_real_type, fem, io, jit, mesh, log
 from dolfinx.geometry import bb_tree, compute_collisions_points, compute_colliding_cells
 from dolfinx.nls import petsc as petsc_nls
