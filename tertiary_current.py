@@ -495,7 +495,6 @@ if __name__ == '__main__':
     i_sup = np.abs(I_tot.value) / A_right
     h = ufl.CellDiameter(submesh_facets_right)
     gamma = fem.Constant(domain, PETSc.ScalarType(args.gamma))
-    alpha = 1e-6 # preturbation penalty
     h_avg = 0.5 * (h_l + h_r)
 
     F_0 = (
@@ -513,20 +512,20 @@ if __name__ == '__main__':
     if args.cycle_mode == galvanostatic:
         F_1 += - v_1 * lmbda * ds_f(3)
         F_1a = (V_cell - u_1) * mu * ds_f(3)
-        F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3) #- 1e-6/h * V_cell * w * ds_f(3)
+        F_1b = w * (I_tot/(A_right_tilde * L_ref * phi_ref) + lmbda) * ds_f(3)
 
     F_0 += F_00
     F_1 += F_11
 
-    # additional penalty terms, e.g. 5e3, or (1 + Wa)*(1 + Kr)/(1 + Wa * Kr)
+    # # additional penalty terms, e.g. 5e3, or (1 + Wa)*(1 + Kr)/(1 + Wa * Kr)
     if args.alpha > 0:
-        F_0 += + args.alpha * kappa_elec * h_avg * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_l)) * dInterface
-        F_1 += - args.alpha * kappa_pos_am * h_avg * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_r)) * dInterface
+        F_0 += + args.alpha * h_avg * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_l)) * dInterface
+        F_1 += - args.alpha * h_avg * inner(kappa_elec * grad(u_l) - kappa_pos_am * grad(u_r), grad(v_r)) * dInterface
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
     # F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_r), n_r) * q_r * dInterface
-    F_2 += - inner(0.5 * grad(args.kr * u_l + u_r), n_r) * q_r * dInterface
-    # F_2 += alpha * h_r * inner(inner(0.5 * grad(args.kr * u_l + u_r) - grad(c_r), n_r), inner(grad(q_r), n_r)) * dInterface
+    F_2 += - inner(0.5*grad(args.kr * u_l + u_r), n_r) * q_r * dInterface
+    F_2 += args.gamma * h_r * inner(inner(0.5 * grad(args.kr * u_l + u_r) - grad(c_r), n_r), inner(grad(q_r), n_r)) * dInterface
 
     u_left = fem.Function(V0)
     u_left.x.array[:] = 0/phi_ref
