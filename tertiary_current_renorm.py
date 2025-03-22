@@ -351,8 +351,21 @@ if __name__ == '__main__':
 
     entity_maps = {submesh_electrolyte: parent_to_sub_electrolyte, submesh_positive_am: parent_to_sub_positive_am}
 
-    u_0, F_00, m_to_elec = define_interior_eq(domain, args.p_u0, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec, cell_type)
-    u_1, F_11, m_to_pos_am = define_interior_eq(domain, args.p_u1, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am, cell_type)
+    ##
+    Q = fem.functionspace(domain, ("DG", 0))
+    kappa = fem.Function(Q, name='conductivity')
+    kappa_total = kappa_elec + kappa_pos_am
+
+    cells_elec = ct.find(markers.electrolyte)
+    kappa.x.array[cells_elec] = np.full_like(cells_elec, kappa_elec / kappa_total, dtype=default_scalar_type)
+
+    # kappa_pos_am = kappa_elec/args.kr
+    cells_pos_am = ct.find(markers.positive_am)
+    kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, kappa_pos_am / kappa_total, dtype=default_scalar_type)
+    ##
+
+    u_0, F_00, m_to_elec = define_interior_eq(domain, args.p_u0, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa, cell_type)
+    u_1, F_11, m_to_pos_am = define_interior_eq(domain, args.p_u1, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa, cell_type)
     u_0.name = "u_b"
     u_1.name = "u_t"
 
@@ -407,19 +420,6 @@ if __name__ == '__main__':
     v_r = v_1(r_res)
     u_l = u_0(l_res)
     u_r = u_1(r_res)
-
-    ##
-    Q = fem.functionspace(domain, ("DG", 0))
-    kappa = fem.Function(Q, name='conductivity')
-    kappa_total = kappa_elec + kappa_pos_am
-
-    cells_elec = ct.find(markers.electrolyte)
-    kappa.x.array[cells_elec] = np.full_like(cells_elec, kappa_elec / kappa_total, dtype=default_scalar_type)
-
-    # kappa_pos_am = kappa_elec/args.kr
-    cells_pos_am = ct.find(markers.positive_am)
-    kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, kappa_pos_am / kappa_total, dtype=default_scalar_type)
-    ##
 
     n = ufl.FacetNormal(domain)
     n_0 = ufl.FacetNormal(submesh_electrolyte)
@@ -538,9 +538,9 @@ if __name__ == '__main__':
         F_1 += - args.alpha * h_avg * inner(kappa_l * grad(u_l) - kappa_r * grad(u_r), grad(v_r)) * dInterface
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
-    F_2 += -inner(kappa_total * phi_ref/(D * faraday_const * c_ref) * kappa_r * grad(u_r), n_r) * q_r * dInterface
+    F_2 += -inner(kappa_total * phi_ref/(D * faraday_const * c_ref)/2 * (kappa_l * grad(u_l) + kappa_r * grad(u_r)), n_r) * q_r * dInterface
     # F_2 += - inner(0.5*grad(args.kr * u_l + u_r), n_r) * q_r * dInterface
-    # F_2 += args.gamma * h_r * inner(inner(0.5 * grad(args.kr * u_l + u_r) - grad(c_r), n_r), inner(grad(q_r), n_r)) * dInterface
+    F_2 += 1e-8 * h_r * kappa_total * phi_ref/(D * faraday_const * c_ref) * inner(inner(0.5 * grad(kappa_l * u_l + kappa_r * u_r) - grad(c_r), n_r), inner(grad(q_r), n_r)) * dInterface
 
     u_left = fem.Function(V0)
     u_left.x.array[:] = 0/phi_ref
@@ -832,8 +832,8 @@ if __name__ == '__main__':
         n_dofs_c = VC_map.size_global*VC.dofmap.index_map_bs
         u_int.interpolate(u_1)
         F_c = (c - c0)/dt * q * dx_c + inner(ufl.grad(c), ufl.grad(q)) * dx_c
-        # F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_int), n_1) * q * ds_c(markers.electrolyte_v_positive_am)
-        F_c += -inner(grad(u_int), n_1) * q * ds_c(markers.electrolyte_v_positive_am)
+        F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_int), n_1) * q * ds_c(markers.electrolyte_v_positive_am)
+        # F_c += -inner(grad(u_int), n_1) * q * ds_c(markers.electrolyte_v_positive_am)
         problem_c = fem.petsc.NonlinearProblem(F_c, c, bcs=[])
         solver = petsc_nls.NewtonSolver(comm, problem_c)
         solver.convergence_criterion = "residual"
