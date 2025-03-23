@@ -534,8 +534,8 @@ if __name__ == '__main__':
 
     # # additional penalty terms, e.g. 5e3, or (1 + Wa)*(1 + Kr)/(1 + Wa * Kr)
     if args.alpha > 0:
-        F_0 += + args.kr * args.alpha * h_avg * inner(kappa_l * grad(u_l) - kappa_r * grad(u_r), grad(v_l)) * dInterface
-        F_1 += - args.alpha * h_avg * inner(kappa_l * grad(u_l) - kappa_r * grad(u_r), grad(v_r)) * dInterface
+        F_0 += - args.kr * args.alpha * h_avg * inner(kappa_l * grad(u_l) - kappa_r * grad(u_r), grad(v_l)) * dInterface
+        F_1 += + args.alpha * h_avg * inner(kappa_l * grad(u_l) - kappa_r * grad(u_r), grad(v_r)) * dInterface
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
     F_2 += -inner(kappa_total * phi_ref/(D * faraday_const * c_ref)/2 * (kappa_l * grad(u_l) + kappa_r * grad(u_r)), n_r) * q_r * dInterface
