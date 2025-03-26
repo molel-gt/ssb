@@ -1115,9 +1115,13 @@ if __name__ == '__main__':
                         entity_maps=entity_maps)), op=MPI.SUM)
 
         error = phi_ref * L_ref ** (-k) * (inner(kappa_elec * grad(u_l), n_l) + inner(kappa_pos_am * grad(u_r), n_r))
-        i_x = inner(kappa_pos_am * grad(u_r), n_r) * phi_ref * L_ref ** (-k)
-        I_x_norm = np.sqrt(comm.allreduce(fem.assemble_scalar(
-                                    fem.form(inner(i_x, i_x) * L_ref ** 2 * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
+        i_x_l = inner(kappa_elec * grad(u_l), n_l) * phi_ref * L_ref ** (-k)
+        i_x_r = inner(kappa_pos_am * grad(u_r), n_r) * phi_ref * L_ref ** (-k)
+        I_x_norm_l = np.sqrt(comm.allreduce(fem.assemble_scalar(
+                                    fem.form(inner(i_x_l, i_x_l) * L_ref ** 2 * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
+        I_x_norm_r = np.sqrt(comm.allreduce(fem.assemble_scalar(
+                                    fem.form(inner(i_x_r, i_x_r) * L_ref ** 2 * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
+        I_x_norm = 0.5 * (I_x_norm_l + I_x_norm_r)
 
         I_interface_error_norm = np.sqrt(comm.allreduce(fem.assemble_scalar(
                                     fem.form(inner(error, error) * L_ref ** 2 * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
@@ -1157,6 +1161,7 @@ if __name__ == '__main__':
                     "i (stdev) se/am [A/m2]": i_stdev_se_am,
                     "i (avg) right [A/m2]": i_avg_right,
                     "i (stdev) right [A/m2]": i_stdev_right,
+                    "I_interface error norm (normalized)": I_interface_error_norm / I_x_norm,
                     "Diffusivity [m2/s]": args.D,
                     "Positive Wa": args.Wa_p,
                     "Kr": args.kr,
