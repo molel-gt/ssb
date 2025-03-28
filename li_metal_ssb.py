@@ -189,6 +189,7 @@ class CCCV_Cycler:
         self._t_max = t_max
         self._current_mode_time = 0
         self._sod = 0
+        self._stop = False
 
     @property
     def ref(self):
@@ -230,9 +231,15 @@ class CCCV_Cycler:
 
     @property
     def dt(self):
-        if self.current_mode["time"] - self.current_mode_time < self._dt:
-            return self.current_mode["time"] - self.current_mode_time
-        return self._dt
+        res = self.current_mode["time"] - self.current_mode_time
+        if np.isclose(res, 0):
+            return self._dt
+        else:
+            return np.min([self._dt, res])
+
+    @property
+    def stop(self):
+        return self._stop
 
     def setup(self):
         if self.modes is None:
@@ -242,45 +249,45 @@ class CCCV_Cycler:
                 data["data"][idx]["time"] = data["data"][idx]["time"] / self.ref["t"]
             self._modes = data["data"]
             self._sod = data["sod"]
+            self._time += self.dt
+            self._current_mode_time += self.dt
 
     def next(self):
         self._time += self.dt
         self._current_mode_time += self.dt
 
-        if self.current_mode_time >= self.current_mode["time"] and self.mode_idx < len(self.modes) - 1:
+        if self.current_mode_time > self.current_mode["time"] and self.mode_idx < len(self.modes) - 1:
             self._mode_idx += 1
-            self._current_mode_time = 0
+            self._current_mode_time = self.dt
             return True
         return False
 
-    def stop(self, V_cell, I_cell):
-        if np.isclose(self.dt, 0):
-            return True
+    def check_stop_criteria(self, V_cell, I_cell):
         if self.mode_idx >= len(self.modes):
-            return True
+            self._stop = True
 
-        if self.time >= self.t_max:
-            return True
+        if self.time > self.t_max:
+            self._stop = True
 
         # stop at global upper and lower cutoff voltage
         if V_cell >= V_MAX or V_cell < V_MIN:
-            return True
+            self._stop = True
 
         # constant current mode: stop at maximum voltage during charge, minimum voltage during discharge
         if self.current_mode["c-rate"] is not None:
             if self.current_mode["direction"] < 0 and V_cell >= self.current_mode['stop']['V_max']:
-                return True
+                self._stop = True
 
             if self.current_mode["direction"] > 0 and V_cell <= self.current_mode['stop']['V_min']:
-                return True
+                self._stop = True
 
         # constant voltage mode: stop at maximum current during charge, minimum current during discharge
         if self.current_mode["voltage"] is not None:
             if self.current_mode["direction"] > 0 and I_cell >= self.current_mode["stop"]["I_max"]:
-                return True
+                self._stop = True
 
             if self.current_mode["direction"] < 0 and I_cell <= self.current_mode["stop"]["I_min"]:
-                return True
+                self._stop = True
 
         return False
 
@@ -966,8 +973,8 @@ if __name__ == '__main__':
     u_vtx = io.VTXWriter(comm, output_potential_file, [u], engine="BP5")
     u_vtx.write(0)
 
-    cycler.next()
-    while not stop and not np.isclose(cycler.dt, 0):
+    # cycler.next()
+    while not cycler.stop:
         dt.value = cycler.dt
         if cycler.current_mode_type == galvanostatic:
             I_tot.value = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
@@ -1158,7 +1165,7 @@ if __name__ == '__main__':
         i_stdev_right = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
                                 (kappa_pos_am * phi_ref * L_ref ** (-k) * inner(grad(u_1), n) - i_avg_right) ** 2 * ds(markers.right),
                                 entity_maps=entity_maps)), op=MPI.SUM) / A_right_tilde)
-        stop = cycler.stop(I_cell=np.abs(I_right), V_cell=u_avg_right)
+        cycler.check_stop_criteria(I_cell=np.abs(I_right), V_cell=u_avg_right)
         cvtx.write(cycler.time)
 
         u.interpolate(u_0, cells1=submesh_electrolyte_to_mesh, cells0=np.arange(len(submesh_electrolyte_to_mesh)))
