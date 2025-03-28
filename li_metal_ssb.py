@@ -188,14 +188,15 @@ class CCCV_Cycler:
         self._dt = dt
         self._t_max = t_max
         self._current_mode_time = 0
-
-    @property
-    def t_max(self):
-        return self._t_max
+        self._sod = 0
 
     @property
     def ref(self):
         return self._ref
+
+    @property
+    def sod(self):
+        return self._sod
 
     @property
     def time(self):
@@ -208,6 +209,11 @@ class CCCV_Cycler:
     @property
     def mode_idx(self):
         return self._mode_idx
+
+    @property
+    def t_max(self):
+        return np.sum([m["time"] for m in self.modes])
+        # return self._t_max
 
     @property
     def current_mode(self):
@@ -232,7 +238,9 @@ class CCCV_Cycler:
     def setup(self):
         if self.modes is None:
             with open(self._modes_input_json) as fp:
-                self._modes = json.load(fp)["data"]
+                data = json.load(fp)
+            self._modes = data["data"]
+            self._sod = data["sod"]
 
     def next(self):
         self._current_mode_time += self.dt
@@ -280,7 +288,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='secondary current distribution')
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
     parser.add_argument("--voltage", help="applied voltage drop", nargs='?', const=1, default=1.0, type=float)
-    parser.add_argument("--u_ocv", help="open-circuit potential", nargs='?', const=1, default=0, type=float)
     parser.add_argument("--Wa_n", help="Wagna number for negative electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e-3, type=float)
     parser.add_argument("--Wa_p", help="Wagna number for positive electrode: charge transfer resistance <over> ohmic resistance", nargs='?', const=1, default=1e3, type=float)
     parser.add_argument("--D", help="Diffusivity [m2/s]", nargs='?', const=1, default=1e-14, type=float)
@@ -372,7 +379,7 @@ if __name__ == '__main__':
 
     thiele = R_p_ref * i0_p * V_MAX / (R * T * D * c_max)
 
-    soc_init = 0.75 * c_max / c_ref
+    c_init = cycler.sod * c_ref
 
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
     results_dir = os.path.join(args.mesh_folder, args.cycle_mode, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), f'{args.C_rate}C',f'{args.p_u0}-{args.p_u1}-{args.p_concentration}', str(args.gamma) + "-" + str(args.alpha), str(comm.Get_size()))
@@ -543,8 +550,7 @@ if __name__ == '__main__':
     c0 = fem.Function(VC)
     u_int = fem.Function(VC)
 
-    c0.interpolate(lambda x: x[directions[args.transport_direction.lower()]] - x[directions[args.transport_direction.lower()]] + soc_init)
-    # c.interpolate(c0)#lambda x: soc_init * (1 - np.exp(-x[directions[args.transport_direction.lower()]])))
+    c0.interpolate(lambda x: x[directions[args.transport_direction.lower()]] - x[directions[args.transport_direction.lower()]] + c_init)
 
     q_r = ufl.TestFunction(c.function_space)(r_res)
     q_l = ufl.TestFunction(c.function_space)(l_res)
@@ -806,7 +812,7 @@ if __name__ == '__main__':
     ]
     n_dofs_cv = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs + VC_map.size_global*VC.dofmap.index_map_bs
 
-    cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
+    
     n_dofs = n_dofs_cc
     PETSc.Sys.Print(f"Setting up problem Wa: {args.Wa_p}, Kr: {args.kr}, #DoFs: {n_dofs:,}, nprocs: {comm.Get_size()}")
 
@@ -948,8 +954,16 @@ if __name__ == '__main__':
 
     stats = []
 
+    # interpolate
+    V = fem.functionspace(domain, ("DG", 1))
+    u = fem.Function(V)
+
     idx = 0
     stop = False
+
+    cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
+    u_vtx = io.VTXWriter(comm, output_potential_file, [u], engine="BP5")
+    u_vtx.write(0)
 
     while not stop:
         dt.value = cycler.dt
@@ -1059,7 +1073,7 @@ if __name__ == '__main__':
         t1 = time.time()
         PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}, solve time: {t1-t0:.3f}s")
         PETSc.Log().view(log_viewer)
-        dt.value = 5 * dt.value
+        cycler._dt = 5 * args.dt
         if comm_rank == 0 and args.plot:
             fig, ax = plt.subplots()
             ax.semilogy(snes.getKSP().getConvergenceHistory(), 'x-')
@@ -1109,8 +1123,17 @@ if __name__ == '__main__':
 
         I_interface_error_norm = np.sqrt(comm.allreduce(fem.assemble_scalar(
                                     fem.form(inner(error, error) * L_ref ** 2 * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
+        u_avg_left_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_0 * ds(markers.left),
+                                                                        entity_maps=entity_maps)), op=MPI.SUM)
+        u_avg_left = u_avg_left_tilde * phi_ref * L_ref ** 2 / A_left
+        u_stdev_left_tilde = comm.allreduce(fem.assemble_scalar(fem.form(
+                                            (u_0 - u_avg_left_tilde) ** 2 * ds(markers.left),
+                                            entity_maps=entity_maps)), op=MPI.SUM)
+        u_stdev_left = np.sqrt(u_stdev_left_tilde  * (phi_ref * L_ref ** 2) ** 2 / A_left)
+
         u_avg_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_1 * ds(markers.right),
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
+
         u_avg_right = u_avg_right_tilde * phi_ref * L_ref ** 2 / A_right
         u_stdev_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(
                                             (u_1 - u_avg_right_tilde) ** 2 * ds(markers.right),
@@ -1132,6 +1155,11 @@ if __name__ == '__main__':
         stop = cycler.stop(I_cell=np.abs(I_right), V_cell=u_avg_right)
         cvtx.write(cycler.time)
 
+        u.interpolate(u_0, cells1=submesh_electrolyte_to_mesh, cells0=np.arange(len(submesh_electrolyte_to_mesh)))
+        u.interpolate(u_1, cells1=submesh_positive_am_to_mesh, cells0=np.arange(len(submesh_positive_am_to_mesh)))
+        u.x.scatter_forward()
+        u_vtx.write(cycler.time)
+
         stats.append(
                      {
                      "t [s]": cycler.time * t_ref,
@@ -1140,6 +1168,8 @@ if __name__ == '__main__':
                     "I right [A]": I_right,
                     "I (target) right [A]": I_tot_,
                     "C-rate": args.C_rate,
+                    "u (avg) left [V]": u_avg_left,
+                    "u (stdev) left [v]": u_stdev_left,
                     "u (avg) right [V]": u_avg_right,
                     "u (stdev) right [v]": u_stdev_right,
                     "i (avg) left [A/m2]": i_avg_left,
@@ -1207,22 +1237,6 @@ if __name__ == '__main__':
         PETSc.Sys.Print(f"Saved results files in {results_dir}")
         PETSc.Sys.Print(f"Wrote log summary to {log_datafile}")
         PETSc.Sys.Print(f"Time elapsed: {time_elapsed:3.5f}s")
-
-    # interpolate
-    V = fem.functionspace(domain, ("DG", 1))
-    u = fem.Function(V)
-    u.interpolate(u_0, cells1=submesh_electrolyte_to_mesh, cells0=np.arange(len(submesh_electrolyte_to_mesh)))
-    u.interpolate(u_1, cells1=submesh_positive_am_to_mesh, cells0=np.arange(len(submesh_positive_am_to_mesh)))
-    u.x.scatter_forward()
-
-    with io.VTXWriter(comm, output_potential_file, [u], engine="BP5") as vtx:
-        vtx.write(0)
-
-    with io.VTXWriter(comm, elec_potential_file, [u_0], engine="BP5") as vtx:
-        vtx.write(0)
-
-    with io.VTXWriter(comm, positive_am_potential_file, [u_1], engine="BP5") as vtx:
-        vtx.write(0)
 
     if args.plot:
         n_points = 1000
