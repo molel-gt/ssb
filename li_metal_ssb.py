@@ -213,7 +213,6 @@ class CCCV_Cycler:
     @property
     def t_max(self):
         return np.sum([m["time"] for m in self.modes])
-        # return self._t_max
 
     @property
     def current_mode(self):
@@ -239,16 +238,19 @@ class CCCV_Cycler:
         if self.modes is None:
             with open(self._modes_input_json) as fp:
                 data = json.load(fp)
+            for idx, _row in enumerate(data["data"]):
+                data["data"][idx]["time"] = data["data"][idx]["time"] / self.ref["t"]
             self._modes = data["data"]
             self._sod = data["sod"]
 
     def next(self):
-        self._current_mode_time += self.dt
         self._time += self.dt
-        if self.current_mode_time < self.current_mode["time"]:
-            return False
+        self._current_mode_time += self.dt
+        PETSc.Sys.Print(self.mode_idx, self.time, self.current_mode_time)
+        # if self.current_mode_time < self.current_mode["time"]:
+        #     return False
 
-        if self.mode_idx < len(self.modes) - 1:
+        if self.current_mode_time >= self.current_mode["time"] and self.mode_idx < len(self.modes) - 1:
             self._mode_idx += 1
             self._current_mode_time = 0
             return True
@@ -275,10 +277,10 @@ class CCCV_Cycler:
 
         # constant voltage mode: stop at maximum current during charge, minimum current during discharge
         if self.current_mode["voltage"] is not None:
-            if self.current_mode["direction"] < 0 and I_cell >= self.current_mode["I_max"]:
+            if self.current_mode["direction"] > 0 and I_cell >= self.current_mode["stop"]["I_max"]:
                 return True
 
-            if self.current_mode["direction"] > 0 and I_cell <= self.current_mode["I_min"]:
+            if self.current_mode["direction"] < 0 and I_cell <= self.current_mode["stop"]["I_min"]:
                 return True
 
         return False
@@ -967,14 +969,20 @@ if __name__ == '__main__':
 
     while not stop:
         dt.value = cycler.dt
+        # cycler.next()
         if cycler.current_mode_type == galvanostatic:
             I_tot.value = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
             soln_vars = [u_0, u_1, lmbda, V_cell, c]
+            bcs = [bc_left]
         elif cycler.current_mode_type == potentiostatic:
+            PETSc.Sys.Print(cycler.current_mode["voltage"]/phi_ref)
             u_right.x.array[:] = cycler.current_mode["voltage"]/phi_ref
+            bc_right = fem.dirichletbc(
+                                       u_right, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right)))
+            bcs = [bc_left, bc_right]
             soln_vars = [u_0, u_1, c]
 
-        PETSc.Sys.Print(f"Time: {cycler.time:.1e}\n")
+        PETSc.Sys.Print(f"Time: {cycler.time+cycler.dt:.1e}\n")
         petsc_options.clear()
         if cycler.current_mode_type == galvanostatic:
             J = J_cc
