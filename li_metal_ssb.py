@@ -246,9 +246,6 @@ class CCCV_Cycler:
     def next(self):
         self._time += self.dt
         self._current_mode_time += self.dt
-        PETSc.Sys.Print(self.mode_idx, self.time, self.current_mode_time)
-        # if self.current_mode_time < self.current_mode["time"]:
-        #     return False
 
         if self.current_mode_time >= self.current_mode["time"] and self.mode_idx < len(self.modes) - 1:
             self._mode_idx += 1
@@ -967,22 +964,21 @@ if __name__ == '__main__':
     u_vtx = io.VTXWriter(comm, output_potential_file, [u], engine="BP5")
     u_vtx.write(0)
 
+    cycler.next()
     while not stop:
         dt.value = cycler.dt
-        # cycler.next()
         if cycler.current_mode_type == galvanostatic:
             I_tot.value = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
             soln_vars = [u_0, u_1, lmbda, V_cell, c]
             bcs = [bc_left]
         elif cycler.current_mode_type == potentiostatic:
-            PETSc.Sys.Print(cycler.current_mode["voltage"]/phi_ref)
             u_right.x.array[:] = cycler.current_mode["voltage"]/phi_ref
             bc_right = fem.dirichletbc(
                                        u_right, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right)))
             bcs = [bc_left, bc_right]
             soln_vars = [u_0, u_1, c]
 
-        PETSc.Sys.Print(f"Time: {cycler.time+cycler.dt:.1e}\n")
+        PETSc.Sys.Print(f"Time: {cycler.time:.1e}\n")
         petsc_options.clear()
         if cycler.current_mode_type == galvanostatic:
             J = J_cc
