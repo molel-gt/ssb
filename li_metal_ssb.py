@@ -974,8 +974,8 @@ if __name__ == '__main__':
     u_vtx.write(0)
 
     # cycler.next()
+    dt.value = cycler.dt
     while not cycler.stop:
-        dt.value = cycler.dt
         if cycler.current_mode_type == galvanostatic:
             I_tot.value = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
             soln_vars = [u_0, u_1, lmbda, V_cell, c]
@@ -987,7 +987,7 @@ if __name__ == '__main__':
             bcs = [bc_left, bc_right]
             soln_vars = [u_0, u_1, c]
 
-        PETSc.Sys.Print(f"Time: {cycler.time:.1e}\n")
+        PETSc.Sys.Print(f"Time: {cycler.time:.3e}\n")
         petsc_options.clear()
         if cycler.current_mode_type == galvanostatic:
             J = J_cc
@@ -1165,6 +1165,7 @@ if __name__ == '__main__':
         i_stdev_right = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
                                 (kappa_pos_am * phi_ref * L_ref ** (-k) * inner(grad(u_1), n) - i_avg_right) ** 2 * ds(markers.right),
                                 entity_maps=entity_maps)), op=MPI.SUM) / A_right_tilde)
+        dt.value = cycler.dt
         cycler.check_stop_criteria(I_cell=np.abs(I_right), V_cell=u_avg_right)
         cvtx.write(cycler.time)
 
