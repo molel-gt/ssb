@@ -254,6 +254,8 @@ class CCCV_Cycler:
         return False
 
     def stop(self, V_cell, I_cell):
+        if np.isclose(self.dt, 0):
+            return True
         if self.mode_idx >= len(self.modes):
             return True
 
@@ -965,7 +967,7 @@ if __name__ == '__main__':
     u_vtx.write(0)
 
     cycler.next()
-    while not stop:
+    while not stop and not np.isclose(cycler.dt, 0):
         dt.value = cycler.dt
         if cycler.current_mode_type == galvanostatic:
             I_tot.value = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
