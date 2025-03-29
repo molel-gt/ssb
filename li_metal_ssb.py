@@ -47,7 +47,7 @@ galvanostatic = "galvanostatic"
 potentiostatic = "potentiostatic"
 hold_voltage = "hold_voltage"
 rest = "rest"
-I_rest = np.finfo(np.cfloat).eps
+I_rest = np.finfo(np.float64).eps
 
 modes = (galvanostatic, potentiostatic)
 micron = 1e-6
