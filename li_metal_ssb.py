@@ -48,6 +48,7 @@ potentiostatic = "potentiostatic"
 hold_voltage = "hold_voltage"
 rest = "rest"
 I_rest = np.finfo(np.float64).eps
+max_rest_c_rate = 0.001 # maximum c-rate to be considered rest
 
 modes = (galvanostatic, potentiostatic)
 micron = 1e-6
@@ -257,7 +258,11 @@ class CCCV_Cycler:
             with open(self._modes_input_json) as fp:
                 data = json.load(fp)
             for idx, _row in enumerate(data["data"]):
-                data["data"][idx]["time"] = data["data"][idx]["time"] / self.ref["t"]
+                _row["time"] = _row["time"] / self.ref["t"]
+                if _row['c-rate'] is None:
+                    continue
+                if _row["c-rate"] > max_rest_c_rate and np.isclose(_row['direction'], 0):
+                    raise ValueError("c-rate is greater than maximum for rest phase")
             self._modes = data["data"]
             self._sod = data["sod"]
             self._time += self.dt
@@ -276,35 +281,43 @@ class CCCV_Cycler:
     def check_stop_criteria(self, V_cell, I_cell):
         if self.mode_idx >= len(self.modes):
             self._stop = True
+            return
 
         if self.time > self.t_max:
             self._stop = True
+            return
 
         # stop at global upper and lower cutoff voltage
         if V_cell >= V_MAX or V_cell < V_MIN:
             self._stop = True
+            return
 
         if self.current_mode_type == hold_voltage:
             if I_cell < current_mode["stop"]["I_min"]:
                 self._stop = True
+            return
 
         # constant current mode: stop at maximum voltage during charge, minimum voltage during discharge
         if self.current_mode["c-rate"] is not None:
             if self.current_mode["direction"] < 0 and V_cell >= self.current_mode['stop']['V_max']:
                 self._stop = True
+                return
 
             if self.current_mode["direction"] > 0 and V_cell <= self.current_mode['stop']['V_min']:
                 self._stop = True
+                return
 
         # constant voltage mode: stop at maximum current during charge, minimum current during discharge
         if self.current_mode["voltage"] is not None:
             if self.current_mode["direction"] > 0 and I_cell >= self.current_mode["stop"]["I_max"]:
                 self._stop = True
+                return
 
             if self.current_mode["direction"] < 0 and I_cell <= self.current_mode["stop"]["I_min"]:
                 self._stop = True
+                return
 
-        return False
+        return
 
 
 if __name__ == '__main__':
@@ -1011,7 +1024,7 @@ if __name__ == '__main__':
             bcs = [bc_left, bc_right]
             soln_vars = [u_0, u_1, c]
         elif cycler.current_mode_type == rest:
-            I_tot.value = I_rest #cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
+            I_tot.value = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
             I_tot_tilde.value = I_tot.value /(L_ref * kappa_total * phi_ref)
             soln_vars = [u_0, u_1, lmbda, V_cell, c]
             bcs = [bc_left]

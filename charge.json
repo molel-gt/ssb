@@ -1,6 +1,7 @@
 {
     "sod": 1.0,
     "data": [
-    { "direction": -1, "c-rate": 5.0, "voltage": null, "time": 60, "stop": {"V_min": null, "V_max": 4.0, "I_min": null, "I_max": null} },
-    { "direction": 0, "c-rate": null, "voltage": null, "time": 300, "stop": {"V_min": null, "V_max": null, "I_min": null, "I_max": null} }
+    { "direction": -1, "c-rate": 10.0, "voltage": null, "time": 60, "stop": {"V_min": null, "V_max": 4.0, "I_min": null, "I_max": null} },
+    { "direction": -1, "c-rate": null, "voltage": null, "time": 60, "stop": {"V_min": null, "V_max": 4.0, "I_min": null, "I_max": null} },
+    { "direction": 0, "c-rate": 0.001, "voltage": null, "time": 60, "stop": {"V_min": null, "V_max": null, "I_min": null, "I_max": null} }
 ]}
