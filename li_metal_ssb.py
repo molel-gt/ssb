@@ -233,13 +233,13 @@ class CCCV_Cycler:
         if np.isclose(self.current_mode["direction"], 0):
             return rest
 
-        if self.current_mode["c-rate"] is not None:
+        if self.current_mode["c-rate"] is None and self.current_mode["voltage"] is None:
+            return hold_voltage
+        elif self.current_mode["c-rate"] is not None:
             return galvanostatic
 
         elif self.current_mode["voltage"] is not None:
             return potentiostatic
-
-        return hold_voltage
 
     @property
     def dt(self):
@@ -293,8 +293,11 @@ class CCCV_Cycler:
             return
 
         if self.current_mode_type == hold_voltage:
-            if I_cell < current_mode["stop"]["I_min"]:
+            if I_cell < self.current_mode["stop"]["I_min"]:
                 self._stop = True
+            return
+
+        if self.current_mode["c-rate"] is None and self.current_mode["voltage"] is None:
             return
 
         # constant current mode: stop at maximum voltage during charge, minimum voltage during discharge
@@ -1031,7 +1034,7 @@ if __name__ == '__main__':
 
         PETSc.Sys.Print(f"Time: {cycler.time:.3e}\n")
         petsc_options.clear()
-        if cycler.current_mode_type == galvanostatic:
+        if cycler.current_mode_type in (galvanostatic, rest):
             J = J_cc
             F = F_cc
             P = J
@@ -1044,7 +1047,7 @@ if __name__ == '__main__':
             IS_c = nested_IS[0][4]
             IS_u = IS_u0.sum(IS_u1)
             IS_ulg = IS_u.sum(IS_l).sum(IS_v)
-        elif cycler.current_mode_type == potentiostatic:
+        elif cycler.current_mode_type in (potentiostatic, hold_voltage):
             J = J_cv
             F = F_cv
             P = J
@@ -1215,8 +1218,9 @@ if __name__ == '__main__':
         u.interpolate(u_1, cells1=submesh_positive_am_to_mesh, cells0=np.arange(len(submesh_positive_am_to_mesh)))
         u.x.scatter_forward()
         u_vtx.write(cycler.time)
-
-        V_cell_prev = u_avg_right
+        # in case want to hold potential at end of CC charge/discharge
+        if cycler.current_mode_type == galvanostatic:
+            V_cell_prev = u_avg_right
 
         stats.append(
                      {
