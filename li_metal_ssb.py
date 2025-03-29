@@ -45,6 +45,10 @@ kappa_pos_am = 0.1
 kinetics = ('linear', 'tafel', 'butler_volmer')
 galvanostatic = "galvanostatic"
 potentiostatic = "potentiostatic"
+hold_voltage = "hold_voltage"
+rest = "rest"
+I_rest = np.finfo(np.cfloat).eps
+
 modes = (galvanostatic, potentiostatic)
 micron = 1e-6
 V_MAX = 5.0  # upper cutoff voltage
@@ -225,9 +229,16 @@ class CCCV_Cycler:
 
     @property
     def current_mode_type(self):
+        if np.isclose(self.current_mode["direction"], 0):
+            return rest
+
         if self.current_mode["c-rate"] is not None:
             return galvanostatic
-        return potentiostatic
+
+        elif self.current_mode["voltage"] is not None:
+            return potentiostatic
+
+        return hold_voltage
 
     @property
     def dt(self):
@@ -272,6 +283,10 @@ class CCCV_Cycler:
         # stop at global upper and lower cutoff voltage
         if V_cell >= V_MAX or V_cell < V_MIN:
             self._stop = True
+
+        if self.current_mode_type == hold_voltage:
+            if I_cell < current_mode["stop"]["I_min"]:
+                self._stop = True
 
         # constant current mode: stop at maximum voltage during charge, minimum voltage during discharge
         if self.current_mode["c-rate"] is not None:
@@ -958,6 +973,7 @@ if __name__ == '__main__':
         n_iters, converged = solver.solve(c)
         t1 = time.time()
         PETSc.Sys.Print(f"Finished computation of improved guess of concentration distribution!\nn_dofs: {n_dofs_c:,}\nsolve time: {t1 - t0:.3f}s")
+        PETSc.Sys.Print(utils.starpad("*"))
     ########################################################################################################################################
 
     stats = []
@@ -975,9 +991,11 @@ if __name__ == '__main__':
 
     # cycler.next()
     dt.value = cycler.dt
+    V_cell_prev = 0
     while not cycler.stop:
         if cycler.current_mode_type == galvanostatic:
             I_tot.value = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
+            I_tot_tilde.value = I_tot.value /(L_ref * kappa_total * phi_ref)
             soln_vars = [u_0, u_1, lmbda, V_cell, c]
             bcs = [bc_left]
         elif cycler.current_mode_type == potentiostatic:
@@ -986,6 +1004,17 @@ if __name__ == '__main__':
                                        u_right, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right)))
             bcs = [bc_left, bc_right]
             soln_vars = [u_0, u_1, c]
+        elif cycler.current_mode_type == hold_voltage:
+            u_right.x.array[:] = V_cell_prev/phi_ref
+            bc_right = fem.dirichletbc(
+                                       u_right, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right)))
+            bcs = [bc_left, bc_right]
+            soln_vars = [u_0, u_1, c]
+        elif cycler.current_mode_type == rest:
+            I_tot.value = I_rest #cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
+            I_tot_tilde.value = I_tot.value /(L_ref * kappa_total * phi_ref)
+            soln_vars = [u_0, u_1, lmbda, V_cell, c]
+            bcs = [bc_left]
 
         PETSc.Sys.Print(f"Time: {cycler.time:.3e}\n")
         petsc_options.clear()
@@ -1173,6 +1202,8 @@ if __name__ == '__main__':
         u.interpolate(u_1, cells1=submesh_positive_am_to_mesh, cells0=np.arange(len(submesh_positive_am_to_mesh)))
         u.x.scatter_forward()
         u_vtx.write(cycler.time)
+
+        V_cell_prev = u_avg_right
 
         stats.append(
                      {
