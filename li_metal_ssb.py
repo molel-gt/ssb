@@ -292,6 +292,16 @@ class CCCV_Cycler:
             self._stop = True
             return
 
+        if self.current_mode_type ==  rest:
+            if self.current_mode["stop"]["V_min"] is not None:
+                if V_cell < self.current_mode["stop"]["V_min"]:
+                    self._stop = True
+                    return
+            if self.current_mode["stop"]["V_max"] is not None:
+                if V_cell > self.current_mode["stop"]["V_max"]:
+                    self._stop = True
+                    return
+
         if self.current_mode_type == hold_voltage:
             if I_cell < self.current_mode["stop"]["I_min"]:
                 self._stop = True
@@ -301,7 +311,7 @@ class CCCV_Cycler:
             return
 
         # constant current mode: stop at maximum voltage during charge, minimum voltage during discharge
-        if self.current_mode["c-rate"] is not None:
+        if self.current_mode_type == galvanostatic:
             if self.current_mode["direction"] < 0 and V_cell >= self.current_mode['stop']['V_max']:
                 self._stop = True
                 return
@@ -311,7 +321,7 @@ class CCCV_Cycler:
                 return
 
         # constant voltage mode: stop at maximum current during charge, minimum current during discharge
-        if self.current_mode["voltage"] is not None:
+        if self.current_mode_type == potentiostatic:
             if self.current_mode["direction"] > 0 and I_cell >= self.current_mode["stop"]["I_max"]:
                 self._stop = True
                 return
@@ -1191,6 +1201,9 @@ if __name__ == '__main__':
 
         u_avg_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_1 * ds(markers.right),
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
+        c_surf_avg_tilde = comm.allreduce(fem.assemble_scalar(fem.form(c_r * dInterface,
+                                                                        entity_maps=entity_maps)), op=MPI.SUM)
+        c_surf_avg = c_surf_avg_tilde / A_se_am_tilde
 
         u_avg_right = u_avg_right_tilde * phi_ref * L_ref ** 2 / A_right
         u_stdev_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(
@@ -1240,6 +1253,7 @@ if __name__ == '__main__':
                     "i (stdev) se/am [A/m2]": i_stdev_se_am,
                     "i (avg) right [A/m2]": i_avg_right,
                     "i (stdev) right [A/m2]": i_stdev_right,
+                    "c surf (avg) (normalized)": c_surf_avg,
                     "I_interface error norm (normalized)": I_interface_error_norm / I_x_norm,
                     "Diffusivity [m2/s]": args.D,
                     "Positive Wa": args.Wa_p,
