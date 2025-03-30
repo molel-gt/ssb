@@ -428,7 +428,7 @@ if __name__ == '__main__':
 
     thiele = R_p_ref * i0_p * V_MAX / (R * T * D * c_max)
 
-    c_init = cycler.sod * c_ref
+    c_init = cycler.sod
 
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
     results_dir = os.path.join(args.mesh_folder, args.cycle_mode, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), f'{args.C_rate}C',f'{args.p_u0}-{args.p_u1}-{args.p_concentration}', str(args.gamma) + "-" + str(args.alpha), str(comm.Get_size()))
