@@ -1204,6 +1204,10 @@ if __name__ == '__main__':
         c_surf_avg_tilde = comm.allreduce(fem.assemble_scalar(fem.form(c_r * dInterface,
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
         c_surf_avg = c_surf_avg_tilde / A_se_am_tilde
+        c_surf_stdev_tilde = comm.allreduce(fem.assemble_scalar(fem.form(
+                                            (c_r - c_surf_avg_tilde) ** 2 * dInterface,
+                                            entity_maps=entity_maps)), op=MPI.SUM)
+        c_surf_stdev = np.sqrt(c_surf_stdev_tilde  * (c_ref * L_ref ** 2) ** 2 / A_se_am)
 
         u_avg_right = u_avg_right_tilde * phi_ref * L_ref ** 2 / A_right
         u_stdev_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(
@@ -1254,6 +1258,7 @@ if __name__ == '__main__':
                     "i (avg) right [A/m2]": i_avg_right,
                     "i (stdev) right [A/m2]": i_stdev_right,
                     "c surf (avg) (normalized)": c_surf_avg,
+                    "c surf (stdev) (normalized)": c_surf_stdev,
                     "I_interface error norm (normalized)": I_interface_error_norm / I_x_norm,
                     "Diffusivity [m2/s]": args.D,
                     "Positive Wa": args.Wa_p,
