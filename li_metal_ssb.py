@@ -599,7 +599,7 @@ if __name__ == '__main__':
     c0 = fem.Function(VC)
     u_int = fem.Function(VC)
 
-    c0.interpolate(lambda x: x[directions[args.transport_direction.lower()]] - x[directions[args.transport_direction.lower()]] + c_init)
+    c0.interpolate(lambda x: x[0] - x[0] + c_init)
 
     q_r = ufl.TestFunction(c.function_space)(r_res)
     q_l = ufl.TestFunction(c.function_space)(l_res)
@@ -967,8 +967,10 @@ if __name__ == '__main__':
         Fvec2d.destroy()
         x2d.destroy()
         petsc_options.clear()
-
-        PETSc.Sys.Print("V_cell (initial guess) [V]:", f"{V_cell.x.array[0] * ref["phi"]:.3f}")
+        if cycler.current_mode_type == galvanostatic:
+            PETSc.Sys.Print("V_cell (initial guess) [V]:", f"{V_cell.x.array[0] * ref["phi"]:.3f}")
+        else:
+            PETSc.Sys.Print("V_cell (prescribed) [V]:", f"{cycler.current_mode["voltage"]:.3f}")
         # scale down initial guess of cell voltage
         # V_cell.interpolate(lambda x: 0.75 * V_cell.x.array[0] + x[0] - x[0])
 
