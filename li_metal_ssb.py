@@ -879,7 +879,7 @@ if __name__ == '__main__':
             J2D = [j2d[:4] for j2d in J_cc[:4]]
         elif cycler.current_mode_type == potentiostatic:
             n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs
-            F2D = F_cc[:2]
+            F2D = F_cv[:2]
             J2D = [j2d[:2] for j2d in J_cc[:2]]
         petsc_options.clear()
         Jmat2d = fem.petsc.create_matrix_block(J2D)
