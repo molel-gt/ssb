@@ -1086,7 +1086,7 @@ if __name__ == '__main__':
             soln_vars = [u_0, u_1, lmbda, V_cell, c]
             bcs = [bc_left]
 
-        PETSc.Sys.Print(f"Time: {cycler.time:.3e}\n")
+        PETSc.Sys.Print(f"Time: {cycler.time*t_ref:,.1f}s\n")
         petsc_options.clear()
         if cycler.current_mode_type in (galvanostatic, rest):
             J = J_cc
