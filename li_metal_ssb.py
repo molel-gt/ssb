@@ -871,6 +871,7 @@ if __name__ == '__main__':
     log_viewer.setFileName(log_datafile)
     petsc_options = PETSc.Options()
     stats = []
+    k = tdim - 2
     ########################################################################################################################################
     ## solve initial potential distribution at t = 0
     if args.improved_guess:
@@ -990,13 +991,16 @@ if __name__ == '__main__':
                                             (u_1 - u_avg_right_tilde) ** 2 * ds(markers.right),
                                             entity_maps=entity_maps)), op=MPI.SUM) / A_right_tilde)
         u_stdev_right = u_stdev_right_tilde  * phi_ref
+        I_right = comm.allreduce(fem.assemble_scalar(fem.form(
+                                inner(kappa_pos_am * phi_ref * L_ref ** (k) * grad(u_1), n) * ds(markers.right),
+                                entity_maps=entity_maps)), op=MPI.SUM)
 
         stats.append(
                      {
                     "t [s]": cycler.time * t_ref,
                     "I left [A]": np.nan,
                     "I interface [A]": np.nan,
-                    "I right [A]": np.nan,
+                    "I right [A]": I_right,
                     "I (target) right [A]": np.nan,
                     "C-rate": args.C_rate,
                     "u (avg) left [V]": u_avg_left,
@@ -1197,7 +1201,6 @@ if __name__ == '__main__':
         x.destroy()
         Pmat.destroy()
         c0.x.array[:] = c.x.array
-        k = tdim - 2
         I_left = comm.allreduce(fem.assemble_scalar(fem.form(
                                 inner(kappa_elec * phi_ref * L_ref ** (k) * grad(u_0), n) * ds(markers.left),
                                 entity_maps=entity_maps)), op=MPI.SUM)
