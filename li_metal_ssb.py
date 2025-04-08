@@ -997,7 +997,7 @@ if __name__ == '__main__':
 
         stats.append(
                      {
-                    "t [s]": cycler.time * t_ref,
+                    "t [s]": 0,
                     "I left [A]": np.nan,
                     "I interface [A]": np.nan,
                     "I right [A]": I_right,
@@ -1228,6 +1228,7 @@ if __name__ == '__main__':
                         entity_maps=entity_maps)), op=MPI.SUM)
 
         error = phi_ref * L_ref ** (-k) * (inner(kappa_elec * grad(u_l), n_l) + inner(kappa_pos_am * grad(u_r), n_r))
+        error_c = L_ref ** (-k) * (phi_ref/2 * inner(kappa_elec * grad(u_l) + kappa_pos_am * grad(u_r), n_r) - inner(c_ref * faraday_const * D * grad(c_r), n_r))
         i_x_l = inner(kappa_elec * grad(u_l), n_l) * phi_ref * L_ref ** (-k)
         i_x_r = inner(kappa_pos_am * grad(u_r), n_r) * phi_ref * L_ref ** (-k)
         I_x_norm_l = np.sqrt(comm.allreduce(fem.assemble_scalar(
@@ -1238,6 +1239,8 @@ if __name__ == '__main__':
 
         I_interface_error_norm = np.sqrt(comm.allreduce(fem.assemble_scalar(
                                     fem.form(inner(error, error) * L_ref ** 2 * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
+        I_interface_error_norm_c = np.sqrt(comm.allreduce(fem.assemble_scalar(
+                                    fem.form(inner(error_c, error_c) * L_ref ** 2 * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
         u_avg_left_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_0 * ds(markers.left),
                                                                         entity_maps=entity_maps)), op=MPI.SUM) / A_left_tilde
         u_avg_left = u_avg_left_tilde * phi_ref
@@ -1306,6 +1309,7 @@ if __name__ == '__main__':
                     "c surf (avg) (normalized)": c_surf_avg,
                     "c surf (stdev) (normalized)": c_surf_stdev,
                     "I_interface error norm (normalized)": I_interface_error_norm / I_x_norm,
+                    "I_interface error norm c (normalized)": I_interface_error_norm_c / I_x_norm,
                     "Diffusivity [m2/s]": args.D,
                     "Positive Wa": args.Wa_p,
                     "Kr": args.kr,
