@@ -1194,27 +1194,27 @@ if __name__ == '__main__':
         I_interface_error_norm = np.sqrt(comm.allreduce(fem.assemble_scalar(
                                     fem.form(inner(error, error) * L_ref ** 2 * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
         u_avg_left_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_0 * ds(markers.left),
-                                                                        entity_maps=entity_maps)), op=MPI.SUM)
-        u_avg_left = u_avg_left_tilde * phi_ref * L_ref ** 2 / A_left
+                                                                        entity_maps=entity_maps)), op=MPI.SUM) / A_left_tilde
+        u_avg_left = u_avg_left_tilde * phi_ref
         u_stdev_left_tilde = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
                                             (u_0 - u_avg_left_tilde) ** 2 * ds(markers.left),
                                             entity_maps=entity_maps)), op=MPI.SUM) / A_left_tilde)
-        u_stdev_left = u_stdev_left_tilde  * phi_ref * L_ref ** 2
+        u_stdev_left = u_stdev_left_tilde  * phi_ref
 
         u_avg_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_1 * ds(markers.right),
-                                                                        entity_maps=entity_maps)), op=MPI.SUM)
+                                                                        entity_maps=entity_maps)), op=MPI.SUM) / A_right_tilde
         c_surf_avg_tilde = comm.allreduce(fem.assemble_scalar(fem.form(c_r * dInterface,
-                                                                        entity_maps=entity_maps)), op=MPI.SUM)
-        c_surf_avg = c_surf_avg_tilde / A_se_am_tilde
+                                                                        entity_maps=entity_maps)), op=MPI.SUM) / A_se_am_tilde
+        c_surf_avg = c_surf_avg_tilde
         c_surf_stdev = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
                                             (c_r - c_surf_avg_tilde) ** 2 * dInterface,
                                             entity_maps=entity_maps)), op=MPI.SUM) / A_se_am_tilde)
 
-        u_avg_right = u_avg_right_tilde * phi_ref * L_ref ** 2 / A_right
+        u_avg_right = u_avg_right_tilde * phi_ref
         u_stdev_right_tilde = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
                                             (u_1 - u_avg_right_tilde) ** 2 * ds(markers.right),
                                             entity_maps=entity_maps)), op=MPI.SUM) / A_right_tilde)
-        u_stdev_right = u_stdev_right_tilde  * phi_ref * L_ref ** 2
+        u_stdev_right = u_stdev_right_tilde  * phi_ref
         i_avg_se_am = I_interface / A_se_am
         i_avg_left = I_left / A_left
         i_avg_right = I_right / A_right
@@ -1319,6 +1319,22 @@ if __name__ == '__main__':
         PETSc.Sys.Print(f"Saved results files in {results_dir}")
         PETSc.Sys.Print(f"Wrote log summary to {log_datafile}")
         PETSc.Sys.Print(f"Time elapsed: {time_elapsed:3.5f}s")
+
+    # interpolate
+    V = fem.functionspace(domain, ("DG", 1))
+    u = fem.Function(V)
+    u.interpolate(u_0, cells1=submesh_electrolyte_to_mesh, cells0=np.arange(len(submesh_electrolyte_to_mesh)))
+    u.interpolate(u_1, cells1=submesh_positive_am_to_mesh, cells0=np.arange(len(submesh_positive_am_to_mesh)))
+    u.x.scatter_forward()
+
+    with io.VTXWriter(comm, output_potential_file, [u], engine="BP5") as vtx:
+        vtx.write(0)
+
+    with io.VTXWriter(comm, elec_potential_file, [u_0], engine="BP5") as vtx:
+        vtx.write(0)
+
+    with io.VTXWriter(comm, positive_am_potential_file, [u_1], engine="BP5") as vtx:
+        vtx.write(0)
 
     if args.plot:
         n_points = 1000
