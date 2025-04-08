@@ -870,6 +870,7 @@ if __name__ == '__main__':
     log_viewer = PETSc.Viewer().STDOUT()
     log_viewer.setFileName(log_datafile)
     petsc_options = PETSc.Options()
+    stats = []
     ########################################################################################################################################
     ## solve initial potential distribution at t = 0
     if args.improved_guess:
@@ -974,6 +975,49 @@ if __name__ == '__main__':
         else:
             PETSc.Sys.Print("V_cell (prescribed) [V]:", f"{cycler.current_mode["voltage"]:.3f}")
 
+        u_avg_left_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_0 * ds(markers.left),
+                                                                        entity_maps=entity_maps)), op=MPI.SUM) / A_left_tilde
+        u_avg_left = u_avg_left_tilde * phi_ref
+        u_stdev_left_tilde = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
+                                            (u_0 - u_avg_left_tilde) ** 2 * ds(markers.left),
+                                            entity_maps=entity_maps)), op=MPI.SUM) / A_left_tilde)
+        u_stdev_left = u_stdev_left_tilde  * phi_ref
+
+        u_avg_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_1 * ds(markers.right),
+                                                                        entity_maps=entity_maps)), op=MPI.SUM) / A_right_tilde
+        u_avg_right = u_avg_right_tilde * phi_ref
+        u_stdev_right_tilde = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
+                                            (u_1 - u_avg_right_tilde) ** 2 * ds(markers.right),
+                                            entity_maps=entity_maps)), op=MPI.SUM) / A_right_tilde)
+        u_stdev_right = u_stdev_right_tilde  * phi_ref
+
+        stats.append(
+                     {
+                    "t [s]": cycler.time * t_ref,
+                    "I left [A]": np.nan,
+                    "I interface [A]": np.nan,
+                    "I right [A]": np.nan,
+                    "I (target) right [A]": np.nan,
+                    "C-rate": args.C_rate,
+                    "u (avg) left [V]": u_avg_left,
+                    "u (stdev) left [v]": u_stdev_left,
+                    "u (avg) right [V]": u_avg_right,
+                    "u (stdev) right [v]": u_stdev_right,
+                    "i (avg) left [A/m2]": np.nan,
+                    "i (stdev) left [A/m2]": np.nan,
+                    "i (avg) se/am [A/m2]": np.nan,
+                    "i (stdev) se/am [A/m2]": np.nan,
+                    "i (avg) right [A/m2]": np.nan,
+                    "i (stdev) right [A/m2]": np.nan,
+                    "c surf (avg) (normalized)": np.nan,
+                    "c surf (stdev) (normalized)": np.nan,
+                    "I_interface error norm (normalized)": np.nan,
+                    "Diffusivity [m2/s]": args.D,
+                    "Positive Wa": args.Wa_p,
+                    "Kr": args.kr,
+            }
+                     )
+
         PETSc.Sys.Print(f"Finished computation of initial (t = 0) potential distribution!\nn_dofs: {n_dofs_t0:,}\nsolve time: {t1 - t0:.3f}s")
         PETSc.Sys.Print("************Solve for Improved Guess for Concentration Distribution*******************")
         petsc_options.clear()
@@ -1003,8 +1047,6 @@ if __name__ == '__main__':
         PETSc.Sys.Print(f"Finished computation of improved guess of concentration distribution!\nn_dofs: {n_dofs_c:,}\nsolve time: {t1 - t0:.3f}s")
         PETSc.Sys.Print(utils.starpad("*"))
     ########################################################################################################################################
-
-    stats = []
 
     # interpolate
     V = fem.functionspace(domain, ("DG", 1))
