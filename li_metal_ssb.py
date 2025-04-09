@@ -108,7 +108,7 @@ def mixed_term(u, v, n):
     return ufl.dot(ufl.grad(u), n) * v
 
 
-def surface_overpotential(kappa, u, n, i0, kinetics_type='linear', ref={"L": 1, "phi": 1, "t": 1, "c": 1}):
+def eta_s(kappa, u, n, i0, kinetics_type='linear', ref={"L": 1, "phi": 1, "t": 1, "c": 1}):
     if isinstance(kappa, list):
         i_loc = -0.5 * ref["phi"] / ref["L"] * (kappa[0] * inner(grad(u[0]), n[1]) + kappa[1] * inner(grad(u[1]), n[1]))
     else:
@@ -125,11 +125,14 @@ def arctanh(y):
     return 0.5 * ufl.ln((1 + y) / (1 - y))
 
 
-def ocv_chen2020(c, cmax):
-    return  4.4875 - 0.8090 * c/cmax - 0.0428 * ufl.tanh(18.5138*(c/cmax - 0.5542)) +\
+def U_ocp(c, cmax, phi_ref=V_MAX):
+    """
+    Chen2020 OCP for NMC622 + bound-checking
+    """
+    return  1 / phi_ref * (4.4875 - 0.8090 * c/cmax - 0.0428 * ufl.tanh(18.5138*(c/cmax - 0.5542)) +\
     -17.7326 * ufl.tanh(15.7890*(c/cmax - 0.3117)) + 17.5842 * ufl.tanh(15.9308*(c/cmax - 0.3120)) +\
          ufl.conditional(ufl.gt(c/c_max, 1.0), -100.0, 0) +\
-         ufl.conditional(ufl.lt(c/c_max, 0.0), 100.0, 0)
+         ufl.conditional(ufl.lt(c/c_max, 0.0), 100.0, 0))
 
 
 def get_Lref(dimensions, transport_direction):
@@ -531,8 +534,8 @@ if __name__ == '__main__':
     u_1.name = "u_t"
 
     # initial guess
-    u_0.interpolate(lambda x: x[0]-x[0])#x[directions[args.transport_direction.lower()]]*0.95)
-    u_1.interpolate(lambda x: 0.5 + x[0]-x[0])#1.05*x[directions[args.transport_direction.lower()]]/1.1)
+    u_0.interpolate(lambda x: x[0]-x[0])
+    u_1.interpolate(lambda x: 0.5 + x[0]-x[0])
 
     # Add coupling term to the interface
     # Get interface markers on submesh b
@@ -607,8 +610,6 @@ if __name__ == '__main__':
     q_l = ufl.TestFunction(c.function_space)(l_res)
     c_r = c(r_res)
 
-    jump_u = surface_overpotential(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) + ocv_chen2020(c(r_res), cmax=c_max)/phi_ref
-
     # for galvanostatic mode
     # left facets submesh
     submesh_facets_left, submesh_facets_left_to_mesh = mesh.create_submesh(
@@ -675,15 +676,15 @@ if __name__ == '__main__':
 
     F_0 = (
         - 0.5 * mixed_term(kappa_l * u_l + kappa_r * u_r, v_l, n_l) * dInterface
-        - 0.5 * mixed_term(kappa_l * v_l, (u_r - u_l - jump_u), n_l) * dInterface
+        - 0.5 * mixed_term(kappa_l * v_l, (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r, c_max)), n_l) * dInterface
     )
 
     F_1 = (
         + 0.5 * mixed_term(kappa_l * u_l + kappa_r * u_r, v_r, n_l) * dInterface
-        - 0.5 * mixed_term(kappa_r * v_r, (u_r - u_l - jump_u), n_l) * dInterface
+        - 0.5 * mixed_term(kappa_r * v_r, (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r, c_max)), n_l) * dInterface
     )
-    F_0 += - gamma / h_avg * (u_r - u_l - jump_u) * v_l * dInterface
-    F_1 += + gamma / h_avg * (u_r - u_l - jump_u) * v_r * dInterface
+    F_0 += - gamma / h_avg * (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r, c_max)) * v_l * dInterface
+    F_1 += + gamma / h_avg * (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r, c_max)) * v_r * dInterface
 
     F_0 += F_00
     F_1 += F_11
@@ -994,6 +995,10 @@ if __name__ == '__main__':
         I_right = comm.allreduce(fem.assemble_scalar(fem.form(
                                 inner(kappa_pos_am * phi_ref * L_ref ** (k) * grad(u_1), n) * ds(markers.right),
                                 entity_maps=entity_maps)), op=MPI.SUM)
+        eta_avg = phi_ref / A_se_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form((u_r - u_l - U_ocp(c_r, c_max)) * dInterface,
+                                                                        entity_maps=entity_maps)), op=MPI.SUM)
+        V_ocp_avg = phi_ref / A_se_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form(U_ocp(c_r, c_max) * dInterface,
+                                                                        entity_maps=entity_maps)), op=MPI.SUM)
 
         stats.append(
                      {
@@ -1007,6 +1012,8 @@ if __name__ == '__main__':
                     "u (stdev) left [v]": u_stdev_left,
                     "u (avg) right [V]": u_avg_right,
                     "u (stdev) right [v]": u_stdev_right,
+                    "surface overpotential (avg) [V]": eta_avg,
+                    "V (ocp) (avg) [V]": V_ocp_avg,
                     "i (avg) left [A/m2]": np.nan,
                     "i (stdev) left [A/m2]": np.nan,
                     "i (avg) se/am [A/m2]": np.nan,
@@ -1276,6 +1283,10 @@ if __name__ == '__main__':
         i_stdev_right = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
                                 (kappa_pos_am * phi_ref * L_ref ** (-k) * inner(grad(u_1), n) - i_avg_right) ** 2 * ds(markers.right),
                                 entity_maps=entity_maps)), op=MPI.SUM) / A_right_tilde)
+        eta_avg = phi_ref / A_se_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form((u_r - u_l - U_ocp(c_r, c_max)) * dInterface,
+                                                                        entity_maps=entity_maps)), op=MPI.SUM)
+        V_ocp_avg = phi_ref / A_se_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form(U_ocp(c_r, c_max) * dInterface,
+                                                                        entity_maps=entity_maps)), op=MPI.SUM)
         dt.value = cycler.dt
         cycler.check_stop_criteria(I_cell=np.abs(I_right), V_cell=u_avg_right)
         cvtx.write(cycler.time)
@@ -1300,6 +1311,8 @@ if __name__ == '__main__':
                     "u (stdev) left [v]": u_stdev_left,
                     "u (avg) right [V]": u_avg_right,
                     "u (stdev) right [v]": u_stdev_right,
+                    "surface overpotential (avg) [V]": eta_avg,
+                    "V (ocp) (avg) [V]": V_ocp_avg,
                     "i (avg) left [A/m2]": i_avg_left,
                     "i (stdev) left [A/m2]": i_stdev_left,
                     "i (avg) se/am [A/m2]": i_avg_se_am,
