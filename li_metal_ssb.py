@@ -1173,7 +1173,9 @@ if __name__ == '__main__':
         t1 = time.time()
         PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}, solve time: {t1-t0:.3f}s")
         PETSc.Log().view(log_viewer)
-        cycler._dt = 5 * args.dt
+        # increase step time after 5 seconds
+        if t_ref * cycler.time >= 5:
+            cycler._dt = 5 * args.dt
         if comm_rank == 0 and args.plot:
             fig, ax = plt.subplots()
             ax.semilogy(snes.getKSP().getConvergenceHistory(), 'x-')
