@@ -548,7 +548,7 @@ if __name__ == '__main__':
     ds_c = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
 
     vol_pos_am = comm.allreduce(fem.assemble_scalar(fem.form(1 * dx(markers.positive_am), entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 3
-    I_tot_ = utils.get_c_rate_current(c_max, args.C_rate, vol_pos_am) # cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
+    I_tot_ = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, args.C_rate, vol_pos_am) # cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
     l_res = "-"
     r_res = "+"
     V0 = u_0.function_space
