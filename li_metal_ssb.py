@@ -154,29 +154,6 @@ def cross_section_area(dims, transport_direction):
     return dims[values[0]] * dims[values[1]]
 
 
-def get_eigenvalues(M):
-    Print = PETSc.Sys.Print
-    for eps_type in [SLEPc.EPS.Which.SMALLEST_MAGNITUDE, SLEPc.EPS.Which.LARGEST_MAGNITUDE]:
-        E = SLEPc.EPS()
-        E.create(M.getComm().tompi4py())
-        E.setOperators(M)
-        E.setWhichEigenpairs(eps_type)
-        petsc_options = PETSc.Options()
-        E.setProblemType(SLEPc.EPS.ProblemType.GNHEP)
-        E.setFromOptions()
-        E.solve()
-        nconv = E.getConverged()
-
-        vw = PETSc.Viewer.STDOUT()
-        if nconv>0:
-            sx, _ = M.createVecs()
-            E.getEigenpair(0, sx)
-            vw.pushFormat(PETSc.Viewer.Format.ASCII_INFO_DETAIL)
-            E.errorView(viewer=vw)
-        else:
-            Print( "No eigenpairs converged" )
-
-
 def IS_chainsum(IS_main, parts):
     if len(parts) == 0:
         return IS_main
