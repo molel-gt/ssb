@@ -125,14 +125,25 @@ def arctanh(y):
     return 0.5 * ufl.ln((1 + y) / (1 - y))
 
 
-def U_ocp(c, cmax, phi_ref=V_MAX):
+def U_ocp_chen2020(c, cmax, phi_ref=V_MAX):
     """
     Chen2020 OCP for NMC622 + bound-checking
     """
     return  1 / phi_ref * (4.4875 - 0.8090 * c/cmax - 0.0428 * ufl.tanh(18.5138*(c/cmax - 0.5542)) +\
     -17.7326 * ufl.tanh(15.7890*(c/cmax - 0.3117)) + 17.5842 * ufl.tanh(15.9308*(c/cmax - 0.3120)) +\
          ufl.conditional(ufl.gt(c/c_max, 1.0), -100.0, 0) +\
-         ufl.conditional(ufl.lt(c/c_max, 0.0), 100.0, 0))
+         ufl.conditional(ufl.lt(c/c_max, 0.0), 0.0, 0))
+
+def U_ocp(c, cmax, phi_ref=V_MAX):
+    """
+    Chen2020 OCP for NMC622 + bound-checking
+    """
+    return  1 / phi_ref * ( ufl.conditional(ufl.And(ufl.gt(c/cmax, 0), ufl.lt(c/cmax, 0.5)),
+                                            -2 * c/cmax + 4.5, 0)+\
+    ufl.conditional(ufl.And(ufl.ge(c/cmax, 0.5), ufl.le(c/cmax, 0.75)), 3.5, 0 )+\
+    ufl.conditional(ufl.And(ufl.gt(c/cmax, 0.75), ufl.lt(c/cmax, 1.0)), -4 * c/cmax + 6.5, 0)+\
+         ufl.conditional(ufl.ge(c/c_max, 1.0), 0.0, 0) +\
+         ufl.conditional(ufl.lt(c/c_max, 0.0), V_MAX, 0))
 
 
 def get_Lref(dimensions, transport_direction):
@@ -547,7 +558,8 @@ if __name__ == '__main__':
     ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
     ds_c = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
 
-    vol_pos_am = comm.allreduce(fem.assemble_scalar(fem.form(1 * dx(markers.positive_am), entity_maps=entity_maps)), op=MPI.SUM) * L_ref ** 3
+    vol_pos_am_tilde = comm.allreduce(fem.assemble_scalar(fem.form(1 * dx(markers.positive_am), entity_maps=entity_maps)), op=MPI.SUM)
+    vol_pos_am = vol_pos_am_tilde * L_ref ** 3
     I_tot_ = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, args.C_rate, vol_pos_am) # cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
     l_res = "-"
     r_res = "+"
@@ -582,6 +594,7 @@ if __name__ == '__main__':
     u_int = fem.Function(VC)
 
     c0.interpolate(lambda x: x[0] - x[0] + c_init)
+    c.interpolate(lambda x: x[0] - x[0] + c_init)
 
     q_r = ufl.TestFunction(c.function_space)(r_res)
     q_l = ufl.TestFunction(c.function_space)(l_res)
@@ -999,6 +1012,7 @@ if __name__ == '__main__':
                     "i (stdev) right [A/m2]": np.nan,
                     "c surf (avg) (normalized)": np.nan,
                     "c surf (stdev) (normalized)": np.nan,
+                    "c (avg) (normalized)": c_init,
                     "I_interface error norm (normalized)": np.nan,
                     "Diffusivity [m2/s]": args.D,
                     "Positive Wa": args.Wa_p,
@@ -1243,6 +1257,8 @@ if __name__ == '__main__':
         c_surf_stdev = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
                                             (c_r - c_surf_avg_tilde) ** 2 * dInterface,
                                             entity_maps=entity_maps)), op=MPI.SUM) / A_se_am_tilde)
+        c_avg_tilde = 1/vol_pos_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form(c_r * dx_r,
+                                                                        entity_maps=entity_maps)), op=MPI.SUM)
 
         u_avg_right = u_avg_right_tilde * phi_ref
         u_stdev_right_tilde = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
@@ -1300,6 +1316,7 @@ if __name__ == '__main__':
                     "i (stdev) right [A/m2]": i_stdev_right,
                     "c surf (avg) (normalized)": c_surf_avg,
                     "c surf (stdev) (normalized)": c_surf_stdev,
+                    "c (avg) (normalized)": c_avg_tilde,
                     "I_interface error norm (normalized)": I_interface_error_norm / I_x_norm,
                     "I_interface error norm c (normalized)": I_interface_error_norm_c / I_x_norm,
                     "Diffusivity [m2/s]": args.D,
