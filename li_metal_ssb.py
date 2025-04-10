@@ -125,26 +125,26 @@ def arctanh(y):
     return 0.5 * ufl.ln((1 + y) / (1 - y))
 
 
-def U_ocp_chen2020(c, cmax, phi_ref=V_MAX):
-    """
-    Chen2020 OCP for NMC622 + bound-checking
-    """
-    return  1 / phi_ref * (4.4875 - 0.8090 * c/cmax - 0.0428 * ufl.tanh(18.5138*(c/cmax - 0.5542)) +\
-    -17.7326 * ufl.tanh(15.7890*(c/cmax - 0.3117)) + 17.5842 * ufl.tanh(15.9308*(c/cmax - 0.3120)) +\
-         ufl.conditional(ufl.gt(c/c_max, 1.0), -100.0, 0) +\
-         ufl.conditional(ufl.lt(c/c_max, 0.0), 0.0, 0))
-
-
 def U_ocp(c, cmax, phi_ref=V_MAX):
     """
     Chen2020 OCP for NMC622 + bound-checking
+    """
+    return  1 / phi_ref * (4.4875 - 0.8090 * (1-c/cmax) - 0.0428 * ufl.tanh(18.5138*(1-c/cmax - 0.5542)) +\
+    -17.7326 * ufl.tanh(15.7890*(1-c/cmax - 0.3117)) + 17.5842 * ufl.tanh(15.9308*(1-c/cmax - 0.3120))+\
+         ufl.conditional(ufl.gt(1-c/c_max, 1.0), 0.0, 0) +\
+         ufl.conditional(ufl.lt(1-c/c_max, 0.0), V_MAX, 0)
+         )
+
+
+def U_ocp2(c, cmax, phi_ref=V_MAX):
+    """
     """
     return  1 / phi_ref * ( ufl.conditional(ufl.And(ufl.gt(1 - c/cmax, 0), ufl.lt(1-c/cmax, 0.5)),
                                             2 * (1-c/cmax) + 2.5, 0)+\
     ufl.conditional(ufl.And(ufl.ge(1-c/cmax, 0.5), ufl.le(1-c/cmax, 0.75)), 3.5, 0 )+\
     ufl.conditional(ufl.And(ufl.gt(1-c/cmax, 0.75), ufl.lt(1-c/cmax, 1.0)), 4 * (1-c/cmax) + 0.5, 0)+\
          ufl.conditional(ufl.ge(1-c/c_max, 1.0), 0.0, 0) +\
-         ufl.conditional(ufl.lt(1-c/c_max, 0.0), 100*V_MAX, 0)
+         ufl.conditional(ufl.lt(1-c/c_max, 0.0), V_MAX, 0)
          )
 
 
