@@ -134,16 +134,18 @@ def U_ocp_chen2020(c, cmax, phi_ref=V_MAX):
          ufl.conditional(ufl.gt(c/c_max, 1.0), -100.0, 0) +\
          ufl.conditional(ufl.lt(c/c_max, 0.0), 0.0, 0))
 
+
 def U_ocp(c, cmax, phi_ref=V_MAX):
     """
     Chen2020 OCP for NMC622 + bound-checking
     """
-    return  1 / phi_ref * ( ufl.conditional(ufl.And(ufl.gt(c/cmax, 0), ufl.lt(c/cmax, 0.5)),
-                                            -2 * c/cmax + 4.5, 0)+\
-    ufl.conditional(ufl.And(ufl.ge(c/cmax, 0.5), ufl.le(c/cmax, 0.75)), 3.5, 0 )+\
-    ufl.conditional(ufl.And(ufl.gt(c/cmax, 0.75), ufl.lt(c/cmax, 1.0)), -4 * c/cmax + 6.5, 0)+\
-         ufl.conditional(ufl.ge(c/c_max, 1.0), 0.0, 0) +\
-         ufl.conditional(ufl.lt(c/c_max, 0.0), V_MAX, 0))
+    return  1 / phi_ref * ( ufl.conditional(ufl.And(ufl.gt(1 - c/cmax, 0), ufl.lt(1-c/cmax, 0.5)),
+                                            -2 * (1-c/cmax) + 4.5, 0)+\
+    ufl.conditional(ufl.And(ufl.ge(1-c/cmax, 0.5), ufl.le(1-c/cmax, 0.75)), 3.5, 0 )+\
+    ufl.conditional(ufl.And(ufl.gt(1-c/cmax, 0.75), ufl.lt(1-c/cmax, 1.0)), -4 * (1-c/cmax) + 6.5, 0)+\
+         ufl.conditional(ufl.ge(1-c/c_max, 1.0), 0.0, 0) +\
+         ufl.conditional(ufl.lt(1-c/c_max, 0.0), 100*V_MAX, 0)
+         )
 
 
 def get_Lref(dimensions, transport_direction):
@@ -930,7 +932,7 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
             snes.getKSP().setOptionsPrefix("snes_")
             snes.getKSP().setOperators(Jmat2d, Jmat2d)
-            snes.getKSP().setTolerances(rtol=1e-4)
+            snes.getKSP().setTolerances(rtol=1e-7)
             snes.setErrorIfNotConverged(True)
             snes.getKSP().setErrorIfNotConverged(True)
             snes.getKSP().setConvergenceHistory()
@@ -1257,7 +1259,7 @@ if __name__ == '__main__':
         c_surf_stdev = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
                                             (c_r - c_surf_avg_tilde) ** 2 * dInterface,
                                             entity_maps=entity_maps)), op=MPI.SUM) / A_se_am_tilde)
-        c_avg_tilde = 1/vol_pos_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form(c_r * dx_r,
+        c_avg_tilde = 1/vol_pos_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form(c * dx(markers.positive_am),
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
 
         u_avg_right = u_avg_right_tilde * phi_ref
