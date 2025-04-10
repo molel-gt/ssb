@@ -140,9 +140,9 @@ def U_ocp(c, cmax, phi_ref=V_MAX):
     Chen2020 OCP for NMC622 + bound-checking
     """
     return  1 / phi_ref * ( ufl.conditional(ufl.And(ufl.gt(1 - c/cmax, 0), ufl.lt(1-c/cmax, 0.5)),
-                                            2 * (1-c/cmax) + 0.5, 0)+\
+                                            2 * (1-c/cmax) + 2.5, 0)+\
     ufl.conditional(ufl.And(ufl.ge(1-c/cmax, 0.5), ufl.le(1-c/cmax, 0.75)), 3.5, 0 )+\
-    ufl.conditional(ufl.And(ufl.gt(1-c/cmax, 0.75), ufl.lt(1-c/cmax, 1.0)), 4 * (1-c/cmax) - 1.5, 0)+\
+    ufl.conditional(ufl.And(ufl.gt(1-c/cmax, 0.75), ufl.lt(1-c/cmax, 1.0)), 4 * (1-c/cmax) + 0.5, 0)+\
          ufl.conditional(ufl.ge(1-c/c_max, 1.0), 0.0, 0) +\
          ufl.conditional(ufl.lt(1-c/c_max, 0.0), 100*V_MAX, 0)
          )
