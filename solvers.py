@@ -1,7 +1,10 @@
 import dolfinx
 import numpy as np
 import ufl
+import time
 import warnings
+
+import scifem
 
 from basix.ufl import element
 from dolfinx import cpp, default_scalar_type, fem, graph, io, mesh, nls, plot
@@ -244,3 +247,238 @@ class NonlinearPDE_SNESProblem:
             P.zeroEntries()
             assemble_matrix_nest(P, self.a_precon, bcs=self.bcs, diagonal=1.0)
             P.assemble()
+
+
+
+class ShuntCurrentsSolver:
+    def __init__(self, comm, N_s=100, d_p=0.01, V_cell=1.0, kappa=4.0, H_p=0.03,
+                 A_m=0.006, L_p=0.02, a=100, i0=10, a_a=0.5, a_c=0.5):
+        self._N_s = N_s
+        self._d_p = d_p
+        self._V_cell = V_cell
+        self._kappa = kappa
+        self._H_p = H_p
+        self._A_m = A_m
+        self._L_p = L_p
+        self._a = a
+        self._i0 = i0
+        self._a_a = a_a
+        self._a_c = a_c
+        self._comm = comm
+        self._domain = None
+        self._u_lin = None
+        self._u_bv = None
+        self._eta_s = None
+        self._eta_s_0 = None
+        self._v = None
+        self._V = None
+        self._faraday_constant = 96485
+        self._R = 8.314
+        self._T = 298
+
+    @property
+    def N_s(self):
+        return self._N_s
+
+    @property
+    def d_p(self):
+        return self._d_p
+
+    @property
+    def V_cell(self):
+        return self._V_cell
+
+    @property
+    def kappa(self):
+        return self._kappa
+
+    @property
+    def H_p(self):
+        return self._H_p
+
+    @property
+    def A_m(self):
+        return self._A_m
+
+    @property
+    def L_p(self):
+        return self._L_p
+
+    @property
+    def a(self):
+        return self._a
+
+    @property
+    def i0(self):
+        return self._i0
+
+    @property
+    def a_a(self):
+        return self._a_a
+
+    @property
+    def a_c(self):
+        return self._a_c
+
+    @property
+    def L(self):
+        return 0.5 * self.N_s * self.d_p
+
+    @property
+    def R_p(self):
+        return self.L_p / self.kappa
+
+    @property
+    def dx(self):
+        return self._dx
+
+    @property
+    def bcs(self):
+        return self._bcs
+
+    @property
+    def x(self):
+        return self._x
+
+    @property
+    def n(self):
+        return self._n
+
+    @property
+    def ds(self):
+        return self._ds
+
+    @property
+    def faraday_constant(self):
+        return self._faraday_constant
+
+    @property
+    def R(self):
+        return self._R
+
+    @property
+    def T(self):
+        return self._T
+
+    @property
+    def comm(self):
+        return self._comm
+
+    @property
+    def domain(self):
+        return self._domain
+
+    @property
+    def u_lin(self):
+        return self._u_lin
+
+    @property
+    def u_bv(self):
+        return self._u_bv
+
+    @property
+    def V(self):
+        return self._V
+
+    @property
+    def v(self):
+        return self._v
+
+    @property
+    def eta_s_0(self):
+        return self._eta_s_0
+
+    @property
+    def n_its(self):
+        return self._n_its
+
+    @property
+    def converged_bv(self):
+        return self._converged_bv
+
+    def _A(self):
+        return ((2 * self.a * self.i0 * self.kappa * self.R * self.T) / (self.a_a * self.a_c * self.faraday_constant)) ** 0.5
+
+    def _B(self, eta_s):
+        return self.a_c * ufl.exp(self.a_a * self.faraday_constant * eta_s / self. R / self.T) +\
+            self.a_a * ufl.exp(-self.a_c * self.faraday_constant * eta_s / self. R / self.T) - self.a_a - self.a_c
+
+    def i_p(self, eta_s):
+        return self._A() * self._B(eta_s) ** 0.5
+
+    def di_p_deta_s(self, eta_s):
+        return 0.5 * self._A() * self._B(eta_s) ** -0.5 * (
+                                                       self.a_a * self.a_c * self.faraday_constant / self.R / self.T) * (ufl.exp(self.a_a * self.faraday_constant * eta_s / self.R * self.T)-\
+                                                       ufl.exp(-self.a_c * self.faraday_constant * eta_s / self.R / self.T))
+
+    def setup(self):
+        self._domain = mesh.create_interval(self.comm, 20000, [0, self.L])
+        tdim = self.domain.topology.dim
+        fdim = tdim - 1
+        ft_imap = self.domain.topology.index_map(fdim)
+        num_facets = ft_imap.size_local + ft_imap.num_ghosts
+        indices = np.arange(0, num_facets)
+        values = np.zeros(indices.shape, dtype=np.intc)
+        left_marker = 1
+        right_marker = 2
+
+        values[0] = left_marker
+        values[-1] = right_marker
+        ft = mesh.meshtags(self.domain, fdim, indices, values)
+
+        self._x = ufl.SpatialCoordinate(self.domain)
+        self._n = ufl.FacetNormal(self.domain)
+        self._V = fem.functionspace(self.domain, ("CG", 2))
+
+        self._u_bv, self._v = fem.Function(self.V), ufl.TestFunction(self.V)
+        self._eta_s_0 = fem.Function(self.V)
+        self._eta_s_0.interpolate(lambda x: x[0] - x[0] + 1e-8)
+
+        self._dx = ufl.Measure('dx', domain=self.domain)
+        self._ds = ufl.Measure('ds', domain=self.domain, subdomain_data=ft)
+
+        u_left = fem.Function(self.V)
+        u_left.x.array[:] = 0
+        self.domain.topology.create_connectivity(fdim, tdim)
+        left_bc = fem.dirichletbc(
+            u_left, fem.locate_dofs_topological(self.V, fdim, ft.find(left_marker))
+        )
+
+        self._bcs = [left_bc]
+
+    def lambda_squared(self, eta_s):
+        return self.H_p / (self.kappa * self.A_m) * self.di_p_deta_s(eta_s) / (self.di_p_deta_s(eta_s) * self.R_p - 1)
+
+    def f(self, y, eta_s):
+        return self.lambda_squared(eta_s) * (self.V_cell / self.d_p * y - self.i_p(eta_s)/self.di_p_deta_s(eta_s) - self.eta_s_0)
+
+    def solve_bv(self, tol=1e-8, max_its=10):
+        self._n_its = 0
+        error = tol + 1
+        x_fun = fem.Function(self.V)
+        x_fun.interpolate(lambda x: x[0])
+
+        while error > tol and self.n_its < max_its:
+            F0 = -inner(self.kappa * grad(self.u_bv), grad(self.v)) * self.dx  - (self.lambda_squared(self.eta_s_0) * self.u_bv - self.f(self.x[0], self.eta_s_0)) * self.v * self.dx
+            F = [fem.form(F0)]
+            j00 = fem.form(ufl.derivative(F0, self.u_bv))
+            J = [[j00]]
+            opts = {
+                        'ksp_type': 'fgmres',
+                        'pc_type': 'hypre',
+                        }
+
+            solver = scifem.NewtonSolver(F, J, [self.u_bv], bcs=self.bcs, petsc_options=opts)
+
+            t0 = time.time()
+            solver.solve()
+            t1 = time.time()
+            error = np.sqrt(fem.assemble_scalar(fem.form(((self.x[0] - 2 * self.u_bv/self.N_s - self.eta_s_0)) ** 2 * self.dx)))
+            self._eta_s_0.x.array[:] = x_fun.x.array - 2 * self.u_bv.x.array / self.N_s
+            PETSc.Sys.Print(f"Iteration: {self.n_its}, Error: {error:.2e}, Solve time: {t1 - t0:.3f}s")
+            self._n_its += 1
+        self._converged_bv = (error <= tol and self.n_its <= max_its)
+        if self._converged_bv:
+            PETSc.Sys.Print(f"Converged in {self.n_its}!")
+        else:
+            PETSc.Sys.Print(f"Failed to converge!")
