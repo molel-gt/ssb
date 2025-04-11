@@ -369,12 +369,8 @@ class ShuntCurrentsSolver:
         return self._domain
 
     @property
-    def u_lin(self):
-        return self._u_lin
-
-    @property
-    def u_bv(self):
-        return self._u_bv
+    def u(self):
+        return self._u
 
     @property
     def V(self):
@@ -408,11 +404,13 @@ class ShuntCurrentsSolver:
 
     def di_p_deta_s(self, eta_s):
         return 0.5 * self._A() * self._B(eta_s) ** -0.5 * (
-                                                       self.a_a * self.a_c * self.faraday_constant / self.R / self.T) * (ufl.exp(self.a_a * self.faraday_constant * eta_s / self.R * self.T)-\
-                                                       ufl.exp(-self.a_c * self.faraday_constant * eta_s / self.R / self.T))
+                    self.a_a * self.a_c * self.faraday_constant / self.R / self.T) * (
+                        ufl.exp(self.a_a * self.faraday_constant * eta_s / self.R * self.T)-\
+                        ufl.exp(-self.a_c * self.faraday_constant * eta_s / self.R / self.T)
+                        )
 
     def setup(self):
-        self._domain = mesh.create_interval(self.comm, 20000, [0, self.L])
+        self._domain = mesh.create_interval(self.comm, 1000, [0, self.L])
         tdim = self.domain.topology.dim
         fdim = tdim - 1
         ft_imap = self.domain.topology.index_map(fdim)
@@ -428,9 +426,9 @@ class ShuntCurrentsSolver:
 
         self._x = ufl.SpatialCoordinate(self.domain)
         self._n = ufl.FacetNormal(self.domain)
-        self._V = fem.functionspace(self.domain, ("CG", 2))
+        self._V = fem.functionspace(self.domain, ("CG", 3))
 
-        self._u_bv, self._v = fem.Function(self.V), ufl.TestFunction(self.V)
+        self._u, self._v = fem.Function(self.V), ufl.TestFunction(self.V)
         self._eta_s_0 = fem.Function(self.V)
         self._eta_s_0.interpolate(lambda x: x[0] - x[0] + 1e-8)
 
@@ -446,11 +444,20 @@ class ShuntCurrentsSolver:
 
         self._bcs = [left_bc]
 
+    @property
+    def omega(self):
+        return np.sqrt(self.a * self.i0 * (self.a_a + self.a_c) * self.faraday_constant / self.kappa / self.R / self.T)
+
+    @property
+    def lmbda(self):
+        return self.H_p / self.A_m * (1/(self.L_p + 1/self.omega))
+
+
     def lambda_squared(self, eta_s):
         return self.H_p / (self.kappa * self.A_m) * self.di_p_deta_s(eta_s) / (self.di_p_deta_s(eta_s) * self.R_p - 1)
 
     def f(self, y, eta_s):
-        return self.lambda_squared(eta_s) * (self.V_cell / self.d_p * y - self.i_p(eta_s)/self.di_p_deta_s(eta_s) - self.eta_s_0)
+        return self.lambda_squared(eta_s) * (self.V_cell / self.d_p * y + self.i_p(eta_s)/self.di_p_deta_s(eta_s) - self.eta_s_0)
 
     def solve_bv(self, tol=1e-8, max_its=10):
         self._n_its = 0
@@ -459,22 +466,23 @@ class ShuntCurrentsSolver:
         x_fun.interpolate(lambda x: x[0])
 
         while error > tol and self.n_its < max_its:
-            F0 = -inner(self.kappa * grad(self.u_bv), grad(self.v)) * self.dx  - (self.lambda_squared(self.eta_s_0) * self.u_bv - self.f(self.x[0], self.eta_s_0)) * self.v * self.dx
+            F0 = inner(self.kappa * grad(self.u), grad(self.v)) * self.dx
+            F0 += - self.H_p * self.di_p_deta_s(self.eta_s_0)/(self.kappa * self.A_m * (1 + self.R_p * self.di_p_deta_s(self.eta_s_0))) * (self.V_cell / self.d_p * self.x[0] + self.i_p(self.eta_s_0)/self.di_p_deta_s(self.eta_s_0) - self.eta_s_0 - self.u) * self.v * self.dx
             F = [fem.form(F0)]
-            j00 = fem.form(ufl.derivative(F0, self.u_bv))
+            j00 = fem.form(ufl.derivative(F0, self.u))
             J = [[j00]]
             opts = {
                         'ksp_type': 'fgmres',
                         'pc_type': 'hypre',
                         }
 
-            solver = scifem.NewtonSolver(F, J, [self.u_bv], bcs=self.bcs, petsc_options=opts)
+            solver = scifem.NewtonSolver(F, J, [self.u], bcs=self.bcs, petsc_options=opts)
 
             t0 = time.time()
             solver.solve()
             t1 = time.time()
-            error = np.sqrt(fem.assemble_scalar(fem.form(((self.x[0] - 2 * self.u_bv/self.N_s - self.eta_s_0)) ** 2 * self.dx)))
-            self._eta_s_0.x.array[:] = x_fun.x.array - 2 * self.u_bv.x.array / self.N_s
+            error = np.sqrt(fem.assemble_scalar(fem.form(((self.x[0] - 2 * self.u/self.N_s - self.eta_s_0)) ** 2 * self.dx)))
+            self._eta_s_0.x.array[:] = x_fun.x.array - 2 * self.u.x.array / self.N_s
             PETSc.Sys.Print(f"Iteration: {self.n_its}, Error: {error:.2e}, Solve time: {t1 - t0:.3f}s")
             self._n_its += 1
         self._converged_bv = (error <= tol and self.n_its <= max_its)
