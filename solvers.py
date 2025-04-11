@@ -416,7 +416,7 @@ class ShuntCurrentsSolver:
         return self.phi_linear() + self.i_p(self.eta_s_0)/self.di_p_deta_s(self.eta_s_0) - self.eta_s_0
 
     def setup(self):
-        self._domain = mesh.create_interval(self.comm, 1000, [0, self.L])
+        self._domain = mesh.create_interval(self.comm, 10000, [0, self.L])
         tdim = self.domain.topology.dim
         fdim = tdim - 1
         ft_imap = self.domain.topology.index_map(fdim)
@@ -471,6 +471,8 @@ class ShuntCurrentsSolver:
         x_fun.interpolate(lambda x: x[0])
 
         while error > tol and self.n_its < max_its:
+            eta_s_0_norm = np.sqrt(fem.assemble_scalar(fem.form(inner(self.eta_s_0, self.eta_s_0) * self.dx)))
+            PETSc.Sys.Print("eta (guess) norm:", eta_s_0_norm)
             F0 = -inner(self.kappa * grad(self.u), grad(self.v)) * self.dx
             F0 += - self.H_p * self.di_p_deta_s(self.eta_s_0)/(self.kappa * self.A_m * (1 + self.R_p * self.di_p_deta_s(self.eta_s_0))) * self.u * self.v * self.dx
             F0 += + self.H_p * self.di_p_deta_s(self.eta_s_0)/(self.kappa * self.A_m * (1 + self.R_p * self.di_p_deta_s(self.eta_s_0))) * (self.V_cell / self.d_p * self.x[0] + self.i_p(self.eta_s_0)/self.di_p_deta_s(self.eta_s_0) - self.eta_s_0) * self.v * self.dx
