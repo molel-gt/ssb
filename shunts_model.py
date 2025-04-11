@@ -62,6 +62,7 @@ if __name__ == '__main__':
     n_points = 10000
     tol = 1e-8  # Avoid hitting the outside of the domain
     x = np.linspace(tol, bv_solver.L - tol, n_points)
+    y = np.linspace(0, bv_solver.L, 1001)
     points = np.zeros((3, n_points))
     points[0] = x
     u_values = []
@@ -75,11 +76,14 @@ if __name__ == '__main__':
             cells.append(colliding_cells.links(i)[0])
     points_on_proc = np.array(points_on_proc, dtype=np.float64)
     u_values_lin = u_linear.eval(points_on_proc, cells)
-    u_values_bv = bv_solver.u.eval(points_on_proc, cells)
+    u_values_lin = phi_linear(y, bv_solver)
+    u_values_bv_fea = bv_solver.u.eval(points_on_proc, cells)
     u_values_bv = u_butler_volmer.eval(points_on_proc, cells)
     fig, ax = plt.subplots()
     ax.plot(points_on_proc[:, 0], u_values_bv, "b", label='Butler-Volmer', linewidth=1)
-    ax.plot(points_on_proc[:, 0], u_values_lin, "r", label='Linear', linewidth=1)
+    ax.plot(points_on_proc[:, 0], u_values_bv_fea, "k", label='Butler-Volmer (FEA)', linewidth=1)
+    # ax.plot(points_on_proc[:, 0], u_values_lin, "r", label='Linear', linewidth=1)
+    ax.plot(y, u_values_lin, "r", label='Linear', linewidth=1)
     ax.plot([0, bv_solver.L], [0, bv_solver.N_s/2], 'k', linewidth=0.5, linestyle='--', label='Electrode potential')
     ax.grid(color='cyan', linewidth=0.5)
     ax.set_ylabel(r'$\phi$ [V]')
