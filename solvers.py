@@ -409,6 +409,12 @@ class ShuntCurrentsSolver:
                         ufl.exp(-self.a_c * self.faraday_constant * eta_s / self.R / self.T)
                         )
 
+    def phi_linear(self):
+        return (-self.V_cell/(self.d_p * self.lmbda))/(ufl.exp(self.lmbda * self.L) + ufl.exp(-self.lmbda * self.L)) * (ufl.exp(self.lmbda * self.x[0]) - ufl.exp(-self.lmbda * self.x[0])) + self.V_cell * self.x[0] / self.d_p
+
+    def phi_bv(self):
+        return self.phi_linear() + self.i_p(self.eta_s_0)/self.di_p_deta_s(self.eta_s_0) - self.eta_s_0
+
     def setup(self):
         self._domain = mesh.create_interval(self.comm, 1000, [0, self.L])
         tdim = self.domain.topology.dim
@@ -450,11 +456,10 @@ class ShuntCurrentsSolver:
 
     @property
     def lmbda(self):
-        return self.H_p / self.A_m * (1/(self.L_p + 1/self.omega))
-
+        return np.sqrt(self.H_p / self.A_m * (1/(self.L_p + 1/self.omega)))
 
     def lambda_squared(self, eta_s):
-        return self.H_p / (self.kappa * self.A_m) * self.di_p_deta_s(eta_s) / (self.di_p_deta_s(eta_s) * self.R_p - 1)
+        return self.H_p / (self.kappa * self.A_m) * self.di_p_deta_s(eta_s) / (self.di_p_deta_s(eta_s) * self.R_p + 1)
 
     def f(self, y, eta_s):
         return self.lambda_squared(eta_s) * (self.V_cell / self.d_p * y + self.i_p(eta_s)/self.di_p_deta_s(eta_s) - self.eta_s_0)
@@ -466,8 +471,9 @@ class ShuntCurrentsSolver:
         x_fun.interpolate(lambda x: x[0])
 
         while error > tol and self.n_its < max_its:
-            F0 = inner(self.kappa * grad(self.u), grad(self.v)) * self.dx
-            F0 += - self.H_p * self.di_p_deta_s(self.eta_s_0)/(self.kappa * self.A_m * (1 + self.R_p * self.di_p_deta_s(self.eta_s_0))) * (self.V_cell / self.d_p * self.x[0] + self.i_p(self.eta_s_0)/self.di_p_deta_s(self.eta_s_0) - self.eta_s_0 - self.u) * self.v * self.dx
+            F0 = -inner(self.kappa * grad(self.u), grad(self.v)) * self.dx
+            F0 += - self.H_p * self.di_p_deta_s(self.eta_s_0)/(self.kappa * self.A_m * (1 + self.R_p * self.di_p_deta_s(self.eta_s_0))) * self.u * self.v * self.dx
+            F0 += + self.H_p * self.di_p_deta_s(self.eta_s_0)/(self.kappa * self.A_m * (1 + self.R_p * self.di_p_deta_s(self.eta_s_0))) * (self.V_cell / self.d_p * self.x[0] + self.i_p(self.eta_s_0)/self.di_p_deta_s(self.eta_s_0) - self.eta_s_0) * self.v * self.dx
             F = [fem.form(F0)]
             j00 = fem.form(ufl.derivative(F0, self.u))
             J = [[j00]]
