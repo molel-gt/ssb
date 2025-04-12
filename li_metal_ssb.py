@@ -178,7 +178,7 @@ def IS_chainsum(IS_main, parts):
 
 
 class CCCV_Cycler:
-    def __init__(self, dt, t_max, ref, input_json):
+    def __init__(self, dt, ref, input_json):
         self._modes_input_json = input_json
         self._n_remaining = len(modes)
         self._modes = None
@@ -186,7 +186,6 @@ class CCCV_Cycler:
         self._mode_idx = 0
         self._time = 0
         self._dt = dt
-        self._t_max = t_max
         self._current_mode_time = 0
         self._sod = 0
         self._stop = False
@@ -343,8 +342,6 @@ if __name__ == '__main__':
     parser.add_argument("-p_u1", "--p_u1", help="polynomial approximation order for potential field in AM", nargs='?', const=1, default=1, type=int)
     parser.add_argument("-cell_type", "--cell_type", help="cell type to use", nargs='?', const=1, default="tetrahedron", type=str)
     parser.add_argument("-dt", "--dt", help="minimum normalized time step", nargs='?', const=1, default=2e-7, type=float)
-    parser.add_argument("-sim_time", "--sim_time", help="simulation time in seconds", nargs='?', const=1, default=15, type=float)
-    parser.add_argument("-cycle_mode", "--cycle_mode", help="mode of cycling", nargs='?', const=1, default="galvanostatic", type=str)
     parser.add_argument('--cycle_name', help='cycle name for identification', nargs='?', const=1, default='charge', type=str)
     parser.add_argument("-cycling_json", "--cycling_json", help="cycling input data", nargs='?', const=1, default="cycling.json", type=str)
     parser.add_argument("--atol", help="solver absolute tolerance", nargs='?', const=1, default=1e-12, type=float)
@@ -358,24 +355,14 @@ if __name__ == '__main__':
     parser.add_argument('--transport_direction', help='direction perpendicular to current collectors', nargs='?', const=1, default='X', type=str)
     parser.add_argument('--kinetics', help='kinetics type', nargs='?', const=1, default='butler_volmer', type=str, choices=kinetics)
     parser.add_argument("--plot", help="whether to plot results", default=False, action=argparse.BooleanOptionalAction)
-    parser.add_argument("--plot_sparsity", help="whether to plot results", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("--improved_guess", help="whether to solve for improved guess", default=False, action=argparse.BooleanOptionalAction)
-    parser.add_argument("-C_rate", "--C_rate", help="cycling rate", nargs='?', const=1, default=0.1, type=float)
     parser.add_argument("--compute_distribution", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("--nested_fieldsplit", help="whether to use chain of fieldsplit preconditioners", default=False, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
-    if args.cycle_mode not in modes:
-        raise ValueError(f"Only {modes.__repr__()} allowed")
 
     # PETSc.Sys.Print("************************************** CYCLING PARAMETERS SUMMARY *************************************")
     PETSc.Sys.Print(utils.starpad(" CYCLING PARAMETERS SUMMARY "))
-    PETSc.Sys.Print("cycle mode                                             :", args.cycle_mode)
-    if args.cycle_mode == potentiostatic:
-        PETSc.Sys.Print("Voltage [V]                                            :", args.voltage)
-    elif args.cycle_mode == galvanostatic:
-        PETSc.Sys.Print("C-rate                                                 :", args.C_rate)
-    PETSc.Sys.Print("simulation time [s]                                    :", args.sim_time)
     PETSc.Sys.Print("Positive electrode Wa                                  :", args.Wa_p)
     PETSc.Sys.Print("Conductivity ratio (Kr)                                :", args.kr)
     PETSc.Sys.Print("Lithium diffusivity in positive active material [m2/s] :", args.D)
@@ -412,9 +399,8 @@ if __name__ == '__main__':
     c_ref = c_max
     # c_ref = kappa_pos_am * phi_ref / (faraday_const * D)
     ref = {"t": t_ref, "phi": phi_ref, "c": c_ref, "L": L_ref}
-    SIM_TIME = args.sim_time / t_ref
 
-    cycler = CCCV_Cycler(ref=ref, dt=args.dt, t_max=SIM_TIME, input_json=args.cycling_json)
+    cycler = CCCV_Cycler(ref=ref, dt=args.dt, input_json=args.cycling_json)
     cycler.setup()
 
     # exchange current densities
@@ -425,10 +411,13 @@ if __name__ == '__main__':
     thiele = R_p_ref * i0_p * V_MAX / (R * T * D * c_max)
 
     c_init = cycler.sod
-    PETSc.Sys.Print(c_init)
 
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
-    results_dir = os.path.join(args.mesh_folder, args.cycle_mode, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), f'{args.p_u0}-{args.p_u1}-{args.p_concentration}', args.cycle_name, str(args.gamma) + "-" + str(args.alpha), str(comm.Get_size()))
+    results_dir = os.path.join(args.mesh_folder, args.kinetics,
+                               str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr),
+                               f'{args.p_u0}-{args.p_u1}-{args.p_concentration}', args.cycle_name,
+                               str(args.gamma) + "-" + str(args.alpha), str(comm.Get_size())
+                               )
     utils.make_dir_if_missing(results_dir)
     output_potential_file = os.path.join(results_dir, "potential.bp")
     elec_potential_file = os.path.join(results_dir, "electrolyte_potential.bp")
@@ -564,7 +553,10 @@ if __name__ == '__main__':
 
     vol_pos_am_tilde = comm.allreduce(fem.assemble_scalar(fem.form(1 * dx(markers.positive_am), entity_maps=entity_maps)), op=MPI.SUM)
     vol_pos_am = vol_pos_am_tilde * L_ref ** 3
-    I_tot_ = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, args.C_rate, vol_pos_am) # cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
+    _c_rate = 0.01
+    if cycler.current_mode["c-rate"] is not None:
+        _c_rate = cycler.current_mode["c-rate"]
+    I_tot_ = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, _c_rate, vol_pos_am) # cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
     l_res = "-"
     r_res = "+"
     V0 = u_0.function_space
@@ -1001,7 +993,6 @@ if __name__ == '__main__':
                     "I interface [A]": np.nan,
                     "I right [A]": I_right,
                     "I (target) right [A]": np.nan,
-                    "C-rate": args.C_rate,
                     "u (avg) left [V]": u_avg_left,
                     "u (stdev) left [v]": u_stdev_left,
                     "u (avg) right [V]": u_avg_right,
@@ -1305,7 +1296,6 @@ if __name__ == '__main__':
                     "I interface [A]": I_interface,
                     "I right [A]": I_right,
                     "I (target) right [A]": I_tot_,
-                    "C-rate": args.C_rate,
                     "u (avg) left [V]": u_avg_left,
                     "u (stdev) left [v]": u_stdev_left,
                     "u (avg) right [V]": u_avg_right,
