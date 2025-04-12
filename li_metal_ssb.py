@@ -345,6 +345,7 @@ if __name__ == '__main__':
     parser.add_argument("-dt", "--dt", help="minimum normalized time step", nargs='?', const=1, default=2e-7, type=float)
     parser.add_argument("-sim_time", "--sim_time", help="simulation time in seconds", nargs='?', const=1, default=15, type=float)
     parser.add_argument("-cycle_mode", "--cycle_mode", help="mode of cycling", nargs='?', const=1, default="galvanostatic", type=str)
+    parser.add_argument('--cycle_name', help='cycle name for identification', nargs='?', const=1, default='charge', type=str)
     parser.add_argument("-cycling_json", "--cycling_json", help="cycling input data", nargs='?', const=1, default="cycling.json", type=str)
     parser.add_argument("--atol", help="solver absolute tolerance", nargs='?', const=1, default=1e-12, type=float)
     parser.add_argument("--rtol", help="solver relative tolerance", nargs='?', const=1, default=1e-9, type=float)
@@ -424,9 +425,10 @@ if __name__ == '__main__':
     thiele = R_p_ref * i0_p * V_MAX / (R * T * D * c_max)
 
     c_init = cycler.sod
+    PETSc.Sys.Print(c_init)
 
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
-    results_dir = os.path.join(args.mesh_folder, args.cycle_mode, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), f'{args.C_rate}C',f'{args.p_u0}-{args.p_u1}-{args.p_concentration}', str(args.gamma) + "-" + str(args.alpha), str(comm.Get_size()))
+    results_dir = os.path.join(args.mesh_folder, args.cycle_mode, args.kinetics, str(Wa_n) + "-" + str(Wa_p) + "-" + str(args.kr), f'{args.C_rate}C',f'{args.p_u0}-{args.p_u1}-{args.p_concentration}', args.cyle_name, str(args.gamma) + "-" + str(args.alpha), str(comm.Get_size()))
     utils.make_dir_if_missing(results_dir)
     output_potential_file = os.path.join(results_dir, "potential.bp")
     elec_potential_file = os.path.join(results_dir, "electrolyte_potential.bp")
