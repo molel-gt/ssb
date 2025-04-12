@@ -1,5 +1,7 @@
 {
-    "sod": 1.0,
+    "sod": 0.75,
     "data": [
-    { "direction": -1, "c-rate": null, "voltage": 3.5, "time": 300, "stop": {"V_min": null, "V_max": null, "I_min": 1e-10, "I_max": null} }
+    { "direction": -1, "c-rate": 5.0, "voltage": null, "time": 360, "stop": {"V_min": null, "V_max": 4.75, "I_min": null, "I_max": null} },
+    { "direction": -1, "c-rate": 0.01, "voltage": null, "time": 300, "stop": {"V_min": null, "V_max": 4.75, "I_min": null, "I_max": null} },
+    { "direction": 1, "c-rate": 5.0, "voltage": null, "time": 360, "stop": {"V_min": 3.25, "V_max": null, "I_min": null, "I_max": null} }
 ]}
