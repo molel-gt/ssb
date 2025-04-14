@@ -643,6 +643,8 @@ if __name__ == '__main__':
         _2d_shape = basix.CellType.triangle
     elif args.cell_type == "hexahedron":
         _2d_shape = basix.CellType.quadrilateral
+    elif args.cell_type == "triangle":
+        _2d_shape = basix.CellType.interval
     else:
         raise ValueError("Unknown cell type")
     el_V_r = basix.ufl.element(basix.ElementFamily.P, _2d_shape, args.p_u1, basix.LagrangeVariant.gll_isaac, dtype=dolfinx.default_real_type)
@@ -1334,7 +1336,6 @@ if __name__ == '__main__':
         "I interface (active material potential) [A]": I_interface_r,
         "I_interface error (potential) [A]": I_interface_error,
         "I_interface error norm (normalized)": I_interface_error_norm / I_x_norm,
-        "C-rate": args.C_rate,
         "u (avg) right [V]": u_avg_right,
         "u (stdev) right [v]": u_stdev_right,
         "i (avg) left [A/m2]": i_avg_left,
