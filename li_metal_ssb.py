@@ -1081,7 +1081,7 @@ if __name__ == '__main__':
             soln_vars = [u_0, u_1, c]
         elif cycler.current_mode_type == rest:
             I_tot.value = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
-            I_tot_tilde.value = I_tot.value /(L_ref * kappa_total * phi_ref)
+            I_tot_tilde.value = I_tot.value /(L_ref ** (k-1) * kappa_total * phi_ref)
             soln_vars = [u_0, u_1, lmbda, V_cell, c]
             bcs = [bc_left]
 
