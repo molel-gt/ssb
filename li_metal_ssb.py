@@ -655,7 +655,7 @@ if __name__ == '__main__':
     V_cell, w = fem.Function(R_right), ufl.TestFunction(R_right)
 
     I_tot = fem.Constant(submesh_facets_right, PETSc.ScalarType(I_tot_))
-    I_tot_tilde = fem.Constant(submesh_facets_right, PETSc.ScalarType(I_tot.value /(L_ref * kappa_total * phi_ref)))
+    I_tot_tilde = fem.Constant(submesh_facets_right, PETSc.ScalarType(I_tot.value /(L_ref ** (k) * kappa_total * phi_ref)))
     i_sup = np.abs(I_tot.value) / A_right
     h = ufl.CellDiameter(submesh_facets_right)
     gamma = fem.Constant(domain, PETSc.ScalarType(args.gamma))
@@ -1064,7 +1064,7 @@ if __name__ == '__main__':
     while not cycler.stop:
         if cycler.current_mode_type == galvanostatic:
             I_tot.value = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
-            I_tot_tilde.value = I_tot.value /(L_ref * kappa_total * phi_ref)
+            I_tot_tilde.value = I_tot.value /(L_ref ** (k-1) * kappa_total * phi_ref)
             soln_vars = [u_0, u_1, lmbda, V_cell, c]
             bcs = [bc_left]
         elif cycler.current_mode_type == potentiostatic:
