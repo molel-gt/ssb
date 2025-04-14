@@ -438,6 +438,7 @@ if __name__ == '__main__':
     domain, ct, ft = io.gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)[:3]
     tdim = domain.topology.dim
     fdim = tdim - 1
+    k = tdim - 2
     domain.topology.create_connectivity(tdim, fdim)
     domain.topology.create_connectivity(tdim, tdim)
     domain.topology.create_connectivity(fdim, fdim)
@@ -552,7 +553,7 @@ if __name__ == '__main__':
     ds_c = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
 
     vol_pos_am_tilde = comm.allreduce(fem.assemble_scalar(fem.form(1 * dx(markers.positive_am), entity_maps=entity_maps)), op=MPI.SUM)
-    vol_pos_am = vol_pos_am_tilde * L_ref ** 3
+    vol_pos_am = vol_pos_am_tilde * L_ref ** (tdim)
     _c_rate = 0.01
     if cycler.current_mode["c-rate"] is not None:
         _c_rate = cycler.current_mode["c-rate"]
@@ -624,13 +625,13 @@ if __name__ == '__main__':
     left_bndry_facets = np.array(left_facets).flatten()
     ds_f = ufl.Measure("ds", subdomain_data=[(1, minus_right_facets.flatten()), (2, left_bndry_facets), (3, right_bndry_facets)], domain=domain)
     A_left_tilde = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.left))), op=MPI.SUM)
-    A_left = A_left_tilde * (L_ref ** 2)
+    A_left = A_left_tilde * (L_ref ** (k+1))
 
     A_right_tilde = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds(markers.right))), op=MPI.SUM)
-    A_right = A_right_tilde * (L_ref ** 2)
+    A_right = A_right_tilde * (L_ref ** (k+1))
 
     A_se_am_tilde = comm.allreduce(fem.assemble_scalar(fem.form(1 * ds_c(markers.electrolyte_v_positive_am))), op=MPI.SUM)
-    A_se_am = A_se_am_tilde * (L_ref ** 2)
+    A_se_am = A_se_am_tilde * (L_ref ** (k+1))
     A_se_am_to_vol_am = A_se_am / vol_pos_am
     PETSc.Sys.Print("Area Left [m2]                        :", f"{A_left:.1e}")
     PETSc.Sys.Print("Area Right [m2]                       :", f"{A_right:.1e}")
@@ -860,7 +861,6 @@ if __name__ == '__main__':
     log_viewer.setFileName(log_datafile)
     petsc_options = PETSc.Options()
     stats = []
-    k = tdim - 2
     ########################################################################################################################################
     ## solve initial potential distribution at t = 0
     if args.improved_guess:
@@ -1235,9 +1235,9 @@ if __name__ == '__main__':
         I_x_norm = 0.5 * (I_x_norm_l + I_x_norm_r)
 
         I_interface_error_norm = np.sqrt(comm.allreduce(fem.assemble_scalar(
-                                    fem.form(inner(error, error) * L_ref ** 2 * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
+                                    fem.form(inner(error, error) * L_ref ** (k+1) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
         I_interface_error_norm_c = np.sqrt(comm.allreduce(fem.assemble_scalar(
-                                    fem.form(inner(error_c, error_c) * L_ref ** 2 * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
+                                    fem.form(inner(error_c, error_c) * L_ref ** (k+1) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
         u_avg_left_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_0 * ds(markers.left),
                                                                         entity_maps=entity_maps)), op=MPI.SUM) / A_left_tilde
         u_avg_left = u_avg_left_tilde * phi_ref
