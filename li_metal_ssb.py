@@ -865,6 +865,7 @@ if __name__ == '__main__':
                     "t [s]": np.nan,
                     "I left [A]": np.nan,
                     "I interface [A]": np.nan,
+                    "I (butler-volmer) [A]": np.nan
                     "I right [A]": np.nan,
                     "I (target) right [A]": np.nan,
                     "u (avg) left [V]": np.nan,
@@ -1023,6 +1024,7 @@ if __name__ == '__main__':
                         "t [s]": 0,
                         "I left [A]": np.nan,
                         "I interface [A]": np.nan,
+                        "I (butler-volmer) [A]": np.nan
                         "I right [A]": I_right,
                         "I (target) right [A]": np.nan,
                         "u (avg) left [V]": u_avg_left,
@@ -1328,6 +1330,7 @@ if __name__ == '__main__':
                          "t [s]": cycler.time * t_ref,
                         "I left [A]": I_left,
                         "I interface [A]": I_interface,
+                        "I (butler-volmer) [A]": I_bv,
                         "I right [A]": I_right,
                         "I (target) right [A]": I_tot.value,
                         "u (avg) left [V]": u_avg_left,
