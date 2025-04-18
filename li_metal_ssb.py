@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 import argparse
+import csv
 import datetime
 import json
 import logging
@@ -428,6 +429,7 @@ if __name__ == '__main__':
     concentration_plot_file = os.path.join(results_dir, "concentration.eps")
     simulation_metafile = os.path.join(results_dir, "simulation.json")
     stats_metadata_file = os.path.join(results_dir, "stats.json")
+    stats_csv_file = os.path.join(results_dir, "stats.csv")
     convergence_history = os.path.join(results_dir, "convergence.eps")
     se_am_frequency_plot = os.path.join(results_dir, "se_am_frequency.eps")
     se_am_cdf_plot = os.path.join(results_dir, "se_am_cdf.eps")
@@ -553,7 +555,7 @@ if __name__ == '__main__':
     ds_c = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
 
     vol_pos_am_tilde = comm.allreduce(fem.assemble_scalar(fem.form(1 * dx(markers.positive_am), entity_maps=entity_maps)), op=MPI.SUM)
-    vol_pos_am = vol_pos_am_tilde * L_ref ** (tdim)
+    vol_pos_am = vol_pos_am_tilde * L_ref ** tdim
     _c_rate = 0.01
     if cycler.current_mode["c-rate"] is not None:
         _c_rate = cycler.current_mode["c-rate"]
@@ -656,8 +658,6 @@ if __name__ == '__main__':
 
     I_tot = fem.Constant(submesh_facets_right, PETSc.ScalarType(I_tot_))
     I_tot_tilde = fem.Constant(submesh_facets_right, PETSc.ScalarType(I_tot.value /(L_ref ** (k) * kappa_total * phi_ref)))
-    i_sup = np.abs(I_tot.value) / A_right
-    h = ufl.CellDiameter(submesh_facets_right)
     gamma = fem.Constant(domain, PETSc.ScalarType(args.gamma))
     h_avg = 0.5 * (h_l + h_r)
     kappa_l = kappa(l_res)
@@ -860,7 +860,37 @@ if __name__ == '__main__':
     log_viewer = PETSc.Viewer().STDOUT()
     log_viewer.setFileName(log_datafile)
     petsc_options = PETSc.Options()
-    stats = []
+    # stats = []
+    sample_row = {
+                    "t [s]": np.nan,
+                    "I left [A]": np.nan,
+                    "I interface [A]": np.nan,
+                    "I right [A]": np.nan,
+                    "I (target) right [A]": np.nan,
+                    "u (avg) left [V]": np.nan,
+                    "u (stdev) left [v]": np.nan,
+                    "u (avg) right [V]": np.nan,
+                    "u (stdev) right [v]": np.nan,
+                    "surface overpotential (avg) [V]": np.nan,
+                    "V (ocp) (avg) [V]": np.nan,
+                    "i (avg) left [A/m2]": np.nan,
+                    "i (stdev) left [A/m2]": np.nan,
+                    "i (avg) se/am [A/m2]": np.nan,
+                    "i (stdev) se/am [A/m2]": np.nan,
+                    "i (avg) right [A/m2]": np.nan,
+                    "i (stdev) right [A/m2]": np.nan,
+                    "c surf (avg) (normalized)": np.nan,
+                    "c surf (stdev) (normalized)": np.nan,
+                    "c (avg) (normalized)": np.nan,
+                    "I_interface error norm (normalized)": np.nan,
+                    "I_interface error norm c (normalized)": np.nan,
+                    "Diffusivity [m2/s]": np.nan,
+                    "Positive Wa": np.nan,
+                    "Kr": np.nan,
+            }
+    fp = open(stats_metadata_file, "w")
+    stats_writer = csv.DictWriter(fp, fieldnames=sample_row.keys())
+    stats_writer.writeheader()
     ########################################################################################################################################
     ## solve initial potential distribution at t = 0
     if args.improved_guess:
@@ -987,35 +1017,35 @@ if __name__ == '__main__':
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
         V_ocp_avg = phi_ref / A_se_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form(U_ocp(c_r, c_max) * dInterface,
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
-
-        stats.append(
-                     {
-                    "t [s]": 0,
-                    "I left [A]": np.nan,
-                    "I interface [A]": np.nan,
-                    "I right [A]": I_right,
-                    "I (target) right [A]": np.nan,
-                    "u (avg) left [V]": u_avg_left,
-                    "u (stdev) left [v]": u_stdev_left,
-                    "u (avg) right [V]": u_avg_right,
-                    "u (stdev) right [v]": u_stdev_right,
-                    "surface overpotential (avg) [V]": eta_avg,
-                    "V (ocp) (avg) [V]": V_ocp_avg,
-                    "i (avg) left [A/m2]": np.nan,
-                    "i (stdev) left [A/m2]": np.nan,
-                    "i (avg) se/am [A/m2]": np.nan,
-                    "i (stdev) se/am [A/m2]": np.nan,
-                    "i (avg) right [A/m2]": np.nan,
-                    "i (stdev) right [A/m2]": np.nan,
-                    "c surf (avg) (normalized)": np.nan,
-                    "c surf (stdev) (normalized)": np.nan,
-                    "c (avg) (normalized)": c_init,
-                    "I_interface error norm (normalized)": np.nan,
-                    "Diffusivity [m2/s]": args.D,
-                    "Positive Wa": args.Wa_p,
-                    "Kr": args.kr,
-            }
-                     )
+        if comm_rank == 0:
+            stats_writer.writerow(
+                         {
+                        "t [s]": 0,
+                        "I left [A]": np.nan,
+                        "I interface [A]": np.nan,
+                        "I right [A]": I_right,
+                        "I (target) right [A]": np.nan,
+                        "u (avg) left [V]": u_avg_left,
+                        "u (stdev) left [v]": u_stdev_left,
+                        "u (avg) right [V]": u_avg_right,
+                        "u (stdev) right [v]": u_stdev_right,
+                        "surface overpotential (avg) [V]": eta_avg,
+                        "V (ocp) (avg) [V]": V_ocp_avg,
+                        "i (avg) left [A/m2]": np.nan,
+                        "i (stdev) left [A/m2]": np.nan,
+                        "i (avg) se/am [A/m2]": np.nan,
+                        "i (stdev) se/am [A/m2]": np.nan,
+                        "i (avg) right [A/m2]": np.nan,
+                        "i (stdev) right [A/m2]": np.nan,
+                        "c surf (avg) (normalized)": np.nan,
+                        "c surf (stdev) (normalized)": np.nan,
+                        "c (avg) (normalized)": c_init,
+                        "I_interface error norm (normalized)": np.nan,
+                        "I_interface error norm c (normalized)": np.nan,
+                        "Diffusivity [m2/s]": args.D,
+                        "Positive Wa": args.Wa_p,
+                        "Kr": args.kr,
+                })
 
         PETSc.Sys.Print(f"Finished computation of initial (t = 0) potential distribution!\nn_dofs: {n_dofs_t0:,}\nsolve time: {t1 - t0:.3f}s")
         PETSc.Sys.Print("************Solve for Improved Guess for Concentration Distribution*******************")
@@ -1064,7 +1094,7 @@ if __name__ == '__main__':
     while not cycler.stop:
         if cycler.current_mode_type == galvanostatic:
             I_tot.value = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
-            I_tot_tilde.value = I_tot.value /(L_ref ** (k-1) * kappa_total * phi_ref)
+            I_tot_tilde.value = I_tot.value /(L_ref ** (k) * kappa_total * phi_ref)
             soln_vars = [u_0, u_1, lmbda, V_cell, c]
             bcs = [bc_left]
         elif cycler.current_mode_type == potentiostatic:
@@ -1081,7 +1111,7 @@ if __name__ == '__main__':
             soln_vars = [u_0, u_1, c]
         elif cycler.current_mode_type == rest:
             I_tot.value = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
-            I_tot_tilde.value = I_tot.value /(L_ref ** (k-1) * kappa_total * phi_ref)
+            I_tot_tilde.value = I_tot.value /(L_ref ** (k) * kappa_total * phi_ref)
             soln_vars = [u_0, u_1, lmbda, V_cell, c]
             bcs = [bc_left]
 
@@ -1277,6 +1307,7 @@ if __name__ == '__main__':
                                 entity_maps=entity_maps)), op=MPI.SUM) / A_right_tilde)
         eta_avg = phi_ref / A_se_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form((u_r - u_l - U_ocp(c_r, c_max)) * dInterface,
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
+        I_bv = L_ref ** (k+1) * comm.allreduce(fem.assemble_scalar(fem.form(2*i0_p * (ufl.sinh(0.5 * phi_ref * (u_r - u_l - U_ocp(c_r, c_max)) * faraday_const / (R * T))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
         V_ocp_avg = phi_ref / A_se_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form(U_ocp(c_r, c_max) * dInterface,
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
         dt.value = cycler.dt
@@ -1290,40 +1321,39 @@ if __name__ == '__main__':
         # in case want to hold potential at end of CC charge/discharge
         if cycler.current_mode_type == galvanostatic:
             V_cell_prev = u_avg_right
-
-        stats.append(
-                     {
-                     "t [s]": cycler.time * t_ref,
-                    "I left [A]": I_left,
-                    "I interface [A]": I_interface,
-                    "I right [A]": I_right,
-                    "I (target) right [A]": I_tot_,
-                    "u (avg) left [V]": u_avg_left,
-                    "u (stdev) left [v]": u_stdev_left,
-                    "u (avg) right [V]": u_avg_right,
-                    "u (stdev) right [v]": u_stdev_right,
-                    "surface overpotential (avg) [V]": eta_avg,
-                    "V (ocp) (avg) [V]": V_ocp_avg,
-                    "i (avg) left [A/m2]": i_avg_left,
-                    "i (stdev) left [A/m2]": i_stdev_left,
-                    "i (avg) se/am [A/m2]": i_avg_se_am,
-                    "i (stdev) se/am [A/m2]": i_stdev_se_am,
-                    "i (avg) right [A/m2]": i_avg_right,
-                    "i (stdev) right [A/m2]": i_stdev_right,
-                    "c surf (avg) (normalized)": c_surf_avg,
-                    "c surf (stdev) (normalized)": c_surf_stdev,
-                    "c (avg) (normalized)": c_avg_tilde,
-                    "I_interface error norm (normalized)": I_interface_error_norm / I_x_norm,
-                    "I_interface error norm c (normalized)": I_interface_error_norm_c / I_x_norm,
-                    "Diffusivity [m2/s]": args.D,
-                    "Positive Wa": args.Wa_p,
-                    "Kr": args.kr,
-            }
-                     )
+        if comm_rank == 0:
+            PETSc.Sys.Print(I_bv, I_interface, I_left, I_right, I_tot.value)
+            stats_writer.writerow(
+                         {
+                         "t [s]": cycler.time * t_ref,
+                        "I left [A]": I_left,
+                        "I interface [A]": I_interface,
+                        "I right [A]": I_right,
+                        "I (target) right [A]": I_tot.value,
+                        "u (avg) left [V]": u_avg_left,
+                        "u (stdev) left [v]": u_stdev_left,
+                        "u (avg) right [V]": u_avg_right,
+                        "u (stdev) right [v]": u_stdev_right,
+                        "surface overpotential (avg) [V]": eta_avg,
+                        "V (ocp) (avg) [V]": V_ocp_avg,
+                        "i (avg) left [A/m2]": i_avg_left,
+                        "i (stdev) left [A/m2]": i_stdev_left,
+                        "i (avg) se/am [A/m2]": i_avg_se_am,
+                        "i (stdev) se/am [A/m2]": i_stdev_se_am,
+                        "i (avg) right [A/m2]": i_avg_right,
+                        "i (stdev) right [A/m2]": i_stdev_right,
+                        "c surf (avg) (normalized)": c_surf_avg,
+                        "c surf (stdev) (normalized)": c_surf_stdev,
+                        "c (avg) (normalized)": c_avg_tilde,
+                        "I_interface error norm (normalized)": I_interface_error_norm / I_x_norm,
+                        "I_interface error norm c (normalized)": I_interface_error_norm_c / I_x_norm,
+                        "Diffusivity [m2/s]": args.D,
+                        "Positive Wa": args.Wa_p,
+                        "Kr": args.kr,
+                })
         cycler.next()
     cvtx.close()
-    with open(stats_metadata_file, 'w', encoding='utf-8') as f:
-        json.dump(stats, f, ensure_ascii=False, indent=4)
+    fp.close()
 
     time_elapsed = timeit.default_timer() - start_time
 
@@ -1397,7 +1427,8 @@ if __name__ == '__main__':
 
         z = np.linspace(tol, 1 - tol, n_points)
         points = np.zeros((3, n_points))
-        points[2] = z
+        axis = directions[args.transport_direction.lower()]
+        points[axis:, ] = z
 
         # obtain concentration values to plot
         cells = []
@@ -1462,8 +1493,8 @@ if __name__ == '__main__':
                 addtnl_u = comm.recv(source=rank, tag=13)
                 all_u_vals = np.vstack((all_u_vals, addtnl_u))
 
-            c_vals = all_c_vals[all_c_vals[:, 2].argsort()]
-            u_vals = all_u_vals[all_u_vals[:, 2].argsort()]
+            c_vals = all_c_vals[all_c_vals[:, axis].argsort()]
+            u_vals = all_u_vals[all_u_vals[:, axis].argsort()]
             t_str = f"{cycler.time*t_ref:.3f}"
 
             c_json = {
@@ -1471,7 +1502,7 @@ if __name__ == '__main__':
                 "Wa": args.Wa_p,
                 "D": args.D,
                 "kr": args.kr,
-                "x": c_vals[:, 2].tolist(),
+                "x": c_vals[:, axis].tolist(),
                 "y": (c_vals[:, 3]*c_ref).tolist()
             }
 
@@ -1480,7 +1511,7 @@ if __name__ == '__main__':
                 "Wa": args.Wa_p,
                 "D": args.D,
                 "kr": args.kr,
-                "x": u_vals[:, 2].tolist(),
+                "x": u_vals[:, axis].tolist(),
                 "y": u_vals[:, 3].tolist()
             }
 
@@ -1494,7 +1525,7 @@ if __name__ == '__main__':
                 json.dump(c_json, f, ensure_ascii=False, indent=4)
 
             fig, ax = plt.subplots()
-            ax.plot(c_vals[:, 2], c_vals[:, 3]*c_ref, 'k', label=r'0.5$L_x$,0.5$L_y$', linewidth=1)
+            ax.plot(c_vals[:, axis], c_vals[:, 3]*c_ref, 'k', label=r'0.5$L_x$,0.5$L_y$', linewidth=1)
             ax.grid(True)
             ax.legend()
             ax.set_xlim([0, 1])
@@ -1507,7 +1538,7 @@ if __name__ == '__main__':
             plt.savefig(concentration_plot_file.replace(".eps", f"{t_str}.eps"))
 
             fig, ax = plt.subplots()
-            ax.plot(u_vals[:, 2], u_vals[:, 3], 'k', label=r'0.5$L_x$,0.5$L_y$', linewidth=1)
+            ax.plot(u_vals[:, axis], u_vals[:, 3], 'k', label=r'0.5$L_x$,0.5$L_y$', linewidth=1)
             ax.grid(True)
             ax.legend()
             ax.set_xlim([0, 1])
