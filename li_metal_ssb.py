@@ -894,6 +894,7 @@ if __name__ == '__main__':
     fp = open(stats_metadata_file, "w")
     stats_writer = csv.DictWriter(fp, fieldnames=sample_row.keys())
     stats_writer.writeheader()
+    fp.flush()
     ########################################################################################################################################
     ## solve initial potential distribution at t = 0
     if args.improved_guess:
@@ -1050,6 +1051,7 @@ if __name__ == '__main__':
                         "Positive Wa": args.Wa_p,
                         "Kr": args.kr,
                 })
+            fp.flush()
 
         PETSc.Sys.Print(f"Finished computation of initial (t = 0) potential distribution!\nn_dofs: {n_dofs_t0:,}\nsolve time: {t1 - t0:.3f}s")
         PETSc.Sys.Print("************Solve for Improved Guess for Concentration Distribution*******************")
@@ -1356,6 +1358,7 @@ if __name__ == '__main__':
                         "Positive Wa": args.Wa_p,
                         "Kr": args.kr,
                 })
+            fp.flush()
         cycler.next()
     cvtx.close()
     fp.close()
