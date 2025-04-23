@@ -1327,7 +1327,6 @@ if __name__ == '__main__':
         if cycler.current_mode_type == galvanostatic:
             V_cell_prev = u_avg_right
         if comm_rank == 0:
-            PETSc.Sys.Print(I_bv, I_interface, I_left, I_right, I_tot.value)
             stats_writer.writerow(
                          {
                          "t [s]": cycler.time * t_ref,
