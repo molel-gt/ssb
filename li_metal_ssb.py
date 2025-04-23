@@ -1313,7 +1313,7 @@ if __name__ == '__main__':
         eta_avg = phi_ref / A_se_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form((u_r - u_l - U_ocp(c_r)) * dInterface,
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
         I_bv = L_ref ** (k+1) * comm.allreduce(fem.assemble_scalar(fem.form(2*i0_p * (ufl.sinh(0.5 * phi_ref * (u_r - u_l - U_ocp(c_r)) * faraday_const / (R * T))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
-        V_ocp_avg = phi_ref / A_se_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form(U_ocp(c_r, c_max) * dInterface,
+        V_ocp_avg = phi_ref / A_se_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form(U_ocp(c_r) * dInterface,
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
         dt.value = cycler.dt
         cycler.check_stop_criteria(I_cell=np.abs(I_right), V_cell=u_avg_right)
