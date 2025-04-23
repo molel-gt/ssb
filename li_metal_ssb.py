@@ -126,17 +126,16 @@ def arctanh(y):
     return 0.5 * ufl.ln((1 + y) / (1 - y))
 
 
-def U_ocp(c, cmax, phi_ref=V_MAX):
+def U_ocp(c, cmax=1.0, phi_ref=V_MAX):
     """
     Chen2020 OCP for NMC622 + bound-checking
     """
     return  1/phi_ref * (4.4875 - 0.8090 * c/cmax - 0.0428 * ufl.tanh(18.5138*(c/cmax - 0.5542)) +\
-        -17.7326 * ufl.tanh(15.7890*(c/cmax - 0.3117)) + 17.5842 * ufl.tanh(15.9308*(c/cmax - 0.3120)))
-    # return  1 / phi_ref * (4.4875 - 0.8090 * c/cmax - 0.0428 * ufl.tanh(18.5138*(c/cmax - 0.5542)) +\
-    # -17.7326 * ufl.tanh(15.7890*(c/cmax - 0.3117)) + 17.5842 * ufl.tanh(15.9308*(c/cmax - 0.3120))
-         # ufl.conditional(ufl.gt(c/c_max, 1.0), V_MAX, 0) +\
-         # ufl.conditional(ufl.lt(c/c_max, 0.0), 0, 0)
-         # )
+        -17.7326 * ufl.tanh(15.7890*(c/cmax - 0.3117)) + 17.5842 * ufl.tanh(15.9308*(c/cmax - 0.3120))) * ufl.conditional(ufl.ge(c/c_max, 0), 1, 0) * ufl.conditional(ufl.le(c/c_max, 1), 1, 0)+\
+        1/phi_ref * (
+         ufl.conditional(ufl.lt(c/c_max, 0), 4.6785099-1000 * c/c_max, 0) +\
+         ufl.conditional(ufl.gt(c/c_max, 1.0), 3.4873 - 1000 * c/c_max, 0)
+         )
 
 
 # def U_ocp(c, cmax, phi_ref=V_MAX):
@@ -667,15 +666,15 @@ if __name__ == '__main__':
 
     F_0 = (
         - 0.5 * mixed_term(kappa_l * u_l + kappa_r * u_r, v_l, n_l) * dInterface
-        - 0.5 * mixed_term(kappa_l * v_l, (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r, c_max)), n_l) * dInterface
+        - 0.5 * mixed_term(kappa_l * v_l, (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r)), n_l) * dInterface
     )
 
     F_1 = (
         + 0.5 * mixed_term(kappa_l * u_l + kappa_r * u_r, v_r, n_l) * dInterface
-        - 0.5 * mixed_term(kappa_r * v_r, (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r, c_max)), n_l) * dInterface
+        - 0.5 * mixed_term(kappa_r * v_r, (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r)), n_l) * dInterface
     )
-    F_0 += - gamma / h_avg * (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r, c_max)) * v_l * dInterface
-    F_1 += + gamma / h_avg * (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r, c_max)) * v_r * dInterface
+    F_0 += - gamma / h_avg * (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r)) * v_l * dInterface
+    F_1 += + gamma / h_avg * (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r)) * v_r * dInterface
 
     F_0 += F_00
     F_1 += F_11
@@ -1017,9 +1016,9 @@ if __name__ == '__main__':
         I_right = comm.allreduce(fem.assemble_scalar(fem.form(
                                 inner(kappa_pos_am * phi_ref * L_ref ** (k) * grad(u_1), n) * ds(markers.right),
                                 entity_maps=entity_maps)), op=MPI.SUM)
-        eta_avg = phi_ref / A_se_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form((u_r - u_l - U_ocp(c_r, c_max)) * dInterface,
+        eta_avg = phi_ref / A_se_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form((u_r - u_l - U_ocp(c_r)) * dInterface,
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
-        V_ocp_avg = phi_ref / A_se_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form(U_ocp(c_r, c_max) * dInterface,
+        V_ocp_avg = phi_ref / A_se_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form(U_ocp(c_r) * dInterface,
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
         if comm_rank == 0:
             stats_writer.writerow(
@@ -1311,9 +1310,9 @@ if __name__ == '__main__':
         i_stdev_right = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(
                                 (kappa_pos_am * phi_ref * L_ref ** (-k) * inner(grad(u_1), n) - i_avg_right) ** 2 * ds(markers.right),
                                 entity_maps=entity_maps)), op=MPI.SUM) / A_right_tilde)
-        eta_avg = phi_ref / A_se_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form((u_r - u_l - U_ocp(c_r, c_max)) * dInterface,
+        eta_avg = phi_ref / A_se_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form((u_r - u_l - U_ocp(c_r)) * dInterface,
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
-        I_bv = L_ref ** (k+1) * comm.allreduce(fem.assemble_scalar(fem.form(2*i0_p * (ufl.sinh(0.5 * phi_ref * (u_r - u_l - U_ocp(c_r, c_max)) * faraday_const / (R * T))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+        I_bv = L_ref ** (k+1) * comm.allreduce(fem.assemble_scalar(fem.form(2*i0_p * (ufl.sinh(0.5 * phi_ref * (u_r - u_l - U_ocp(c_r)) * faraday_const / (R * T))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
         V_ocp_avg = phi_ref / A_se_am_tilde * comm.allreduce(fem.assemble_scalar(fem.form(U_ocp(c_r, c_max) * dInterface,
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
         dt.value = cycler.dt
