@@ -221,15 +221,13 @@ class CCCV_Cycler:
         if self.cv_data is not None:
             return cyclic_voltammetry
 
-        if np.isclose(self.current_mode["direction"], 0):
-            return rest
+        if self.gitt_data is not None:
+            return gitt
 
-        if self.current_mode["c-rate"] is None and self.current_mode["voltage"] is None:
-            return hold_voltage
-        elif self.current_mode["c-rate"] is not None:
+        if self.current_mode["c-rate"] is not None:
             return galvanostatic
 
-        elif self.current_mode["voltage"] is not None:
+        if self.current_mode["voltage"] is not None:
             return potentiostatic
 
     @property
