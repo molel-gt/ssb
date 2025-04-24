@@ -47,6 +47,8 @@ kinetics = ('linear', 'tafel', 'butler_volmer')
 galvanostatic = "galvanostatic"
 potentiostatic = "potentiostatic"
 hold_voltage = "hold_voltage"
+classic_voltammetry = "classic_voltammetry"
+gitt = "gitt_titration"
 rest = "rest"
 I_rest = np.finfo(np.float64).eps
 max_rest_c_rate = 0.001 # maximum c-rate to be considered rest
@@ -57,7 +59,7 @@ V_MAX = 5.0  # upper cutoff voltage
 V_MIN = 2.5  # lower cutoff voltage
 c_max = 35000
 directions = {'x': 0, 'y': 1, 'z': 2}
-
+MIN_C_RATE = 0.01
 
 log.set_log_level(dolfinx.log.LogLevel.WARNING)
 
@@ -179,6 +181,8 @@ class CCCV_Cycler:
         self._current_mode_time = 0
         self._sod = 0
         self._stop = False
+        self._cv_data = None
+        self._gitt_data = None
 
     @property
     def ref(self):
@@ -214,6 +218,9 @@ class CCCV_Cycler:
 
     @property
     def current_mode_type(self):
+        if self.cv_data is not None:
+            return classic_voltammetry
+
         if np.isclose(self.current_mode["direction"], 0):
             return rest
 
@@ -227,6 +234,7 @@ class CCCV_Cycler:
 
     @property
     def dt(self):
+
         res = self.current_mode["time"] - self.current_mode_time
         if np.isclose(res, 0):
             return self._dt
@@ -237,20 +245,71 @@ class CCCV_Cycler:
     def stop(self):
         return self._stop
 
+    @property
+    def cv_data(self):
+        return self._cv_data
+
+    @property
+    def gitt_data(self):
+        return self._gitt_data
+
+    def gitt_time(self, t0):
+        return (self.time - t0) % self.gitt_data["period"]
+
+    def gitt_current_function(self, t0=0):
+        return (0 < self.gitt_time(t0) <= self.gitt_data["pulse-time"]) * self.gitt_data["c-rate"]  +\
+         (self.gitt_data["pulse-time"] < self.gitt_time(t0) <= self.gitt_data["period"]) * MIN_C_RATE
+
+    def cv_voltage_function(self, t0=0):
+        _scan_rate = self.cv_data["scan-rate"]
+        _deltaV = self.cv_data["deltaV"]
+        _V = self.cv_data["V"]
+        _scan_time = (_deltaV / _scan_rate) / self.ref["t"]
+        return (t0 < self.time <= t0 + _scan_time) * (_V + _scan_rate * (self.time - t0))+\
+            (t0 + _scan_time < self.time <= t0 + 2 * _scan_time) * (_V + _deltaV - _scan_rate * (self.time - t0 - _scan_time))+\
+            (t0 + 2 * _scan_time < self.time <= t0 + 3 * _scan_time) * (_V - _scan_rate * (self.time - t0 - 2 * _scan_time))+\
+            (t0 + 3 * _scan_time < self.time <= t0 + 4 * _scan_time) * (_V - _deltaV + _scan_rate * (self.time - t0 - 3 * _scan_time))
+
     def setup(self):
         if self.modes is None:
             with open(self._modes_input_json) as fp:
                 data = json.load(fp)
-            for idx, _row in enumerate(data["data"]):
-                _row["time"] = _row["time"] / self.ref["t"]
-                if _row['c-rate'] is None:
-                    continue
-                if _row["c-rate"] > max_rest_c_rate and np.isclose(_row['direction'], 0):
-                    raise ValueError("c-rate is greater than maximum for rest phase")
-            self._modes = data["data"]
-            self._sod = data["sod"]
-            self._time += self.dt
-            self._current_mode_time += self.dt
+                cccv_data = data.get("data")
+                self._cv_data = data.get("cv")
+                self._gitt_data = data.get("gitt")
+                self._sod = data["sod"]
+
+                if self.cv_data is not None:
+                    _scan_rate = self.cv_data["scan-rate"]
+                    _deltaV = self.cv_data["deltaV"]
+                    _V = self.cv_data["V"]
+                    _scan_time = (_deltaV / _scan_rate) / self.ref["t"]
+                    self._modes = [{"time": 4 * _scan_time, "c-rate": None, "direction": np.nan}]
+
+                if self.gitt_data is not None:
+                    _c_rate = self.gitt_data["c-rate"]
+                    _n_cycles = self.gitt_data["n-cycles"]
+                    _pulse_time = self.gitt_data["pulse-time"]
+                    _rest_time = self.gitt_data["rest-time"]
+                    _V_min = self.gitt_data["stop"]["V_min"]
+                    _V_max = self.gitt_data["stop"]["V_max"]
+                    _direction = np.int(_c_rate/np.abs(_c_rate))
+                    self._gitt_data["pulse-time"] = _pulse_time / self.ref["t"]
+                    self._gitt_data["rest-time"] = _rest_time / self.ref["t"]
+                    self._gitt_data["period"] = _pulse_time/ self.ref["t"] + _rest_time/ self.ref["t"]
+                    self._modes = [{"time": _n_cycles * (_pulse_time + _rest_time), "c-rate": np.abs(_c_rate), "direction": _direction}]
+
+                if cccv_data is not None:
+                    for idx, _row in enumerate(cccv_data):
+                        _row["time"] = _row["time"] / self.ref["t"]
+                        if _row['c-rate'] is None:
+                            continue
+                        if _row["c-rate"] > max_rest_c_rate and np.isclose(_row['direction'], 0):
+                            raise ValueError("c-rate is greater than maximum for rest phase")
+                    self._modes = cccv_data
+
+                self._time += self.dt
+                self._current_mode_time += self.dt 
 
     def next(self):
         self._time += self.dt
@@ -263,6 +322,10 @@ class CCCV_Cycler:
         return False
 
     def check_stop_criteria(self, V_cell, I_cell):
+        if self.current_mode_type == classic_voltammetry and self.time >= self.t_max:
+            self._stop = True
+            return
+
         if self.mode_idx >= len(self.modes):
             self._stop = True
             return
@@ -274,24 +337,6 @@ class CCCV_Cycler:
         # stop at global upper and lower cutoff voltage
         if V_cell >= V_MAX or V_cell <= V_MIN:
             self._stop = True
-            return
-
-        if self.current_mode_type ==  rest:
-            if self.current_mode["stop"]["V_min"] is not None:
-                if V_cell < self.current_mode["stop"]["V_min"]:
-                    self._stop = True
-                    return
-            if self.current_mode["stop"]["V_max"] is not None:
-                if V_cell > self.current_mode["stop"]["V_max"]:
-                    self._stop = True
-                    return
-
-        if self.current_mode_type == hold_voltage:
-            if I_cell < self.current_mode["stop"]["I_min"]:
-                self._stop = True
-            return
-
-        if self.current_mode["c-rate"] is None and self.current_mode["voltage"] is None:
             return
 
         # constant current mode: stop at maximum voltage during charge, minimum voltage during discharge
@@ -361,7 +406,7 @@ if __name__ == '__main__':
     PETSc.Sys.Print(" SOLVER PARAMETERS ".center(90, "*"))
     PETSc.Sys.Print("interior penalty parameter (gamma)                     :", args.gamma)
     PETSc.Sys.Print("solve improved guesss                                  :", args.improved_guess)
-    PETSc.Sys.Print("minimum dt [normalized]                                :", args.dt)
+    PETSc.Sys.Print("minimum dt [s]                                         :", args.dt)
     PETSc.Sys.Print(utils.starpad("*"))
 
     start_time = timeit.default_timer()
@@ -389,6 +434,7 @@ if __name__ == '__main__':
     c_ref = c_max
     # c_ref = kappa_pos_am * phi_ref / (faraday_const * D)
     ref = {"t": t_ref, "phi": phi_ref, "c": c_ref, "L": L_ref}
+    args.dt = args.dt / ref["t"] # scale input
 
     cycler = CCCV_Cycler(ref=ref, dt=args.dt, input_json=args.cycling_json)
     cycler.setup()
@@ -891,7 +937,7 @@ if __name__ == '__main__':
                 V_r_map.size_global*V_r.dofmap.index_map_bs + R_right_map.size_global*R_right.dofmap.index_map_bs
             F2D = F_cc[:4]
             J2D = [j2d[:4] for j2d in J_cc[:4]]
-        elif cycler.current_mode_type == potentiostatic:
+        elif cycler.current_mode_type == potentiostatic or cycler.current_mode_type == classic_voltammetry:
             n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs
             F2D = F_cv[:2]
             J2D = [j2d[:2] for j2d in J_cc[:2]]
@@ -984,7 +1030,7 @@ if __name__ == '__main__':
         if cycler.current_mode_type == galvanostatic:
             PETSc.Sys.Print("V_cell (initial guess) [V]:", f"{V_cell.x.array[0] * ref["phi"]:.3f}")
         else:
-            PETSc.Sys.Print("V_cell (prescribed) [V]:", f"{cycler.current_mode["voltage"]:.3f}")
+            PETSc.Sys.Print("V_cell (prescribed) [V]:", f"{cycler.cv_voltage_function(0):.3f}")
 
         u_avg_left_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_0 * ds(markers.left),
                                                                         entity_maps=entity_maps)), op=MPI.SUM) / A_left_tilde
@@ -1083,8 +1129,19 @@ if __name__ == '__main__':
 
     # cycler.next()
     dt.value = cycler.dt
-    V_cell_prev = 0
     while not cycler.stop:
+        if cycler.current_mode_type == classic_voltammetry:
+            PETSc.Sys.Print(cycler.cv_voltage_function(0))
+            u_right.x.array[:] = cycler.cv_voltage_function(0)/phi_ref
+            bc_right = fem.dirichletbc(
+                                       u_right, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right)))
+            bcs = [bc_left, bc_right]
+            soln_vars = [u_0, u_1, c]
+        if cycler.current_mode_type == gitt:
+            I_tot.value = utils.get_c_rate_current(c_max, cycler.gitt_current_function(0), vol_pos_am)
+            I_tot_tilde.value = I_tot.value /(L_ref ** (k) * kappa_total * phi_ref)
+            soln_vars = [u_0, u_1, lmbda, V_cell, c]
+            bcs = [bc_left]
         if cycler.current_mode_type == galvanostatic:
             I_tot.value = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
             I_tot_tilde.value = I_tot.value /(L_ref ** (k) * kappa_total * phi_ref)
@@ -1096,21 +1153,10 @@ if __name__ == '__main__':
                                        u_right, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right)))
             bcs = [bc_left, bc_right]
             soln_vars = [u_0, u_1, c]
-        elif cycler.current_mode_type == hold_voltage:
-            u_right.x.array[:] = V_cell_prev/phi_ref
-            bc_right = fem.dirichletbc(
-                                       u_right, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right)))
-            bcs = [bc_left, bc_right]
-            soln_vars = [u_0, u_1, c]
-        elif cycler.current_mode_type == rest:
-            I_tot.value = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
-            I_tot_tilde.value = I_tot.value /(L_ref ** (k) * kappa_total * phi_ref)
-            soln_vars = [u_0, u_1, lmbda, V_cell, c]
-            bcs = [bc_left]
 
         PETSc.Sys.Print(f"Time: {cycler.time*t_ref:,.1f}s\n")
         petsc_options.clear()
-        if cycler.current_mode_type in (galvanostatic, rest):
+        if cycler.current_mode_type in (galvanostatic, gitt):
             J = J_cc
             F = F_cc
             P = J
@@ -1123,7 +1169,7 @@ if __name__ == '__main__':
             IS_c = nested_IS[0][4]
             IS_u = IS_u0.sum(IS_u1)
             IS_ulg = IS_u.sum(IS_l).sum(IS_v)
-        elif cycler.current_mode_type in (potentiostatic, hold_voltage):
+        elif cycler.current_mode_type in (potentiostatic, classic_voltammetry):
             J = J_cv
             F = F_cv
             P = J
@@ -1311,9 +1357,7 @@ if __name__ == '__main__':
         u.interpolate(u_1, cells1=submesh_positive_am_to_mesh, cells0=np.arange(len(submesh_positive_am_to_mesh)))
         u.x.scatter_forward()
         u_vtx.write(cycler.time)
-        # in case want to hold potential at end of CC charge/discharge
-        if cycler.current_mode_type == galvanostatic:
-            V_cell_prev = u_avg_right
+
         if comm_rank == 0:
             stats_writer.writerow(
                          {
