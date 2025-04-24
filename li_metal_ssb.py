@@ -294,7 +294,7 @@ class CCCV_Cycler:
                     _rest_time = self.gitt_data["rest-time"]
                     _V_min = self.gitt_data["stop"]["V_min"]
                     _V_max = self.gitt_data["stop"]["V_max"]
-                    _direction = np.int(_c_rate/np.abs(_c_rate))
+                    _direction = int(_c_rate/np.abs(_c_rate))
                     self._gitt_data["pulse-time"] = _pulse_time / self.ref["t"]
                     self._gitt_data["rest-time"] = _rest_time / self.ref["t"]
                     self._gitt_data["period"] = _pulse_time/ self.ref["t"] + _rest_time/ self.ref["t"]
@@ -324,6 +324,10 @@ class CCCV_Cycler:
 
     def check_stop_criteria(self, V_cell, I_cell):
         if self.current_mode_type == cyclic_voltammetry and self.time >= self.t_max:
+            self._stop = True
+            return
+
+        if self.current_mode_type == gitt and self.time >= self.t_max:
             self._stop = True
             return
 
