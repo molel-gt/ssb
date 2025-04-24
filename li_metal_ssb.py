@@ -47,7 +47,7 @@ kinetics = ('linear', 'tafel', 'butler_volmer')
 galvanostatic = "galvanostatic"
 potentiostatic = "potentiostatic"
 hold_voltage = "hold_voltage"
-classic_voltammetry = "classic_voltammetry"
+cyclic_voltammetry = "cyclic_voltammetry"
 gitt = "gitt_titration"
 rest = "rest"
 I_rest = np.finfo(np.float64).eps
@@ -219,7 +219,7 @@ class CCCV_Cycler:
     @property
     def current_mode_type(self):
         if self.cv_data is not None:
-            return classic_voltammetry
+            return cyclic_voltammetry
 
         if np.isclose(self.current_mode["direction"], 0):
             return rest
@@ -266,7 +266,7 @@ class CCCV_Cycler:
         _V = self.cv_data["V"]
         _scan_time = (_deltaV / _scan_rate) / self.ref["t"]
         _scan_rate *= ref["t"]
-        return (t0 < self.time <= t0 + _scan_time) * (_V + _scan_rate * (self.time - t0))+\
+        return (t0 <= self.time <= t0 + _scan_time) * (_V + _scan_rate * (self.time - t0))+\
             (t0 + _scan_time < self.time <= t0 + 2 * _scan_time) * (_V + _deltaV - _scan_rate * (self.time - t0 - _scan_time))+\
             (t0 + 2 * _scan_time < self.time <= t0 + 3 * _scan_time) * (_V - _scan_rate * (self.time - t0 - 2 * _scan_time))+\
             (t0 + 3 * _scan_time < self.time <= t0 + 4 * _scan_time) * (_V - _deltaV + _scan_rate * (self.time - t0 - 3 * _scan_time))
@@ -309,8 +309,8 @@ class CCCV_Cycler:
                             raise ValueError("c-rate is greater than maximum for rest phase")
                     self._modes = cccv_data
 
-                self._time += self.dt
-                self._current_mode_time += self.dt 
+                    self._time += self.dt
+                    self._current_mode_time += self.dt
 
     def next(self):
         self._time += self.dt
@@ -323,7 +323,7 @@ class CCCV_Cycler:
         return False
 
     def check_stop_criteria(self, V_cell, I_cell):
-        if self.current_mode_type == classic_voltammetry and self.time >= self.t_max:
+        if self.current_mode_type == cyclic_voltammetry and self.time >= self.t_max:
             self._stop = True
             return
 
@@ -938,7 +938,7 @@ if __name__ == '__main__':
                 V_r_map.size_global*V_r.dofmap.index_map_bs + R_right_map.size_global*R_right.dofmap.index_map_bs
             F2D = F_cc[:4]
             J2D = [j2d[:4] for j2d in J_cc[:4]]
-        elif cycler.current_mode_type == potentiostatic or cycler.current_mode_type == classic_voltammetry:
+        elif cycler.current_mode_type == potentiostatic or cycler.current_mode_type == cyclic_voltammetry:
             n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs
             F2D = F_cv[:2]
             J2D = [j2d[:2] for j2d in J_cc[:2]]
@@ -1131,8 +1131,7 @@ if __name__ == '__main__':
     # cycler.next()
     dt.value = cycler.dt
     while not cycler.stop:
-        if cycler.current_mode_type == classic_voltammetry:
-            PETSc.Sys.Print(cycler.cv_voltage_function(0))
+        if cycler.current_mode_type == cyclic_voltammetry:
             u_right.x.array[:] = cycler.cv_voltage_function(0)/phi_ref
             bc_right = fem.dirichletbc(
                                        u_right, fem.locate_dofs_topological(u_1.function_space, fdim, ft_positive_am.find(markers.right)))
@@ -1170,7 +1169,7 @@ if __name__ == '__main__':
             IS_c = nested_IS[0][4]
             IS_u = IS_u0.sum(IS_u1)
             IS_ulg = IS_u.sum(IS_l).sum(IS_v)
-        elif cycler.current_mode_type in (potentiostatic, classic_voltammetry):
+        elif cycler.current_mode_type in (potentiostatic, cyclic_voltammetry):
             J = J_cv
             F = F_cv
             P = J
