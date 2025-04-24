@@ -133,7 +133,7 @@ def U_ocp(c, cmax=1.0, phi_ref=V_MAX):
     return  1/phi_ref * (4.4875 - 0.8090 * c/cmax - 0.0428 * ufl.tanh(18.5138*(c/cmax - 0.5542)) +\
         -17.7326 * ufl.tanh(15.7890*(c/cmax - 0.3117)) + 17.5842 * ufl.tanh(15.9308*(c/cmax - 0.3120))) * ufl.conditional(ufl.ge(c/c_max, 0), 1, 0) * ufl.conditional(ufl.le(c/c_max, 1), 1, 0)+\
         1/phi_ref * (
-         ufl.conditional(ufl.lt(c/c_max, 0), 4.6785099-1000 * c/c_max, 0) +\
+         ufl.conditional(ufl.lt(c/c_max, 0), 4.6785099 - 1000 * c/c_max, 0) +\
          ufl.conditional(ufl.gt(c/c_max, 1.0), 3.4873 - 1000 * c/c_max, 0)
          )
 
