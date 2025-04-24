@@ -265,10 +265,11 @@ class CCCV_Cycler:
         _deltaV = self.cv_data["deltaV"]
         _V = self.cv_data["V"]
         _scan_time = (_deltaV / _scan_rate) / self.ref["t"]
-        return (t0 < self.time <= t0 + _scan_time) * (_V + _scan_rate * (self.time - t0))+\
-            (t0 + _scan_time < self.time <= t0 + 2 * _scan_time) * (_V + _deltaV - _scan_rate * (self.time - t0 - _scan_time))+\
-            (t0 + 2 * _scan_time < self.time <= t0 + 3 * _scan_time) * (_V - _scan_rate * (self.time - t0 - 2 * _scan_time))+\
-            (t0 + 3 * _scan_time < self.time <= t0 + 4 * _scan_time) * (_V - _deltaV + _scan_rate * (self.time - t0 - 3 * _scan_time))
+        _scan_rate *= ref["t"]
+        return int(t0 < self.time <= t0 + _scan_time) * (_V + _scan_rate * (self.time - t0))+\
+            int(t0 + _scan_time < self.time <= t0 + 2 * _scan_time) * (_V + _deltaV - _scan_rate * (self.time - t0 - _scan_time))+\
+            int(t0 + 2 * _scan_time < self.time <= t0 + 3 * _scan_time) * (_V - _scan_rate * (self.time - t0 - 2 * _scan_time))+\
+            int(t0 + 3 * _scan_time < self.time <= t0 + 4 * _scan_time) * (_V - _deltaV + _scan_rate * (self.time - t0 - 3 * _scan_time))
 
     def setup(self):
         if self.modes is None:
@@ -297,7 +298,7 @@ class CCCV_Cycler:
                     self._gitt_data["pulse-time"] = _pulse_time / self.ref["t"]
                     self._gitt_data["rest-time"] = _rest_time / self.ref["t"]
                     self._gitt_data["period"] = _pulse_time/ self.ref["t"] + _rest_time/ self.ref["t"]
-                    self._modes = [{"time": _n_cycles * (_pulse_time + _rest_time), "c-rate": np.abs(_c_rate), "direction": _direction}]
+                    self._modes = [{"time": _n_cycles * (self._gitt_data["period"]), "c-rate": np.abs(_c_rate), "direction": _direction}]
 
                 if cccv_data is not None:
                     for idx, _row in enumerate(cccv_data):
