@@ -1,5 +1,5 @@
 #!/usr/bin/env
-
+import argparse
 import json
 import os
 
@@ -7,8 +7,6 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as plticker
 import numpy as np
 import pandas as pd
-
-from IPython.display import display, Latex, Markdown
 
 import plot_opts, utils
 plt.rcParams.update(plot_opts.params)
