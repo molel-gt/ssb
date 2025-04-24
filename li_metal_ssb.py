@@ -266,10 +266,10 @@ class CCCV_Cycler:
         _V = self.cv_data["V"]
         _scan_time = (_deltaV / _scan_rate) / self.ref["t"]
         _scan_rate *= ref["t"]
-        return int(t0 < self.time <= t0 + _scan_time) * (_V + _scan_rate * (self.time - t0))+\
-            int(t0 + _scan_time < self.time <= t0 + 2 * _scan_time) * (_V + _deltaV - _scan_rate * (self.time - t0 - _scan_time))+\
-            int(t0 + 2 * _scan_time < self.time <= t0 + 3 * _scan_time) * (_V - _scan_rate * (self.time - t0 - 2 * _scan_time))+\
-            int(t0 + 3 * _scan_time < self.time <= t0 + 4 * _scan_time) * (_V - _deltaV + _scan_rate * (self.time - t0 - 3 * _scan_time))
+        return (t0 < self.time <= t0 + _scan_time) * (_V + _scan_rate * (self.time - t0))+\
+            (t0 + _scan_time < self.time <= t0 + 2 * _scan_time) * (_V + _deltaV - _scan_rate * (self.time - t0 - _scan_time))+\
+            (t0 + 2 * _scan_time < self.time <= t0 + 3 * _scan_time) * (_V - _scan_rate * (self.time - t0 - 2 * _scan_time))+\
+            (t0 + 3 * _scan_time < self.time <= t0 + 4 * _scan_time) * (_V - _deltaV + _scan_rate * (self.time - t0 - 3 * _scan_time))
 
     def setup(self):
         if self.modes is None:
