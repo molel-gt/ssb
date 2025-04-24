@@ -236,8 +236,8 @@ class CCCV_Cycler:
         res = self.current_mode["time"] - self.current_mode_time
         if np.isclose(res, 0):
             return self._dt
-        else:
-            return np.min([self._dt, res])
+
+        return np.min([self._dt, res])
 
     @property
     def stop(self):
@@ -292,11 +292,11 @@ class CCCV_Cycler:
                     _rest_time = self.gitt_data["rest-time"]
                     _V_min = self.gitt_data["stop"]["V_min"]
                     _V_max = self.gitt_data["stop"]["V_max"]
-                    _direction = int(_c_rate/np.abs(_c_rate))
+
                     self._gitt_data["pulse-time"] = _pulse_time / self.ref["t"]
                     self._gitt_data["rest-time"] = _rest_time / self.ref["t"]
                     self._gitt_data["period"] = _pulse_time/ self.ref["t"] + _rest_time/ self.ref["t"]
-                    self._modes = [{"time": _n_cycles * (self._gitt_data["period"]), "c-rate": np.abs(_c_rate), "direction": _direction}]
+                    self._modes = [{"time": _n_cycles * (self._gitt_data["period"]), "c-rate": _c_rate, "direction": 1}]
 
                 if cccv_data is not None:
                     for idx, _row in enumerate(cccv_data):
@@ -596,8 +596,8 @@ if __name__ == '__main__':
     vol_pos_am = vol_pos_am_tilde * L_ref ** tdim
     _c_rate = 0.01
     if cycler.current_mode["c-rate"] is not None:
-        _c_rate = cycler.current_mode["c-rate"]
-    I_tot_ = cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, _c_rate, vol_pos_am) # cycler.current_mode["direction"] * utils.get_c_rate_current(c_max, cycler.current_mode["c-rate"], vol_pos_am)
+        _c_rate = cycler.current_mode["c-rate"] * cycler.current_mode["direction"]
+    I_tot_ = utils.get_c_rate_current(c_max, _c_rate, vol_pos_am)
     l_res = "-"
     r_res = "+"
     V0 = u_0.function_space
@@ -753,14 +753,14 @@ if __name__ == '__main__':
     )
 
     bcs = [bc_left]
-    if cycler.current_mode_type == potentiostatic:
+    if cycler.current_mode_type in (potentiostatic, cyclic_voltammetry):
         bcs = [bc_left, bc_right]
 
     J_cc = None
     J_cv = None
 
-    for mode in [galvanostatic, potentiostatic]:
-        if mode == galvanostatic:
+    for mode in [cyclic_voltammetry, gitt, galvanostatic, potentiostatic]:
+        if mode in (galvanostatic, gitt):
             jac00 = ufl.derivative(F_0, u_0)
             jac01 = ufl.derivative(F_0, u_1)
             jac02 = ufl.derivative(F_0, lmbda)
@@ -829,7 +829,7 @@ if __name__ == '__main__':
                 [J40, J41, J42, J43, J44],
             ]
 
-        elif mode == potentiostatic:
+        elif mode in (potentiostatic, cyclic_voltammetry):
             jac00 = ufl.derivative(F_0, u_0)
             jac01 = ufl.derivative(F_0, u_1)
             jac02 = ufl.derivative(F_0, c)
@@ -935,12 +935,12 @@ if __name__ == '__main__':
     ## solve initial potential distribution at t = 0
     if args.improved_guess:
         PETSc.Sys.Print("************Begin Solve for t = 0 Potential Distribution*******************")
-        if cycler.current_mode_type == galvanostatic:
+        if cycler.current_mode_type in (galvanostatic, gitt):
             n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs +\
                 V_r_map.size_global*V_r.dofmap.index_map_bs + R_right_map.size_global*R_right.dofmap.index_map_bs
             F2D = F_cc[:4]
             J2D = [j2d[:4] for j2d in J_cc[:4]]
-        elif cycler.current_mode_type == potentiostatic or cycler.current_mode_type == cyclic_voltammetry:
+        elif cycler.current_mode_type in (potentiostatic, cyclic_voltammetry):
             n_dofs_t0 = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs
             F2D = F_cv[:2]
             J2D = [j2d[:2] for j2d in J_cc[:2]]
@@ -1012,10 +1012,12 @@ if __name__ == '__main__':
         soln_vars_cc = [u_0, u_1, lmbda, V_cell]
         soln_vars_cv = [u_0, u_1]
 
-        if cycler.current_mode_type == galvanostatic:
+        if cycler.current_mode_type in (gitt, galvanostatic):
             soln_vars = soln_vars_cc
-        else:
+        elif cycler.current_mode_type in (potentiostatic, cyclic_voltammetry):
             soln_vars = soln_vars_cv
+        else:
+            raise ValueError("Unknown cycling mode")
 
         problem_t0 = solvers.NonlinearPDE_SNESProblem(F2D, J2D, soln_vars, bcs, P=J2D)
         snes.setFunction(problem_t0.F_block, Fvec2d)
@@ -1030,10 +1032,10 @@ if __name__ == '__main__':
         Fvec2d.destroy()
         x2d.destroy()
         petsc_options.clear()
-        if cycler.current_mode_type == galvanostatic:
-            PETSc.Sys.Print("V_cell (initial guess) [V]:", f"{V_cell.x.array[0] * ref["phi"]:.3f}")
-        else:
-            PETSc.Sys.Print("V_cell (prescribed) [V]:", f"{cycler.cv_voltage_function(0):.3f}")
+        # if cycler.current_mode_type in (gitt, galvanostatic):
+        #     PETSc.Sys.Print("V_cell (initial guess) [V]:", f"{V_cell.x.array[0] * ref["phi"]:.3f}")
+        # else:
+        #     PETSc.Sys.Print("V_cell (prescribed) [V]:", f"{cycler.cv_voltage_function(0):.3f}")
 
         u_avg_left_tilde = comm.allreduce(fem.assemble_scalar(fem.form(u_0 * ds(markers.left),
                                                                         entity_maps=entity_maps)), op=MPI.SUM) / A_left_tilde
