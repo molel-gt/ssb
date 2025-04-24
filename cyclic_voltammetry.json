@@ -1,0 +1,9 @@
+{
+    "sod": 0.95,
+    "data": null,
+    "cv" : {
+        "V": 3.5,
+        "deltaV": 0.25,
+        "scan-rate": 0.1
+    }
+}
