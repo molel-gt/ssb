@@ -333,9 +333,9 @@ class CCCV_Cycler:
             self._stop = True
             return
 
-        if self.time >= self.t_max:
-            self._stop = True
-            return
+        # if self.time >= self.t_max:
+        #     self._stop = True
+        #     return
 
         # stop at global upper and lower cutoff voltage
         if V_cell >= V_MAX or V_cell <= V_MIN:
