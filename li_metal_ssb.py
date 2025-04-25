@@ -60,7 +60,7 @@ V_MIN = 2.5  # lower cutoff voltage
 c_max = 35000
 directions = {'x': 0, 'y': 1, 'z': 2}
 MIN_C_RATE = 0.01
-
+EPS = 1e-14
 log.set_log_level(dolfinx.log.LogLevel.WARNING)
 
 
@@ -255,7 +255,7 @@ class CCCV_Cycler:
         return (self.time - t0) % self.gitt_data["period"]
 
     def gitt_current_function(self, t0=0):
-        return (0 < self.gitt_time(t0) <= self.gitt_data["pulse-time"]) * self.gitt_data["c-rate"]  +\
+        return (0 <= self.gitt_time(t0) <= self.gitt_data["pulse-time"]) * self.gitt_data["c-rate"]  +\
          (self.gitt_data["pulse-time"] < self.gitt_time(t0) <= self.gitt_data["period"]) * MIN_C_RATE
 
     def cv_voltage_function(self, t0=0):
@@ -365,6 +365,28 @@ class CCCV_Cycler:
         return
 
 
+def frequency_condition(values, vleft, vright, tol_fun_left, tol_fun_right):
+    tol_fun_left.interpolate(lambda x: vleft * (x[0] + EPS) / (x[0] + EPS))
+    tol_fun_right.interpolate(lambda x: vright * (x[0] + EPS) / (x[0] + EPS))
+    return ufl.conditional(ufl.ge(values, tol_fun_left), 1, 0) * ufl.conditional(ufl.lt(values, tol_fun_right), 1, 0)
+
+
+def current_density_distribution(comm, current_h, n, tol_fun_left, tol_fun_right, ds_, entity_maps, intervals):
+    """
+    For 0 <= k < N, compute area of interface with current density i(k) <= i < i(k+1).
+    """
+    densities = np.zeros((len(intervals)-1, 3))
+    for idx in range(len(intervals) - 1):
+        i_min = intervals[idx]
+        i_max = intervals[idx+1]
+        i_density = comm.allreduce(fem.assemble_scalar(fem.form(frequency_condition(np.abs(ufl.inner(current_h, n)), i_min, i_max, tol_fun_left, tol_fun_right) * ds_, entity_maps=entity_maps)), op=MPI.SUM)
+        densities[idx, 0] = i_min
+        densities[idx, 1] = i_max
+        densities[idx, 2] = i_density
+
+    return densities
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='secondary current distribution')
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
@@ -467,7 +489,9 @@ if __name__ == '__main__':
     concentration_plot_file = os.path.join(results_dir, "concentration.eps")
     simulation_metafile = os.path.join(results_dir, "simulation.json")
     stats_metadata_file = os.path.join(results_dir, "stats.json")
+    interface_i_density_file = os.path.join(results_dir, "i_x_density.json")
     stats_csv_file = os.path.join(results_dir, "stats.csv")
+    i_interface_density_plot = os.path.join(results_dir, "i_x_density.eps")
     convergence_history = os.path.join(results_dir, "convergence.eps")
     se_am_frequency_plot = os.path.join(results_dir, "se_am_frequency.eps")
     se_am_cdf_plot = os.path.join(results_dir, "se_am_cdf.eps")
@@ -1125,6 +1149,14 @@ if __name__ == '__main__':
     V = fem.functionspace(domain, ("DG", 1))
     u = fem.Function(V)
 
+    # current density distribution setup
+    W = fem.functionspace(submesh_positive_am, ("CG", 1, (tdim,)))
+    current_expr = fem.Expression(-kappa_pos_am * phi_ref/L_ref * ufl.grad(u_1), W.element.interpolation_points)
+    current_h = fem.Function(W, name='current_density')
+    tol_fun = fem.Function(V1)
+    tol_fun_left = fem.Function(V1)
+    tol_fun_right = fem.Function(V1)
+
     idx = 0
     stop = False
 
@@ -1271,6 +1303,7 @@ if __name__ == '__main__':
         x.destroy()
         Pmat.destroy()
         c0.x.array[:] = c.x.array
+        current_h.interpolate(current_expr)
         I_left = comm.allreduce(fem.assemble_scalar(fem.form(
                                 inner(kappa_elec * phi_ref * L_ref ** (k) * grad(u_0), n) * ds(markers.left),
                                 entity_maps=entity_maps)), op=MPI.SUM)
@@ -1361,6 +1394,18 @@ if __name__ == '__main__':
         u.interpolate(u_1, cells1=submesh_positive_am_to_mesh, cells0=np.arange(len(submesh_positive_am_to_mesh)))
         u.x.scatter_forward()
         u_vtx.write(cycler.time)
+
+        # current density distribution
+        i_intervals = np.linspace(0, 1.05 * np.max([np.abs(i_avg_left), np.abs(i_avg_right)]), 101)
+        densities = current_density_distribution(comm, current_h(r_res), n_r, tol_fun_left, tol_fun_right, dInterface, entity_maps, i_intervals)
+        if comm_rank == 0 and args.plot:
+            fig, ax = plt.subplots()
+            ax.plot(densities[:, 1], densities[:, 2]/A_se_am_tilde)
+            ax.set_box_aspect(1)
+            ax.set_xlabel(r"i [A/m$^2$]")
+            ax.set_ylabel("relative areal density")
+            plt.tight_layout()
+            plt.savefig(i_interface_density_plot, )
 
         if comm_rank == 0:
             stats_writer.writerow(
