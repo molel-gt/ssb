@@ -1398,14 +1398,19 @@ if __name__ == '__main__':
         # current density distribution
         i_intervals = np.linspace(0, 1.05 * np.max([np.abs(i_avg_left), np.abs(i_avg_right)]), 101)
         densities = current_density_distribution(comm, current_h(r_res), n_r, tol_fun_left, tol_fun_right, dInterface, entity_maps, i_intervals)
+        densities[:, 2] /= A_se_am_tilde
         if comm_rank == 0 and args.plot:
             fig, ax = plt.subplots()
-            ax.plot(densities[:, 1], densities[:, 2]/A_se_am_tilde)
+            ax.bar(0.5*(densities[:, 0] + densities[:, 1]), densities[:, 2], width=i_intervals[1], align="center")
+            # ax.plot(densities[:, 1], densities[:, 2])
             ax.set_box_aspect(1)
             ax.set_xlabel(r"i [A/m$^2$]")
             ax.set_ylabel("relative areal density")
+            ax.set_ylim([0, 1.01 * np.max(densities[:, 2])])
+            ax.set_xlim([0, np.max(i_intervals)])
             plt.tight_layout()
             plt.savefig(i_interface_density_plot, )
+            # plt.show()
 
         if comm_rank == 0:
             stats_writer.writerow(
