@@ -25,7 +25,7 @@ if __name__ == '__main__':
     stats_json = os.path.join(args.results_folder, "stats.json")
     stats = pd.read_csv(stats_json)
 
-    figures_dir = os.path.join("figures", "reaction_distribution", args.mode)
+    figures_dir = os.path.join("figures", "reaction_distribution", args.mode, str(hash(args.results_folder)))
     utils.make_dir_if_missing(figures_dir)
 
     time = stats["t [s]"]
@@ -48,12 +48,27 @@ if __name__ == '__main__':
     eta_ohm = stats["u (avg) right [V]"] - ocv_chen2020(stats["c surf (avg) (normalized)"]) - stats["surface overpotential (avg) [V]"]
     eta_surf = stats["surface overpotential (avg) [V]"]
     fig, ax = plt.subplots()
-    ax.plot(time[1:], mV * eta_surf[1:], 'r--', label=r'$\eta_s$')
-    ax.plot(time, mV * eta_ohm, 'b-.', label=r'$\eta_{\Omega}$')
+    ax.plot(time, mV * eta_surf, 'r', label=r'$\eta_s$')
+    ax2 = ax.twinx()
+    ax2.plot(time, mV * eta_ohm, 'b--', label=r'$\eta_{\Omega}$')
     ax.set_box_aspect(1)
-    ax.set_ylabel('overpotential [mV]')
+
+    ax.set_ylabel(r'$\eta_s$')
     ax.set_xlabel('time [s]')
-    ax.legend()
+    # ax.set_xlim([0, 360])
+    ax.set_ylim([0.99 * np.min(eta_surf), 1.01 * np.max(eta_surf)])
+    ax.legend(loc="upper center")
+    ax.spines["left"].set_color("red")
+    ax.yaxis.label.set_color("red")
+    ax.tick_params(colors="red", axis="y")
+
+    ax2.set_ylim([0.99 * np.min(eta_ohm), 1.01 * np.max(eta_ohm)])
+    ax2.set_box_aspect(1)
+    ax2.set_ylabel(r'$\eta_{\Omega}$')
+    ax2.legend(loc="upper right")
+    ax2.spines["right"].set_color("blue")
+    ax2.yaxis.label.set_color("blue")
+    ax2.tick_params(colors="blue", axis="y")
     plt.tight_layout()
     plt.savefig(os.path.join(figures_dir, 'eta-s-avg.eps'), format='eps')
 
