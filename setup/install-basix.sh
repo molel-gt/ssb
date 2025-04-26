@@ -7,12 +7,14 @@ BASIX_DIR=$SOFTWARES_DIR/basix
 . $PYTHON3_DIR/bin/activate
 
 if [ -d "$BASIX_DIR" ]; then
+    cd $BASIX_DIR && git stash && git pull origin
     echo "Skip cloning, directory exists"
 else
     git clone https://github.com/FEniCS/basix.git
 fi
 
 cd $BASIX_DIR/cpp
+rm -r build
 mkdir build
 cd $BASIX_DIR/cpp/build
 cmake .. -DCMAKE_INSTALL_PREFIX=$CMAKE_INSTALL_PREFIX -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH
