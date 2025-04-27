@@ -12,7 +12,7 @@ markers = commons.Markers()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
-    parser.add_argument("-n", "--name_of_study", help="name_of_study", nargs='?', const=1, default="reaction_distribution")
+    parser.add_argument("-n", "--name_of_study", help="name_of_study", nargs='?', const=1, default="ellipsoids")
     parser.add_argument("-d", '--dimensions', help='integer representation of Lx-Ly-Lz of the grid',  nargs='?', const=1, default='20-20-80')
     parser.add_argument("-r", '--resolution', help=f'max resolution (units of microns)', nargs='?', const=1, default=1, type=float)
     parser.add_argument("-f", "--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
@@ -42,8 +42,8 @@ if __name__ == '__main__':
     if args.hexahedron:
         gmsh.option.setNumber('Mesh.SubdivisionAlgorithm', 2)
     if args.min_elements_per_2pi > 0:
-        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 20.0)
-        # gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', args.min_elements_per_2pi)
+        # gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", args.min_elements_per_2pi)
+        gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', args.min_elements_per_2pi)
     # gmsh.option.setNumber('Mesh.Algorithm', 6)
     # gmsh.option.setNumber("Mesh.SmoothRatio", 10)
     # gmsh.option.setNumber("Mesh.AnisoMax", 1000)
