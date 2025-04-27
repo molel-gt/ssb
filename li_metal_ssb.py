@@ -976,8 +976,10 @@ if __name__ == '__main__':
             F2D = F_cv[:2]
             J2D = [j2d[:2] for j2d in J_cc[:2]]
         petsc_options.clear()
-        Jmat2d = fem.petsc.create_matrix_block(J2D)
-        Fvec2d = fem.petsc.create_vector_block(F2D)
+        J2D = fem.form(J2D)
+        F2D = fem.form(F2D)
+        Jmat2d = fem.petsc.create_matrix(J2D)
+        Fvec2d = fem.petsc.create_vector(F2D, kind="mpi")
         snes = PETSc.SNES().create(comm)
         snes.setType('newtonls')
         snes.setTolerances(rtol=1e-7, max_it=200)
@@ -1053,7 +1055,7 @@ if __name__ == '__main__':
         problem_t0 = solvers.NonlinearPDE_SNESProblem(F2D, J2D, soln_vars, bcs, P=J2D)
         snes.setFunction(problem_t0.F_block, Fvec2d)
         snes.setJacobian(problem_t0.J_block, J=Jmat2d, P=Jmat2d)
-        x2d = fem.petsc.create_vector_block(F2D)
+        x2d = fem.petsc.create_vector(F2D, kind="mpi")
         x2d.set(0.0)
         t0 = time.time()
         snes.solve(None, x2d)
@@ -1203,7 +1205,7 @@ if __name__ == '__main__':
             J = J_cc
             F = F_cc
             P = J
-            Jmat = fem.petsc.create_matrix_nest(J)
+            Jmat = fem.petsc.create_matrix(J, kind="nest")
             nested_IS = Jmat.getNestISs()
             IS_u0 = nested_IS[0][0]
             IS_u1 = nested_IS[0][1]
@@ -1216,16 +1218,16 @@ if __name__ == '__main__':
             J = J_cv
             F = F_cv
             P = J
-            Jmat = fem.petsc.create_matrix_nest(J)
+            Jmat = fem.petsc.create_matrix(J, kind="nest")
             nested_IS = Jmat.getNestISs()
             IS_u0 = nested_IS[0][0]
             IS_u1 = nested_IS[0][1]
             IS_c = nested_IS[0][2]
             IS_ulg = IS_u0.sum(IS_u1)
 
-        Jmat = fem.petsc.create_matrix_block(J)
-        Pmat = fem.petsc.create_matrix_block(P)
-        Fvec = fem.petsc.create_vector_block(F)
+        Jmat = fem.petsc.create_matrix(J, kind="mpi")
+        Pmat = fem.petsc.create_matrix(P, kind="mpi")
+        Fvec = fem.petsc.create_vector(F, kind="mpi")
         snes = PETSc.SNES().create(comm)
         snes.setType('newtonls')
         snes.setTolerances(rtol=1.0e-7, max_it=100)
@@ -1288,7 +1290,7 @@ if __name__ == '__main__':
         snes.setFromOptions()
         snes.view()
 
-        x = fem.petsc.create_vector_block(F)
+        x = fem.petsc.create_vector(F, kind="mpi")
         x.set(0.0)
         PETSc.Log().begin()
         t0 = time.time()

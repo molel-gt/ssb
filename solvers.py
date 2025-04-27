@@ -1,3 +1,5 @@
+import itertools
+
 import dolfinx
 import numpy as np
 import ufl
@@ -138,7 +140,7 @@ class NewtonSolver:
 
 
 class NonlinearPDE_SNESProblem:
-    def __init__(self, F, J, soln_vars, bcs, P=None, entity_maps=None):
+    def __init__(self, F, J, soln_vars, bcs, P=None):
         self.L = F
         self.a = J
         self.a_precon = P
@@ -148,11 +150,11 @@ class NonlinearPDE_SNESProblem:
     def F_mono(self, snes, x, F):
         from petsc4py import PETSc
 
-        from dolfinx.fem.petsc import apply_lifting, assemble_vector, set_bc
+        from dolfinx.fem.petsc import apply_lifting, assemble_vector, assign, set_bc
 
         x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-        with x.localForm() as _x:
-            self.soln_vars.x.array[:] = _x.array_r
+        assign(x, self.soln_vars)
+
         with F.localForm() as f_local:
             f_local.set(0.0)
         assemble_vector(F, self.L)
@@ -164,88 +166,109 @@ class NonlinearPDE_SNESProblem:
         from dolfinx.fem.petsc import assemble_matrix
 
         J.zeroEntries()
-        assemble_matrix(J, self.a, bcs=self.bcs, diagonal=1.0)
+        assemble_matrix(J, self.a, bcs=self.bcs, diag=1.0)
         J.assemble()
         if self.a_precon is not None:
             P.zeroEntries()
-            assemble_matrix(P, self.a_precon, bcs=self.bcs, diagonal=1.0)
+            assemble_matrix(P, self.a_precon, bcs=self.bcs, diag=1.0)
             P.assemble()
 
     def F_block(self, snes, x, F):
         from petsc4py import PETSc
 
-        from dolfinx.fem.petsc import assemble_vector_block
+        from dolfinx.fem.petsc import apply_lifting, assemble_vector, assign, set_bc
 
         assert x.getType() != "nest"
         assert F.getType() != "nest"
+
         x.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
+        assign(x, self.soln_vars)
+
         with F.localForm() as f_local:
             f_local.set(0.0)
 
-        offset = 0
-        x_array = x.getArray(readonly=True)
-        for var in self.soln_vars:
-            size_local = var.x.petsc_vec.getLocalSize()
-            var.x.petsc_vec.array[:] = x_array[offset : offset + size_local]
-            var.x.petsc_vec.ghostUpdate(
-                addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD
+        maps = [
+            (
+                form.function_spaces[0].dofmaps(0).index_map,
+                form.function_spaces[0].dofmaps(0).index_map_bs,
             )
-            offset += size_local
+            for form in self.L
+        ]
+        off_owned = tuple(
+            itertools.accumulate(maps, lambda off, m: off + m[0].size_local * m[1], initial=0)
+        )
+        off_ghost = tuple(
+            itertools.accumulate(
+                maps, lambda off, m: off + m[0].num_ghosts * m[1], initial=off_owned[-1]
+            )
+        )
 
-        assemble_vector_block(F, self.L, self.a, bcs=self.bcs, x0=x, alpha=-1.0)
+        with F.localForm() as f_local:
+            f_local.set(0.0)
+
+        F.setAttr("_blocks", (off_owned, off_ghost))
+        x.setAttr("_blocks", (off_owned, off_ghost))
+
+        fem.petsc.assemble_vector(F, self.L)
+        bcs1 = fem.bcs_by_block(fem.extract_function_spaces(self.a, 1), bcs=self.bcs)
+        fem.petsc.apply_lifting(F, self.a, bcs=bcs1, x0=x, alpha=-1.0)
+        F.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
+        bcs0 = fem.bcs_by_block(fem.extract_function_spaces(self.L), self.bcs)
+        fem.petsc.set_bc(F, bcs0, x0=x, alpha=-1)
 
     def J_block(self, snes, x, J, P):
-        from dolfinx.fem.petsc import assemble_matrix_block
+        from dolfinx.fem.petsc import assemble_matrix
 
         assert x.getType() != "nest" and J.getType() != "nest" and P.getType() != "nest"
         J.zeroEntries()
-        assemble_matrix_block(J, self.a, bcs=self.bcs, diagonal=1.0)
+        fem.petsc.assemble_matrix(J, self.a, bcs=self.bcs, diag=1.0)
         J.assemble()
         if self.a_precon is not None:
             P.zeroEntries()
-            assemble_matrix_block(P, self.a_precon, bcs=self.bcs, diagonal=1.0)
+            fem.petsc.assemble_matrix(P, self.a_precon, bcs=self.bcs, diag=1.0)
             P.assemble()
 
     def F_nest(self, snes, x, F):
         from petsc4py import PETSc
 
-        from dolfinx.fem.petsc import apply_lifting, assemble_vector, set_bc
+        from dolfinx.fem.petsc import apply_lifting, assemble_vector, assign, set_bc
 
         assert x.getType() == "nest" and F.getType() == "nest"
+
         # Update solution
-        x = x.getNestSubVecs()
-        for x_sub, var_sub in zip(x, self.soln_vars):
+        for x_sub in x.getNestSubVecs():
             x_sub.ghostUpdate(addv=PETSc.InsertMode.INSERT, mode=PETSc.ScatterMode.FORWARD)
-            with x_sub.localForm() as _x:
-                var_sub.x.array[:] = _x.array_r
+
+        assign(x, self.soln_vars)
 
         # Assemble
+        x = x.getNestSubVecs()
         bcs1 = fem.bcs_by_block(fem.extract_function_spaces(self.a, 1), self.bcs)
         for L, F_sub, a in zip(self.L, F.getNestSubVecs(), self.a):
             with F_sub.localForm() as F_sub_local:
                 F_sub_local.set(0.0)
-            assemble_vector(F_sub, L)
-            apply_lifting(F_sub, a, bcs=bcs1, x0=x, alpha=-1.0)
+            fem.petsc.assemble_vector(F_sub, L)
+            fem.petsc.apply_lifting(F_sub, a, bcs=bcs1, x0=x, alpha=-1.0)
             F_sub.ghostUpdate(addv=PETSc.InsertMode.ADD, mode=PETSc.ScatterMode.REVERSE)
 
         # Set bc value in RHS
         bcs0 = fem.bcs_by_block(fem.extract_function_spaces(self.L), self.bcs)
         for F_sub, bc, x_sub in zip(F.getNestSubVecs(), bcs0, x):
-            set_bc(F_sub, bc, x_sub, -1.0)
+            fem.petsc.set_bc(F_sub, bc, x_sub, -1.0)
 
         # Must assemble F here in the case of nest matrices
         F.assemble()
 
     def J_nest(self, snes, x, J, P):
-        from dolfinx.fem.petsc import assemble_matrix_nest
+        from dolfinx.fem.petsc import assemble_matrix
 
         assert J.getType() == "nest" and P.getType() == "nest"
         J.zeroEntries()
-        assemble_matrix_nest(J, self.a, bcs=self.bcs, diagonal=1.0)
+        fem.assemble_matrix(J, self.a, bcs=self.bcs, diag=1.0)
         J.assemble()
         if self.a_precon is not None:
             P.zeroEntries()
-            assemble_matrix_nest(P, self.a_precon, bcs=self.bcs, diagonal=1.0)
+            fem.assemble_matrix(P, self.a_precon, bcs=self.bcs, diag=1.0)
             P.assemble()
 
 
