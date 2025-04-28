@@ -988,7 +988,7 @@ if __name__ == '__main__':
         # set preconditioners
         petsc_options['log_view'] = None
         if args.nested_fieldsplit:
-            J2d_mat = fem.petsc.create_matrix_nest(J2D)
+            J2d_mat = fem.petsc.create_matrix(J2D, kind="nest")
             nested_IS = J2d_mat.getNestISs()
             IS_u0 = nested_IS[0][0]
             IS_u1 = nested_IS[0][1]
