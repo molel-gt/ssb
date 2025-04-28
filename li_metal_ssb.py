@@ -730,8 +730,8 @@ if __name__ == '__main__':
     )
 
     F_1 = (
-        + 0.5 * mixed_term(kappa_l * u_l + kappa_r * u_r, v_r, n_l) * dInterface
-        - 0.5 * mixed_term(kappa_r * v_r, (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r)), n_l) * dInterface
+        - 0.5 * mixed_term(kappa_l * u_l + kappa_r * u_r, v_r, n_r) * dInterface
+        - 0.5 * mixed_term(kappa_r * v_r, (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r)), n_r) * dInterface
     )
     F_0 += - gamma / h_avg * (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r)) * v_l * dInterface
     F_1 += + gamma / h_avg * (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r)) * v_r * dInterface
