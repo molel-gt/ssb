@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 import argparse
+import logging
 import os
 
 import matplotlib.pyplot as plt
 import numpy as np
 from mpi4py import MPI
 import matspy
+import warnings
+
+warnings.simplefilter("ignore")
 
 import plot_opts, solvers, utils
 plt.rcParams.update(plot_opts.params)
-
+logging.getLogger('matplotlib').setLevel(level=logging.CRITICAL)
 class ShuntCurrentsParameters:
     def __init__(self, N_s=100, d_p=0.01, V_cell=1.0, kappa=4.0, H_p=0.03,
                  A_m=0.006, L_p=0.02, a=100, i0=10, a_a=0.5, a_c=0.5):
@@ -196,10 +200,8 @@ def solve_loop(N, h, p, eta_s0, tol, max_its):
         _, _, u_lin = solve_for_manifold_potential(eta_s0, p, N+1, h, kinetics_type="linear")
         _, _, u_bv = solve_for_manifold_potential(eta_s0, p, N+1, h, kinetics_type="butler_volmer")
         eta_s1 = p.V_cell/p.d_p * y + i_port_approx(u_bv, p) * p.R_p - u_bv
-        print(np.linalg.norm(eta_s0), np.linalg.norm(eta_s1))
         error = np.linalg.norm(eta_s1 - eta_s0)
         eta_s1 = eta_s0
-        print(error)
     return u_lin, u_bv
 
 
@@ -231,9 +233,12 @@ if __name__ == '__main__':
     omega = 100
     var_value = 0
     variables = vary_omega()
-    I_m_max_vals = []#np.zeros((len(variables), 1))
-    I_ds_vals = []
-    i_p_max_vals = []
+    I_m_max_vals_bv = []#np.zeros((len(variables), 1))
+    I_m_max_vals_lin = []
+    I_ds_vals_bv = []
+    I_ds_vals_lin = []
+    i_p_max_vals_bv = []
+    i_p_max_vals_lin = []
     if args.vary == 'w':
         # omega = args.w
         for omega in variables:
@@ -385,6 +390,7 @@ if __name__ == '__main__':
         # omega = args.w
         for N_s in variables:
             p = ShuntCurrentsParameters(N_s=N_s)
+            print(f"Omega: {p.omega}")
             N = 500
             h = p.N_s * p.d_p / 2 / N
             y = np.zeros((N+1, 1))
@@ -418,11 +424,14 @@ if __name__ == '__main__':
             plt.close()
 
             fig, ax = plt.subplots()
-            port_current_density = i_port_approx(u_bv, p)
-            ax.plot(0.5*p.N_s * y[:-1]/p.L, port_current_density)
+            port_current_density_lin = i_port_approx(u_lin, p)
+            port_current_density_bv = i_port_approx(u_bv, p)
+            ax.plot(0.5*p.N_s * y[:-1]/p.L, port_current_density_lin, label="Linear")
+            ax.plot(0.5*p.N_s * y[:-1]/p.L, port_current_density_bv, label="Butler-Volmer")
+            ax.legend()
             ax.grid(color='cyan')
             ax.set_xlim([0, 0.5*p.N_s])
-            ax.set_ylim([0, 1.01 * np.max(port_current_density)])
+            ax.set_ylim([0, 1.01 * np.max(port_current_density_bv)])
             ax.set_box_aspect(1)
             ax.set_ylabel(r"$i_p$ [A/m$^2$]")
             ax.set_xlabel("Cell number")
@@ -430,24 +439,31 @@ if __name__ == '__main__':
             plt.tight_layout()
             plt.savefig(os.path.join(results_dir, "i_port", f"{var_value}.eps"))
             plt.close()
-            I_m = I_manifold(u_bv, p)
-            I_m_max = np.max(np.abs(I_m))
-            I_m_max_vals.append(I_m_max)
-            I_ds = h / p.L * np.sum(I_m)
-            I_ds_vals.append(I_ds)
-            i_p_max = np.max(port_current_density)
-            i_p_max_vals.append(i_p_max)
+            I_m_bv = I_manifold(u_bv, p)
+            I_m_lin = I_manifold(u_lin, p)
+            I_m_max_bv = np.max(np.abs(I_m_bv))
+            I_m_max_lin = np.max(np.abs(I_m_lin))
+            I_m_max_vals_bv.append(I_m_max_bv)
+            I_m_max_vals_lin.append(I_m_max_lin)
+            I_ds_lin = h / p.L * np.sum(I_m_lin)
+            I_ds_bv = h / p.L * np.sum(I_m_bv)
+            I_ds_vals_bv.append(I_ds_bv)
+            I_ds_vals_lin.append(I_ds_lin)
+            i_p_max_bv = np.max(port_current_density_bv)
+            i_p_max_lin = np.max(port_current_density_lin)
+            i_p_max_vals_bv.append(i_p_max_bv)
+            i_p_max_vals_lin.append(i_p_max_lin)
 
         fig, ax = plt.subplots()
-        ax.plot(variables, i_p_max_vals, 'r-', label=r"$i_{p,\mathrm{max}}$")
+        ax.plot(variables, i_p_max_vals_bv, 'r-', label=r"$i_{p,\mathrm{max}}$")
         ax2 = ax.twinx()
-        ax2.plot(variables, np.abs(I_ds_vals), 'k--', label=r"$I_{\mathrm{ds}}$")
-        ax.set_ylim([0.99 * np.min(i_p_max_vals), 1.01 * np.max(i_p_max_vals)])
+        ax2.plot(variables, np.abs(I_ds_vals_bv), 'k--', label=r"$I_{\mathrm{ds}}$")
+        ax.set_ylim([0.99 * np.min(i_p_max_vals_bv), 1.01 * np.max(i_p_max_vals_bv)])
         # ax2.set_ylim([1.5, 2.75])
         ax.set_ylabel(r"Maximum port current density [A/m$^2$]")
         ax2.set_ylabel(r"Manifold current [A]")
         ax.set_xlabel("Cell number")
         ax.set_box_aspect(1)
         ax.legend()
-        plt.savefig(os.path.join(results_dir, "I_manifold.eps"))
+        plt.savefig(os.path.join(results_dir, "I_manifold-bv.eps"))
         plt.close()
