@@ -160,6 +160,67 @@ def solve_for_manifold_potential(eta_s0, p, N, h, kinetics_type="linear"):
     return A, b, u
 
 
+def vary_L_p():
+    return np.linspace(0.005, 0.05, 10)
+
+
+def vary_N_s():
+    return np.linspace(20, 100, 9)
+
+def vary_omega():
+    return [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]
+
+
+def study_vary_stack_size(N=500):
+    p = ShuntCurrentsParameters()
+    for var in vary_N_s():
+        p._N_s = var
+        h = p.L / N
+        eta_s0 = 1e-8 * np.ones((N+1, 1))
+        _, _, u_lin = solve_for_manifold_potential(eta_s0, p, N+1, h, kinetics_type="linear")
+        _, _, u_bv = solve_for_manifold_potential(eta_s0, p, N+1, h, kinetics_type="butler_volmer")
+
+
+def study_vary_port_length(N=500):
+    pass
+
+
+def study_vary_omega(N=500):
+    pass
+
+def I_manifold(u_bv, p):
+    N = u_bv.shape[0]
+    grad_u = np.zeros((N - 1))
+    for idx in range(1, N-1):
+        grad_u[idx] = (u_bv[idx+1] - u_bv[idx - 1]) / (2 * h)
+    I_m = -p.kappa * p.A_m * grad_u
+    return I_m
+
+
+def i_port_approx(u_bv, p):
+    N = u_bv.shape[0]
+    laplacian_u = np.zeros((N - 1))
+    for idx in range(1, N-1):
+        laplacian_u[idx] = (u_bv[idx+1] -2 * u_bv[idx] + u_bv[idx - 1]) / (h ** 2)
+    i_p_approx = -p.kappa * p.A_m / p.H_p * laplacian_u
+    return i_p_approx
+
+
+def solve_loop(N, h, p, eta_s0, tol, max_its):
+    error = tol + 1
+    its = 0
+    while error > tol and its < max_its:
+        its += 1
+        _, _, u_lin = solve_for_manifold_potential(eta_s0, p, N+1, h, kinetics_type="linear")
+        _, _, u_bv = solve_for_manifold_potential(eta_s0, p, N+1, h, kinetics_type="butler_volmer")
+        eta_s1 = p.V_cell/p.d_p * y + i_port_approx(u_bv, p) * p.R_p - u_bv
+        print(np.linalg.norm(eta_s0), np.linalg.norm(eta_s1))
+        error = np.linalg.norm(eta_s1 - eta_s0)
+        eta_s1 = eta_s0
+        print(error)
+    return u_lin, u_bv
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='secondary current distribution')
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
@@ -177,44 +238,88 @@ if __name__ == '__main__':
     results_dir = os.path.join(workdir, args.vary)
     utils.make_dir_if_missing(results_dir)
     utils.make_dir_if_missing(os.path.join(results_dir, "potential"))
+    utils.make_dir_if_missing(os.path.join(results_dir, "i_port"))
     R = 8.314
     T = 298
     F = 96485
-    omega = args.w
+    a_a = 0.5
+    a_c = 0.5
     a = args.a
     kappa = args.kappa
-    a_a = 0.5 #args.a_a
-    a_c = 0.5 #args.a_c
-    i0 = args.kappa * R * T * omega **2 / (F * a * (a_a + a_c))
-    p = ShuntCurrentsParameters(a=a, kappa=kappa, a_a=a_a, a_c=a_c, i0=i0)
-    N = 500
-    h = p.N_s * p.d_p / 2 / N
-    y = np.zeros((N+1, 1))
-    for idx in range(N):
-        y[idx] = idx * h
-    eta_s0 = 1e-8 * np.ones((N+1, 1))
-    _, _, u_lin = solve_for_manifold_potential(eta_s0, p, N+1, h, kinetics_type="linear")
-    _, _, u_bv = solve_for_manifold_potential(eta_s0, p, N+1, h, kinetics_type="butler_volmer")
+    omega = 100
     var_value = 0
-    if args.vary == "L_p":
-        var_value = p.L_p
-    elif args.vary == "N_s":
-        var_value = p.N_s
-    elif args.vary == "w":
-        var_value = p.omega
-    else:
-        raise ValueError("Unknown study type")
-    fig, ax = plt.subplots()
-    ax.plot(y[:-1], u_lin[:-1], label="Linear")
-    ax.plot(y[:-1], u_bv[:-1], label="Butler-Volmer")
-    ax.plot([0, p.L], [0, 50], linestyle='--', color='cyan', label="Electrode potential")
-    ax.set_xlim([0, p.L])
-    ax.set_ylim([0, 50])
-    ax.grid()
-    ax.set_box_aspect(1)
-    ax.legend()
-    plt.tight_layout()
-    if args.show_plot:
-        plt.show()
-    else:
-        plt.savefig(os.path.join(results_dir, "potential", f"{var_value}.eps"))
+    variables = vary_omega()
+    I_m_max_vals = []#np.zeros((len(variables), 1))
+    I_ds_vals = []
+    i_p_max_vals = []
+    if args.vary == 'w':
+        # omega = args.w
+        for omega in variables:
+            i0 = args.kappa * R * T * omega **2 / (F * a * (a_a + a_c))
+            p = ShuntCurrentsParameters(a=a, kappa=kappa, a_a=a_a, a_c=a_c, i0=i0)
+            N = 500
+            h = p.N_s * p.d_p / 2 / N
+            y = np.zeros((N+1, 1))
+            for idx in range(N):
+                y[idx] = idx * h
+            eta_s0 = 1e-8 * np.ones((N+1, 1))
+            u_lin, u_bv = solve_loop(N, h, p, eta_s0, tol=1e-4, max_its=1)
+
+            if args.vary == "L_p":
+                var_value = p.L_p
+            elif args.vary == "N_s":
+                var_value = p.N_s
+            elif args.vary == "w":
+                var_value = p.omega
+            else:
+                raise ValueError("Unknown study type")
+            
+            fig, ax = plt.subplots()
+            ax.plot(0.5*p.N_s * y[:-1]/p.L, u_lin[:-1], label="Linear")
+            ax.plot(0.5*p.N_s * y[:-1]/p.L, u_bv[:-1], label="Butler-Volmer")
+            ax.plot([0, 0.5 * p.N_s], [0, 50], linestyle='--', color='cyan', label="Electrode potential")
+            ax.set_xlim([0, 0.5 * p.N_s])
+            ax.set_ylim([0, 50])
+            ax.set_xlabel("Cell number")
+            ax.set_ylabel("Potential [V]")
+            ax.grid()
+            ax.set_box_aspect(1)
+            ax.legend()
+            plt.tight_layout()
+            plt.savefig(os.path.join(results_dir, "potential", f"{var_value}.eps"))
+            plt.close()
+
+            fig, ax = plt.subplots()
+            port_current_density = i_port_approx(u_bv, p)
+            ax.plot(0.5*p.N_s * y[:-1]/p.L, port_current_density)
+            ax.grid(color='cyan')
+            ax.set_xlim([0, 0.5*p.N_s])
+            ax.set_ylim([0, 1.01 * np.max(port_current_density)])
+            ax.set_box_aspect(1)
+            ax.set_ylabel(r"$i_p$ [A/m$^2$]")
+            ax.set_xlabel("Cell number")
+            ax.legend()
+            plt.tight_layout()
+            plt.savefig(os.path.join(results_dir, "i_port", f"{var_value}.eps"))
+            plt.close()
+            I_m = I_manifold(u_bv, p)
+            I_m_max = np.max(np.abs(I_m))
+            I_m_max_vals.append(I_m_max)
+            I_ds = h / p.L * np.sum(I_m)
+            I_ds_vals.append(I_ds)
+            i_p_max = np.max(port_current_density)
+            i_p_max_vals.append(i_p_max)
+
+        fig, ax = plt.subplots()
+        ax.semilogx(variables, i_p_max_vals, 'r-', label=r"$i_{p,\mathrm{max}}$")
+        ax2 = ax.twinx()
+        ax2.semilogx(variables, np.abs(I_ds_vals), 'k--', label=r"$I_{\mathrm{ds}}$")
+        ax.set_ylim([400, 1400])
+        ax2.set_ylim([1.5, 2.75])
+        ax.set_ylabel(r"Maximum port current density [A/m$^2$]")
+        ax2.set_ylabel(r"Manifold current [A]")
+        ax.set_xlabel(r"$\omega$ [m$^-1$]")
+        ax.set_box_aspect(1)
+        ax.legend()
+        plt.savefig(os.path.join(results_dir, "I_manifold.eps"))
+        plt.close()
