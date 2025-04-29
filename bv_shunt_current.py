@@ -200,7 +200,7 @@ if __name__ == '__main__':
         var_value = p.L_p
     elif args.vary == "N_s":
         var_value = p.N_s
-    elif var_value == "w":
+    elif args.vary == "w":
         var_value = p.omega
     else:
         raise ValueError("Unknown study type")
