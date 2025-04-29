@@ -186,7 +186,7 @@ def I_manifold(u_bv, p):
 
 def i_port_approx(u_bv, p):
     N = u_bv.shape[0]
-    laplacian_u = np.zeros((N - 1))
+    laplacian_u = np.zeros((N - 1, 1))
     for idx in range(1, N-1):
         laplacian_u[idx] = (u_bv[idx+1] -2 * u_bv[idx] + u_bv[idx - 1]) / (h ** 2)
     i_p_approx = -p.kappa * p.A_m / p.H_p * laplacian_u
@@ -196,13 +196,17 @@ def i_port_approx(u_bv, p):
 def solve_loop(N, h, p, eta_s0, tol, max_its):
     error = tol + 1
     its = 0
+    _, _, u_lin = solve_for_manifold_potential(eta_s0, p, N+1, h, kinetics_type="linear")
+    eta_s1 = np.zeros(eta_s0.shape)
+    y = np.zeros((N+1, 1))
     while error > tol and its < max_its:
         its += 1
-        _, _, u_lin = solve_for_manifold_potential(eta_s0, p, N+1, h, kinetics_type="linear")
         _, _, u_bv = solve_for_manifold_potential(eta_s0, p, N+1, h, kinetics_type="butler_volmer")
-        eta_s1 = p.V_cell/p.d_p * y + i_port_approx(u_bv, p) * p.R_p - u_bv
+        ip_approx = i_port_approx(u_bv, p)
+        eta_s1[:-1] = (p.V_cell/p.d_p * y[:-1] - ip_approx * p.R_p - u_bv[1:])/p.N_s
         error = np.linalg.norm(eta_s1 - eta_s0)
-        eta_s1 = eta_s0
+        eta_s0 = eta_s1
+    print(f"Error: {error:.0e}, Tolerance: {tol:.0e}, Iterations: {its}")
     return u_lin, u_bv
 
 
@@ -225,6 +229,8 @@ if __name__ == '__main__':
     utils.make_dir_if_missing(os.path.join(results_dir, "potential"))
     utils.make_dir_if_missing(os.path.join(results_dir, "i_port"))
     utils.make_dir_if_missing(os.path.join(results_dir, "manifold"))
+    max_its = 10
+    tol = 1e-8
     R = 8.314
     T = 298
     F = 96485
@@ -252,7 +258,7 @@ if __name__ == '__main__':
             for idx in range(N):
                 y[idx] = idx * h
             eta_s0 = 1e-8 * np.ones((N+1, 1))
-            u_lin, u_bv = solve_loop(N, h, p, eta_s0, tol=1e-4, max_its=1)
+            u_lin, u_bv = solve_loop(N, h, p, eta_s0, tol=tol, max_its=max_its)
 
             if args.vary == "L_p":
                 var_value = p.L_p
@@ -360,7 +366,7 @@ if __name__ == '__main__':
             for idx in range(N):
                 y[idx] = idx * h
             eta_s0 = 1e-8 * np.ones((N+1, 1))
-            u_lin, u_bv = solve_loop(N, h, p, eta_s0, tol=1e-4, max_its=1)
+            u_lin, u_bv = solve_loop(N, h, p, eta_s0, tol=tol, max_its=max_its)
 
             if args.vary == "L_p":
                 var_value = p.L_p
@@ -474,7 +480,7 @@ if __name__ == '__main__':
             for idx in range(N):
                 y[idx] = idx * h
             eta_s0 = 1e-8 * np.ones((N+1, 1))
-            u_lin, u_bv = solve_loop(N, h, p, eta_s0, tol=1e-4, max_its=1)
+            u_lin, u_bv = solve_loop(N, h, p, eta_s0, tol=tol, max_its=max_its)
 
             if args.vary == "L_p":
                 var_value = p.L_p
