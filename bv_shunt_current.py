@@ -240,8 +240,9 @@ if __name__ == '__main__':
     kappa = args.kappa
     omega = 100
     var_value = 0
+    N = 50
     variables = vary_omega()
-    I_m_max_vals_bv = []#np.zeros((len(variables), 1))
+    I_m_max_vals_bv = []
     I_m_max_vals_lin = []
     I_ds_vals_bv = []
     I_ds_vals_lin = []
@@ -252,7 +253,6 @@ if __name__ == '__main__':
         for omega in variables:
             i0 = args.kappa * R * T * omega **2 / (F * a * (a_a + a_c))
             p = ShuntCurrentsParameters(a=a, kappa=kappa, a_a=a_a, a_c=a_c, i0=i0)
-            N = 500
             h = p.N_s * p.d_p / 2 / N
             y = np.zeros((N+1, 1))
             for idx in range(N):
@@ -315,8 +315,8 @@ if __name__ == '__main__':
             i_p_max_vals_lin.append(i_p_max_lin)
 
             fig, ax = plt.subplots()
-            ax.plot(0.5*p.N_s * y[:-1]/p.L, I_m_lin, label="Linear")
-            ax.plot(0.5*p.N_s * y[:-1]/p.L, I_m_bv, label="Butler-Volmer")
+            ax.plot(0.5*p.N_s * y[:-2]/p.L, I_m_lin[1:], label="Linear")
+            ax.plot(0.5*p.N_s * y[:-2]/p.L, I_m_bv[1:], label="Butler-Volmer")
             ax.set_xlim([0, 0.5 * p.N_s])
             ax.set_ylim([-2.5, 0])
             ax.set_xlabel("Cell number")
@@ -354,13 +354,11 @@ if __name__ == '__main__':
         plt.savefig(os.path.join(results_dir, "I_manifold.eps"))
         plt.close()
 
-
     variables = vary_L_p()
     if args.vary == 'L_p':
         # omega = args.w
         for L_p in variables:
             p = ShuntCurrentsParameters(L_p=L_p)
-            N = 500
             h = p.N_s * p.d_p / 2 / N
             y = np.zeros((N+1, 1))
             for idx in range(N):
@@ -369,7 +367,7 @@ if __name__ == '__main__':
             u_lin, u_bv = solve_loop(N, h, p, eta_s0, tol=tol, max_its=max_its)
 
             if args.vary == "L_p":
-                var_value = p.L_p
+                var_value = f"{p.L_p:.3f}"
             elif args.vary == "N_s":
                 var_value = p.N_s
             elif args.vary == "w":
@@ -385,7 +383,7 @@ if __name__ == '__main__':
             ax.set_ylim([0, 50])
             ax.set_xlabel("Cell number")
             ax.set_ylabel("Potential [V]")
-            ax.grid()
+            ax.grid(color="cyan", linewidth=0.1)
             ax.set_box_aspect(1)
             ax.legend()
             plt.tight_layout()
@@ -397,7 +395,7 @@ if __name__ == '__main__':
             port_current_density_lin = i_port_approx(u_lin, p)
             ax.plot(0.5*p.N_s * y[:-1]/p.L, port_current_density_bv, 'r-.', label="Butler-Volmer")
             ax.plot(0.5*p.N_s * y[:-1]/p.L, port_current_density_lin, 'b', label="Linear")
-            ax.grid(color='cyan')
+            ax.grid(color="cyan", linewidth=0.1)
             ax.set_xlim([0, 0.5*p.N_s])
             ax.set_ylim([0, 1.01 * np.max(port_current_density_bv)])
             ax.set_box_aspect(1)
@@ -423,13 +421,13 @@ if __name__ == '__main__':
             i_p_max_vals_lin.append(i_p_max_lin)
 
             fig, ax = plt.subplots()
-            ax.plot(0.5*p.N_s * y[:-1]/p.L, I_m_lin, 'b', label="Linear")
-            ax.plot(0.5*p.N_s * y[:-1]/p.L, I_m_bv, 'r-.', label="Butler-Volmer")
+            ax.plot(0.5*p.N_s * y[:-2]/p.L, I_m_lin[1:], 'b', label="Linear")
+            ax.plot(0.5*p.N_s * y[:-2]/p.L, I_m_bv[1:], 'r-.', label="Butler-Volmer")
             ax.set_xlim([0, 0.5 * p.N_s])
             ax.set_ylim([-2.5, 0])
             ax.set_xlabel("Cell number")
             ax.set_ylabel("Manifold current [A]")
-            ax.grid()
+            ax.grid(color="cyan", linewidth=0.1)
             ax.set_box_aspect(1)
             ax.legend()
             plt.tight_layout()
@@ -442,7 +440,7 @@ if __name__ == '__main__':
         ax.plot(variables, i_p_max_vals_lin, 'r', label=r"Linear")
         ax2.plot(variables, np.abs(I_ds_vals_bv), 'b-.', label=r"Butler-Volmer")
         ax2.plot(variables, np.abs(I_ds_vals_lin), 'b', label=r"Linear")
-        ax.set_ylim([600, 1800])
+        ax.set_ylim([500, 3000])
         ax2.set_ylim([1.0, 3.0])
         ax.set_ylabel(r"Maximum port current density [A/m$^2$]")
         ax2.set_ylabel(r"Manifold current [A]")
@@ -467,14 +465,12 @@ if __name__ == '__main__':
         # plt.savefig(os.path.join(results_dir, "I_manifold-bv.eps"))
         # plt.close()
 
-
     variables = vary_N_s()
     if args.vary == 'N_s':
         # omega = args.w
         for N_s in variables:
             p = ShuntCurrentsParameters(N_s=N_s)
             print(f"Omega: {p.omega}")
-            N = 500
             h = p.N_s * p.d_p / 2 / N
             y = np.zeros((N+1, 1))
             for idx in range(N):
@@ -538,8 +534,8 @@ if __name__ == '__main__':
             i_p_max_vals_lin.append(i_p_max_lin)
 
             fig, ax = plt.subplots()
-            ax.plot(0.5*p.N_s * y[:-1]/p.L, I_m_lin, label="Linear")
-            ax.plot(0.5*p.N_s * y[:-1]/p.L, I_m_bv, label="Butler-Volmer")
+            ax.plot(0.5*p.N_s * y[:-2]/p.L, I_m_lin[1:], label="Linear")
+            ax.plot(0.5*p.N_s * y[:-2]/p.L, I_m_bv[1:], label="Butler-Volmer")
             ax.set_xlim([0, 0.5 * p.N_s])
             ax.set_ylim([-2.5, 0])
             ax.set_xlabel("Cell number")
@@ -552,15 +548,27 @@ if __name__ == '__main__':
             plt.close()
 
         fig, ax = plt.subplots()
-        ax.plot(variables, i_p_max_vals_bv, 'r-', label=r"$i_{p,\mathrm{max}}$")
+        ax.plot(variables, i_p_max_vals_bv, 'r-.', label=r"$i_{p,\mathrm{max}}$")
+        ax.plot(variables, i_p_max_vals_lin, 'b', label=r"$i_{p,\mathrm{max}}$")
         ax2 = ax.twinx()
-        ax2.plot(variables, np.abs(I_ds_vals_bv), 'k--', label=r"$I_{\mathrm{ds}}$")
+        ax2.plot(variables, np.abs(I_ds_vals_bv), 'r-.', label=r"$I_{\mathrm{ds}}$")
+        ax2.plot(variables, np.abs(I_ds_vals_lin), 'b', label=r"$I_{\mathrm{ds}}$")
         ax.set_ylim([0.99 * np.min(i_p_max_vals_bv), 1.01 * np.max(i_p_max_vals_bv)])
         # ax2.set_ylim([1.5, 2.75])
         ax.set_ylabel(r"Maximum port current density [A/m$^2$]")
         ax2.set_ylabel(r"Manifold current [A]")
         ax.set_xlabel("Cell number")
         ax.set_box_aspect(1)
-        ax.legend()
-        plt.savefig(os.path.join(results_dir, "I_manifold-bv.eps"))
+        ax.legend(loc="upper left")
+        ax.spines["right"].set_color("red")
+        ax.yaxis.label.set_color("red")
+        ax.tick_params(colors="red", axis="y")
+        ax2.spines["left"].set_color("blue")
+        ax2.yaxis.label.set_color("blue")
+        ax2.tick_params(colors="blue", axis="y")
+        ax.grid(color="cyan", linewidth=0.1)
+        ax2.yaxis.set_ticks([1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0])
+        ax.set_xlim([np.min(variables), np.max(variables)])
+        ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%0.2f'))
+        plt.savefig(os.path.join(results_dir, "I_manifold.eps"))
         plt.close()
