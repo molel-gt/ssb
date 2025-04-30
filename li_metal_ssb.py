@@ -16,6 +16,8 @@ import dolfinx.fem.petsc
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
+
 import scifem
 import scipy
 import scipy.special as sp
@@ -29,6 +31,7 @@ from dolfinx.geometry import bb_tree, compute_collisions_points, compute_collidi
 from dolfinx.nls import petsc as petsc_nls
 from matplotlib import rc
 from mpi4py import MPI
+from packaging.version import Version
 from petsc4py import PETSc
 from slepc4py import SLEPc
 from ufl import dot, grad, inner
@@ -387,6 +390,62 @@ def current_density_distribution(comm, current_h, n, tol_fun_left, tol_fun_right
     return densities
 
 
+def communicate_indices(
+    index_map: dolfinx.common.IndexMap, local_indices: npt.NDArray[np.int32]
+) -> npt.NDArray[np.int32]:
+    """
+    Given a set of local indices find ghosted indices marked by any
+    other other process (other ghosted processes or owner process).
+    Args:
+        index_map: Map describing the ownership structure of the
+            entities
+        local_indices: List of indices local to process that should
+            be distributed
+    Returns:
+        All indices (local index) on process (including ghosts) that
+        have been marked by this or and other process.
+    """
+    index_accumulator = dolfinx.la.vector(index_map, 1)
+    index_accumulator.array[:] = 0
+    index_accumulator.array[local_indices] = 1
+    index_accumulator.scatter_reverse(dolfinx.la.InsertMode.add)
+    return np.flatnonzero(index_accumulator.array).astype(np.int32)
+
+def compute_interface_data(
+    cell_tags: dolfinx.mesh.MeshTags, facet_indices: npt.NDArray[np.int32]
+) -> npt.NDArray[np.int32]:
+    """
+    Compute interior facet integrals that are consistently ordered according to the `cell_tags`,
+    such that the data `(cell0, facet_idx0, cell1, facet_idx1)` is ordered such that
+    `cell_tags[cell0]`>`cell_tags[cell1]`, i.e the cell with the highest cell marker is considered the
+    "+" restriction".
+
+    Args:
+        cell_tags: MeshTags that must contain an integer marker for all cells adjacent to the `facet_indices`
+        facet_indices: List of facets (local index) that are on the interface.
+    Returns:
+        The integration data.
+    """
+    # Future compatibilty check
+    integration_args: tuple[int] | tuple
+    if Version("0.10.0") <= Version(dolfinx.__version__):
+        integration_args = ()
+    else:
+        fdim = cell_tags.dim - 1
+        integration_args = (fdim,)
+    idata = cpp.fem.compute_integration_domains(
+        dolfinx.fem.IntegralType.interior_facet,
+        cell_tags.topology,
+        facet_indices,
+        *integration_args,
+    )
+    ordered_idata = idata.reshape(-1, 4).copy()
+    switch = cell_tags.values[ordered_idata[:, 0]] > cell_tags.values[ordered_idata[:, 2]]
+    if True in switch:
+        ordered_idata[switch, :] = ordered_idata[switch][:, [2, 3, 0, 1]]
+    return ordered_idata
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='secondary current distribution')
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
@@ -588,27 +647,42 @@ if __name__ == '__main__':
     c_to_f = domain.topology.connectivity(tdim, fdim)
     charge_xfer_facets = ft.find(markers.electrolyte_v_positive_am)
 
-    int_facet_domain = []
-    for f in charge_xfer_facets:
-        if f >= ft_imap.size_local or len(f_to_c.links(f)) != 2:
-            continue
-        c_0, c_1 = f_to_c.links(f)[0], f_to_c.links(f)[1]
-        subdomain_0, subdomain_1 = ct.values[[c_0, c_1]]
-        local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
-        local_f_1 = np.where(c_to_f.links(c_1) == f)[0][0]
-        if subdomain_0 > subdomain_1:
-            int_facet_domain.append(c_0)
-            int_facet_domain.append(local_f_0)
-            int_facet_domain.append(c_1)
-            int_facet_domain.append(local_f_1)
-        else:
-            int_facet_domain.append(c_1)
-            int_facet_domain.append(local_f_1)
-            int_facet_domain.append(c_0)
-            int_facet_domain.append(local_f_0)
-    int_facet_domains = [(markers.electrolyte_v_positive_am, int_facet_domain)]
+    # int_facet_domain = []
+    # for f in charge_xfer_facets:
+    #     if f >= ft_imap.size_local or len(f_to_c.links(f)) != 2:
+    #         continue
+    #     c_0, c_1 = f_to_c.links(f)[0], f_to_c.links(f)[1]
+    #     subdomain_0, subdomain_1 = ct.values[[c_0, c_1]]
+    #     local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
+    #     local_f_1 = np.where(c_to_f.links(c_1) == f)[0][0]
+    #     if subdomain_0 > subdomain_1:
+    #         int_facet_domain.append(c_0)
+    #         int_facet_domain.append(local_f_0)
+    #         int_facet_domain.append(c_1)
+    #         int_facet_domain.append(local_f_1)
+    #     else:
+    #         int_facet_domain.append(c_1)
+    #         int_facet_domain.append(local_f_1)
+    #         int_facet_domain.append(c_0)
+    #         int_facet_domain.append(local_f_0)
+    # int_facet_domains = [(markers.electrolyte_v_positive_am, int_facet_domain)]
 
-    dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
+    ordered_integration_data = compute_interface_data(ct, charge_xfer_facets)
+    # Pad entity maps for sparsity pattern
+    parent_cells_plus = ordered_integration_data[:, 0]
+    parent_cells_minus = ordered_integration_data[:, 2]
+    entity_maps[submesh_electrolyte][parent_cells_minus] = entity_maps[submesh_electrolyte][parent_cells_plus]
+    entity_maps[submesh_positive_am][parent_cells_plus] = entity_maps[submesh_positive_am][parent_cells_minus]
+    ordered_integration_data = ordered_integration_data.flatten()
+    integral_data_interface = [(markers.electrolyte_v_positive_am, ordered_integration_data)]
+    dInterface = ufl.Measure(
+        "dS",
+        domain=domain,
+        subdomain_data=integral_data_interface,
+        subdomain_id=markers.electrolyte_v_positive_am,
+    )
+
+    # dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
     dx = ufl.Measure('dx', domain=domain, subdomain_data=ct)
     dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
     dx_c = ufl.Measure('dx', domain=submesh_positive_am)
