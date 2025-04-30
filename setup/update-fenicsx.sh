@@ -1,7 +1,8 @@
 #!/bin/bash
 
 $PYTHON3_DIR/bin/python3 -m pip uninstall scikit-build-core nanobind
-sh install-ufl
-sh install-ffcx
-sh install-basix
-sh install-fenicsx
+cd $WORK_DIR/setup
+sh install-ufl.sh
+sh install-ffcx.sh
+sh install-basix.sh
+sh install-fenicsx.sh
