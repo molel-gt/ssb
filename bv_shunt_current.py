@@ -249,7 +249,6 @@ if __name__ == '__main__':
     i_p_max_vals_bv = []
     i_p_max_vals_lin = []
     if args.vary == 'w':
-        # omega = args.w
         for omega in variables:
             i0 = args.kappa * R * T * omega **2 / (F * a * (a_a + a_c))
             p = ShuntCurrentsParameters(a=a, kappa=kappa, a_a=a_a, a_c=a_c, i0=i0)
@@ -356,7 +355,6 @@ if __name__ == '__main__':
 
     variables = vary_L_p()
     if args.vary == 'L_p':
-        # omega = args.w
         for L_p in variables:
             p = ShuntCurrentsParameters(L_p=L_p)
             h = p.N_s * p.d_p / 2 / N
@@ -460,14 +458,8 @@ if __name__ == '__main__':
         plt.savefig(os.path.join(results_dir, "I_manifold.eps"))
         plt.close()
 
-        # ax.legend(title=r"$i_{p,\mathrm{max}}$")
-        # ax2.legend(title=r"$I_{\mathrm{ds}}$", loc="lower right")
-        # plt.savefig(os.path.join(results_dir, "I_manifold-bv.eps"))
-        # plt.close()
-
     variables = vary_N_s()
     if args.vary == 'N_s':
-        # omega = args.w
         for N_s in variables:
             p = ShuntCurrentsParameters(N_s=N_s)
             print(f"Omega: {p.omega}")
