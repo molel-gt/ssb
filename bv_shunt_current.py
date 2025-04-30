@@ -15,6 +15,8 @@ warnings.simplefilter("ignore")
 import plot_opts, solvers, utils
 plt.rcParams.update(plot_opts.params)
 logging.getLogger('matplotlib').setLevel(level=logging.CRITICAL)
+
+
 class ShuntCurrentsParameters:
     def __init__(self, N_s=100, d_p=0.01, V_cell=1.0, kappa=4.0, H_p=0.03,
                  A_m=0.006, L_p=0.02, a=100, i0=10, a_a=0.5, a_c=0.5):
