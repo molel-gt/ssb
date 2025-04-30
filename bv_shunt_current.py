@@ -172,8 +172,10 @@ def vary_L_p():
 def vary_N_s():
     return np.linspace(20, 100, 9)
 
+
 def vary_omega():
     return [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000]
+
 
 def I_manifold(u_bv, p):
     N = u_bv.shape[0]
