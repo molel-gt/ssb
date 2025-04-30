@@ -804,7 +804,7 @@ if __name__ == '__main__':
     )
 
     F_1 = (
-        + 0.5 * mixed_term(kappa_l * u_l + kappa_r * u_r, v_r, n_l) * dInterface
+        - 0.5 * mixed_term(kappa_l * u_l + kappa_r * u_r, v_r, n_r) * dInterface
         - 0.5 * mixed_term(kappa_r * v_r, (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r)), n_l) * dInterface
     )
     F_0 += - gamma / h_avg * (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r)) * v_l * dInterface
@@ -829,7 +829,7 @@ if __name__ == '__main__':
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
     F_2 += -inner(kappa_total * phi_ref/(D * faraday_const * c_ref)/2 * (kappa_l * grad(u_l) + kappa_r * grad(u_r)), n_r) * q_r * dInterface
     # F_2 += - inner(0.5*grad(args.kr * u_l + u_r), n_r) * q_r * dInterface
-    # F_2 += 1e-8 * h_r * kappa_total * phi_ref/(D * faraday_const * c_ref) * inner(inner(0.5 * grad(kappa_l * u_l + kappa_r * u_r) - grad(c_r), n_r), inner(grad(q_r), n_r)) * dInterface
+    F_2 += gamma * h_r * inner(kappa_total * phi_ref/(D * faraday_const * c_ref) / 2 * grad(kappa_l * u_l + kappa_r * u_r) - grad(c_r), n_r) * inner(grad(q_r), n_r) * dInterface
 
     u_left = fem.Function(V0)
     u_left.x.array[:] = 0/phi_ref
