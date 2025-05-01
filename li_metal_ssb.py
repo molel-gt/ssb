@@ -440,7 +440,7 @@ def compute_interface_data(
         *integration_args,
     )
     ordered_idata = idata.reshape(-1, 4).copy()
-    switch = cell_tags.values[ordered_idata[:, 0]] > cell_tags.values[ordered_idata[:, 2]]
+    switch = cell_tags.values[ordered_idata[:, 0]] < cell_tags.values[ordered_idata[:, 2]]
     if True in switch:
         ordered_idata[switch, :] = ordered_idata[switch][:, [2, 3, 0, 1]]
     return ordered_idata
