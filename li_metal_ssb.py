@@ -666,6 +666,7 @@ if __name__ == '__main__':
     #         int_facet_domain.append(c_0)
     #         int_facet_domain.append(local_f_0)
     # int_facet_domains = [(markers.electrolyte_v_positive_am, int_facet_domain)]
+    # dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
 
     ordered_integration_data = compute_interface_data(ct, charge_xfer_facets)
     # Pad entity maps for sparsity pattern
@@ -679,10 +680,7 @@ if __name__ == '__main__':
         "dS",
         domain=domain,
         subdomain_data=integral_data_interface,
-        subdomain_id=markers.electrolyte_v_positive_am,
-    )
-
-    # dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
+        subdomain_id=markers.electrolyte_v_positive_am)
     dx = ufl.Measure('dx', domain=domain, subdomain_data=ct)
     dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
     dx_c = ufl.Measure('dx', domain=submesh_positive_am)
@@ -804,7 +802,7 @@ if __name__ == '__main__':
     )
 
     F_1 = (
-        - 0.5 * mixed_term(kappa_l * u_l + kappa_r * u_r, v_r, n_r) * dInterface
+        + 0.5 * mixed_term(kappa_l * u_l + kappa_r * u_r, v_r, n_l) * dInterface
         - 0.5 * mixed_term(kappa_r * v_r, (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r)), n_l) * dInterface
     )
     F_0 += - gamma / h_avg * (u_r - u_l - eta_s(kappa_pos_am, u_r, n_r, i0_p, kinetics_type=args.kinetics, ref=ref) - U_ocp(c_r)) * v_l * dInterface
@@ -827,8 +825,8 @@ if __name__ == '__main__':
     F_1b = w * (I_tot_tilde / A_right_tilde + lmbda) * ds_f(3)
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
-    F_2 += -inner(kappa_total * phi_ref/(D * faraday_const * c_ref) * (kappa_r * grad(u_r)), n_r) * q_r * dInterface
-    F_2 += gamma * h_r * inner(kappa_total * phi_ref/(D * faraday_const * c_ref) * grad(kappa_r * u_r) - grad(c_r), n_r) * inner(grad(q_r), n_r) * dInterface
+    F_2 += -inner(kappa_total * phi_ref/(D * faraday_const * c_ref)/2 * (kappa_l * grad(u_l) + kappa_r * grad(u_r)), n_r) * q_r * dInterface
+    # F_2 += gamma * h_r * inner(kappa_total * phi_ref/(D * faraday_const * c_ref)/2 * grad(kappa_l * u_l + kappa_r * u_r) - grad(c_r), n_r) * inner(grad(q_r), n_r) * dInterface
 
     u_left = fem.Function(V0)
     u_left.x.array[:] = 0/phi_ref
