@@ -214,6 +214,22 @@ def solve_loop(N, h, p, eta_s0, tol, max_its):
     return u_lin, u_bv
 
 
+def phi_analytical(y, p):
+    lmda = lambda_squared(0, p) ** 0.5
+    return (-p.V_cell / (p.d_p * lmda))/(
+                                         np.exp(lmda * p.L) + np.exp(-lmda * p.L)) * (np.exp(lmda * y) - np.exp(-lmda * y)) + p.V_cell / p.d_p * y
+
+
+def I_ds_analytical(p):
+    lmda = lambda_squared(0, p) ** 0.5
+    return p.V_cell * (p.kappa/(p.L_p + 1/p.omega) * p.H_p/(lmda ** 2 * p.dp)) * (1 - np.tanh(lmda*p.L)/(lmda * p.L))
+
+
+def i_p_analytical(y, p):
+    lmda = lambda_squared(0, p) ** 0.5
+    return p.V_cell * p.kappa / (p.L_p + 1/p.omega) * 1/(lmda * p.d_p) * np.sinh(lmda * y)/np.cosh(lmda * p.L)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='secondary current distribution')
     parser.add_argument('--mesh_folder', help='parent folder containing mesh folder', required=True)
@@ -258,10 +274,11 @@ if __name__ == '__main__':
             p = ShuntCurrentsParameters(a=a, kappa=kappa, a_a=a_a, a_c=a_c, i0=i0)
             h = p.N_s * p.d_p / 2 / N
             y = np.zeros((N+1, 1))
-            for idx in range(N):
+            for idx in range(N+1):
                 y[idx] = idx * h
             eta_s0 = 1e-8 * np.ones((N+1, 1))
             u_lin, u_bv = solve_loop(N, h, p, eta_s0, tol=tol, max_its=max_its)
+            u_lin_analytical = phi_analytical(y, p)
 
             if args.vary == "L_p":
                 var_value = p.L_p
@@ -271,10 +288,11 @@ if __name__ == '__main__':
                 var_value = p.omega
             else:
                 raise ValueError("Unknown study type")
-            
+
             fig, ax = plt.subplots()
-            ax.plot(0.5*p.N_s * y[:-1]/p.L, u_bv[:-1], 'r-.', label="Butler-Volmer")
-            ax.plot(0.5*p.N_s * y[:-1]/p.L, u_lin[:-1], 'b-', label="Linear")
+            ax.plot(0.5*p.N_s * y[1:]/p.L, u_bv[:-1], 'r-.', label="Butler-Volmer")
+            # ax.plot(0.5*p.N_s * y[:-1]/p.L, u_lin[:-1], 'b-', label="Linear")
+            ax.plot(0.5*p.N_s * y/p.L, u_lin_analytical, 'g--', label="Linear Analytic")
             ax.plot([0, 0.5 * p.N_s], [0, 50], linestyle='--', color='black', label="Electrode potential")
             ax.set_xlim([0, 0.5 * p.N_s])
             ax.set_ylim([0, 50])
@@ -363,10 +381,11 @@ if __name__ == '__main__':
             p = ShuntCurrentsParameters(L_p=L_p)
             h = p.N_s * p.d_p / 2 / N
             y = np.zeros((N+1, 1))
-            for idx in range(N):
+            for idx in range(N+1):
                 y[idx] = idx * h
             eta_s0 = 1e-8 * np.ones((N+1, 1))
             u_lin, u_bv = solve_loop(N, h, p, eta_s0, tol=tol, max_its=max_its)
+            u_lin_analytical = phi_analytical(y, p)
 
             if args.vary == "L_p":
                 var_value = f"{p.L_p:.3f}"
@@ -378,8 +397,9 @@ if __name__ == '__main__':
                 raise ValueError("Unknown study type")
             
             fig, ax = plt.subplots()
-            ax.plot(0.5*p.N_s * y[:-1]/p.L, u_lin[:-1], 'b', label="Linear")
-            ax.plot(0.5*p.N_s * y[:-1]/p.L, u_bv[:-1], 'r-.', label="Butler-Volmer")
+            # ax.plot(0.5*p.N_s * y[:-1]/p.L, u_lin[:-1], 'b', label="Linear")
+            ax.plot(0.5*p.N_s * y[1:]/p.L, u_bv[:-1], 'r-.', label="Butler-Volmer")
+            ax.plot(0.5*p.N_s * y/p.L, u_lin_analytical, 'g--', label="Linear Analytic")
             ax.plot([0, 0.5 * p.N_s], [0, 50], linestyle='--', color='black', label="Electrode potential")
             ax.set_xlim([0, 0.5 * p.N_s])
             ax.set_ylim([0, 50])
@@ -469,10 +489,11 @@ if __name__ == '__main__':
             print(f"Omega: {p.omega}")
             h = p.N_s * p.d_p / 2 / N
             y = np.zeros((N+1, 1))
-            for idx in range(N):
+            for idx in range(N+1):
                 y[idx] = idx * h
             eta_s0 = 1e-8 * np.ones((N+1, 1))
             u_lin, u_bv = solve_loop(N, h, p, eta_s0, tol=tol, max_its=max_its)
+            u_lin_analytical = phi_analytical(y, p)
 
             if args.vary == "L_p":
                 var_value = p.L_p
@@ -484,11 +505,12 @@ if __name__ == '__main__':
                 raise ValueError("Unknown study type")
             
             fig, ax = plt.subplots()
-            ax.plot(0.5*p.N_s * y[:-1]/p.L, u_lin[:-1], label="Linear")
-            ax.plot(0.5*p.N_s * y[:-1]/p.L, u_bv[:-1], label="Butler-Volmer")
-            ax.plot([0, 0.5 * p.N_s], [0, 50], linestyle='--', color='cyan', label="Electrode potential")
+            # ax.plot(0.5*p.N_s * y[:-1]/p.L, u_lin[:-1], label="Linear")
+            ax.plot(0.5*p.N_s * y/p.L, u_lin_analytical, 'g--', label="Linear Analytic")
+            ax.plot(0.5*p.N_s * y[1:]/p.L, u_bv[:-1], label="Butler-Volmer")
+            ax.plot([0, 0.5 * p.N_s], [0, 0.5*p.N_s], linestyle='--', color='cyan', label="Electrode potential")
             ax.set_xlim([0, 0.5 * p.N_s])
-            ax.set_ylim([0, 50])
+            ax.set_ylim([0, 0.5 * p.N_s])
             ax.set_xlabel("Cell number")
             ax.set_ylabel("Potential [V]")
             ax.grid()
