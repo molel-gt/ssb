@@ -12,7 +12,7 @@ markers = commons.Markers()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
-    parser.add_argument("-n", "--name_of_study", help="name_of_study", nargs='?', const=1, default="reaction_distribution")
+    parser.add_argument("-n", "--name_of_study", help="name_of_study", nargs='?', const=1, default="cylinders")
     parser.add_argument("-d", '--dimensions', help='integer representation of Lx-Ly-Lz of the grid',  nargs='?', const=1, default='20-20-80')
     parser.add_argument("-r", '--resolution', help=f'max resolution (units of microns)', nargs='?', const=1, default=1, type=float)
     parser.add_argument("-f", "--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
