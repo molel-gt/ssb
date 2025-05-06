@@ -48,7 +48,7 @@ if __name__ == '__main__':
         gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', args.min_elements_per_2pi)
 
     box_am = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, (L_CELL - L_slab_am)/L_CELL, LX/L_CELL, LY/L_CELL, L_slab_am/L_CELL)
-    ellipsoids = []
+    spheres = []
     cylinders = []
 
     lxs = np.arange(-0.5*LX/L_CELL+2.5/80, 0.5*LX/L_CELL, 5/L_CELL)
@@ -60,18 +60,24 @@ if __name__ == '__main__':
             for y in lys:
                 p_val = random.uniform(0, 1)
                 if p_val <= 0.4:
-                    sphere = gmsh.model.occ.addSphere(x, y, z_pos, 2.4/L_CELL)
-                    ellipsoids.append((3, sphere))
+                    sphere = gmsh.model.occ.addSphere(x, y, z_pos, 2.0/L_CELL)
+                    spheres.append((3, sphere))
                     gmsh.model.occ.synchronize()
         z_pos -= 4.0/L_CELL
     for x in lxs:
         for y in lys:
             cyl = gmsh.model.occ.addCylinder(x, y, L_SEP/L_CELL, 0, 0, 1 - (L_SEP + L_slab_am)/L_CELL, 1.5/L_CELL)
             cylinders.append((3, cyl))
+            gmsh.model.occ.synchronize()
 
+    fused, fused2 = gmsh.model.occ.fuse(cylinders[:1], cylinders[1:] + spheres)
     gmsh.model.occ.synchronize()
-
-    ov, ovv = gmsh.model.occ.fuse([(3, box_am)], ellipsoids + cylinders)
+    tol = 0.1/L_CELL
+    vols = gmsh.model.getEntities(3)
+    join = gmsh.model.occ.getEntitiesInBoundingBox(-0.5*LX/L_CELL - tol, -0.5*LY/L_CELL - tol, L_SEP/L_CELL - tol, LX/L_CELL, LX/L_CELL, 1 - L_slab_am/L_CELL - tol)
+    ov = gmsh.model.occ.fillet([v[1] for v in vols], [i[1] for i in join if i[0] == 1], [tol], removeVolume=True)
+    gmsh.model.occ.synchronize()
+    ov, ovv = gmsh.model.occ.fuse([(3, box_am)], ov)
     gmsh.model.occ.synchronize()
     vols = gmsh.model.getEntities(3)
     box_se = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, 0, LX/L_CELL, LY/L_CELL, 1)
@@ -83,6 +89,18 @@ if __name__ == '__main__':
     vols = gmsh.model.getEntities(3)
     gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.electrolyte, "electrolyte")
     gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.positive_am, "positive am")
+    gmsh.model.occ.synchronize()
+    centers = []
+    for v in vols:
+        com = gmsh.model.occ.getCenterOfMass(*v)
+        centers.append(com[2])
+    if centers[0] > centers[1]:
+        gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.electrolyte, "electrolyte")
+        gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.positive_am, "positive am")
+    else:
+        gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.electrolyte, "electrolyte")
+        gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.positive_am, "positive am")
+    gmsh.model.occ.synchronize()
     left = []
     right = []
     insulated_am = []
