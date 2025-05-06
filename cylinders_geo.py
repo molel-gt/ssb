@@ -35,15 +35,15 @@ if __name__ == '__main__':
     geometry_metafile = os.path.join(workdir, "geometry.json")
     gmsh.initialize()
     gmsh.model.add('ellipsoidals')
-    gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
+    # gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
     # gmsh.option.setNumber('Geometry.ToleranceBoolean', 0.001)
-    # gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)
+    # gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 100)
     # gmsh.option.setNumber("Mesh.MinimumCirclePoints", 20)
     # gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', 10)
     # gmsh.option.setNumber('Mesh.Algorithm', 6)
 
     box_am = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, (L_CELL - L_slab_am)/L_CELL, LX/L_CELL, LY/L_CELL, L_slab_am/L_CELL)
-    ellipsoids = []
+    cylinders = []
 
     lxs = np.arange(-0.5*LX/L_CELL+2.5/80, 0.5*LX/L_CELL, 5/L_CELL)
     lys = np.arange(-0.5*LY/L_CELL+2.5/80, 0.5*LY/L_CELL, 5/L_CELL)
@@ -52,14 +52,18 @@ if __name__ == '__main__':
     for x in lxs:
         for y in lys:
             sphere = gmsh.model.occ.addCylinder(x, y, L_SEP/L_CELL, 0, 0, 1 - (L_SEP + L_slab_am)/L_CELL, 2/L_CELL)
-            # gmsh.model.occ.dilate([(3, sphere)], x, y, z_pos, 1, 1, 5/4)
-            ellipsoids.append((3, sphere))
+            cylinders.append((3, sphere))
             gmsh.model.occ.synchronize()
         # z_pos -= 4.0/L_CELL
 
+    fused, fused2 = gmsh.model.occ.fuse(cylinders[:1], cylinders[1:])
     gmsh.model.occ.synchronize()
-
-    ov, ovv = gmsh.model.occ.fuse([(3, box_am)], ellipsoids)
+    tol = 0.1/L_CELL * 10
+    vols = gmsh.model.getEntities(3)
+    join = gmsh.model.occ.getEntitiesInBoundingBox(-0.5*LX/L_CELL - tol, -0.5*LY/L_CELL - tol, L_SEP/L_CELL - tol, LX/L_CELL, LY/L_CELL, 1-L_slab_am/L_CELL - tol)
+    ov = gmsh.model.occ.fillet([v[1] for v in vols[1:]], [i[1] for i in join if i[0] == 1], [tol], removeVolume=True)
+    gmsh.model.occ.synchronize()
+    ov, ovv = gmsh.model.occ.fuse([(3, box_am)], ov)
     gmsh.model.occ.synchronize()
     vols = gmsh.model.getEntities(3)
     box_se = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, 0, LX/L_CELL, LY/L_CELL, 1)
@@ -67,8 +71,18 @@ if __name__ == '__main__':
     res = gmsh.model.occ.cut([(3, box_se)], vols, removeTool=False)
     gmsh.model.occ.synchronize()
     vols = gmsh.model.getEntities(3)
-    gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.electrolyte, "electrolyte")
-    gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.positive_am, "positive am")
+    # gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.electrolyte, "electrolyte")
+    # gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.positive_am, "positive am")
+    centers = []
+    for v in vols:
+        com = gmsh.model.occ.getCenterOfMass(*v)
+        centers.append(com[2])
+    if centers[0] > centers[1]:
+        gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.electrolyte, "electrolyte")
+        gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.positive_am, "positive am")
+    else:
+        gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.electrolyte, "electrolyte")
+        gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.positive_am, "positive am")
     left = []
     right = []
     insulated_am = []

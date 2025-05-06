@@ -43,9 +43,8 @@ if __name__ == '__main__':
     # gmsh.option.setNumber("Mesh.MinimumCirclePoints", 20)
     if args.hexahedron:
         gmsh.option.setNumber('Mesh.SubdivisionAlgorithm', 2)
-    if args.min_elements_per_2pi > 0:
-        # gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", args.min_elements_per_2pi)
-        gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', args.min_elements_per_2pi)
+    # if args.min_elements_per_2pi > 0:
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 20)
 
     box_am = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, (L_CELL - L_slab_am)/L_CELL, LX/L_CELL, LY/L_CELL, L_slab_am/L_CELL)
     spheres = []
@@ -87,8 +86,6 @@ if __name__ == '__main__':
     gmsh.model.mesh.removeDuplicateElements()
     gmsh.model.occ.synchronize()
     vols = gmsh.model.getEntities(3)
-    gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.electrolyte, "electrolyte")
-    gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.positive_am, "positive am")
     gmsh.model.occ.synchronize()
     centers = []
     for v in vols:

@@ -36,14 +36,14 @@ if __name__ == '__main__':
     geometry_metafile = os.path.join(workdir, "geometry.json")
     gmsh.initialize()
     gmsh.model.add('ellipsoidals')
-    gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
+    # gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
     # gmsh.option.setNumber('Geometry.ToleranceBoolean', 0.001)
     # gmsh.option.setNumber("Mesh.MinimumCirclePoints", 20)
     if args.hexahedron:
         gmsh.option.setNumber('Mesh.SubdivisionAlgorithm', 2)
-    if args.min_elements_per_2pi > 0:
-        # gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", args.min_elements_per_2pi)
-        gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', args.min_elements_per_2pi)
+    # if args.min_elements_per_2pi > 0:
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 10)
+        # gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', args.min_elements_per_2pi)
     # gmsh.option.setNumber('Mesh.Algorithm', 6)
     # gmsh.option.setNumber("Mesh.SmoothRatio", 10)
     # gmsh.option.setNumber("Mesh.AnisoMax", 1000)
@@ -51,6 +51,7 @@ if __name__ == '__main__':
 
 
     box_am = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, (L_CELL - L_slab_am)/L_CELL, LX/L_CELL, LY/L_CELL, L_slab_am/L_CELL)
+    gmsh.model.occ.synchronize()
     ellipsoids = []
 
     lxs = np.arange(-0.5*LX/L_CELL+2.5/80, 0.5*LX/L_CELL, 5/L_CELL)
@@ -61,14 +62,21 @@ if __name__ == '__main__':
         for x in lxs:
             for y in lys:
                 sphere = gmsh.model.occ.addSphere(x, y, z_pos, 2/L_CELL)
-                gmsh.model.occ.dilate([(3, sphere)], x, y, z_pos, 1, 1, 5/4)
+                gmsh.model.occ.synchronize()
+                gmsh.model.occ.dilate([(3, sphere)], x, y, z_pos, 1, 1, 1.5)
                 ellipsoids.append((3, sphere))
                 gmsh.model.occ.synchronize()
         z_pos -= 4.0/L_CELL
 
+    gmsh.model.occ.fuse(ellipsoids[:1], ellipsoids[1:])
+    gmsh.model.occ.synchronize()
+    vols = gmsh.model.getEntities(3)
+    tol = 0.1/L_CELL*5
+    join = gmsh.model.occ.getEntitiesInBoundingBox(-0.5*LX/L_CELL - tol, -0.5*LY/L_CELL - tol, L_SEP/L_CELL - tol, LX/L_CELL, LY/L_CELL, 1 - L_slab_am/L_CELL - tol)
+    ov = gmsh.model.occ.fillet([v[1] for v in vols[1:]], [i[1] for i in join if i[0] == 1], [tol], removeVolume=True)
     gmsh.model.occ.synchronize()
 
-    ov, ovv = gmsh.model.occ.fuse([(3, box_am)], ellipsoids)
+    ov, ovv = gmsh.model.occ.fuse([(3, box_am)], ov)
     gmsh.model.occ.synchronize()
     vols = gmsh.model.getEntities(3)
     box_se = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, 0, LX/L_CELL, LY/L_CELL, 1)
@@ -78,8 +86,20 @@ if __name__ == '__main__':
     gmsh.model.mesh.removeDuplicateElements()
     gmsh.model.occ.synchronize()
     vols = gmsh.model.getEntities(3)
-    gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.electrolyte, "electrolyte")
-    gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.positive_am, "positive am")
+    gmsh.model.mesh.removeDuplicateElements()
+    gmsh.model.occ.synchronize()
+    vols = gmsh.model.getEntities(3)
+    centers = []
+    for v in vols:
+        com = gmsh.model.occ.getCenterOfMass(*v)
+        centers.append(com[2])
+    if centers[0] > centers[1]:
+        gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.electrolyte, "electrolyte")
+        gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.positive_am, "positive am")
+    else:
+        gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.electrolyte, "electrolyte")
+        gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.positive_am, "positive am")
+    gmsh.model.occ.synchronize()
     left = []
     right = []
     insulated_am = []
@@ -96,10 +116,10 @@ if __name__ == '__main__':
         elif np.isclose(com[2], 1):
             right.append(surf[1])
             continue
-        elif np.isclose(com[2], 1 - 0.5 * L_slab_am/L_CELL):
+        elif np.isclose(com[2], 1 - 0.5 * L_slab_am/L_CELL, atol=0.01):
             insulated_am.append(surf[1])
             continue
-        elif np.isclose(com[2], 0.5 * (L_CELL - L_slab_am)/L_CELL):
+        elif np.isclose(com[2], 0.5 * (L_CELL - L_slab_am)/L_CELL, atol=0.01):
             insulated_se.append(surf[1])
             continue
         else:
