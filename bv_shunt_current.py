@@ -222,7 +222,7 @@ def phi_analytical(y, p):
 
 def I_ds_analytical(p):
     lmda = lambda_squared(0, p) ** 0.5
-    return p.V_cell * (p.kappa/(p.L_p + 1/p.omega) * p.H_p/(lmda ** 2 * p.dp)) * (1 - np.tanh(lmda*p.L)/(lmda * p.L))
+    return p.V_cell * (p.kappa/(p.L_p + 1/p.omega) * p.H_p/(lmda ** 2 * p.d_p)) * (1 - np.tanh(lmda*p.L)/(lmda * p.L))
 
 
 def i_p_analytical(y, p):
@@ -266,8 +266,19 @@ if __name__ == '__main__':
     I_m_max_vals_lin = []
     I_ds_vals_bv = []
     I_ds_vals_lin = []
+    I_ds_vals_closed = []
     i_p_max_vals_bv = []
     i_p_max_vals_lin = []
+    i_p_max_vals_closed = []
+    # default parameters
+    p = ShuntCurrentsParameters(a=a, kappa=kappa, a_a=a_a, a_c=a_c)
+    h = p.N_s * p.d_p / 2 / N
+    y = np.zeros((N+1, 1))
+    for idx in range(N+1):
+        y[idx] = idx * h
+    eta_s0 = 1e-8 * np.ones((N+1, 1))
+    u_lin, u_bv = solve_loop(N, h, p, eta_s0, tol=tol, max_its=max_its)
+    u_lin_analytical = phi_analytical(y, p)
     if args.vary == 'w':
         for omega in variables:
             i0 = args.kappa * R * T * omega **2 / (F * a * (a_a + a_c))
@@ -320,6 +331,13 @@ if __name__ == '__main__':
             plt.tight_layout()
             plt.savefig(os.path.join(results_dir, "i_port", f"{var_value}.eps"))
             plt.close()
+            # linear analytical
+            I_ds_cf = I_ds_analytical(p)
+            i_p_cf = i_p_analytical(y, p)
+            I_ds_vals_closed.append(I_ds_cf)
+            print(np.max(i_p_cf))
+            i_p_max_vals_closed.append(np.max(i_p_cf))
+            print(I_ds_cf)
             I_m_bv = I_manifold(u_bv, p)
             I_m_lin = I_manifold(u_lin, p)
             I_m_max_bv = np.max(np.abs(I_m_bv))
@@ -351,10 +369,12 @@ if __name__ == '__main__':
 
         fig, ax = plt.subplots()
         ax.semilogx(variables, i_p_max_vals_bv, 'r-.', label="Butler-Volmer")
-        ax.semilogx(variables, i_p_max_vals_lin, 'r', label="Linear")
+        # ax.semilogx(variables, i_p_max_vals_lin, 'r', label="Linear")
+        ax.semilogx(variables, i_p_max_vals_closed, 'r', label="Linear")
         ax2 = ax.twinx()
         ax2.semilogx(variables, np.abs(I_ds_vals_bv), 'b-.', label="Butler-Volmer")
-        ax2.semilogx(variables, np.abs(I_ds_vals_lin), 'b', label="Linear")
+        # ax2.semilogx(variables, np.abs(I_ds_vals_lin), 'b', label="Linear")
+        ax2.semilogx(variables, np.abs(I_ds_vals_closed), 'b', label="Linear")
         ax.set_ylim([400, 1400])
         ax2.set_ylim([1.5, 2.75])
         ax.set_ylabel(r"Maximum port current density [A/m$^2$]")
