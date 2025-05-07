@@ -35,12 +35,13 @@ if __name__ == '__main__':
     geometry_metafile = os.path.join(workdir, "geometry.json")
     gmsh.initialize()
     gmsh.model.add('ellipsoidals')
-    # gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
-    # gmsh.option.setNumber('Geometry.ToleranceBoolean', 0.001)
-    # gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 100)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
+    gmsh.option.setNumber('Mesh.Optimize', 1)
+    # gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 20)
     # gmsh.option.setNumber("Mesh.MinimumCirclePoints", 20)
     # gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', 10)
-    # gmsh.option.setNumber('Mesh.Algorithm', 6)
+    gmsh.option.setNumber('Mesh.Algorithm3D', 9)
+    gmsh.option.setNumber("Mesh.ColorCarousel", 2)
 
     box_am = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, (L_CELL - L_slab_am)/L_CELL, LX/L_CELL, LY/L_CELL, L_slab_am/L_CELL)
     cylinders = []
