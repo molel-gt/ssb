@@ -647,40 +647,40 @@ if __name__ == '__main__':
     c_to_f = domain.topology.connectivity(tdim, fdim)
     charge_xfer_facets = ft.find(markers.electrolyte_v_positive_am)
 
-    # int_facet_domain = []
-    # for f in charge_xfer_facets:
-    #     if f >= ft_imap.size_local or len(f_to_c.links(f)) != 2:
-    #         continue
-    #     c_0, c_1 = f_to_c.links(f)[0], f_to_c.links(f)[1]
-    #     subdomain_0, subdomain_1 = ct.values[[c_0, c_1]]
-    #     local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
-    #     local_f_1 = np.where(c_to_f.links(c_1) == f)[0][0]
-    #     if subdomain_0 > subdomain_1:
-    #         int_facet_domain.append(c_0)
-    #         int_facet_domain.append(local_f_0)
-    #         int_facet_domain.append(c_1)
-    #         int_facet_domain.append(local_f_1)
-    #     else:
-    #         int_facet_domain.append(c_1)
-    #         int_facet_domain.append(local_f_1)
-    #         int_facet_domain.append(c_0)
-    #         int_facet_domain.append(local_f_0)
-    # int_facet_domains = [(markers.electrolyte_v_positive_am, int_facet_domain)]
-    # dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
+    int_facet_domain = []
+    for f in charge_xfer_facets:
+        if f >= ft_imap.size_local or len(f_to_c.links(f)) != 2:
+            continue
+        c_0, c_1 = f_to_c.links(f)[0], f_to_c.links(f)[1]
+        subdomain_0, subdomain_1 = ct.values[[c_0, c_1]]
+        local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
+        local_f_1 = np.where(c_to_f.links(c_1) == f)[0][0]
+        if subdomain_0 > subdomain_1:
+            int_facet_domain.append(c_0)
+            int_facet_domain.append(local_f_0)
+            int_facet_domain.append(c_1)
+            int_facet_domain.append(local_f_1)
+        else:
+            int_facet_domain.append(c_1)
+            int_facet_domain.append(local_f_1)
+            int_facet_domain.append(c_0)
+            int_facet_domain.append(local_f_0)
+    int_facet_domains = [(markers.electrolyte_v_positive_am, int_facet_domain)]
+    dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
 
-    ordered_integration_data = compute_interface_data(ct, charge_xfer_facets)
-    # Pad entity maps for sparsity pattern
-    parent_cells_plus = ordered_integration_data[:, 0]
-    parent_cells_minus = ordered_integration_data[:, 2]
-    entity_maps[submesh_electrolyte][parent_cells_minus] = entity_maps[submesh_electrolyte][parent_cells_plus]
-    entity_maps[submesh_positive_am][parent_cells_plus] = entity_maps[submesh_positive_am][parent_cells_minus]
-    ordered_integration_data = ordered_integration_data.flatten()
-    integral_data_interface = [(markers.electrolyte_v_positive_am, ordered_integration_data)]
-    dInterface = ufl.Measure(
-        "dS",
-        domain=domain,
-        subdomain_data=integral_data_interface,
-        subdomain_id=markers.electrolyte_v_positive_am)
+    # ordered_integration_data = compute_interface_data(ct, charge_xfer_facets)
+    # # Pad entity maps for sparsity pattern
+    # parent_cells_plus = ordered_integration_data[:, 0]
+    # parent_cells_minus = ordered_integration_data[:, 2]
+    # entity_maps[submesh_electrolyte][parent_cells_minus] = entity_maps[submesh_electrolyte][parent_cells_plus]
+    # entity_maps[submesh_positive_am][parent_cells_plus] = entity_maps[submesh_positive_am][parent_cells_minus]
+    # ordered_integration_data = ordered_integration_data.flatten()
+    # integral_data_interface = [(markers.electrolyte_v_positive_am, ordered_integration_data)]
+    # dInterface = ufl.Measure(
+    #     "dS",
+    #     domain=domain,
+    #     subdomain_data=integral_data_interface,
+    #     subdomain_id=markers.electrolyte_v_positive_am)
     dx = ufl.Measure('dx', domain=domain, subdomain_data=ct)
     dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
     dx_c = ufl.Measure('dx', domain=submesh_positive_am)
@@ -823,10 +823,12 @@ if __name__ == '__main__':
     F_1_cc += - v_1 * lmbda * ds_f(3)
     F_1a = (V_cell - u_1) * mu * ds_f(3)
     F_1b = w * (I_tot_tilde / A_right_tilde + lmbda) * ds_f(3)
+    PETSc.Sys.Print(dt.value)
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
     F_2 += -inner(kappa_total * phi_ref/(D * faraday_const * c_ref)/2 * (kappa_l * grad(u_l) + kappa_r * grad(u_r)), n_r) * q_r * dInterface
-    # F_2 += gamma * h_r * inner(kappa_total * phi_ref/(D * faraday_const * c_ref)/2 * grad(kappa_l * u_l + kappa_r * u_r) - grad(c_r), n_r) * inner(grad(q_r), n_r) * dInterface
+    # F_2 += -(L_ref/(faraday_const * D * c_ref)) * 2*i0_p * (ufl.sinh(0.5 * phi_ref * (u_r - u_l - U_ocp(c_r)) * faraday_const / (R * T))) * q_r * dInterface
+    F_2 += -1e4 * gamma * h_r * inner(kappa_total * phi_ref/(D * faraday_const * c_ref)/2 * grad(kappa_l * u_l + kappa_r * u_r) - grad(c_r), n_r) * inner(grad(q_r), n_r) * dInterface
 
     u_left = fem.Function(V0)
     u_left.x.array[:] = 0/phi_ref
