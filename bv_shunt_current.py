@@ -6,8 +6,6 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import numpy as np
-from mpi4py import MPI
-import matspy
 import warnings
 
 warnings.simplefilter("ignore")
