@@ -395,6 +395,31 @@ if __name__ == '__main__':
         plt.savefig(os.path.join(results_dir, "I_manifold.eps"))
         plt.close()
 
+        # Figure 9
+        fig, ax = plt.subplots()
+        ax.semilogx(variables, i_p_max_vals_closed, 'k')
+        ax2 = ax.twinx()
+        ax2.semilogx(variables, np.abs(I_ds_vals_closed), 'b--')
+        ax.set_ylim([400, 1400])
+        ax2.set_ylim([1.5, 2.75])
+        ax.set_ylabel(r"Maximum port current density, A m$^{-2}$")
+        ax2.set_ylabel(r"Manifold current, A")
+        ax.set_xlabel(r"$\omega$ [m$^{-1}$]")
+        ax.set_box_aspect(1)
+        # ax.spines["left"].set_color("red")
+        # ax.yaxis.label.set_color("red")
+        # ax.tick_params(colors="red", axis="y")
+        ax2.spines["right"].set_color("blue")
+        ax2.yaxis.label.set_color("blue")
+        ax2.tick_params(colors="blue", axis="y")
+        ax.grid(which="major", axis='y', color="cyan", linewidth=0.1)
+        ax.grid(which="minor", axis='x', color="cyan", linewidth=0.1)
+        ax2.yaxis.set_ticks([1.5, 1.75, 2.0, 2.25, 2.5, 2.75])
+        ax.set_xlim([np.min(variables), np.max(variables)])
+        ax.xaxis.set_major_formatter(ticker.FormatStrFormatter('%0.0f'))
+        plt.savefig(os.path.join(results_dir, "../Figure_9.eps"))
+        plt.close()
+
     variables = vary_L_p()
     if args.vary == 'L_p':
         for L_p in variables:
