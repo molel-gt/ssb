@@ -39,6 +39,10 @@ if __name__ == '__main__':
     gmsh.initialize()
     gmsh.model.add('ellipsoidals')
     gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
+    gmsh.option.setNumber('Mesh.Optimize', 1)
+    # gmsh.option.setNumber('Mesh.Algorithm3D', 9)
+    gmsh.option.setNumber("Mesh.ColorCarousel", 2)
+    # gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", -3)
     # gmsh.option.setNumber('Geometry.ToleranceBoolean', 0.001)
     # gmsh.option.setNumber("Mesh.MinimumCirclePoints", 20)
     if args.hexahedron:
@@ -73,7 +77,7 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
     tol = 0.1/L_CELL
     vols = gmsh.model.getEntities(3)
-    join = gmsh.model.occ.getEntitiesInBoundingBox(-0.5*LX/L_CELL - tol, -0.5*LY/L_CELL - tol, L_SEP/L_CELL - tol, LX/L_CELL, LX/L_CELL, 1 - L_slab_am/L_CELL - tol)
+    join = gmsh.model.occ.getEntitiesInBoundingBox(-0.5*LX/L_CELL - tol, -0.5*LY/L_CELL - tol, L_SEP/L_CELL - tol, LX/L_CELL, LX/L_CELL, 1 - L_slab_am/L_CELL)
     ov = gmsh.model.occ.fillet([v[1] for v in vols], [i[1] for i in join if i[0] == 1], [tol], removeVolume=True)
     gmsh.model.occ.synchronize()
     ov, ovv = gmsh.model.occ.fuse([(3, box_am)], ov)
