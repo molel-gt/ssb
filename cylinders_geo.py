@@ -40,7 +40,7 @@ if __name__ == '__main__':
     # gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 20)
     # gmsh.option.setNumber("Mesh.MinimumCirclePoints", 20)
     # gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', 10)
-    gmsh.option.setNumber('Mesh.Algorithm3D', 9)
+    # gmsh.option.setNumber('Mesh.Algorithm3D', 9)
     gmsh.option.setNumber("Mesh.ColorCarousel", 2)
 
     box_am = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, (L_CELL - L_slab_am)/L_CELL, LX/L_CELL, LY/L_CELL, L_slab_am/L_CELL)
