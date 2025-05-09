@@ -36,13 +36,14 @@ if __name__ == '__main__':
     geometry_metafile = os.path.join(workdir, "geometry.json")
     gmsh.initialize()
     gmsh.model.add('ellipsoidals')
-    # gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
+    gmsh.option.setNumber('Mesh.Optimize', 1)
     # gmsh.option.setNumber('Geometry.ToleranceBoolean', 0.001)
     # gmsh.option.setNumber("Mesh.MinimumCirclePoints", 20)
     if args.hexahedron:
         gmsh.option.setNumber('Mesh.SubdivisionAlgorithm', 2)
     # if args.min_elements_per_2pi > 0:
-    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 10)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 20)
         # gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', args.min_elements_per_2pi)
     # gmsh.option.setNumber('Mesh.Algorithm', 6)
     # gmsh.option.setNumber("Mesh.SmoothRatio", 10)
@@ -63,7 +64,7 @@ if __name__ == '__main__':
             for y in lys:
                 sphere = gmsh.model.occ.addSphere(x, y, z_pos, 2/L_CELL)
                 gmsh.model.occ.synchronize()
-                gmsh.model.occ.dilate([(3, sphere)], x, y, z_pos, 1, 1, 1.5)
+                gmsh.model.occ.dilate([(3, sphere)], x, y, z_pos, 1, 1, 2)
                 ellipsoids.append((3, sphere))
                 gmsh.model.occ.synchronize()
         z_pos -= 4.0/L_CELL
