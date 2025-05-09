@@ -37,7 +37,7 @@ if __name__ == '__main__':
     gmsh.model.add('ellipsoidals')
     gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
     gmsh.option.setNumber('Mesh.Optimize', 1)
-    # gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 20)
+    gmsh.option.setNumber("Mesh.OptimizeThreshold", 0.85)
     # gmsh.option.setNumber("Mesh.MinimumCirclePoints", 20)
     # gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', 10)
     # gmsh.option.setNumber('Mesh.Algorithm3D', 9)
