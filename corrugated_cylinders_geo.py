@@ -75,7 +75,7 @@ if __name__ == '__main__':
                     sphere = gmsh.model.occ.addSphere(x, y, z_pos, r/L_CELL)
                     spheres.append((3, sphere))
                     gmsh.model.occ.synchronize()
-        z_pos -= 1.5/L_CELL
+        z_pos -= 2.5/L_CELL
 
     ov, ovv = gmsh.model.occ.fuse(cylinders[:1], cylinders[1:] + spheres)
     gmsh.model.occ.synchronize()
