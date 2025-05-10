@@ -40,15 +40,10 @@ if __name__ == '__main__':
     gmsh.model.add('ellipsoidals')
     gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
     gmsh.option.setNumber('Mesh.Optimize', 1)
-    # gmsh.option.setNumber('Mesh.Algorithm3D', 9)
-    gmsh.option.setNumber("Mesh.ColorCarousel", 2)
-    # gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", -3)
-    # gmsh.option.setNumber('Geometry.ToleranceBoolean', 0.001)
-    # gmsh.option.setNumber("Mesh.MinimumCirclePoints", 20)
+    gmsh.option.setNumber("Mesh.OptimizeThreshold", 0.9)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 20)
     if args.hexahedron:
         gmsh.option.setNumber('Mesh.SubdivisionAlgorithm', 2)
-    # if args.min_elements_per_2pi > 0:
-    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 20)
 
     box_am = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, (L_CELL - L_slab_am)/L_CELL, LX/L_CELL, LY/L_CELL, L_slab_am/L_CELL)
     spheres = []
@@ -57,29 +52,38 @@ if __name__ == '__main__':
     lxs = np.arange(-0.5*LX/L_CELL+2.5/80, 0.5*LX/L_CELL, 5/L_CELL)
     lys = np.arange(-0.5*LY/L_CELL+2.5/80, 0.5*LY/L_CELL, 5/L_CELL)
 
-    z_pos = (L_CELL - L_slab_am)/L_CELL
-    while z_pos > 0.3175:
-        for x in lxs:
-            for y in lys:
-                p_val = random.uniform(0, 1)
-                if p_val <= 0.4:
-                    sphere = gmsh.model.occ.addSphere(x, y, z_pos, 2.0/L_CELL)
-                    spheres.append((3, sphere))
-                    gmsh.model.occ.synchronize()
-        z_pos -= 4.0/L_CELL
     for x in lxs:
         for y in lys:
             cyl = gmsh.model.occ.addCylinder(x, y, L_SEP/L_CELL, 0, 0, 1 - (L_SEP + L_slab_am)/L_CELL, 1.5/L_CELL)
             cylinders.append((3, cyl))
             gmsh.model.occ.synchronize()
 
-    fused, fused2 = gmsh.model.occ.fuse(cylinders[:1], cylinders[1:] + spheres)
+    z_pos = (L_CELL - L_slab_am)/L_CELL
+    while z_pos > 0.3175:
+        for x in lxs:
+            for y in lys:
+                p_val = random.uniform(0, 1)
+                if p_val <= 0.25:
+                    p_val2 = random.uniform(0, 1)
+                    r = 2.5 + p_val2 * 5.0
+                    if (x + r/L_CELL) >= 0.5 * LX/L_CELL or (x - r/L_CELL) <= -0.5 * LX/L_CELL:
+                        continue
+                    if (y + r/L_CELL) >= 0.5 * LY/L_CELL or (y - r/L_CELL) <= -0.5 * LY/L_CELL:
+                        continue
+                    if (z_pos + r/L_CELL >= 1 - L_slab_am/L_CELL) or (z_pos -r/L_CELL) <= L_SEP/L_CELL:
+                        continue
+                    sphere = gmsh.model.occ.addSphere(x, y, z_pos, r/L_CELL)
+                    spheres.append((3, sphere))
+                    gmsh.model.occ.synchronize()
+        z_pos -= 1.5/L_CELL
+
+    ov, ovv = gmsh.model.occ.fuse(cylinders[:1], cylinders[1:] + spheres)
     gmsh.model.occ.synchronize()
-    tol = 0.1/L_CELL
-    vols = gmsh.model.getEntities(3)
-    join = gmsh.model.occ.getEntitiesInBoundingBox(-0.5*LX/L_CELL - tol, -0.5*LY/L_CELL - tol, L_SEP/L_CELL - tol, LX/L_CELL, LX/L_CELL, 1 - L_slab_am/L_CELL)
-    ov = gmsh.model.occ.fillet([v[1] for v in vols], [i[1] for i in join if i[0] == 1], [tol], removeVolume=True)
-    gmsh.model.occ.synchronize()
+    # tol = 0.1/L_CELL
+    # vols = gmsh.model.getEntities(3)
+    # join = gmsh.model.occ.getEntitiesInBoundingBox(-0.5*LX/L_CELL - tol, -0.5*LY/L_CELL - tol, L_SEP/L_CELL - tol, LX/L_CELL, LX/L_CELL, 1 - L_slab_am/L_CELL-tol)
+    # ov = gmsh.model.occ.fillet([v[1] for v in vols[1:]], [i[1] for i in join if i[0] == 1], [tol], removeVolume=True)
+    # gmsh.model.occ.synchronize()
     ov, ovv = gmsh.model.occ.fuse([(3, box_am)], ov)
     gmsh.model.occ.synchronize()
     vols = gmsh.model.getEntities(3)
