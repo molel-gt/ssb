@@ -65,7 +65,7 @@ if __name__ == '__main__':
                 p_val = random.uniform(0, 1)
                 if p_val <= 0.25:
                     p_val2 = random.uniform(0, 1)
-                    r = 2.5 + p_val2 * 5.0
+                    r = 1.75 + p_val2 * 5.0
                     if (x + r/L_CELL) >= 0.5 * LX/L_CELL or (x - r/L_CELL) <= -0.5 * LX/L_CELL:
                         continue
                     if (y + r/L_CELL) >= 0.5 * LY/L_CELL or (y - r/L_CELL) <= -0.5 * LY/L_CELL:
