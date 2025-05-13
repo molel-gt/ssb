@@ -8,6 +8,8 @@ import matplotlib.ticker as ticker
 import numpy as np
 import warnings
 
+from scipy.optimize import minimize
+
 warnings.simplefilter("ignore")
 
 import plot_opts, solvers, utils
@@ -201,12 +203,17 @@ def solve_loop(N, h, p, eta_s0, tol, max_its):
     _, _, u_lin = solve_for_manifold_potential(eta_s0, p, N+1, h, kinetics_type="linear")
     eta_s1 = np.zeros(eta_s0.shape)
     y = np.zeros((N+1, 1))
+
     while error > tol and its < max_its:
         its += 1
         _, _, u_bv = solve_for_manifold_potential(eta_s0, p, N+1, h, kinetics_type="butler_volmer")
         ip_approx = i_port_approx(u_bv, p)
-        eta_s1[:-1] = (p.V_cell/p.d_p * y[:-1] - ip_approx * p.R_p - u_bv[1:])/p.N_s
-        error = np.linalg.norm(eta_s1 - eta_s0)
+        eta_s0 = eta_s0.reshape(eta_s0.shape[0], )
+        fun_bv = lambda x: np.sum((ip_approx - i_p(x, p)) ** 2)
+        eta_bv = minimize(fun_bv, eta_s0, method='BFGS', tol=1e-10)
+        eta_s1[:] = eta_bv.x.reshape(-1, 1)
+        delta_eta = eta_s0 - eta_s1
+        error = np.linalg.norm(delta_eta)
         eta_s0 = eta_s1
         p._eta_s_0 = eta_s0
     print(f"Error: {error:.0e}, Tolerance: {tol:.0e}, Iterations: {its}")
@@ -299,10 +306,7 @@ if __name__ == '__main__':
                 var_value = p.omega
             else:
                 raise ValueError("Unknown study type")
-            if np.isclose(omega, 100):
-                eta_lin = 50 - u_lin_analytical[-1]
-                eta_bv = 50 - u_bv[-2]
-                eta_top_ratio = float(eta_bv/eta_lin)
+
             fig, ax = plt.subplots()
             ax.plot(0.5*p.N_s * y[1:]/p.L, u_bv[:-1], 'r-.', label="Butler-Volmer")
             # ax.plot(0.5*p.N_s * y[:-1]/p.L, u_lin[:-1], 'b-', label="Linear")
@@ -382,7 +386,7 @@ if __name__ == '__main__':
         ax.set_ylim([1.5, 2.75])
         ax_2.set_ylabel(r"Maximum port current density, A m$^{-2}$")
         ax.set_ylabel(r"$I_{ds}$, A")
-        ax_2.set_xlabel(r"$\omega$, m$^{-1}$")
+        ax.set_xlabel(r"$\omega$, m$^{-1}$")
         ax_2.set_box_aspect(1)
         ax_2.legend(loc="upper left")
         ax_2.spines["right"].set_color("red")
@@ -422,6 +426,7 @@ if __name__ == '__main__':
         ax.yaxis.set_ticks([1.5, 1.75, 2.0, 2.25, 2.5, 2.75])
         ax_2.set_xlim([np.min(variables), np.max(variables)])
         ax_2.xaxis.set_major_formatter(ticker.FormatStrFormatter('%0.0f'))
+        ax.set_xlabel(r"$\omega$, m$^{-1}$")
         # ax.axvline(x=100, linestyle='--', color='gray')
         # ax.text(75, 2.2, "λ = 13")
         plt.savefig(os.path.join(results_dir, "../Figure_9.png"))
