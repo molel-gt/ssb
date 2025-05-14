@@ -210,13 +210,14 @@ def solve_loop(N, h, p, eta_s0, tol, max_its):
         ip_approx = i_port_approx(u_bv, p)
         eta_s0 = eta_s0.reshape(eta_s0.shape[0], )
         fun_bv = lambda x: np.sum((ip_approx - i_p(x, p)) ** 2)
-        eta_bv = minimize(fun_bv, eta_s0, method='BFGS', tol=1e-10)
+        eta_bv = minimize(fun_bv, eta_s0, method='Nelder-Mead', tol=1e-6)
         eta_s1[:] = eta_bv.x.reshape(-1, 1)
         delta_eta = eta_s0 - eta_s1
         error = np.linalg.norm(delta_eta)
         eta_s0 = eta_s1
         p._eta_s_0 = eta_s0
     print(f"Error: {error:.0e}, Tolerance: {tol:.0e}, Iterations: {its}")
+    print("**********************************************************************")
     return u_lin, u_bv
 
 
@@ -310,7 +311,7 @@ if __name__ == '__main__':
             fig, ax = plt.subplots()
             ax.plot(0.5*p.N_s * y[1:]/p.L, u_bv[:-1], 'r-.', label="Butler-Volmer")
             # ax.plot(0.5*p.N_s * y[:-1]/p.L, u_lin[:-1], 'b-', label="Linear")
-            ax.plot(0.5*p.N_s * y/p.L, u_lin_analytical, 'g--', label="Linear Analytic")
+            ax.plot(0.5*p.N_s * y/p.L, u_lin_analytical, 'g--', label="Linear")
             ax.plot([0, 0.5 * p.N_s], [0, 50], linestyle='--', color='black', label="Electrode potential")
             ax.set_xlim([0, 0.5 * p.N_s])
             ax.set_ylim([0, 50])
@@ -326,8 +327,17 @@ if __name__ == '__main__':
             fig, ax = plt.subplots()
             port_current_density_bv = i_port_approx(u_bv, p)
             port_current_density_lin = i_port_approx(u_lin, p)
+            port_current_density_analytic = i_p_analytical(y, p)
+
+            # compute eta
+            if np.isclose(omega, 100):
+                fun_bv = lambda x: (port_current_density_bv[-1] - i_p(x, p)) ** 2
+                eta_top_lin = i_p_analytical(y[-1], p) / (p.kappa * omega)
+                eta_top_bv = minimize(fun_bv, 0.1, tol=1e-6, method="Nelder-Mead")
+                eta_top_ratio = float(eta_top_bv.x/eta_top_lin)
+                print(eta_top_bv.x, eta_top_lin)
             ax.plot(0.5*p.N_s * y[:-1]/p.L, port_current_density_bv, 'r-.', linewidth=0.5, label="Butler-Volmer")
-            ax.plot(0.5*p.N_s * y[:-1]/p.L, port_current_density_lin, 'b', linewidth=0.25, label="Linear")
+            ax.plot(0.5*p.N_s * y/p.L, port_current_density_analytic, 'b', linewidth=0.25, label="Linear")
             ax.grid(color='cyan', linewidth=0.1)
             ax.set_xlim([0, 0.5*p.N_s])
             ax.set_ylim([0, 1.01 * np.max(port_current_density_bv)])
@@ -403,6 +413,7 @@ if __name__ == '__main__':
         ax_2.xaxis.set_major_formatter(ticker.FormatStrFormatter('%0.0f'))
         plt.savefig(os.path.join(results_dir, "../Figure_10.png"))
         plt.close()
+        # plt.show()
 
         # Figure 9
         fig, ax = plt.subplots()
