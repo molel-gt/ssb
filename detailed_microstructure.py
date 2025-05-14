@@ -25,7 +25,7 @@ def get_curves(img_file_path, min_val):
 
 
 if __name__ == '__main__':
-    curves, nx, ny = get_curves("060.tif", 255)
+    curves, nx, ny = get_curves("050.tif", 255)
     img_1 = np.zeros((nx, ny))
     img_1[curves] = 255
     img_2 = Image.fromarray(img_1)
@@ -38,9 +38,13 @@ if __name__ == '__main__':
     # Display the image and plot all contours found
     fig, ax = plt.subplots()
     ax.imshow(img_1, cmap=plt.cm.gray)
-
+    count = 0
     for contour in contours:
+        if contour.shape[0] <= 20:
+              continue
         ax.plot(contour[:, 1], contour[:, 0], linewidth=2)
+        count += 1
+    print(f"There are {count} big loops")
 
     ax.axis('image')
     ax.set_xticks([])
