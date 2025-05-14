@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 import skimage as ski
+from shapely.geometry import Polygon, Point
 from skimage.measure import find_contours, approximate_polygon, subdivide_polygon
 
 import grapher, plot_opts, utils
@@ -22,6 +23,29 @@ def get_curves(img_file_path, min_val):
     curves = np.where(np.greater_equal(img, min_val))
 
     return curves, nx, ny
+
+
+def points_in_polygon(polygon_coords, grid_size=1):
+    """
+    Generates discrete points within a polygon.
+
+    Args:
+        polygon_coords: A list of (x, y) tuples defining the polygon's vertices.
+        grid_size: The spacing between grid points.
+
+    Returns:
+        A list of (x, y) tuples representing points inside the polygon.
+    """
+    polygon = Polygon(polygon_coords)
+    minx, miny, maxx, maxy = polygon.bounds
+    points = []
+
+    for x in np.arange(minx, maxx + grid_size, grid_size):
+        for y in np.arange(miny, maxy + grid_size, grid_size):
+            point = Point(x, y)
+            if polygon.contains(point):
+                points.append((x, y))
+    return points
 
 
 if __name__ == '__main__':
