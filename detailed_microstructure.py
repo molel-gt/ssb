@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import cv2
+import argparse
 import json
 import os
 
@@ -12,6 +12,75 @@ from skimage.measure import find_contours, approximate_polygon, subdivide_polygo
 
 import grapher, plot_opts, utils
 plt.rcParams.update(plot_opts.params)
+
+
+data_folder = os.path.join(os.environ["HOME"], "OneDrive/PhD/Data/SEM Image/segmentation/")
+fig, ax = plt.subplots()
+
+
+class Segmentor:
+    def __init__(self, img_id, root_folder=data_folder):
+        self._img_id = img_id
+        self._root_folder = data_folder
+        self._img_raw = None
+        self._cam_contours = []
+        self._sse_contours = []
+
+    @property
+    def img_id(self):
+        return self._img_id
+
+    @property
+    def root_folder(self):
+        return self._root_folder
+
+    @property
+    def img_raw(self):
+        return self._img_raw
+
+    @property
+    def cam_contours(self):
+        return self._cam_contours
+
+    @property
+    def sse_contours(self):
+        return self._sse_contours
+
+    def setup(self):
+        self._img_raw = plt.imread(os.path.join(self.root_folder, f"{str(self.img_id).zfill(3)}.tif"))
+
+        return
+
+    def get_contours(self):
+        min_val = np.max(self.img_raw)
+        img_file_path = os.path.join(self.root_folder, "edges", f"{str(self.img_id).zfill(3)}.tif")
+        data = np.asarray(Image.open(img_file_path)).copy()
+        img = data[:, :, 0]
+        nx, ny = img.shape
+        # pad boundaries
+        img[:, 0] = 255
+        img[:, -1] = 255
+        img[0, :] = 255
+        img[-1, :] = 255
+        curves = np.where(np.greater_equal(img, min_val))
+        # curves, nx, ny = get_curves("060.tif", 255)
+        img_1 = np.zeros((nx, ny))
+        img_1[curves] = 255
+        contours = ski.measure.find_contours(img_1, 0.8)
+        contours = sorted(contours, key=len, reverse=True)
+
+        return contours
+
+    def write_polygons_to_file(self):
+        cam_polygons_path = os.path.join(self.root_folder, "cam", f"{str(self.img_id).zfill(3)}.json")
+        sse_polygons_path = os.path.join(self.root_folder, "sse", f"{str(self.img_id).zfill(3)}.json")
+        with open(cam_polygons_path, "w", encoding='utf-8') as f:
+            json.dump(self.cam_contours, f, ensure_ascii=False, indent=4)
+
+        with open(sse_polygons_path, "w", encoding='utf-8') as f:
+            json.dump(self.sse_contours, f, ensure_ascii=False, indent=4)
+
+        return
 
 
 def get_curves(img_file_path, min_val):
@@ -60,32 +129,62 @@ def points_in_polygon(polygon_coords, grid_size=1):
     return points
 
 
-def write_voids_polygon(voids_dir):
-    for idx in range(1, 203):
-        voids_path = os.path.join(voids_dir, f"{str(idx).zfill(3)}.json")
-        print(f"Processing image {idx}")
-        img = plt.imread(f"output/segmentation/raw/{str(idx).zfill(3)}.tif")
-        voids_poly = [poly.tolist() for poly in extract_voids_polygons(img) if poly.shape[0] >= 4]
-        with open(voids_path, "w", encoding='utf-8') as f:
-            json.dump(voids_poly, f, ensure_ascii=False, indent=4)
+def write_voids_polygon(voids_dir, img_id):
+    voids_path = os.path.join(voids_dir, f"{str(img_id).zfill(3)}.json")
+    print(f"Processing image {idx}")
+    img = plt.imread(f"output/segmentation/raw/{str(img_id).zfill(3)}.tif")
+    voids_poly = [poly.tolist() for poly in extract_voids_polygons(img) if poly.shape[0] >= 4]
+    with open(voids_path, "w", encoding='utf-8') as f:
+        json.dump(voids_poly, f, ensure_ascii=False, indent=4)
+
     return
 
 
+def on_press(event):
+    print(event.key)
+    if event.key == 'shift+right':
+        ax.azim+=10
+    if event.key == 'shift+left':
+        ax.azim-=10
+    fig.canvas.draw_idle()
+
+
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='secondary current distribution')
+    parser.add_argument('--img_id', help='`image index` to process', required=True)
+    parser.add_argument("--extract_voids", help="whether to extract voids", default=False, action=argparse.BooleanOptionalAction)
+    args = parser.parse_args()
     voids_dir = os.path.join(os.environ["HOME"], "OneDrive/PhD/Data/SEM Image/segmentation/voids")
-    write_voids_polygon(voids_dir)
-    # curves, nx, ny = get_curves("060.tif", 255)
-    # img_1 = np.zeros((nx, ny))
-    # img_1[curves] = 255
+    cam_dir = os.path.join(os.environ["HOME"], "OneDrive/PhD/Data/SEM Image/segmentation/cam")
+    sse_dir = os.path.join(os.environ["HOME"], "OneDrive/PhD/Data/SEM Image/segmentation/sse")
+    raw_dir = os.path.join(os.environ["HOME"], "OneDrive/PhD/Data/SEM Image/segmentation/raw")
+    if args.extract_voids:
+        write_voids_polygon(voids_dir, args.img_id)
+    curves, nx, ny = get_curves("060.tif", 255)
+    img_1 = np.zeros((nx, ny))
+    img_1[curves] = 255
     # img_2 = Image.fromarray(img_1)
     # img_2.save("loops.tif")
 
-    # # Find contours at a constant value of 0.8
-    # contours = ski.measure.find_contours(img_1, 0.8)
-    # print(f"There are {len(contours)} loops")
+    # Find contours at a constant value of 0.8
+    contours = ski.measure.find_contours(img_1, 0.8)
+    contours = sorted(contours, key=len, reverse=True)
+    print(f"There are {len(contours)} loops")
+    img_id = 60
+    img_raw = plt.imread(os.path.join(raw_dir, f"{str(img_id).zfill(3)}.tif"))
+    sse_polys = []
+    cam_polys = []
 
     # # Display the image and plot all contours found
-    # fig, ax = plt.subplots()
+    ax.imshow(img_raw, "gray")
+    for contour in contours:
+        if contour.shape[0] < 4:
+            continue
+        ax.scatter(contour[:, 1], contour[:, 0], s=0.5, color="red")
+        fig.canvas.draw_idle()
+
+    plt.show()
+
     # ax.imshow(img_1, cmap=plt.cm.gray)
     # count = 0
     # # contour_sizes = [c.shape[0] for c in contours]
