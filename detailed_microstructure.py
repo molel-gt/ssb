@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-import cv2 
+import cv2
+import json
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
@@ -25,7 +28,7 @@ def get_curves(img_file_path, min_val):
     return curves, nx, ny
 
 
-def extract_voids(img):
+def extract_voids_polygons(img):
     img = img - np.min(img)
     img_1 = ski.filters.gaussian(img, sigma=1.0) < 0.125
     contours = ski.measure.find_contours(img_1, 0.8)
@@ -57,32 +60,58 @@ def points_in_polygon(polygon_coords, grid_size=1):
     return points
 
 
+def write_voids_polygon(voids_dir):
+    for idx in range(1, 203):
+        voids_path = os.path.join(voids_dir, f"{str(idx).zfill(3)}.json")
+        print(f"Processing image {idx}")
+        img = plt.imread(f"output/segmentation/raw/{str(idx).zfill(3)}.tif")
+        voids_poly = [poly.tolist() for poly in extract_voids_polygons(img) if poly.shape[0] >= 4]
+        with open(voids_path, "w", encoding='utf-8') as f:
+            json.dump(voids_poly, f, ensure_ascii=False, indent=4)
+    return
+
+
 if __name__ == '__main__':
-    curves, nx, ny = get_curves("050.tif", 255)
-    img_1 = np.zeros((nx, ny))
-    img_1[curves] = 255
-    img_2 = Image.fromarray(img_1)
-    img_2.save("loops.tif")
+    voids_dir = os.path.join(os.environ["HOME"], "OneDrive/PhD/Data/SEM Image/segmentation/voids")
+    write_voids_polygon(voids_dir)
+    for idx in range(1, 203):
+        voids_path = os.path.join(voids_dir, f"{str(idx).zfill(3)}.json")
+        print(f"Processing image {idx}")
+        img = plt.imread(f"output/segmentation/raw/{str(idx).zfill(3)}.tif")
+        voids_poly = [poly.tolist() for poly in extract_voids_polygons(img) if poly.shape[0] >= 4]
+        with open(voids_path, "w", encoding='utf-8') as f:
+            json.dump(voids_poly, f, ensure_ascii=False, indent=4)
+    # curves, nx, ny = get_curves("060.tif", 255)
+    # img_1 = np.zeros((nx, ny))
+    # img_1[curves] = 255
+    # img_2 = Image.fromarray(img_1)
+    # img_2.save("loops.tif")
 
-    # Find contours at a constant value of 0.8
-    contours = ski.measure.find_contours(img_1, 0.8)
-    print(f"There are {len(contours)} loops")
+    # # Find contours at a constant value of 0.8
+    # contours = ski.measure.find_contours(img_1, 0.8)
+    # print(f"There are {len(contours)} loops")
 
-    # Display the image and plot all contours found
-    fig, ax = plt.subplots()
-    ax.imshow(img_1, cmap=plt.cm.gray)
-    count = 0
-    for contour in contours:
-        if contour.shape[0] <= 20:
-              continue
-        ax.plot(contour[:, 1], contour[:, 0], linewidth=2)
-        count += 1
-    print(f"There are {count} big loops")
+    # # Display the image and plot all contours found
+    # fig, ax = plt.subplots()
+    # ax.imshow(img_1, cmap=plt.cm.gray)
+    # count = 0
+    # # contour_sizes = [c.shape[0] for c in contours]
+    # # perm = np.argsort(contour_sizes)
+    # # perm.astype(int)
+    # # print(perm)
+    # contours = sorted(contours, key=len, reverse=True)
+    # for contour in contours:
+    #     print(contour.shape[0])
+    #     # if contour.shape[0] <= 20:
+    #     #       continue
+    #     ax.plot(contour[:, 1], contour[:, 0], linewidth=2)
+    #     count += 1
+    # print(f"There are {count} big loops")
 
-    ax.axis('image')
-    ax.set_xticks([])
-    ax.set_yticks([])
-    plt.show()
+    # ax.axis('image')
+    # ax.set_xticks([])
+    # ax.set_yticks([])
+    # plt.show()
 
 
     # points = {}
