@@ -74,13 +74,6 @@ def write_voids_polygon(voids_dir):
 if __name__ == '__main__':
     voids_dir = os.path.join(os.environ["HOME"], "OneDrive/PhD/Data/SEM Image/segmentation/voids")
     write_voids_polygon(voids_dir)
-    for idx in range(1, 203):
-        voids_path = os.path.join(voids_dir, f"{str(idx).zfill(3)}.json")
-        print(f"Processing image {idx}")
-        img = plt.imread(f"output/segmentation/raw/{str(idx).zfill(3)}.tif")
-        voids_poly = [poly.tolist() for poly in extract_voids_polygons(img) if poly.shape[0] >= 4]
-        with open(voids_path, "w", encoding='utf-8') as f:
-            json.dump(voids_poly, f, ensure_ascii=False, indent=4)
     # curves, nx, ny = get_curves("060.tif", 255)
     # img_1 = np.zeros((nx, ny))
     # img_1[curves] = 255
