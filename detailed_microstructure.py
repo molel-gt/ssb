@@ -25,6 +25,15 @@ def get_curves(img_file_path, min_val):
     return curves, nx, ny
 
 
+def extract_voids(img):
+    img = img - np.min(img)
+    img_1 = ski.filters.gaussian(img, sigma=1.0) < 0.125
+    contours = ski.measure.find_contours(img_1, 0.8)
+    contours = sorted(contours, key=len, reverse=True)
+
+    return contours
+
+
 def points_in_polygon(polygon_coords, grid_size=1):
     """
     Generates discrete points within a polygon.
