@@ -12,6 +12,13 @@ import shapely
 
 import skimage as ski
 # from matplotlib.patches import Polygon
+from geomdl import BSpline
+from geomdl import utilities
+from geomdl.visualization import VisMPL
+
+from geomdl import BSpline
+from geomdl import utilities
+from geomdl.visualization import VisMPL
 from PIL import Image
 from shapely import plotting
 from shapely.geometry import Polygon, Point
@@ -19,7 +26,7 @@ from skimage.measure import find_contours, approximate_polygon, subdivide_polygo
 
 import geometry, grapher, plot_opts, utils
 # plt.rcParams.update(plot_opts.params)
-
+VisMPL.plt.rcParams.update(plot_opts.params)
 
 data_folder = os.path.join(os.environ["HOME"], "OneDrive/PhD/Data/SEM Image/segmentation/")
 # fig, ax = plt.subplots()
@@ -180,7 +187,7 @@ if __name__ == '__main__':
     raw_dir = os.path.join(os.environ["HOME"], "OneDrive/PhD/Data/SEM Image/segmentation/raw")
     if args.extract_voids:
         write_voids_polygon(voids_dir, args.img_id)
-    fig, ax = plt.subplots()
+    fig, ax = VisMPL.plt.subplots()
     segmentor = Segmentor(img_id=args.img_id, ax=ax, fig=fig)
     segmentor.setup()
     ax.imshow(segmentor.img_raw, "gray")
@@ -188,6 +195,7 @@ if __name__ == '__main__':
     ax.set_xlim([0, segmentor.img_raw.shape[0]])
     ax.set_ylim([0, segmentor.img_raw.shape[1]])
     ax.set_box_aspect(1)
+    # ax.invert_yaxis()
     fig.canvas.manager.resize(*fig.canvas.manager.window.maxsize())
     poly_plot = None
     cam_coords = []
@@ -210,7 +218,16 @@ if __name__ == '__main__':
             poly_plot.remove()
         coords_arr = np.array(coords)
         # poly_plot = ax.scatter(coords[:, 1], coords[:, 0], s=0.5, linestyle="-.", color="white")
-        poly_plot = plotting.plot_polygon(polygon, ax=ax, linewidth=0.5, add_points=False, facecolor=None, edgecolor="red")
+        # poly_plot = plotting.plot_polygon(polygon, ax=ax, linewidth=0.5, add_points=False, facecolor=None, edgecolor="red")
+        curve = BSpline.Curve()
+        curve.degree = 2
+        curve.ctrlpts = [[c[1], c[0]] for c in coords]
+        curve.knotvector = utilities.generate_knot_vector(curve.degree, len(curve.ctrlpts))
+        curve.delta = 0.01
+        # curve.vis = VisMPL.VisCurve2D(plt_ax=ax, plt_fig=fig)
+        # poly_plot = curve.render()
+        evalpts = np.array(curve.evalpts)
+        poly_plot = ax.plot(evalpts[:, 0], evalpts[:, 1], "r", linewidth=2)[0]
         keypressed = False
         while not keypressed:
             keypressed = plt.waitforbuttonpress()
