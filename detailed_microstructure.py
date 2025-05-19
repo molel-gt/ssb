@@ -94,10 +94,10 @@ class Segmentor:
         img = data[:, :, 0]
         nx, ny = img.shape
         # pad boundaries
-        # img[:, 0] = 255
-        # img[:, -1] = 255
-        # img[0, :] = 255
-        # img[-1, :] = 255
+        img[:, 0] = 255
+        img[:, -1] = 255
+        img[0, :] = 255
+        img[-1, :] = 255
         curves = np.where(np.greater_equal(img, min_val))
         img_1 = np.zeros((nx, ny), dtype=np.uint8)
         img_1[curves] = 255
@@ -134,12 +134,36 @@ class Segmentor:
 
 
 def extract_voids_polygons(img):
+    # fig, ax = plt.subplots()
+    # ax.imshow(img, "gray")
     img = img - np.min(img)
     img_1 = ski.filters.gaussian(img, sigma=1.0) < 0.125
     contours = ski.measure.find_contours(img_1, 0)
     contours = sorted(contours, key=len, reverse=True)
+    new_contours = []
+    for contour in contours:
+        coords = ski.measure.approximate_polygon(contour, tolerance=1)
+        if len(coords) < 4:
+            continue
 
-    return contours
+        polygon = Polygon([(c[1], c[0]) for c in coords])
+        if np.isclose(polygon.area, 0):
+            continue
+        if polygon.area < 4:
+            continue
+        new_contours.append(contour)
+        # curve = BSpline.Curve()
+        # curve.degree = 2
+        # curve.ctrlpts = [[c[1], c[0]] for c in coords]
+        # curve.knotvector = utilities.generate_knot_vector(curve.degree, len(curve.ctrlpts))
+        # curve.delta = 0.01
+        # evalpts = np.array(curve.evalpts)
+        # poly_plot = ax.plot(evalpts[:, 0], evalpts[:, 1], "r", linewidth=1)[0]
+    # ax.set_box_aspect(1)
+    # plt.tight_layout()
+    # plt.show()
+
+    return new_contours
 
 
 def points_in_polygon(polygon_coords, grid_size=1):
@@ -167,7 +191,7 @@ def points_in_polygon(polygon_coords, grid_size=1):
 
 def write_voids_polygon(voids_dir, img_id):
     voids_path = os.path.join(voids_dir, f"{str(img_id).zfill(3)}.json")
-    print(f"Processing image {idx}")
+    print(f"Processing image {img_id}")
     img = plt.imread(f"output/segmentation/raw/{str(img_id).zfill(3)}.tif")
     voids_poly = [poly.tolist() for poly in extract_voids_polygons(img) if poly.shape[0] >= 4]
     with open(voids_path, "w", encoding='utf-8') as f:
@@ -187,6 +211,7 @@ if __name__ == '__main__':
     raw_dir = os.path.join(os.environ["HOME"], "OneDrive/PhD/Data/SEM Image/segmentation/raw")
     if args.extract_voids:
         write_voids_polygon(voids_dir, args.img_id)
+        quit()
     fig, ax = VisMPL.plt.subplots()
     segmentor = Segmentor(img_id=args.img_id, ax=ax, fig=fig)
     segmentor.setup()
@@ -210,7 +235,7 @@ if __name__ == '__main__':
         polygon = Polygon([(c[1], c[0]) for c in coords])
         if np.isclose(polygon.area, 0):
             continue
-        if polygon.area < 100:
+        if polygon.area < 400:
             continue
         hull_cc = shapely.concave_hull(polygon, ratio=0.1)
         hull_cv = shapely.convex_hull(polygon)
@@ -227,7 +252,7 @@ if __name__ == '__main__':
         # curve.vis = VisMPL.VisCurve2D(plt_ax=ax, plt_fig=fig)
         # poly_plot = curve.render()
         evalpts = np.array(curve.evalpts)
-        poly_plot = ax.plot(evalpts[:, 0], evalpts[:, 1], "r", linewidth=2)[0]
+        poly_plot = ax.plot(evalpts[:, 0], evalpts[:, 1], "r", linewidth=1)[0]
         keypressed = False
         while not keypressed:
             keypressed = plt.waitforbuttonpress()
