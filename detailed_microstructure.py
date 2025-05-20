@@ -101,8 +101,7 @@ class Segmentor:
         curves = np.where(np.greater_equal(img, min_val))
         img_1 = np.zeros((nx, ny), dtype=np.uint8)
         img_1[curves] = 255
-        # img_1 = np.greater_equal(data[:, :, 0], data[:, :, 3])
-        contours = ski.measure.find_contours(img_1, 0)#, fully_connected="high")#, "low", "low")
+        contours = ski.measure.find_contours(img_1, 0)
         contours = sorted(contours, key=len, reverse=True)
 
         return contours
@@ -204,6 +203,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='segmentation')
     parser.add_argument('--img_id', help='id number of image to process', required=True)
     parser.add_argument("--extract_voids", help="whether to extract voids", default=False, action=argparse.BooleanOptionalAction)
+    # parser.add_argument("--generate_nodes", help="whether to generate nodes", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
     voids_dir = os.path.join(os.environ["HOME"], "OneDrive/PhD/Data/SEM Image/segmentation/voids")
     cam_dir = os.path.join(os.environ["HOME"], "OneDrive/PhD/Data/SEM Image/segmentation/cam")
@@ -227,7 +227,7 @@ if __name__ == '__main__':
     sse_coords = []
     pending_coords = []
     wrote_data = False
-    for contour in segmentor.get_contours()[1:]:
+    for contour in segmentor.get_contours():
         coords = ski.measure.approximate_polygon(contour, tolerance=1)
         # coords = np.vstack((coords, coords[0, :]))
         if len(coords) < 4:
