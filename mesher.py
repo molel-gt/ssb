@@ -71,7 +71,7 @@ if __name__ == '__main__':
     folder = sys.argv[1]
 
     gmsh.initialize()
-    gmsh.merge(f"output/segmentation/{folder}.ply")
+    gmsh.merge(f"output/segmentation/{folder}.stl")
     gmsh.model.mesh.createTopology()
     gmsh.model.mesh.classifySurfaces(gmsh.pi, True, True, gmsh.pi)
     gmsh.model.mesh.createGeometry()
