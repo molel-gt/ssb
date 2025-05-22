@@ -266,8 +266,9 @@ if __name__ == '__main__':
         tomo[np.isclose(img_cam, 2), img_id - 1] = 1
         # tomo[np.isclose(img_voids, 1), img_id - 1] = 0
     get_aggregates_and_write_to_file(tomo, phase=phase)
-    phase_volumes, agg_surf_loop_list = create_volumes_from_stl(phase=phase)
     gmsh.initialize()  # Initialize the gmsh API
+    phase_volumes, agg_surf_loop_list = create_volumes_from_stl(phase=phase)
+
     # Save the last tag index for the aggregate
     agg_last_idx = phase_volumes[-1]
     sloop = create_box_surface_loop(Lx=499, Ly=100, Lz=202)
