@@ -314,7 +314,7 @@ if __name__ == '__main__':
                 print(surf[1])
     gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "Left")
     gmsh.model.addPhysicalGroup(2, right_surfs, markers.right, "Right")
-    gmsh.model.addPhysicalGroup(2, interface_surfs, markers.left, "SE/AM")
+    gmsh.model.addPhysicalGroup(2, interface_surfs, markers.electrolyte_v_positive_am, "SE/AM")
     gmsh.model.geo.synchronize()
     # Selection of the Delaunay algorithm for meshing
     # gmsh.option.setNumber("Mesh.Algorithm", 5)
