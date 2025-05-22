@@ -100,7 +100,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     pv_sieved_e_d = pv_sieved.copy()
     print("Dilation and erosion to remove small features")
     n_ero_dil = 2
-    ks = 5
+    ks = 4
     for i in range(n_ero_dil):
         for j in range(0, 40):
             pv_sieved_e_d = pv_sieved_e_d.image_dilate_erode(dilate_value=0, erode_value=j, kernel_size=(ks, ks, ks))
@@ -143,7 +143,12 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     # 'refine' is true, adds inner vertices to reproduce the sampling
     # density of the surroundings. Returns number of holes patched.  If
     # 'nbe' is 0 (default), all the holes are patched.
-    mfix.fill_small_boundaries(refine=True)
+    mfix.fill_small_boundaries(refine=False)
+    cleaned = mfix.clean(max_iters=10, inner_loops=3)
+    if cleaned:
+        print("Cleaned!")
+    else:
+        print("Not cleaned!")
 
     # Converting the pymeshfix object to pyvista polydata
     vert, faces = mfix.return_arrays()
@@ -170,12 +175,12 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     for i, sie_agg in enumerate(sieved_aggs):
         print(f'Getting Mesh for Agg: {i+1}')
         sie_agg_raw_surf = sie_agg.extract_geometry()
-        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=20, pass_band=0.05, non_manifold_smoothing=True)
+        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=100, pass_band=0.05, non_manifold_smoothing=True)
         pv.save_meshio(os.path.join(workdir, f'aggs/agg_{i+1}.stl'), sie_agg_smooth_surf)
 
     # Saving it to a vtk file
     sieved_aggs_raw_surf = sieved_aggs_raw.extract_geometry()
-    surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=20, pass_band=0.05, non_manifold_smoothing=True)
+    surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=100, pass_band=0.05, non_manifold_smoothing=True)
     surf_smooth_mesh.save(os.path.join(workdir, f'3_surf_smooth_mesh.vtk'))
 
     return
@@ -324,7 +329,7 @@ if __name__ == '__main__':
     # Creation of a distance field to control the mesh element sides
     gmsh.model.mesh.field.add("Distance", 1)
     gmsh.model.mesh.field.setNumbers(1, "FacesList", [item for sublist in surfaces_to_combine for item in sublist])
-    gmsh.model.mesh.field.setNumber(1, "NNodesByEdge", 10)
+    gmsh.model.mesh.field.setNumber(1, "NNodesByEdge", 50)
 
     # We then define a `Threshold' field, which uses the return value of the
     # `Distance' field 1 in order to define a simple change in element size
