@@ -277,7 +277,7 @@ if __name__ == '__main__':
         # padding of AM
         tomo[:, :5, img_id - 1] = 1
         # tomo[np.isclose(img_voids, 1), img_id - 1] = 0
-    # get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape)
+    get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape)
     gmsh.initialize()  # Initialize the gmsh API
     phase_volumes, agg_surf_loop_list, surfaces_to_combine = create_volumes_from_stl(phase=phase)
 
