@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import glob
 
@@ -170,12 +171,12 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     for i, sie_agg in enumerate(sieved_aggs):
         print(f'Getting Mesh for Agg: {i+1}')
         sie_agg_raw_surf = sie_agg.extract_geometry()
-        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=100, pass_band=0.025 * 2, progress_bar=False)
+        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=20, pass_band=0.1, progress_bar=False)
         pv.save_meshio(f'./output/segmentation/{phase}/aggs/agg_{i+1}.stl', sie_agg_smooth_surf)
 
     # Saving it to a vtk file
     sieved_aggs_raw_surf = sieved_aggs_raw.extract_geometry()
-    surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=100, pass_band=0.025 * 2)
+    surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=20, pass_band=0.1)
     surf_smooth_mesh.save(f'./output/segmentation/{phase}/3_surf_smooth_mesh.vtk')
 
     return
@@ -257,7 +258,7 @@ def create_box_surface_loop(Lx, Ly, Lz, L_sep):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='secondary current distribution')
-    parser.add_argument('--size', help='Lx-Ly-Lz', required=True, type="str")
+    parser.add_argument('--size', help='Lx-Ly-Lz', required=True, type=str)
     parser.add_argument("--origin", help="where to extract data", nargs='?', const=1, default='0-0-0', type=str)
     parser.add_argument("--phase", help="particulate phase", nargs='?', const=1, default='cam', type=str)
     parser.add_argument("--L_sep", help="separator thickness", nargs='?', const=1, default=100, type=float)
@@ -269,7 +270,7 @@ if __name__ == '__main__':
     markers = commons.Markers()
     tomo = np.zeros((Lx + 1, Ly + 1, Lz + 1), dtype=np.bool)
     tomo = tomo.astype(np.uint8)
-    for img_id in range(1, 203):
+    for img_id in range(1, Lz + 2):
         img_cam = plt.imread(os.path.join(cam_dir, f"{str(img_id).zfill(3)}.tif"))[:Lx+1, :Ly+1]
         # img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
         tomo[np.isclose(img_cam, 2), img_id - 1] = 1
