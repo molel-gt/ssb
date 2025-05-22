@@ -78,7 +78,7 @@ if __name__ == '__main__':
     Ly = 499
     Lz = 201
     gmsh.initialize()
-    gmsh.merge(f"output/segmentation/voids.msh")
+    gmsh.merge(f"output/segmentation/{folder}.msh")
     gmsh.model.geo.synchronize()
     vols = gmsh.model.getEntities(3)
     print(vols)
