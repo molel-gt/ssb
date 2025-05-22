@@ -84,7 +84,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     print("Create pyvista uniform grid")
     pv_sieved = pv.ImageData()
     pv_sieved.dimensions = data_shape
-    # pv_sieved.spacing = [0.0858e-6, 0.0858e-6, 160e-6]
+    # pv_sieved.spacing = [0.0858e-6, 0.0858e-6, 0.05e-6]
     pv_sieved.origin = [0, 0, 0]
     pv_sieved.point_data['Label'] = spam_sieved_labels.T.flatten()
     agg_flag = np.zeros(spam_sieved_labels.T.shape).flatten()
@@ -102,11 +102,11 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     n_ero_dil = 2
     ks = 4
     for i in range(n_ero_dil):
-        for j in range(0, 20):
+        for j in range(0, 40):
             pv_sieved_e_d = pv_sieved_e_d.image_dilate_erode(dilate_value=0, erode_value=j, kernel_size=(ks, ks, ks))
         
     for i in range(n_ero_dil + 1):
-        for j in range(0, 20):
+        for j in range(0, 40):
             pv_sieved_e_d = pv_sieved_e_d.image_dilate_erode(dilate_value=j, erode_value=0, kernel_size=(ks, ks, ks))
 
 
@@ -143,7 +143,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     # 'refine' is true, adds inner vertices to reproduce the sampling
     # density of the surroundings. Returns number of holes patched.  If
     # 'nbe' is 0 (default), all the holes are patched.
-    mfix.fill_small_boundaries(refine=True)
+    mfix.fill_small_boundaries(refine=False)
     # Converting the pymeshfix object to pyvista polydata
     vert, faces = mfix.return_arrays()
     triangles = np.empty((faces.shape[0], 4), dtype=faces.dtype)
@@ -169,8 +169,8 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     for i, sie_agg in enumerate(sieved_aggs):
         print(f'Getting Mesh for Agg: {i+1}')
         sie_agg_raw_surf = sie_agg.extract_geometry()
-        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=20, pass_band=0.5)
-        pv.save_meshio(os.path.join(workdir, f'aggs/agg_{i+1}.stl'), sie_agg_smooth_surf)
+        # sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=20, pass_band=0.5)
+        pv.save_meshio(os.path.join(workdir, f'aggs/agg_{i+1}.stl'), sie_agg_raw_surf)
 
     # Saving it to a vtk file
     sieved_aggs_raw_surf = sieved_aggs_raw.extract_geometry()
@@ -185,7 +185,7 @@ def create_volumes_from_stl(phase, workdir):
     for i, agg_path in enumerate(glob.glob(os.path.join(workdir, 'aggs/*'))):
         print(i)
         gmsh.merge(os.path.join(agg_path))
-
+    gmsh.model.geo.synchronize()
     # Split each surfaces for creating the separated geometry entities
     gmsh.model.mesh.classifySurfaces(gmsh.pi, True, True, gmsh.pi)
 
@@ -193,6 +193,7 @@ def create_volumes_from_stl(phase, workdir):
 
     # Create a geometry for each one of the discrete entities (aggregates)
     gmsh.model.mesh.createGeometry()
+    gmsh.model.geo.synchronize()
 
 
     # As the gmsh `classifySurfaces()` function splits the aggregates
@@ -215,6 +216,7 @@ def create_volumes_from_stl(phase, workdir):
         agg_surf_loop_list.append(agg_surf)             # Include in the list
         gmsh.model.geo.addVolume([agg_surf], tag=i)     # Create the volume
         volumes.append(i)
+        gmsh.model.geo.synchronize()
     return volumes, agg_surf_loop_list, surfaces_to_combine
 
 
@@ -273,17 +275,18 @@ if __name__ == '__main__':
     for img_id in range(1, Lz + 2):
         img_cam = np.asarray(plt.imread(os.path.join(cam_dir, f"{str(img_id).zfill(3)}.tif")).copy())
         img_cam = img_cam[:Lx+1, :Ly+1]
-        img_cam[:10, :] = 2
-        img_cam[-1:, :] = 0
-        img_cam[:, 0] = 0
-        img_cam[:, -1] = 0
+        # img_cam[:2, :] = 2
+        # img_cam[-1:, :] = 0
+        # img_cam[:, 0] = 0
+        # img_cam[:, -1] = 0
         # img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
         tomo[np.isclose(img_cam, 2), img_id - 1] = 1
         # padding of AM
         # tomo[:, :10, img_id - 1] = 1
         # tomo[np.isclose(img_voids, 1), img_id - 1] = 0
-    get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
+    # get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
     gmsh.initialize()  # Initialize the gmsh API
+    gmsh.option.setNumber("Mesh.Smoothing", 10)
     phase_volumes, agg_surf_loop_list, surfaces_to_combine = create_volumes_from_stl(phase=phase, workdir=workdir)
 
     # Save the last tag index for the aggregate
@@ -293,10 +296,10 @@ if __name__ == '__main__':
 
     # Synchronize the built-in CAD representation with the current Gmsh model
     gmsh.model.geo.synchronize()
-    gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
+    # gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
     gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.positive_am)
     gmsh.model.geo.synchronize()
-    surfs = gmsh.model.getEntities(2)
+    # surfs = gmsh.model.getEntities(2)
     left_surfs = []
     right_surfs = []
     interface_surfs = []
@@ -320,9 +323,10 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "Left")
     gmsh.model.addPhysicalGroup(2, right_surfs, markers.right, "Right")
     gmsh.model.addPhysicalGroup(2, interface_surfs, markers.electrolyte_v_positive_am, "SE/AM")
-    gmsh.model.geo.synchronize()
+    # gmsh.model.geo.synchronize()
     # Selection of the Delaunay algorithm for meshing
     gmsh.option.setNumber("Mesh.Algorithm", 5)
+    # gmsh.option.setNumber("Mesh.SizeMax", 1e-6)
 
     # Creation of a distance field to control the mesh element sides
     # gmsh.model.mesh.field.add("Distance", 1)
@@ -348,6 +352,7 @@ if __name__ == '__main__':
     # gmsh.model.mesh.field.setNumber(2, "DistMax", 5)
 
     # gmsh.model.mesh.field.setAsBackgroundMesh(2)
+    gmsh.model.geo.synchronize()
     gmsh.model.mesh.generate(3)
     # Writing the `.msh` file
     gmsh.write(os.path.join(workdir, "mesh.msh"))
