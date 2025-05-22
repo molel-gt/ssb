@@ -273,7 +273,7 @@ if __name__ == '__main__':
     tomo = tomo.astype(np.uint8)
     for img_id in range(1, Lz + 2):
         img_cam = np.asarray(plt.imread(os.path.join(cam_dir, f"{str(img_id).zfill(3)}.tif")).copy()[:Lx+1, :Ly+1])
-        img_cam[:, 0:10] = 2
+        img_cam[:, :10] = 2
         # img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
         tomo[np.isclose(img_cam, 2), img_id - 1] = 1
         # padding of AM
