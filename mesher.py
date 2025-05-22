@@ -4,6 +4,7 @@ import os
 import sys
 
 import gmsh
+import meshlib.mrmeshpy as mrmeshpy
 import numpy as np
 import pymeshlab
 import trimesh
@@ -84,14 +85,30 @@ if __name__ == '__main__':
     markers = commons.Markers()
     workdir = os.path.join(f"output/segmentation/{args.phase}/{args.size}/{args.origin}")
     ms = pymeshlab.MeshSet()
-    ms.load_new_mesh("output/segmentation/cam.stl")
-    ms.meshing_remove_unreferenced_vertices()
-    ms.meshing_repair_non_manifold_vertices()
-    ms.meshing_repair_non_manifold_edges()
-    ms.meshing_close_holes()
-    ms.meshing_snap_mismatched_borders()
-    # ms.generate_resampled_uniform_mesh()
-    ms.save_current_mesh("output/segmentation/cam-repaired.stl")
+
+    mesh = mrmeshpy.loadMesh("output/segmentation/cam.stl")
+    params = mrmeshpy.FixMeshDegeneraciesParams()
+    params.maxDeviation = 1e-5 * mesh.computeBoundingBox().diagonal()
+    params.tinyEdgeLength = 1e-3
+    mrmeshpy.fixMeshDegeneracies(mesh, params)
+    # Find single edge for each hole in mesh
+    hole_edges = mesh.topology.findHoleRepresentiveEdges()
+
+    for e in hole_edges:
+        #  Setup filling parameters
+        params = mrmeshpy.FillHoleParams()
+        params.metric = mrmeshpy.getUniversalMetric(mesh)
+        #  Fill hole represented by `e`
+        mrmeshpy.fillHole(mesh, e, params)
+    mrmeshpy.saveMesh("output/segmentation/cam-repaired.stl")
+    # ms.load_new_mesh("output/segmentation/cam.stl")
+    # ms.meshing_remove_unreferenced_vertices()
+    # ms.meshing_repair_non_manifold_vertices()
+    # ms.meshing_repair_non_manifold_edges()
+    # ms.meshing_close_holes()
+    # ms.meshing_snap_mismatched_borders()
+    # # ms.generate_resampled_uniform_mesh()
+    # ms.save_current_mesh("output/segmentation/cam-repaired.stl")
     utils.make_dir_if_missing(workdir)
     x0, y0, z0 = [int(val) for val in args.origin.split("-")]
     Lx, Ly, Lz = [int(val) for val in args.size.split("-")]
