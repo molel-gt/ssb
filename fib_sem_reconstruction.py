@@ -144,7 +144,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     # 'refine' is true, adds inner vertices to reproduce the sampling
     # density of the surroundings. Returns number of holes patched.  If
     # 'nbe' is 0 (default), all the holes are patched.
-    mfix.fill_small_boundaries(refine=False)
+    mfix.fill_small_boundaries(refine=True)
 
     # Converting the pymeshfix object to pyvista polydata
     vert, faces = mfix.return_arrays()
@@ -290,6 +290,31 @@ if __name__ == '__main__':
     gmsh.model.geo.synchronize()
     gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
     gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.positive_am)
+    gmsh.model.geo.synchronize()
+    surfs = gmsh.model.getEntities(2)
+    left_surfs = []
+    right_surfs = []
+    interface_surfs = []
+    insulated_am = []
+    insulated_se = []
+    for surf in surfs:
+        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
+        if np.isclose(ymin, ymax) and np.isclose(ymin, 0):
+            right_surfs.append(surf[1])
+        elif np.isclose(ymin, ymax) and np.isclose(ymin, Ly + args.L_sep):
+            left_surfs.append(surf[1])
+        elif np.isclose(xmin, xmax) and (np.isclose(xmin, 0) or np.isclose(xmin, Lx)):
+            insulated_am.append(surf[1])
+        elif np.isclose(zmin, zmax) and (np.isclose(zmin, 0) or np.isclose(zmin, Lz)):
+            insulated_am.append(surf[1])
+        else:
+            if surf[1] in agg_surf_loop_list:
+                interface_surfs.append(surf[1])
+            else:
+                print(surf[1])
+    gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "Left")
+    gmsh.model.addPhysicalGroup(2, right_surfs, markers.right, "Right")
+    gmsh.model.addPhysicalGroup(2, interface_surfs, markers.left, "SE/AM")
     gmsh.model.geo.synchronize()
     # Selection of the Delaunay algorithm for meshing
     # gmsh.option.setNumber("Mesh.Algorithm", 5)
