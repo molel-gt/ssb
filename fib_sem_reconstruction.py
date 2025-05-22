@@ -143,7 +143,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     # 'refine' is true, adds inner vertices to reproduce the sampling
     # density of the surroundings. Returns number of holes patched.  If
     # 'nbe' is 0 (default), all the holes are patched.
-    mfix.fill_small_boundaries(refine=True)
+    # mfix.fill_small_boundaries(4, refine=True)
     # Converting the pymeshfix object to pyvista polydata
     vert, faces = mfix.return_arrays()
     triangles = np.empty((faces.shape[0], 4), dtype=faces.dtype)
@@ -276,18 +276,18 @@ if __name__ == '__main__':
     for img_id in range(1, Lz + 2):
         img_cam = np.asarray(plt.imread(os.path.join(cam_dir, f"{str(img_id).zfill(3)}.tif")).copy())
         img_cam = img_cam[:Lx+1, :Ly+1]
-        # img_cam[:2, :] = 2
-        # img_cam[-1:, :] = 0
-        # img_cam[:, 0] = 0
-        # img_cam[:, -1] = 0
         # img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
         tomo[np.isclose(img_cam, 2), img_id - 1] = 1
-        # padding of AM
-        # tomo[:, :10, img_id - 1] = 1
-        # tomo[np.isclose(img_voids, 1), img_id - 1] = 0
+    tomo[0, :, :] = 1
+    tomo[-1, :, :] = 1
+
+    tomo[:, 0, :] = 1
+    tomo[:, -1, :] = 1
+    tomo[:, :, 0] = 1
+    tomo[:, :, -1] = 1
     get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
     gmsh.initialize()  # Initialize the gmsh API
-    gmsh.option.setNumber("Mesh.Smoothing", 10)
+    # gmsh.option.setNumber("Mesh.Smoothing", 10)
     phase_volumes, agg_surf_loop_list, surfaces_to_combine = create_volumes_from_stl(phase=phase, workdir=workdir)
 
     # Save the last tag index for the aggregate
@@ -297,10 +297,10 @@ if __name__ == '__main__':
 
     # Synchronize the built-in CAD representation with the current Gmsh model
     gmsh.model.geo.synchronize()
-    # gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
+    gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
     gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.positive_am)
     gmsh.model.geo.synchronize()
-    # surfs = gmsh.model.getEntities(2)
+    surfs = gmsh.model.getEntities(2)
     left_surfs = []
     right_surfs = []
     interface_surfs = []
@@ -326,8 +326,8 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, interface_surfs, markers.electrolyte_v_positive_am, "SE/AM")
     # gmsh.model.geo.synchronize()
     # Selection of the Delaunay algorithm for meshing
-    gmsh.option.setNumber("Mesh.Algorithm", 5)
-    # gmsh.option.setNumber("Mesh.SizeMax", 1e-6)
+    # gmsh.option.setNumber("Mesh.Algorithm", 5)
+    # gmsh.option.setNumber("Mesh.SizeMax", 1)
 
     # Creation of a distance field to control the mesh element sides
     # gmsh.model.mesh.field.add("Distance", 1)
