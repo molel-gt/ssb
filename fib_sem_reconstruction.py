@@ -54,6 +54,9 @@ def group_surfaces_adjacencies(adj):
 def get_aggregates_and_write_to_file(tomo, phase="voids"):
     utils.make_dir_if_missing(f"output/segmentation/{phase}")
     utils.make_dir_if_missing(f"output/segmentation/{phase}/aggs")
+
+    # binary segmentation of data
+    print(f"binary segmentation of data of {phase}")
     binary_labels_spam = spam.label.watershed(tomo)
     radii = spam.label.equivalentRadii(binary_labels_spam)
     radii_sieved = np.copy(radii)
@@ -76,6 +79,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids"):
 
 
     # Converting the np.array image to a pyvista Uniform Grid
+    print("Create pyvista uniform grid")
     pv_sieved = pv.ImageData()
     pv_sieved.dimensions = [500, 500, 202]
     # pv_sieved.spacing = [160e-6, 160e-6, 160e-6]
@@ -92,7 +96,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids"):
 
 
     pv_sieved_e_d = pv_sieved.copy()
-
+    print("Dilation and erosion to remove small features")
     n_ero_dil = 2
     ks = 5
     for i in range(n_ero_dil):
