@@ -281,8 +281,33 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
     gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.active_material)
     gmsh.model.geo.synchronize()
+    # Selection of the Delaunay algorithm for meshing
+    gmsh.option.setNumber("Mesh.Algorithm", 5)
 
+    # Creation of a distance field to control the mesh element sides
+    gmsh.model.mesh.field.add("Distance", 1)
+    gmsh.model.mesh.field.setNumbers(1, "SurfacesList", [item for sublist in surfaces_to_combine for item in sublist])
+    gmsh.model.mesh.field.setNumber(1, "NNodesByEdge", 50)
 
+    # We then define a `Threshold' field, which uses the return value of the
+    # `Distance' field 1 in order to define a simple change in element size
+    # depending on the computed distances
+    #
+    # SizeMax -                     /------------------
+    #                              /
+    #                             /
+    #                            /
+    # SizeMin -o----------------/
+    #          |                |    |
+    #        Point         DistMin  DistMax
+    gmsh.model.mesh.field.add("Threshold", 2)
+    gmsh.model.mesh.field.setNumber(2, "InField", 1)
+    gmsh.model.mesh.field.setNumber(2, "SizeMin", 1.0)
+    gmsh.model.mesh.field.setNumber(2, "SizeMax", 2.5)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 1)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 5)
+
+    gmsh.model.mesh.field.setAsBackgroundMesh(2)
     gmsh.model.mesh.generate()
     # Writing the `.msh` file
     gmsh.write("./output/4_final_mesh.msh")
