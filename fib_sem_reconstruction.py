@@ -1,23 +1,25 @@
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-import numpy as np
+#!/usr/bin/env python3
 import os
 import glob
 
+import gmsh
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+import meshio
+import numpy as np
+import pyvista as pv
 import spam.DIC
 import spam
 import spam.plotting
 
+from pymeshfix._meshfix import PyTMesh
 from skimage.io import imread_collection
 from skimage import morphology, measure
 
-import pyvista as pv
-import gmsh
-import meshio
+import commons, plot_opts, utils
 
-import commons, utils
 
-plt.rcParams['font.size'] = 12
+plt.rcParams.update(plot_opts.params)
 
 cam_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/cam")
 voids_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/voids")
@@ -133,8 +135,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids"):
     # Using the clean functionality to remove degenerate surfaces etc
     surf_raw_mesh.clean(inplace=True)
 
-
-    from pymeshfix._meshfix import PyTMesh
+    print("Repairing mesh using pymeshfix")
     mfix = PyTMesh(False)  # False removes extra verbose output
     mfix.load_array(surf_raw_mesh.points, surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces, 4))[:, 1:] )
 
