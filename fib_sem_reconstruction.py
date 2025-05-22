@@ -143,7 +143,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     # 'refine' is true, adds inner vertices to reproduce the sampling
     # density of the surroundings. Returns number of holes patched.  If
     # 'nbe' is 0 (default), all the holes are patched.
-    mfix.fill_small_boundaries(refine=False)
+    mfix.fill_small_boundaries(2, refine=False)
     cleaned = mfix.clean(max_iters=10, inner_loops=3)
     if cleaned:
         print("Cleaned!")
