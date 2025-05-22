@@ -97,10 +97,12 @@ if __name__ == '__main__':
 
     # Create a list with the surface loops of each aggregate
     agg_surf_loop_list = []
+    phase_volumes = []
     for i, stc in enumerate(surfaces_to_combine):
         agg_surf = gmsh.model.geo.addSurfaceLoop(stc)   # Add the surface loop
         agg_surf_loop_list.append(agg_surf)             # Include in the list
         gmsh.model.geo.addVolume([agg_surf], tag=i)     # Create the volume
+        phase_volumes.append(i)
         gmsh.model.geo.synchronize()
         
     # Save the last tag index for the aggregate
@@ -111,11 +113,34 @@ if __name__ == '__main__':
     vols = gmsh.model.getEntities(3)
     print(vols)
     gmsh.model.geo.synchronize()
-    # gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
+    gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
     gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.positive_am)
     gmsh.model.geo.synchronize()
-    # gmsh.model.addPhysicalGroup(3, [v[1] for v in vols], markers.void, "volume")
-    # gmsh.model.addPhysicalGroup(2, [v[1] for v in surfs], 1, "surface")
+
+    left_surfs = []
+    right_surfs = []
+    interface_surfs = []
+    insulated_am = []
+    insulated_se = []
+    for surf in surfs:
+        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
+        if np.isclose(ymin, ymax) and np.isclose(ymin, 0):
+            right_surfs.append(surf[1])
+        elif np.isclose(ymin, ymax) and np.isclose(ymin, Ly + args.L_sep):
+            left_surfs.append(surf[1])
+        elif np.isclose(xmin, xmax) and (np.isclose(xmin, 0) or np.isclose(xmin, Lx)):
+            insulated_am.append(surf[1])
+        elif np.isclose(zmin, zmax) and (np.isclose(zmin, 0) or np.isclose(zmin, Lz)):
+            insulated_am.append(surf[1])
+        else:
+            if surf[1] in agg_surf_loop_list:
+                interface_surfs.append(surf[1])
+            else:
+                print(surf[1])
+    gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "Left")
+    gmsh.model.addPhysicalGroup(2, right_surfs, markers.right, "Right")
+    gmsh.model.addPhysicalGroup(2, interface_surfs, markers.electrolyte_v_positive_am, "SE/AM")
+
     gmsh.model.geo.synchronize()
     gmsh.model.mesh.generate(3)
     gmsh.write(f"{folder}.msh")
