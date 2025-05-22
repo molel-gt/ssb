@@ -84,7 +84,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     print("Create pyvista uniform grid")
     pv_sieved = pv.ImageData()
     pv_sieved.dimensions = data_shape
-    # pv_sieved.spacing = [160e-6, 160e-6, 160e-6]
+    # pv_sieved.spacing = [0.0858e-6, 0.0858e-6, 160e-6]
     pv_sieved.origin = [0, 0, 0]
     pv_sieved.point_data['Label'] = spam_sieved_labels.T.flatten()
     agg_flag = np.zeros(spam_sieved_labels.T.shape).flatten()
@@ -143,7 +143,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     # 'refine' is true, adds inner vertices to reproduce the sampling
     # density of the surroundings. Returns number of holes patched.  If
     # 'nbe' is 0 (default), all the holes are patched.
-    mfix.fill_small_boundaries(refine=True)
+    mfix.fill_small_boundaries(3, refine=False)
 
     # Converting the pymeshfix object to pyvista polydata
     vert, faces = mfix.return_arrays()
@@ -183,7 +183,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
 
 def create_volumes_from_stl(phase, workdir):
     # Merge each aggregate STL file
-    for i, agg_path in enumerate(glob.glob(os.path.join(workdir, f'aggs/*'))):
+    for i, agg_path in enumerate(glob.glob(os.path.join(workdir, 'aggs/*'))):
         print(i)
         gmsh.merge(os.path.join(agg_path))
 
@@ -346,5 +346,5 @@ if __name__ == '__main__':
     gmsh.model.mesh.field.setAsBackgroundMesh(2)
     gmsh.model.mesh.generate()
     # Writing the `.msh` file
-    gmsh.write("./output/segmentation/mesh.msh")
+    gmsh.write(os.path.join(workdir, "mesh.msh"))
     gmsh.finalize()
