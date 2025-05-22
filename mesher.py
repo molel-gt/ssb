@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import sys
 
 import gmsh
@@ -71,14 +72,19 @@ def create_box_surface_loop(Lx, Ly, Lz, L_sep):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='secondary current distribution')
+    parser.add_argument('--size', help='Lx-Ly-Lz', required=True, type=str)
+    parser.add_argument("--origin", help="where to extract data", nargs='?', const=1, default='0-0-0', type=str)
+    parser.add_argument("--phase", help="particulate phase", nargs='?', const=1, default='cam', type=str)
+    parser.add_argument("--L_sep", help="separator thickness", nargs='?', const=1, default=100, type=float)
+    args = parser.parse_args()
     markers = commons.Markers()
-    folder = sys.argv[1]
-    L_sep = 100
-    Lx = 499
-    Ly = 499
-    Lz = 201
+    workdir = os.path.join(f"output/segmentation/{phase}/{args.size}/{args.origin}")
+    utils.make_dir_if_missing(workdir)
+    x0, y0, z0 = [int(val) for val in args.origin.split("-")]
+    Lx, Ly, Lz = [int(val) for val in args.size.split("-")]
     gmsh.initialize()
-    gmsh.merge(f"output/segmentation/{folder}.msh")
+    gmsh.merge(f"output/segmentation/{args.phase}/{args.size}/{args.origin}/{phase}.msh")
     gmsh.model.geo.synchronize()
     vols = gmsh.model.getEntities(3)
     print(vols)
@@ -143,4 +149,4 @@ if __name__ == '__main__':
 
     gmsh.model.geo.synchronize()
     gmsh.model.mesh.generate(3)
-    gmsh.write(f"{folder}.msh")
+    gmsh.write(os.path.join(workdir, "mesh.msh"))
