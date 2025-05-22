@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import argparse
+import os
 import sys
 
 import gmsh
+import numpy as np
 import trimesh
 
-import commons
+import commons, utils
 
 def group_surfaces_adjacencies(adj):
     '''
@@ -79,24 +81,35 @@ if __name__ == '__main__':
     parser.add_argument("--L_sep", help="separator thickness", nargs='?', const=1, default=100, type=float)
     args = parser.parse_args()
     markers = commons.Markers()
-    workdir = os.path.join(f"output/segmentation/{phase}/{args.size}/{args.origin}")
+    workdir = os.path.join(f"output/segmentation/{args.phase}/{args.size}/{args.origin}")
     utils.make_dir_if_missing(workdir)
     x0, y0, z0 = [int(val) for val in args.origin.split("-")]
     Lx, Ly, Lz = [int(val) for val in args.size.split("-")]
     gmsh.initialize()
-    gmsh.merge(f"output/segmentation/{args.phase}/{args.size}/{args.origin}/{phase}.msh")
+    gmsh.merge(os.path.join(workdir, f"{args.phase}.msh"))
+    # gmsh.model.geo.synchronize()
+    gmsh.model.mesh.createTopology(1)
     gmsh.model.geo.synchronize()
     vols = gmsh.model.getEntities(3)
-    print(vols)
-    gmsh.model.mesh.createTopology()
     # gmsh.model.mesh.classifySurfaces(gmsh.pi, True, True, gmsh.pi)
     # gmsh.model.mesh.createGeometry()
     gmsh.model.geo.synchronize()
     surfs = gmsh.model.getEntities(2)
-
+    # ov = gmsh.model.geo.copy(surfs)
+    # gmsh.model.geo.synchronize()
+    # print(ov)
     surfaces_adjacencies = []
-    for i, entity in enumerate(gmsh.model.getEntities(1)):
-        surfaces_adjacencies.append(gmsh.model.get_adjacencies(entity[0], entity[1])[0])
+    # adj = gmsh.model.get_adjacencies(*ov[-1])
+    # print(gmsh.model.getSurfaceLoop(2))
+    # bndry = gmsh.model.getBoundary([surfs[0]])
+    # print(bndry)
+    # entities =  gmsh.model.getEntitiesInBoundingBox(-10, -10, -10, 510, 510, 210, dim=-1)
+    # print(entities)
+    gmsh.model.geo.synchronize()
+    print(gmsh.model.getEntities(1))
+    # print(adj, gmsh.model.mesh.getAllEdges()[0])
+    for i, entity in enumerate(gmsh.model.mesh.getAllEdges()[0]):
+        surfaces_adjacencies.append(gmsh.model.get_adjacencies(1, entity)[0])
 
     # Python function to group surfacs that share at least a single upward adjency
     surfaces_to_combine = group_surfaces_adjacencies(surfaces_adjacencies)
@@ -110,17 +123,20 @@ if __name__ == '__main__':
         gmsh.model.geo.addVolume([agg_surf], tag=i)     # Create the volume
         phase_volumes.append(i)
         gmsh.model.geo.synchronize()
-        
+    # print(phase_volumes)
     # Save the last tag index for the aggregate
-    agg_last_idx = phase_volumes[-1]
+    # agg_last_idx = phase_volumes[-1]
     surfs = gmsh.model.getEntities(2)
-    sloop = create_box_surface_loop(Lx=Lx, Ly=Ly, Lz=Lz, L_sep=args.L_sep)
-    matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list, tag=agg_last_idx + 1)
     vols = gmsh.model.getEntities(3)
-    print(vols)
+    # print(vols)
+    agg_last_idx = np.max([v[1] for v in vols])
+    print(agg_last_idx)
+    # surface_loops = gmsh.model.geo.addSurfaceLoop([s[1] for s in surfs])#[gmsh.model.geo.getSurfaceLoop(3, vol) for vol in vols]
+    sloop = create_box_surface_loop(Lx=Lx, Ly=Ly, Lz=Lz, L_sep=args.L_sep)
+    # matrix_volume = gmsh.model.geo.addVolume([sloop] + [surface_loops], tag=agg_last_idx + 1)
     gmsh.model.geo.synchronize()
-    gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
-    gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.positive_am)
+    # gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
+    gmsh.model.addPhysicalGroup(3, [v[1] for v in vols], tag=markers.positive_am)
     gmsh.model.geo.synchronize()
 
     left_surfs = []
@@ -139,10 +155,10 @@ if __name__ == '__main__':
         elif np.isclose(zmin, zmax) and (np.isclose(zmin, 0) or np.isclose(zmin, Lz)):
             insulated_am.append(surf[1])
         else:
-            if surf[1] in agg_surf_loop_list:
-                interface_surfs.append(surf[1])
-            else:
-                print(surf[1])
+            # if surf[1] in agg_surf_loop_list:
+            interface_surfs.append(surf[1])
+            # else:
+            #     print(surf[1])
     gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "Left")
     gmsh.model.addPhysicalGroup(2, right_surfs, markers.right, "Right")
     gmsh.model.addPhysicalGroup(2, interface_surfs, markers.electrolyte_v_positive_am, "SE/AM")
