@@ -134,6 +134,7 @@ if __name__ == '__main__':
     # print(agg_last_idx)
     # surface_loops = gmsh.model.geo.addSurfaceLoop([s[1] for s in surfs])#[gmsh.model.geo.getSurfaceLoop(3, vol) for vol in vols]
     sloop = create_box_surface_loop(Lx=Lx, Ly=Ly, Lz=Lz, L_sep=args.L_sep)
+    gmsh.model.geo.synchronize()
     matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list, tag=agg_last_idx + 1)
     gmsh.model.geo.synchronize()
     gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
