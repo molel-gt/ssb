@@ -54,9 +54,8 @@ def group_surfaces_adjacencies(adj):
     return out
 
 
-def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 202)):
-    utils.make_dir_if_missing(f"output/segmentation/{phase}")
-    utils.make_dir_if_missing(f"output/segmentation/{phase}/aggs")
+def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 202), workdir="output/segmentation"):
+    utils.make_dir_if_missing(os.path.join(workdir, f"aggs"))
 
     # binary segmentation of data
     print(f"binary segmentation of data of {phase}")
@@ -95,7 +94,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
 
 
     # Saving the aggregates to a vtk file
-    pv_sieved.save(f'output/segmentation/{phase}/0_tomo.vtk')
+    pv_sieved.save(os.path.join(workdir, '0_tomo.vtk'))
 
 
     pv_sieved_e_d = pv_sieved.copy()
@@ -112,7 +111,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
 
 
     # Saving the result to a vtk file
-    pv_sieved_e_d.save(f'./output/segmentation/{phase}/1_tomo_e_d.vtk')
+    pv_sieved_e_d.save(os.path.join(workdir, f'1_tomo_e_d.vtk'))
 
 
     # Creating a common flag for all aggregates to perform the surface meshing
@@ -172,19 +171,19 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
         print(f'Getting Mesh for Agg: {i+1}')
         sie_agg_raw_surf = sie_agg.extract_geometry()
         sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=20, pass_band=0.1, non_manifold_smoothing=True)
-        pv.save_meshio(f'./output/segmentation/{phase}/aggs/agg_{i+1}.stl', sie_agg_smooth_surf)
+        pv.save_meshio(os.path.join(workdir, f'aggs/agg_{i+1}.stl'), sie_agg_smooth_surf)
 
     # Saving it to a vtk file
     sieved_aggs_raw_surf = sieved_aggs_raw.extract_geometry()
     surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=20, pass_band=0.1, non_manifold_smoothing=True)
-    surf_smooth_mesh.save(f'./output/segmentation/{phase}/3_surf_smooth_mesh.vtk')
+    surf_smooth_mesh.save(os.path.join(f'3_surf_smooth_mesh.vtk'))
 
     return
 
 
-def create_volumes_from_stl(phase):
+def create_volumes_from_stl(phase, workdir):
     # Merge each aggregate STL file
-    for i, agg_path in enumerate(glob.glob(f'./output/segmentation/{phase}/aggs/*')):
+    for i, agg_path in enumerate(glob.glob(os.path.join(workdir, f'aggs/*'))):
         print(i)
         gmsh.merge(os.path.join(agg_path))
 
@@ -265,6 +264,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     phase = args.phase
+    workdir = os.path.join(f"output/segmentation/{phase}/{args.size}/{args.origin}")
+    utils.make_dir_if_missing(workdir)
     x0, y0, z0 = [int(val) for val in args.origin.split("-")]
     Lx, Ly, Lz = [int(val) for val in args.size.split("-")]
     markers = commons.Markers()
@@ -277,9 +278,9 @@ if __name__ == '__main__':
         # padding of AM
         tomo[:, :5, img_id - 1] = 1
         # tomo[np.isclose(img_voids, 1), img_id - 1] = 0
-    get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape)
+    get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
     gmsh.initialize()  # Initialize the gmsh API
-    phase_volumes, agg_surf_loop_list, surfaces_to_combine = create_volumes_from_stl(phase=phase)
+    phase_volumes, agg_surf_loop_list, surfaces_to_combine = create_volumes_from_stl(phase=phase, workdir=workdir)
 
     # Save the last tag index for the aggregate
     agg_last_idx = phase_volumes[-1]
