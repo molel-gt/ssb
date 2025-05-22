@@ -290,12 +290,12 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.active_material)
     gmsh.model.geo.synchronize()
     # Selection of the Delaunay algorithm for meshing
-    gmsh.option.setNumber("Mesh.Algorithm", 5)
+    # gmsh.option.setNumber("Mesh.Algorithm3D", 10)
 
     # Creation of a distance field to control the mesh element sides
     gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "SurfacesList", [item for sublist in surfaces_to_combine for item in sublist])
-    gmsh.model.mesh.field.setNumber(1, "NNodesByEdge", 50)
+    gmsh.model.mesh.field.setNumbers(1, "FacesList", [item for sublist in surfaces_to_combine for item in sublist])
+    gmsh.model.mesh.field.setNumber(1, "NNodesByEdge", 10)
 
     # We then define a `Threshold' field, which uses the return value of the
     # `Distance' field 1 in order to define a simple change in element size
