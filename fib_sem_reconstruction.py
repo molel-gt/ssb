@@ -143,7 +143,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     # 'refine' is true, adds inner vertices to reproduce the sampling
     # density of the surroundings. Returns number of holes patched.  If
     # 'nbe' is 0 (default), all the holes are patched.
-    mfix.fill_small_boundaries(3, refine=False)
+    mfix.fill_small_boundaries(refine=True)
 
     # Converting the pymeshfix object to pyvista polydata
     vert, faces = mfix.return_arrays()
@@ -170,12 +170,12 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     for i, sie_agg in enumerate(sieved_aggs):
         print(f'Getting Mesh for Agg: {i+1}')
         sie_agg_raw_surf = sie_agg.extract_geometry()
-        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=20, pass_band=0.1, non_manifold_smoothing=True)
+        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=20, pass_band=0.05, non_manifold_smoothing=True)
         pv.save_meshio(os.path.join(workdir, f'aggs/agg_{i+1}.stl'), sie_agg_smooth_surf)
 
     # Saving it to a vtk file
     sieved_aggs_raw_surf = sieved_aggs_raw.extract_geometry()
-    surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=20, pass_band=0.1, non_manifold_smoothing=True)
+    surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=20, pass_band=0.05, non_manifold_smoothing=True)
     surf_smooth_mesh.save(os.path.join(workdir, f'3_surf_smooth_mesh.vtk'))
 
     return
@@ -273,7 +273,7 @@ if __name__ == '__main__':
     tomo = tomo.astype(np.uint8)
     for img_id in range(1, Lz + 2):
         img_cam = np.asarray(plt.imread(os.path.join(cam_dir, f"{str(img_id).zfill(3)}.tif")).copy()[:Lx+1, :Ly+1])
-        img_cam[:, :10] = 2
+        img_cam[:, 0:10] = 2
         # img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
         tomo[np.isclose(img_cam, 2), img_id - 1] = 1
         # padding of AM
