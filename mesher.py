@@ -112,7 +112,7 @@ if __name__ == '__main__':
         gmsh.model.geo.synchronize()
         
     # Save the last tag index for the aggregate
-    agg_last_idx = i
+    agg_last_idx = phase_volumes[-1]
     surfs = gmsh.model.getEntities(2)
     sloop = create_box_surface_loop(Lx=Lx, Ly=Ly, Lz=Lz, L_sep=args.L_sep)
     matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list, tag=agg_last_idx + 1)
