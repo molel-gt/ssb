@@ -206,6 +206,7 @@ def create_volumes_from_stl(phase):
     volumes = []
     agg_surf_loop_list = []
     for i, stc in enumerate(surfaces_to_combine):
+        print(f"Processing surface {i} to volume")
         agg_surf = gmsh.model.geo.addSurfaceLoop(stc)   # Add the surface loop
         agg_surf_loop_list.append(agg_surf)             # Include in the list
         gmsh.model.geo.addVolume([agg_surf], tag=i)     # Create the volume
