@@ -102,16 +102,16 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     n_ero_dil = 2
     ks = 4
     for i in range(n_ero_dil):
-        for j in range(0, 40):
+        for j in range(0, 20):
             pv_sieved_e_d = pv_sieved_e_d.image_dilate_erode(dilate_value=0, erode_value=j, kernel_size=(ks, ks, ks))
         
     for i in range(n_ero_dil + 1):
-        for j in range(0, 40):
+        for j in range(0, 20):
             pv_sieved_e_d = pv_sieved_e_d.image_dilate_erode(dilate_value=j, erode_value=0, kernel_size=(ks, ks, ks))
 
 
     # Saving the result to a vtk file
-    pv_sieved_e_d.save(os.path.join(workdir, f'1_tomo_e_d.vtk'))
+    pv_sieved_e_d.save(os.path.join(workdir, '1_tomo_e_d.vtk'))
 
 
     # Creating a common flag for all aggregates to perform the surface meshing
@@ -123,7 +123,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     contour = pv_sieved_e_d.contour([1], scalars='Label', method='marching_cubes')
 
     # Saving the result to a vtk file
-    contour.save('./output/2_contour_raw_mesh.vtk')
+    contour.save(os.path.join(workdir, '2_contour_raw_mesh.vtk'))
 
 
     # Creating the raw surface mesh
@@ -143,13 +143,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     # 'refine' is true, adds inner vertices to reproduce the sampling
     # density of the surroundings. Returns number of holes patched.  If
     # 'nbe' is 0 (default), all the holes are patched.
-    mfix.fill_small_boundaries(2, refine=False)
-    cleaned = mfix.clean(max_iters=10, inner_loops=3)
-    if cleaned:
-        print("Cleaned!")
-    else:
-        print("Not cleaned!")
-
+    mfix.fill_small_boundaries(refine=True)
     # Converting the pymeshfix object to pyvista polydata
     vert, faces = mfix.return_arrays()
     triangles = np.empty((faces.shape[0], 4), dtype=faces.dtype)
@@ -175,12 +169,12 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     for i, sie_agg in enumerate(sieved_aggs):
         print(f'Getting Mesh for Agg: {i+1}')
         sie_agg_raw_surf = sie_agg.extract_geometry()
-        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=100, pass_band=0.05, non_manifold_smoothing=True)
+        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=20, pass_band=0.5)
         pv.save_meshio(os.path.join(workdir, f'aggs/agg_{i+1}.stl'), sie_agg_smooth_surf)
 
     # Saving it to a vtk file
     sieved_aggs_raw_surf = sieved_aggs_raw.extract_geometry()
-    surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=100, pass_band=0.05, non_manifold_smoothing=True)
+    surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=20, pass_band=0.5)
     surf_smooth_mesh.save(os.path.join(workdir, f'3_surf_smooth_mesh.vtk'))
 
     return
@@ -277,8 +271,12 @@ if __name__ == '__main__':
     tomo = np.zeros((Lx + 1, Ly + 1, Lz + 1), dtype=np.bool)
     tomo = tomo.astype(np.uint8)
     for img_id in range(1, Lz + 2):
-        img_cam = np.asarray(plt.imread(os.path.join(cam_dir, f"{str(img_id).zfill(3)}.tif")).copy()[:Lx+1, :Ly+1])
-        img_cam[:, :10] = 2
+        img_cam = np.asarray(plt.imread(os.path.join(cam_dir, f"{str(img_id).zfill(3)}.tif")).copy())
+        img_cam = img_cam[:Lx+1, :Ly+1]
+        img_cam[:10, :] = 2
+        img_cam[-1:, :] = 0
+        img_cam[:, 0] = 0
+        img_cam[:, -1] = 0
         # img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
         tomo[np.isclose(img_cam, 2), img_id - 1] = 1
         # padding of AM
@@ -327,30 +325,30 @@ if __name__ == '__main__':
     # gmsh.option.setNumber("Mesh.Algorithm", 5)
 
     # Creation of a distance field to control the mesh element sides
-    gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "FacesList", [item for sublist in surfaces_to_combine for item in sublist])
-    gmsh.model.mesh.field.setNumber(1, "NNodesByEdge", 50)
+    # gmsh.model.mesh.field.add("Distance", 1)
+    # gmsh.model.mesh.field.setNumbers(1, "FacesList", [item for sublist in surfaces_to_combine for item in sublist])
+    # gmsh.model.mesh.field.setNumber(1, "NNodesByEdge", 50)
 
-    # We then define a `Threshold' field, which uses the return value of the
-    # `Distance' field 1 in order to define a simple change in element size
-    # depending on the computed distances
-    #
-    # SizeMax -                     /------------------
-    #                              /
-    #                             /
-    #                            /
-    # SizeMin -o----------------/
-    #          |                |    |
-    #        Point         DistMin  DistMax
-    gmsh.model.mesh.field.add("Threshold", 2)
-    gmsh.model.mesh.field.setNumber(2, "InField", 1)
-    gmsh.model.mesh.field.setNumber(2, "SizeMin", 1.0)
-    gmsh.model.mesh.field.setNumber(2, "SizeMax", 2.5)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 1)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 5)
+    # # We then define a `Threshold' field, which uses the return value of the
+    # # `Distance' field 1 in order to define a simple change in element size
+    # # depending on the computed distances
+    # #
+    # # SizeMax -                     /------------------
+    # #                              /
+    # #                             /
+    # #                            /
+    # # SizeMin -o----------------/
+    # #          |                |    |
+    # #        Point         DistMin  DistMax
+    # gmsh.model.mesh.field.add("Threshold", 2)
+    # gmsh.model.mesh.field.setNumber(2, "InField", 1)
+    # gmsh.model.mesh.field.setNumber(2, "SizeMin", 1.0)
+    # gmsh.model.mesh.field.setNumber(2, "SizeMax", 2.5)
+    # gmsh.model.mesh.field.setNumber(2, "DistMin", 1)
+    # gmsh.model.mesh.field.setNumber(2, "DistMax", 5)
 
-    gmsh.model.mesh.field.setAsBackgroundMesh(2)
-    gmsh.model.mesh.generate()
+    # gmsh.model.mesh.field.setAsBackgroundMesh(2)
+    gmsh.model.mesh.generate(3)
     # Writing the `.msh` file
     gmsh.write(os.path.join(workdir, "mesh.msh"))
     gmsh.finalize()
