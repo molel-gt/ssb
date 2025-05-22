@@ -4,15 +4,16 @@ import gmsh
 Lx = 10
 Ly = 10
 Lz = 5
+offset = 499
 coords = [
-    (0, 0, 0),
-    (Lx, 0, 0),
-    (Lx, Ly, 0),
-    (0, Ly, 0),
-    (0, 0, Lz),
-    (Lx, 0, Lz),
-    (Lx, Ly, Lz),
-    (0, Ly, Lz),
+    (0, offset, 0),
+    (Lx, offset, 0),
+    (Lx, offset + Ly, 0),
+    (0, offset + Ly, 0),
+    (0, offset, Lz),
+    (Lx, offset, Lz),
+    (Lx, offset + Ly, Lz),
+    (0, offset + Ly, Lz),
 ]
 gmsh.initialize()
 points = [gmsh.model.geo.addPoint(*p) for p in coords]
