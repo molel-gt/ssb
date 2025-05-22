@@ -322,7 +322,7 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, interface_surfs, markers.electrolyte_v_positive_am, "SE/AM")
     gmsh.model.geo.synchronize()
     # Selection of the Delaunay algorithm for meshing
-    # gmsh.option.setNumber("Mesh.Algorithm", 5)
+    gmsh.option.setNumber("Mesh.Algorithm", 5)
 
     # Creation of a distance field to control the mesh element sides
     # gmsh.model.mesh.field.add("Distance", 1)
