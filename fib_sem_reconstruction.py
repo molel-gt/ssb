@@ -274,6 +274,8 @@ if __name__ == '__main__':
         img_cam = plt.imread(os.path.join(cam_dir, f"{str(img_id).zfill(3)}.tif"))[:Lx+1, :Ly+1]
         # img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
         tomo[np.isclose(img_cam, 2), img_id - 1] = 1
+        # padding of AM
+        tomo[:, :5, img_id - 1] = 1
         # tomo[np.isclose(img_voids, 1), img_id - 1] = 0
     # get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape)
     gmsh.initialize()  # Initialize the gmsh API
