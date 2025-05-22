@@ -219,8 +219,8 @@ def create_box_surface_loop(Lx, Ly, Lz, offset=499):
         (Lx, 0, 0),
         (Lx, offset + Ly, 0),
         (0, offset + Ly, 0),
-        (0, offset, Lz),
-        (Lx, offset, Lz),
+        (0, 0, Lz),
+        (Lx, 0, Lz),
         (Lx, offset + Ly, Lz),
         (0, offset + Ly, Lz),
     ]
