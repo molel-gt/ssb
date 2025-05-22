@@ -144,7 +144,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     # 'refine' is true, adds inner vertices to reproduce the sampling
     # density of the surroundings. Returns number of holes patched.  If
     # 'nbe' is 0 (default), all the holes are patched.
-    mfix.fill_small_boundaries(refine=True)
+    mfix.fill_small_boundaries(refine=False)
 
     # Converting the pymeshfix object to pyvista polydata
     vert, faces = mfix.return_arrays()
@@ -171,12 +171,12 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     for i, sie_agg in enumerate(sieved_aggs):
         print(f'Getting Mesh for Agg: {i+1}')
         sie_agg_raw_surf = sie_agg.extract_geometry()
-        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=20, pass_band=0.1, progress_bar=False)
+        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=20, pass_band=0.1, non_manifold_smoothing=True)
         pv.save_meshio(f'./output/segmentation/{phase}/aggs/agg_{i+1}.stl', sie_agg_smooth_surf)
 
     # Saving it to a vtk file
     sieved_aggs_raw_surf = sieved_aggs_raw.extract_geometry()
-    surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=20, pass_band=0.1)
+    surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=20, pass_band=0.1, non_manifold_smoothing=True)
     surf_smooth_mesh.save(f'./output/segmentation/{phase}/3_surf_smooth_mesh.vtk')
 
     return
@@ -217,7 +217,7 @@ def create_volumes_from_stl(phase):
         agg_surf_loop_list.append(agg_surf)             # Include in the list
         gmsh.model.geo.addVolume([agg_surf], tag=i)     # Create the volume
         volumes.append(i)
-    return volumes, agg_surf_loop_list
+    return volumes, agg_surf_loop_list, surfaces_to_combine
 
 
 def create_box_surface_loop(Lx, Ly, Lz, L_sep):
@@ -275,19 +275,19 @@ if __name__ == '__main__':
         # img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
         tomo[np.isclose(img_cam, 2), img_id - 1] = 1
         # tomo[np.isclose(img_voids, 1), img_id - 1] = 0
-    get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape)
+    # get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape)
     gmsh.initialize()  # Initialize the gmsh API
-    phase_volumes, agg_surf_loop_list = create_volumes_from_stl(phase=phase)
+    phase_volumes, agg_surf_loop_list, surfaces_to_combine = create_volumes_from_stl(phase=phase)
 
     # Save the last tag index for the aggregate
     agg_last_idx = phase_volumes[-1]
     sloop = create_box_surface_loop(Lx=Lx, Ly=Ly, Lz=Lz, L_sep=args.L_sep)
-    matrix_volume = gmsh.model.addVolume([sloop] + agg_surf_loop_list, tag=agg_last_idx + 1)
+    matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list, tag=agg_last_idx + 1)
 
     # Synchronize the built-in CAD representation with the current Gmsh model
     gmsh.model.geo.synchronize()
     gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
-    gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.active_material)
+    gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.positive_am)
     gmsh.model.geo.synchronize()
     # Selection of the Delaunay algorithm for meshing
     # gmsh.option.setNumber("Mesh.Algorithm3D", 10)
@@ -295,7 +295,7 @@ if __name__ == '__main__':
     # Creation of a distance field to control the mesh element sides
     gmsh.model.mesh.field.add("Distance", 1)
     gmsh.model.mesh.field.setNumbers(1, "FacesList", [item for sublist in surfaces_to_combine for item in sublist])
-    gmsh.model.mesh.field.setNumber(1, "NNodesByEdge", 10)
+    gmsh.model.mesh.field.setNumber(1, "NNodesByEdge", 50)
 
     # We then define a `Threshold' field, which uses the return value of the
     # `Distance' field 1 in order to define a simple change in element size
@@ -318,5 +318,5 @@ if __name__ == '__main__':
     gmsh.model.mesh.field.setAsBackgroundMesh(2)
     gmsh.model.mesh.generate()
     # Writing the `.msh` file
-    gmsh.write("./output/4_final_mesh.msh")
+    gmsh.write("./output/segmentation/mesh.msh")
     gmsh.finalize()
