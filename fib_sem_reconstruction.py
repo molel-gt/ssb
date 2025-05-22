@@ -176,7 +176,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     # Saving it to a vtk file
     sieved_aggs_raw_surf = sieved_aggs_raw.extract_geometry()
     surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=20, pass_band=0.1, non_manifold_smoothing=True)
-    surf_smooth_mesh.save(os.path.join(f'3_surf_smooth_mesh.vtk'))
+    surf_smooth_mesh.save(os.path.join(workdir, f'3_surf_smooth_mesh.vtk'))
 
     return
 
