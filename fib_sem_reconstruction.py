@@ -169,8 +169,8 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     for i, sie_agg in enumerate(sieved_aggs):
         print(f'Getting Mesh for Agg: {i+1}')
         sie_agg_raw_surf = sie_agg.extract_geometry()
-        # sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=20, pass_band=0.5)
-        pv.save_meshio(os.path.join(workdir, f'aggs/agg_{i+1}.stl'), sie_agg_raw_surf)
+        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=20, pass_band=0.05, non_manifold_smoothing=True)
+        pv.save_meshio(os.path.join(workdir, f'aggs/agg_{i+1}.stl'), sie_agg_smooth_surf)
 
     # Saving it to a vtk file
     sieved_aggs_raw_surf = sieved_aggs_raw.extract_geometry()
@@ -187,6 +187,7 @@ def create_volumes_from_stl(phase, workdir):
         gmsh.merge(os.path.join(agg_path))
     gmsh.model.geo.synchronize()
     # Split each surfaces for creating the separated geometry entities
+    gmsh.model.mesh.createTopology()
     gmsh.model.mesh.classifySurfaces(gmsh.pi, True, True, gmsh.pi)
 
 
@@ -284,7 +285,7 @@ if __name__ == '__main__':
         # padding of AM
         # tomo[:, :10, img_id - 1] = 1
         # tomo[np.isclose(img_voids, 1), img_id - 1] = 0
-    # get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
+    get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
     gmsh.initialize()  # Initialize the gmsh API
     gmsh.option.setNumber("Mesh.Smoothing", 10)
     phase_volumes, agg_surf_loop_list, surfaces_to_combine = create_volumes_from_stl(phase=phase, workdir=workdir)
