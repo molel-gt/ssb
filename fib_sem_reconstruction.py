@@ -53,7 +53,7 @@ def group_surfaces_adjacencies(adj):
     return out
 
 
-def get_aggregates_and_write_to_file(tomo, phase="voids"):
+def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 202)):
     utils.make_dir_if_missing(f"output/segmentation/{phase}")
     utils.make_dir_if_missing(f"output/segmentation/{phase}/aggs")
 
@@ -83,7 +83,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids"):
     # Converting the np.array image to a pyvista Uniform Grid
     print("Create pyvista uniform grid")
     pv_sieved = pv.ImageData()
-    pv_sieved.dimensions = [500, 500, 202]
+    pv_sieved.dimensions = data_shape
     # pv_sieved.spacing = [160e-6, 160e-6, 160e-6]
     pv_sieved.origin = [0, 0, 0]
     pv_sieved.point_data['Label'] = spam_sieved_labels.T.flatten()
@@ -219,16 +219,16 @@ def create_volumes_from_stl(phase):
     return volumes, agg_surf_loop_list
 
 
-def create_box_surface_loop(Lx, Ly, Lz, offset=499):
+def create_box_surface_loop(Lx, Ly, Lz, L_sep):
     coords = [
         (0, 0, 0),
         (Lx, 0, 0),
-        (Lx, offset + Ly, 0),
-        (0, offset + Ly, 0),
+        (Lx, L_sep + Ly, 0),
+        (0, L_sep + Ly, 0),
         (0, 0, Lz),
         (Lx, 0, Lz),
-        (Lx, offset + Ly, Lz),
-        (0, offset + Ly, Lz),
+        (Lx, L_sep + Ly, Lz),
+        (0, L_sep + Ly, Lz),
     ]
     points = [gmsh.model.geo.addPoint(*p) for p in coords]
     lines = [gmsh.model.geo.addLine(points[i], points[i+1]) for i in range(4-1)]
@@ -256,28 +256,35 @@ def create_box_surface_loop(Lx, Ly, Lz, offset=499):
 
 
 if __name__ == '__main__':
-    phase = "cam"  # sys.argv[1]
+    parser = argparse.ArgumentParser(description='secondary current distribution')
+    parser.add_argument('--size', help='Lx-Ly-Lz', required=True, type="str")
+    parser.add_argument("--origin", help="where to extract data", nargs='?', const=1, default='0-0-0', type=str)
+    parser.add_argument("--phase", help="particulate phase", nargs='?', const=1, default='cam', type=str)
+    parser.add_argument("--L_sep", help="separator thickness", nargs='?', const=1, default=100, type=float)
+    args = parser.parse_args()
+
+    phase = args.phase
+    x0, y0, z0 = [int(val) for val in args.origin.split("-")]
+    Lx, Ly, Lz = [int(val) for val in args.size.split("-")]
     markers = commons.Markers()
-    tomo = np.zeros((500, 500, 202), dtype=np.bool)
+    tomo = np.zeros((Lx + 1, Ly + 1, Lz + 1), dtype=np.bool)
     tomo = tomo.astype(np.uint8)
     for img_id in range(1, 203):
-        img_cam = plt.imread(os.path.join(cam_dir, f"{str(img_id).zfill(3)}.tif"))
+        img_cam = plt.imread(os.path.join(cam_dir, f"{str(img_id).zfill(3)}.tif"))[:Lx+1, :Ly+1]
         # img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
         tomo[np.isclose(img_cam, 2), img_id - 1] = 1
         # tomo[np.isclose(img_voids, 1), img_id - 1] = 0
-    get_aggregates_and_write_to_file(tomo, phase=phase)
+    get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape)
     gmsh.initialize()  # Initialize the gmsh API
     phase_volumes, agg_surf_loop_list = create_volumes_from_stl(phase=phase)
 
     # Save the last tag index for the aggregate
     agg_last_idx = phase_volumes[-1]
-    sloop = create_box_surface_loop(Lx=499, Ly=100, Lz=202)
+    sloop = create_box_surface_loop(Lx=Lx, Ly=Ly, Lz=Lz, L_sep=args.L_sep)
     matrix_volume = gmsh.model.addVolume([sloop] + agg_surf_loop_list, tag=agg_last_idx + 1)
 
     # Synchronize the built-in CAD representation with the current Gmsh model
     gmsh.model.geo.synchronize()
-
-
     gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
     gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.active_material)
     gmsh.model.geo.synchronize()
