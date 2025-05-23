@@ -208,7 +208,7 @@ def create_volumes_from_stl(phase, workdir):
     gmsh.model.geo.synchronize()
     # Split each surfaces for creating the separated geometry entities
     # gmsh.model.mesh.createTopology()
-    angle = 10.0*np.pi/180
+    angle = 180.0*np.pi/180
     curveAngle = 180.0*np.pi/180
     gmsh.model.mesh.classifySurfaces(angle, True, True, curveAngle)
 
