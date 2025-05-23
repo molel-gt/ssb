@@ -72,21 +72,11 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     # Get new labels for sieved aggregates
     spam_sieved_labels = spam.label.watershed(spam_sieved)
 
-
-    # fig, axs = plt.subplots(1, 3, figsize=(10, 4), dpi=150)
-
-    # axs[0].imshow(spam_sieved_labels[:, :, 10])
-    # axs[1].imshow(spam_sieved_labels[:, spam_sieved_labels.shape[1]//2, :])
-    # axs[2].imshow(spam_sieved_labels[:, :, spam_sieved_labels.shape[2]//2])
-
-    # plt.show()
-
-
     # Converting the np.array image to a pyvista Uniform Grid
     print("Create pyvista uniform grid")
     pv_sieved = pv.ImageData()
     pv_sieved.dimensions = data_shape
-    # pv_sieved.spacing = [0.0858e-6, 0.0858e-6, 0.05e-6]
+    pv_sieved.spacing = [0.0858e-6, 0.0858e-6, 0.05e-6]
     pv_sieved.origin = [0, 0, 0]
     pv_sieved.point_data['Label'] = spam_sieved_labels.T.flatten()
     agg_flag = np.zeros(spam_sieved_labels.T.shape).flatten()
@@ -153,13 +143,13 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     # mesh = ms.current_mesh()
     # vert, faces = mesh.vertex_matrix(), mesh.face_matrix()
 
-    # mfix = PyTMesh(False)  # False removes extra verbose output
-    # mfix.load_array(surf_raw_mesh.points,  surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
-    # mfix.fill_small_boundaries()
-    # vert, faces = mfix.return_arrays()
-    meshfix = mf.MeshFix(surf_raw_mesh.triangulate())
-    meshfix.repair(verbose=True, joincomp=True, remove_smallest_components=False)
-    vert, faces = meshfix.points, meshfix.faces
+    mfix = PyTMesh(False)  # False removes extra verbose output
+    mfix.load_array(surf_raw_mesh.points,  surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
+    mfix.fill_small_boundaries()
+    vert, faces = mfix.return_arrays()
+    # meshfix = mf.MeshFix(surf_raw_mesh.triangulate())
+    # meshfix.repair(verbose=True, joincomp=True, remove_smallest_components=False)
+    # vert, faces = meshfix.points, meshfix.faces
     # Converting the pymeshfix object to pyvista polydata
     triangles = np.empty((faces.shape[0], 4), dtype=faces.dtype)
     triangles[:, -3:] = faces
@@ -283,21 +273,21 @@ if __name__ == '__main__':
     x0, y0, z0 = [int(val) for val in args.origin.split("-")]
     Lx, Ly, Lz = [int(val) for val in args.size.split("-")]
     markers = commons.Markers()
-    tomo = np.zeros((Lx + 1, Ly + 1, Lz + 1), dtype=np.bool)
-    tomo = tomo.astype(np.uint8)
+    tomo = np.zeros((500, 500, 202), dtype=np.bool)
+    tomo_raw = tomo.astype(np.uint8)
     for img_id in range(1, Lz + 2):
-        img_cam = np.asarray(plt.imread(os.path.join(cam_dir, f"{str(img_id).zfill(3)}.tif")).copy())
-        # img_cam[:10, :] = 2
-        img_cam = img_cam[:Lx+1, :Ly+1]
+        img_cam = plt.imread(os.path.join(cam_dir, f"{str(img_id).zfill(3)}.tif")).copy()
+        img_cam[:10, :] = 2
+        # img_cam = img_cam[:, :]#[:Lx+1, :Ly+1]
         # img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
-        tomo[np.isclose(img_cam, 2), img_id - 1] = 1
+        tomo[:, :, img_id - 1] = np.isclose(img_cam, 2)
     tomo[:10, :, :] = 1
     # tomo[-1, :, :] = 1
-
     # tomo[:, 0, :] = 1
     # tomo[:, -1, :] = 1
     # tomo[:, :, 0] = 1
     # tomo[:, :, -1] = 1
+    tomo[:Lx+1, :Ly+1, Lz+1:] = 0
     get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
     gmsh.initialize()  # Initialize the gmsh API
     # gmsh.option.setNumber("Mesh.Smoothing", 10)
