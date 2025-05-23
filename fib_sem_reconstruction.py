@@ -137,13 +137,13 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
 
     print("Repairing mesh using pymeshfix")
     mfix = PyTMesh(False)  # False removes extra verbose output
-    mfix.load_array(surf_raw_mesh.points, surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces, 4))[:, 1:] )
+    mfix.load_array(surf_raw_mesh.points, surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
 
     # Fills all the holes having at at most 'nbe' boundary edges. If
     # 'refine' is true, adds inner vertices to reproduce the sampling
     # density of the surroundings. Returns number of holes patched.  If
     # 'nbe' is 0 (default), all the holes are patched.
-    mfix.fill_small_boundaries(refine=True)
+    mfix.fill_small_boundaries(3, refine=True)
     # Converting the pymeshfix object to pyvista polydata
     vert, faces = mfix.return_arrays()
     triangles = np.empty((faces.shape[0], 4), dtype=faces.dtype)
@@ -279,13 +279,13 @@ if __name__ == '__main__':
         img_cam = img_cam[:Lx+1, :Ly+1]
         # img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
         tomo[np.isclose(img_cam, 2), img_id - 1] = 1
-    tomo[0, :, :] = 1
-    tomo[-1, :, :] = 1
+    # tomo[0, :, :] = 1
+    # tomo[-1, :, :] = 1
 
-    tomo[:, 0, :] = 1
-    tomo[:, -1, :] = 1
-    tomo[:, :, 0] = 1
-    tomo[:, :, -1] = 1
+    # tomo[:, 0, :] = 1
+    # tomo[:, -1, :] = 1
+    # tomo[:, :, 0] = 1
+    # tomo[:, :, -1] = 1
     get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
     gmsh.initialize()  # Initialize the gmsh API
     # gmsh.option.setNumber("Mesh.Smoothing", 10)
