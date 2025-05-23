@@ -26,7 +26,7 @@ plt.rcParams.update(plot_opts.params)
 
 cam_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/cam")
 voids_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/voids")
-SCALING = [0.0858e-6, 0.0858e-6, 0.05e-6]
+SCALING = [1, 1, 1]#[0.0858e-6, 0.0858e-6, 0.05e-6]
 
 
 def group_surfaces_adjacencies(adj):
@@ -165,7 +165,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
 
     # Performing the sieving based on the surface area of the aggregates
     for agg in aggs_raw:
-        if agg.area > 16 * 1e-12:
+        if agg.area > 100:
             sieved_aggs.append(agg)
             
     sieved_aggs_raw = pv.MultiBlock(sieved_aggs)
