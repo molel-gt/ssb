@@ -190,8 +190,6 @@ def create_volumes_from_stl(phase, workdir):
     gmsh.model.mesh.createTopology()
     gmsh.model.mesh.classifySurfaces(10/180 * gmsh.pi, True, True, gmsh.pi)
 
-
-
     # Create a geometry for each one of the discrete entities (aggregates)
     gmsh.model.mesh.createGeometry()
     gmsh.model.geo.synchronize()
