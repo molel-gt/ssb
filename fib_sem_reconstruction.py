@@ -137,7 +137,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     surf_raw_mesh.clean(inplace=True)
 
     print("Repairing mesh using pymeshfix")
-    mesh = pymeshlab.Mesh(surf_raw_mesh.points, surf_raw_mesh.faces)
+    mesh = pymeshlab.Mesh(surf_raw_mesh.points,  surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4)))
     ms = pymeshlab.MeshSet()
     ms.add_mesh(mesh, "cam")
     ms.meshing_remove_unreferenced_vertices()
