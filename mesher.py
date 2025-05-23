@@ -100,7 +100,7 @@ if __name__ == '__main__':
         params.metric = mrmeshpy.getUniversalMetric(mesh)
         #  Fill hole represented by `e`
         mrmeshpy.fillHole(mesh, e, params)
-    mrmeshpy.saveMesh("output/segmentation/cam-repaired.stl")
+    mrmeshpy.saveMesh(mesh, "output/segmentation/cam-repaired.stl")
     # ms.load_new_mesh("output/segmentation/cam.stl")
     # ms.meshing_remove_unreferenced_vertices()
     # ms.meshing_repair_non_manifold_vertices()
@@ -113,11 +113,12 @@ if __name__ == '__main__':
     x0, y0, z0 = [int(val) for val in args.origin.split("-")]
     Lx, Ly, Lz = [int(val) for val in args.size.split("-")]
     gmsh.initialize()
+    gmsh.option.setNumber("Mesh.Algorithm", 5)
     sloop = create_box_surface_loop(Lx=Lx, Ly=Ly, Lz=Lz, L_sep=args.L_sep)
     gmsh.model.geo.synchronize()
     gmsh.merge("output/segmentation/cam-repaired.stl")
     # gmsh.model.geo.synchronize()
-    # gmsh.model.mesh.createTopology(1)
+    gmsh.model.mesh.createTopology()
     gmsh.model.geo.synchronize()
     vols = gmsh.model.getEntities(3)
     gmsh.model.mesh.classifySurfaces(gmsh.pi, True, True, gmsh.pi)
