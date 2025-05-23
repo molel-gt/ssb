@@ -9,6 +9,7 @@ import matplotlib as mpl
 import meshio
 import numpy as np
 import pymeshlab
+import pymeshfix as mf
 import pyvista as pv
 import spam.DIC
 import spam
@@ -137,37 +138,43 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     surf_raw_mesh.clean(inplace=True)
 
     print("Repairing mesh using pymeshfix")
-    mesh = pymeshlab.Mesh(surf_raw_mesh.points,  surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
-    ms = pymeshlab.MeshSet()
-    ms.add_mesh(mesh, "cam")
-    ms.meshing_remove_unreferenced_vertices()
-    ms.meshing_remove_duplicate_vertices()
-    ms.meshing_remove_duplicate_faces()
-    ms.meshing_repair_non_manifold_vertices()
-    ms.meshing_repair_non_manifold_edges()
-    self_int = ms.compute_selection_by_self_intersections_per_face()
-    ms.meshing_remove_selected_vertices_and_faces()
-    ms.meshing_close_holes()
-    # ms.set_matrix_identity()
-    mesh = ms.current_mesh()
-    vert, faces = mesh.vertex_matrix(), mesh.face_matrix()
-    mfix = PyTMesh(False)  # False removes extra verbose output
-    mfix.load_array(vert, faces)
-    mfix.join_closest_components()
+    # mesh = pymeshlab.Mesh(surf_raw_mesh.points,  surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
+    # ms = pymeshlab.MeshSet()
+    # ms.add_mesh(mesh, "cam")
+    # ms.meshing_remove_unreferenced_vertices()
+    # ms.meshing_remove_duplicate_vertices()
+    # ms.meshing_remove_duplicate_faces()
+    # ms.meshing_repair_non_manifold_vertices()
+    # ms.meshing_repair_non_manifold_edges()
+    # self_int = ms.compute_selection_by_self_intersections_per_face()
+    # ms.meshing_remove_selected_vertices_and_faces()
+    # ms.meshing_snap_mismatched_borders()
+    # ms.meshing_close_holes()
+    # # ms.set_matrix_identity()
+    # mesh = ms.current_mesh()
+    # vert, faces = mesh.vertex_matrix(), mesh.face_matrix()
+    meshfix = mf.MeshFix(surf_raw_mesh.triangulate())
+    # mfix = PyTMesh(False)  # False removes extra verbose output
+    # mfix.load_array(vert, faces)
+    # mfix.join_closest_components()
 
     # Fills all the holes having at at most 'nbe' boundary edges. If
     # 'refine' is true, adds inner vertices to reproduce the sampling
     # density of the surroundings. Returns number of holes patched.  If
     # 'nbe' is 0 (default), all the holes are patched.
-    mfix.fill_small_boundaries(refine=False)
-    self_int = [mfix.select_intersecting_triangles()]
-    print(len(self_int[0]))
-    cleaned = mfix.clean(max_iters=10, inner_loops=3)
-    if not cleaned:
-        print("Not cleaned")
-    print('There are {:d} boundaries'.format(mfix.boundaries()))
+    # mfix.fill_small_boundaries()
+    holes = meshfix.extract_holes()
+    # self_int = [meshfix.select_intersecting_triangles()]
+    # print(len(self_int[0]))
+    meshfix.repair(verbose=True, joincomp=True, remove_smallest_components=False)
+    # cleaned = mfix.clean(max_iters=100, inner_loops=3)
+    # if not cleaned:
+    #     print("Not cleaned")
+    # print('There are {:d} boundaries'.format(mfix.boundaries()))
+    # if not cleaned:
+    #     quit()
     # Converting the pymeshfix object to pyvista polydata
-    vert, faces = mfix.return_arrays()
+    vert, faces = meshfix.points, meshfix.faces
     triangles = np.empty((faces.shape[0], 4), dtype=faces.dtype)
     triangles[:, -3:] = faces
     triangles[:, 0] = 3
@@ -191,7 +198,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     for i, sie_agg in enumerate(sieved_aggs):
         print(f'Getting Mesh for Agg: {i+1}')
         sie_agg_raw_surf = sie_agg.extract_geometry()
-        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=100, pass_band=0.05)
+        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=100, pass_band=0.05, non_manifold_smoothing=True)
         pv.save_meshio(os.path.join(workdir, f'aggs/agg_{i+1}.stl'), sie_agg_smooth_surf)
 
     # Saving it to a vtk file
@@ -297,11 +304,11 @@ if __name__ == '__main__':
     tomo = tomo.astype(np.uint8)
     for img_id in range(1, Lz + 2):
         img_cam = np.asarray(plt.imread(os.path.join(cam_dir, f"{str(img_id).zfill(3)}.tif")).copy())
-        img_cam[:10, :] = 2
+        # img_cam[:10, :] = 2
         img_cam = img_cam[:Lx+1, :Ly+1]
         # img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
         tomo[np.isclose(img_cam, 2), img_id - 1] = 1
-    # tomo[0, :, :] = 1
+    tomo[:10, :, :] = 1
     # tomo[-1, :, :] = 1
 
     # tomo[:, 0, :] = 1
