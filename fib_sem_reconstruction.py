@@ -137,27 +137,35 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     surf_raw_mesh.clean(inplace=True)
 
     print("Repairing mesh using pymeshfix")
-    # mesh = pymeshlab.Mesh(surf_raw_mesh.points,  surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4)))
-    # ms = pymeshlab.MeshSet()
-    # ms.add_mesh(mesh, "cam")
-    # ms.meshing_remove_unreferenced_vertices()
-    # ms.meshing_remove_duplicate_vertices()
-    # ms.meshing_remove_duplicate_faces()
-    # ms.meshing_repair_non_manifold_vertices()
-    # ms.meshing_repair_non_manifold_edges()
-    # ms.meshing_close_holes()
-    # mesh = ms.current_mesh()
-    # vert, faces = mesh.vertex_matrix(), mesh.face_matrix()
-    mfix = PyTMesh(False)  # False removes extra verbose output
-    mfix.load_array(surf_raw_mesh.points, surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
+    mesh = pymeshlab.Mesh(surf_raw_mesh.points,  surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
+    ms = pymeshlab.MeshSet()
+    ms.add_mesh(mesh, "cam")
+    ms.meshing_remove_unreferenced_vertices()
+    ms.meshing_remove_duplicate_vertices()
+    ms.meshing_remove_duplicate_faces()
+    ms.meshing_repair_non_manifold_vertices()
+    ms.meshing_repair_non_manifold_edges()
+    ms.meshing_close_holes()
+    mesh = ms.current_mesh()
+    vert, faces = mesh.vertex_matrix(), mesh.face_matrix()
+    # mfix = PyTMesh(False)  # False removes extra verbose output
+    # mfix.load_array(surf_raw_mesh.points, surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
+    # mfix.join_closest_components()
 
     # Fills all the holes having at at most 'nbe' boundary edges. If
     # 'refine' is true, adds inner vertices to reproduce the sampling
     # density of the surroundings. Returns number of holes patched.  If
     # 'nbe' is 0 (default), all the holes are patched.
-    mfix.fill_small_boundaries(refine=True)
-    # Converting the pymeshfix object to pyvista polydata
-    vert, faces = mfix.return_arrays()
+    # mfix.fill_small_boundaries(refine=True)
+    # self_int = [mfix.select_intersecting_triangles()]
+    # print(len(self_int[0]))
+    # cleaned = mfix.clean(max_iters=10, inner_loops=3)
+    # if not cleaned:
+    #     print("Not cleaned")
+    #     quit()
+    # print('There are {:d} boundaries'.format(mfix.boundaries()))
+    # # Converting the pymeshfix object to pyvista polydata
+    # vert, faces = mfix.return_arrays()
     triangles = np.empty((faces.shape[0], 4), dtype=faces.dtype)
     triangles[:, -3:] = faces
     triangles[:, 0] = 3
