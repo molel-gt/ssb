@@ -145,6 +145,8 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     ms.meshing_remove_duplicate_faces()
     ms.meshing_repair_non_manifold_vertices()
     ms.meshing_repair_non_manifold_edges()
+    self_int = ms.compute_selection_by_self_intersections_per_face()
+    ms.meshing_remove_selected_vertices_and_faces()
     ms.meshing_close_holes()
     mesh = ms.current_mesh()
     vert, faces = mesh.vertex_matrix(), mesh.face_matrix()
@@ -207,7 +209,7 @@ def create_volumes_from_stl(phase, workdir):
         gmsh.merge(os.path.join(agg_path))
     gmsh.model.geo.synchronize()
     # Split each surfaces for creating the separated geometry entities
-    # gmsh.model.mesh.createTopology()
+    gmsh.model.mesh.createTopology()
     angle = 180.0*np.pi/180
     curveAngle = 180.0*np.pi/180
     gmsh.model.mesh.classifySurfaces(angle, True, True, curveAngle)
@@ -375,7 +377,7 @@ if __name__ == '__main__':
 
     # gmsh.model.mesh.field.setAsBackgroundMesh(2)
     gmsh.model.geo.synchronize()
-    gmsh.model.mesh.generate(3)
+    gmsh.model.mesh.generate()
     # Writing the `.msh` file
     gmsh.write(os.path.join(workdir, "mesh.msh"))
     gmsh.finalize()
