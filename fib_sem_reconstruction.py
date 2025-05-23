@@ -165,7 +165,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
 
     # Performing the sieving based on the surface area of the aggregates
     for agg in aggs_raw:
-        if agg.area > 100:
+        if agg.area > 100 * 1e-12:
             sieved_aggs.append(agg)
             
     sieved_aggs_raw = pv.MultiBlock(sieved_aggs)
