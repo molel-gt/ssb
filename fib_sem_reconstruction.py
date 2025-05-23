@@ -163,9 +163,6 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     # density of the surroundings. Returns number of holes patched.  If
     # 'nbe' is 0 (default), all the holes are patched.
     # mfix.fill_small_boundaries()
-    holes = meshfix.extract_holes()
-    # self_int = [meshfix.select_intersecting_triangles()]
-    # print(len(self_int[0]))
     meshfix.repair(verbose=True, joincomp=True, remove_smallest_components=False)
     # cleaned = mfix.clean(max_iters=100, inner_loops=3)
     # if not cleaned:
