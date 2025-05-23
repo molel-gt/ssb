@@ -153,25 +153,16 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     # # ms.set_matrix_identity()
     # mesh = ms.current_mesh()
     # vert, faces = mesh.vertex_matrix(), mesh.face_matrix()
-    meshfix = mf.MeshFix(surf_raw_mesh.triangulate())
-    # mfix = PyTMesh(False)  # False removes extra verbose output
-    # mfix.load_array(vert, faces)
-    # mfix.join_closest_components()
 
-    # Fills all the holes having at at most 'nbe' boundary edges. If
-    # 'refine' is true, adds inner vertices to reproduce the sampling
-    # density of the surroundings. Returns number of holes patched.  If
-    # 'nbe' is 0 (default), all the holes are patched.
-    # mfix.fill_small_boundaries()
-    meshfix.repair(verbose=True, joincomp=True, remove_smallest_components=False)
-    # cleaned = mfix.clean(max_iters=100, inner_loops=3)
-    # if not cleaned:
-    #     print("Not cleaned")
-    # print('There are {:d} boundaries'.format(mfix.boundaries()))
-    # if not cleaned:
-    #     quit()
+    mfix = PyTMesh(False)  # False removes extra verbose output
+    mfix.load_array(surf_raw_mesh.points,  surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
+    mfix.join_closest_components()
+    mfix.fill_small_boundaries()
+    vert, faces = mfix.return_arrays()
+    # meshfix = mf.MeshFix(surf_raw_mesh.triangulate())
+    # meshfix.repair(verbose=True, joincomp=True, remove_smallest_components=False)
+    # vert, faces = meshfix.points, meshfix.faces
     # Converting the pymeshfix object to pyvista polydata
-    vert, faces = meshfix.points, meshfix.faces
     triangles = np.empty((faces.shape[0], 4), dtype=faces.dtype)
     triangles[:, -3:] = faces
     triangles[:, 0] = 3
@@ -211,7 +202,6 @@ def create_volumes_from_stl(phase, workdir):
     for i, agg_path in enumerate(glob.glob(os.path.join(workdir, 'aggs/*'))):
         print(i)
         gmsh.merge(os.path.join(agg_path))
-    gmsh.model.geo.synchronize()
     # Split each surfaces for creating the separated geometry entities
     # gmsh.model.mesh.createTopology()
     angle = 180.0*np.pi/180
@@ -220,8 +210,6 @@ def create_volumes_from_stl(phase, workdir):
 
     # Create a geometry for each one of the discrete entities (aggregates)
     gmsh.model.mesh.createGeometry()
-    gmsh.model.geo.synchronize()
-
 
     # As the gmsh `classifySurfaces()` function splits the aggregates
     # surfaces into multiple parts (most of the time into two parts), retrieve 
