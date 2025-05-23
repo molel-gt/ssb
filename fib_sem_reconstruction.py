@@ -272,10 +272,11 @@ if __name__ == '__main__':
     workdir = os.path.join(f"output/segmentation/{phase}/{args.size}/{args.origin}")
     utils.make_dir_if_missing(workdir)
     x0, y0, z0 = [int(val) for val in args.origin.split("-")]
-    Lx, Ly, Lz = [int(val) for val in args.size.split("-")]
-    Lx = Lx * SCALING[0]
-    Ly = Ly * SCALING[1]
-    Lz = Lz * SCALING[2]
+    LX, LY, LZ = [int(val) for val in args.size.split("-")]
+    L_sep = args.L_sep * SCALING[0]
+    Lx = LX * SCALING[0]
+    Ly = LY * SCALING[1]
+    Lz = LZ * SCALING[2]
     markers = commons.Markers()
     tomo = np.zeros((500, 500, 202), dtype=np.bool)
     tomo_raw = tomo.astype(np.uint8)
@@ -291,7 +292,7 @@ if __name__ == '__main__':
     # tomo[:, -1, :] = 1
     # tomo[:, :, 0] = 1
     # tomo[:, :, -1] = 1
-    tomo[:Lx+1, :Ly+1, Lz+1:] = 0
+    tomo[:LX+1, :LY+1, LZ+1:] = 0
     get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
     gmsh.initialize()  # Initialize the gmsh API
     # gmsh.option.setNumber("Mesh.Smoothing", 10)
@@ -299,7 +300,7 @@ if __name__ == '__main__':
 
     # Save the last tag index for the aggregate
     agg_last_idx = phase_volumes[-1]
-    sloop = create_box_surface_loop(Lx=Lx, Ly=Ly, Lz=Lz, L_sep=args.L_sep)
+    sloop = create_box_surface_loop(Lx=Lx, Ly=Ly, Lz=Lz, L_sep=L_sep)
     matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list, tag=agg_last_idx + 1)
 
     # Synchronize the built-in CAD representation with the current Gmsh model
