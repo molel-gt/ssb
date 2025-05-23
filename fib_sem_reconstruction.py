@@ -169,12 +169,12 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     for i, sie_agg in enumerate(sieved_aggs):
         print(f'Getting Mesh for Agg: {i+1}')
         sie_agg_raw_surf = sie_agg.extract_geometry()
-        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=20, pass_band=0.05)
+        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=100, pass_band=0.05)
         pv.save_meshio(os.path.join(workdir, f'aggs/agg_{i+1}.stl'), sie_agg_smooth_surf)
 
     # Saving it to a vtk file
     sieved_aggs_raw_surf = sieved_aggs_raw.extract_geometry()
-    surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=20, pass_band=0.05)
+    surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=100, pass_band=0.05)
     surf_smooth_mesh.save(os.path.join(workdir, f'3_surf_smooth_mesh.vtk'))
 
     return
@@ -187,7 +187,7 @@ def create_volumes_from_stl(phase, workdir):
         gmsh.merge(os.path.join(agg_path))
     gmsh.model.geo.synchronize()
     # Split each surfaces for creating the separated geometry entities
-    gmsh.model.mesh.createTopology()
+    # gmsh.model.mesh.createTopology()
     angle = 10.0*np.pi/180
     curveAngle = 180.0*np.pi/180
     gmsh.model.mesh.classifySurfaces(angle, True, True, curveAngle)
@@ -217,7 +217,7 @@ def create_volumes_from_stl(phase, workdir):
         agg_surf_loop_list.append(agg_surf)             # Include in the list
         gmsh.model.geo.addVolume([agg_surf], tag=i)     # Create the volume
         volumes.append(i)
-        gmsh.model.geo.synchronize()
+    gmsh.model.geo.synchronize()
     return volumes, agg_surf_loop_list, surfaces_to_combine
 
 
@@ -275,6 +275,7 @@ if __name__ == '__main__':
     tomo = tomo.astype(np.uint8)
     for img_id in range(1, Lz + 2):
         img_cam = np.asarray(plt.imread(os.path.join(cam_dir, f"{str(img_id).zfill(3)}.tif")).copy())
+        img_cam[:10, :] = 2
         img_cam = img_cam[:Lx+1, :Ly+1]
         # img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
         tomo[np.isclose(img_cam, 2), img_id - 1] = 1
