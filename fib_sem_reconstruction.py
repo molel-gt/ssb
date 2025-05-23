@@ -159,7 +159,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
 
     # Performing the sieving based on the surface area of the aggregates
     for agg in aggs_raw:
-        if agg.area > 25:
+        if agg.area > 100:
             sieved_aggs.append(agg)
             
     sieved_aggs_raw = pv.MultiBlock(sieved_aggs)
@@ -169,12 +169,12 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     for i, sie_agg in enumerate(sieved_aggs):
         print(f'Getting Mesh for Agg: {i+1}')
         sie_agg_raw_surf = sie_agg.extract_geometry()
-        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=20, pass_band=0.05, non_manifold_smoothing=True)
+        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=20, pass_band=0.05)
         pv.save_meshio(os.path.join(workdir, f'aggs/agg_{i+1}.stl'), sie_agg_smooth_surf)
 
     # Saving it to a vtk file
     sieved_aggs_raw_surf = sieved_aggs_raw.extract_geometry()
-    surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=20, pass_band=0.5)
+    surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=20, pass_band=0.05)
     surf_smooth_mesh.save(os.path.join(workdir, f'3_surf_smooth_mesh.vtk'))
 
     return
@@ -188,7 +188,9 @@ def create_volumes_from_stl(phase, workdir):
     gmsh.model.geo.synchronize()
     # Split each surfaces for creating the separated geometry entities
     gmsh.model.mesh.createTopology()
-    gmsh.model.mesh.classifySurfaces(10/180 * gmsh.pi, True, True, gmsh.pi)
+    angle = 10.0*np.pi/180
+    curveAngle = 180.0*np.pi/180
+    gmsh.model.mesh.classifySurfaces(angle, True, True, curveAngle)
 
     # Create a geometry for each one of the discrete entities (aggregates)
     gmsh.model.mesh.createGeometry()
