@@ -143,7 +143,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     # 'refine' is true, adds inner vertices to reproduce the sampling
     # density of the surroundings. Returns number of holes patched.  If
     # 'nbe' is 0 (default), all the holes are patched.
-    # mfix.fill_small_boundaries(4, refine=True)
+    mfix.fill_small_boundaries(refine=True)
     # Converting the pymeshfix object to pyvista polydata
     vert, faces = mfix.return_arrays()
     triangles = np.empty((faces.shape[0], 4), dtype=faces.dtype)
@@ -188,7 +188,7 @@ def create_volumes_from_stl(phase, workdir):
     gmsh.model.geo.synchronize()
     # Split each surfaces for creating the separated geometry entities
     gmsh.model.mesh.createTopology()
-    gmsh.model.mesh.classifySurfaces(gmsh.pi, True, True, gmsh.pi)
+    gmsh.model.mesh.classifySurfaces(10/180 * gmsh.pi, True, True, gmsh.pi)
 
 
 
