@@ -224,13 +224,13 @@ def create_volumes_from_stl(phase, workdir):
 def create_box_surface_loop(Lx, Ly, Lz, L_sep):
     coords = [
         (0, 0, 0),
-        (Lx, 0, 0),
-        (Lx, L_sep + Ly, 0),
-        (0, L_sep + Ly, 0),
+        (L_sep + Lx, 0, 0),
+        (L_sep + Lx, Ly, 0),
+        (0, Ly, 0),
         (0, 0, Lz),
-        (Lx, 0, Lz),
-        (Lx, L_sep + Ly, Lz),
-        (0, L_sep + Ly, Lz),
+        (L_sep + Lx, 0, Lz),
+        (L_sep + Lx, Ly, Lz),
+        (0, Ly, Lz),
     ]
     points = [gmsh.model.geo.addPoint(*p) for p in coords]
     lines = [gmsh.model.geo.addLine(points[i], points[i+1]) for i in range(4-1)]
