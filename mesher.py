@@ -117,17 +117,20 @@ if __name__ == '__main__':
     gmsh.option.setNumber("Mesh.Algorithm", 5)
     sloop = create_box_surface_loop(Lx=Lx, Ly=Ly, Lz=Lz, L_sep=args.L_sep)
     gmsh.model.geo.synchronize()
-    gmsh.merge("output/segmentation/cam-repaired.stl")
+    gmsh.merge("output/segmentation/cam/aggs/agg_1.stl")
     # gmsh.model.geo.synchronize()
-    gmsh.model.mesh.createTopology()
+    # gmsh.model.mesh.createTopology()
     gmsh.model.geo.synchronize()
     vols = gmsh.model.getEntities(3)
-    gmsh.model.mesh.classifySurfaces(gmsh.pi, True, True, gmsh.pi)
+    angle = 10.0/180.0 * np.pi
+    curveAngle = 1.0 * np.pi
+    gmsh.model.mesh.classifySurfaces(angle, True, True, curveAngle)
     gmsh.model.mesh.createGeometry()
     gmsh.model.geo.synchronize()
     surfs = gmsh.model.getEntities(2)
     surfaces_adjacencies = []
     gmsh.model.geo.synchronize()
+    print(gmsh.model.getEntities(1))
 
     for i, entity in enumerate(gmsh.model.getEntities(1)):
         surfaces_adjacencies.append(gmsh.model.get_adjacencies(entity[0], entity[1])[0])
@@ -148,10 +151,7 @@ if __name__ == '__main__':
     agg_last_idx = phase_volumes[-1]
     surfs = gmsh.model.getEntities(2)
     vols = gmsh.model.getEntities(3)
-    # print(vols)
-    # agg_last_idx = np.max([v[1] for v in vols])
-    # print(agg_last_idx)
-    # surface_loops = gmsh.model.geo.addSurfaceLoop([s[1] for s in surfs])#[gmsh.model.geo.getSurfaceLoop(3, vol) for vol in vols]
+
     sloop = create_box_surface_loop(Lx=Lx, Ly=Ly, Lz=Lz, L_sep=args.L_sep)
     gmsh.model.geo.synchronize()
     matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list, tag=agg_last_idx + 1)
