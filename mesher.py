@@ -84,23 +84,24 @@ if __name__ == '__main__':
     args = parser.parse_args()
     markers = commons.Markers()
     workdir = os.path.join(f"output/segmentation/{args.phase}/{args.size}/{args.origin}")
-    ms = pymeshlab.MeshSet()
+    
 
-    mesh = mrmeshpy.loadMesh("output/segmentation/cam.stl")
-    params = mrmeshpy.FixMeshDegeneraciesParams()
-    params.maxDeviation = 1e-5 * mesh.computeBoundingBox().diagonal()
-    params.tinyEdgeLength = 1e-3
-    mrmeshpy.fixMeshDegeneracies(mesh, params)
-    # Find single edge for each hole in mesh
-    hole_edges = mesh.topology.findHoleRepresentiveEdges()
+    # mesh = mrmeshpy.loadMesh("output/segmentation/cam.stl")
+    # params = mrmeshpy.FixMeshDegeneraciesParams()
+    # params.maxDeviation = 1e-5 * mesh.computeBoundingBox().diagonal()
+    # params.tinyEdgeLength = 1e-3
+    # mrmeshpy.fixMeshDegeneracies(mesh, params)
+    # # Find single edge for each hole in mesh
+    # hole_edges = mesh.topology.findHoleRepresentiveEdges()
 
-    for e in hole_edges:
-        #  Setup filling parameters
-        params = mrmeshpy.FillHoleParams()
-        params.metric = mrmeshpy.getUniversalMetric(mesh)
-        #  Fill hole represented by `e`
-        mrmeshpy.fillHole(mesh, e, params)
-    mrmeshpy.saveMesh(mesh, "output/segmentation/cam-repaired.stl")
+    # for e in hole_edges:
+    #     #  Setup filling parameters
+    #     params = mrmeshpy.FillHoleParams()
+    #     params.metric = mrmeshpy.getUniversalMetric(mesh)
+    #     #  Fill hole represented by `e`
+    #     mrmeshpy.fillHole(mesh, e, params)
+    # mrmeshpy.saveMesh(mesh, "output/segmentation/cam-repaired.stl")
+    # ms = pymeshlab.MeshSet()
     # ms.load_new_mesh("output/segmentation/cam.stl")
     # ms.meshing_remove_unreferenced_vertices()
     # ms.meshing_repair_non_manifold_vertices()
