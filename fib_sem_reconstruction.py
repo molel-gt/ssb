@@ -26,6 +26,7 @@ plt.rcParams.update(plot_opts.params)
 
 cam_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/cam")
 voids_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/voids")
+SCALING = [0.0858e-6, 0.0858e-6, 0.05e-6]
 
 
 def group_surfaces_adjacencies(adj):
@@ -76,7 +77,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     print("Create pyvista uniform grid")
     pv_sieved = pv.ImageData()
     pv_sieved.dimensions = data_shape
-    pv_sieved.spacing = [0.0858e-6, 0.0858e-6, 0.05e-6]
+    pv_sieved.spacing = SCALING
     pv_sieved.origin = [0, 0, 0]
     pv_sieved.point_data['Label'] = spam_sieved_labels.T.flatten()
     agg_flag = np.zeros(spam_sieved_labels.T.shape).flatten()
@@ -272,6 +273,9 @@ if __name__ == '__main__':
     utils.make_dir_if_missing(workdir)
     x0, y0, z0 = [int(val) for val in args.origin.split("-")]
     Lx, Ly, Lz = [int(val) for val in args.size.split("-")]
+    Lx = Lx * SCALING[0]
+    Ly = Ly * SCALING[1]
+    Lz = Lz * SCALING[2]
     markers = commons.Markers()
     tomo = np.zeros((500, 500, 202), dtype=np.bool)
     tomo_raw = tomo.astype(np.uint8)
