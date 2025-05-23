@@ -156,7 +156,6 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
 
     mfix = PyTMesh(False)  # False removes extra verbose output
     mfix.load_array(surf_raw_mesh.points,  surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
-    mfix.join_closest_components()
     mfix.fill_small_boundaries()
     vert, faces = mfix.return_arrays()
     # meshfix = mf.MeshFix(surf_raw_mesh.triangulate())
