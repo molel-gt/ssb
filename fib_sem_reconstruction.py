@@ -195,12 +195,12 @@ def create_volumes_from_stl(phase, workdir):
         gmsh.merge(os.path.join(agg_path))
     # Split each surfaces for creating the separated geometry entities
     #gmsh.model.mesh.createTopology()
-    angle = 180 * np.pi/180.
+    angle = 10 * np.pi/180.
     curveAngle = 180 * np.pi / 180.
     gmsh.model.mesh.classifySurfaces(angle, True, True, curveAngle)
 
     # Create a geometry for each one of the discrete entities (aggregates)
-    gmsh.model.mesh.createGeometry()
+    # gmsh.model.mesh.createGeometry()
 
     # As the gmsh `classifySurfaces()` function splits the aggregates
     # surfaces into multiple parts (most of the time into two parts), retrieve 
@@ -226,16 +226,17 @@ def create_volumes_from_stl(phase, workdir):
     return volumes, agg_surf_loop_list, surfaces_to_combine
 
 
-def create_box_surface_loop(Lx, Ly, Lz, L_sep):
+def create_box_surface_loop(Lx, Ly, Lz, L_sep, origin):
+    x0, y0, z0 = origin
     coords = [
-        (0, 0, 0),
-        (L_sep + Lx, 0, 0),
-        (L_sep + Lx, Ly, 0),
-        (0, Ly, 0),
-        (0, 0, Lz),
-        (L_sep + Lx, 0, Lz),
+        (x0, y0, z0),
+        (L_sep + Lx, y0, z0),
+        (L_sep + Lx, Ly, z0),
+        (x0, Ly, z0),
+        (x0, y0, Lz),
+        (L_sep + Lx, y0, Lz),
         (L_sep + Lx, Ly, Lz),
-        (0, Ly, Lz),
+        (x0, Ly, Lz),
     ]
     points = [gmsh.model.geo.addPoint(*p) for p in coords]
     lines = [gmsh.model.geo.addLine(points[i], points[i+1]) for i in range(4-1)]
@@ -296,18 +297,32 @@ if __name__ == '__main__':
     tomo[:, -1, :] = 0
     tomo[:, :, 0] = 0
     tomo[:, :, -1] = 0
+    tol = 1e-4
     get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
     gmsh.initialize()  # Initialize the gmsh API
     gmsh.option.setNumber("Mesh.Smoothing", 10)
+    gmsh.option.setNumber("General.AbortOnError", 1)
 
     phase_volumes, agg_surf_loop_list, surfaces_to_combine = create_volumes_from_stl(phase=phase, workdir=workdir)
     gmsh.model.geo.synchronize()
-    gmsh.option.setNumber('Geometry.Tolerance', 1e-4)
+    gmsh.option.setNumber('Geometry.Tolerance', tol)
     gmsh.model.mesh.removeDuplicateNodes()
     gmsh.model.geo.synchronize()
     # Save the last tag index for the aggregate
     agg_last_idx = phase_volumes[-1]
-    sloop = create_box_surface_loop(Lx=Lx, Ly=Ly, Lz=Lz, L_sep=L_sep)
+    surfs = gmsh.model.getEntities(2)
+    x_vals = []
+    y_vals = []
+    z_vals = []
+    for surf in surfs:
+        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
+        x_vals.extend([xmin, xmax])
+        y_vals.extend([ymin, ymax])
+        z_vals.extend([zmin, zmax])
+    lx = max(x_vals) #- min(x_vals)
+    ly = max(y_vals) #- min(y_vals)
+    lz = max(z_vals) #- min(z_vals)
+    sloop = create_box_surface_loop(Lx=lx+tol, Ly=ly+tol, Lz=lz+tol, L_sep=L_sep, origin=(min(x_vals)-tol, min(y_vals)-tol, min(z_vals)-tol))
     gmsh.model.geo.remove([(3, agg_last_idx + 1)])
     gmsh.model.geo.synchronize()
     matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list, tag=agg_last_idx + 1)
@@ -344,8 +359,8 @@ if __name__ == '__main__':
     gmsh.model.geo.synchronize()
     # Selection of the Delaunay algorithm for meshing
     gmsh.option.setNumber("Mesh.Algorithm", 6)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 10)
+    # gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
+    # gmsh.option.setNumber("Mesh.MeshSizeMax", 10)
 
     # Creation of a distance field to control the mesh element sides
     gmsh.model.mesh.field.add("Distance", 1)
@@ -363,14 +378,14 @@ if __name__ == '__main__':
     # # SizeMin -o----------------/
     # #          |                |    |
     # #        Point         DistMin  DistMax
-    gmsh.model.mesh.field.add("Threshold", 2)
-    gmsh.model.mesh.field.setNumber(2, "InField", 1)
-    gmsh.model.mesh.field.setNumber(2, "SizeMin", 0.5)
-    gmsh.model.mesh.field.setNumber(2, "SizeMax", 2.5)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 1)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 5)
+    # gmsh.model.mesh.field.add("Threshold", 2)
+    # gmsh.model.mesh.field.setNumber(2, "InField", 1)
+    # gmsh.model.mesh.field.setNumber(2, "SizeMin", 0.5)
+    # gmsh.model.mesh.field.setNumber(2, "SizeMax", 2.5)
+    # gmsh.model.mesh.field.setNumber(2, "DistMin", 1)
+    # gmsh.model.mesh.field.setNumber(2, "DistMax", 5)
 
-    gmsh.model.mesh.field.setAsBackgroundMesh(2)
+    # gmsh.model.mesh.field.setAsBackgroundMesh(2)
     gmsh.model.geo.synchronize()
     gmsh.write(os.path.join(workdir, "mesh.geo_unrolled"))
     gmsh.model.mesh.generate()
