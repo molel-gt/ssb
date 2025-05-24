@@ -296,11 +296,15 @@ if __name__ == '__main__':
     tomo[:, -1, :] = 0
     tomo[:, :, 0] = 0
     tomo[:, :, -1] = 0
-    get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
+    # get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
     gmsh.initialize()  # Initialize the gmsh API
     gmsh.option.setNumber("Mesh.Smoothing", 10)
+
     #gmsh.option.setNumber("Mesh.forceReparametrizablePatches", 1)
     phase_volumes, agg_surf_loop_list, surfaces_to_combine = create_volumes_from_stl(phase=phase, workdir=workdir)
+    gmsh.model.geo.synchronize()
+    gmsh.option.setNumber('Geometry.Tolerance', 1e-4)
+    gmsh.model.mesh.removeDuplicateNodes()
     gmsh.model.geo.synchronize()
     # Save the last tag index for the aggregate
     agg_last_idx = phase_volumes[-1]
@@ -341,7 +345,8 @@ if __name__ == '__main__':
     gmsh.model.geo.synchronize()
     # Selection of the Delaunay algorithm for meshing
     gmsh.option.setNumber("Mesh.Algorithm", 6)
-    # gmsh.option.setNumber("Mesh.SizeMax", 1)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 10)
 
     # Creation of a distance field to control the mesh element sides
     gmsh.model.mesh.field.add("Distance", 1)
@@ -359,14 +364,14 @@ if __name__ == '__main__':
     # # SizeMin -o----------------/
     # #          |                |    |
     # #        Point         DistMin  DistMax
-    # gmsh.model.mesh.field.add("Threshold", 2)
-    # gmsh.model.mesh.field.setNumber(2, "InField", 1)
-    # gmsh.model.mesh.field.setNumber(2, "SizeMin", 1.0)
-    # gmsh.model.mesh.field.setNumber(2, "SizeMax", 2.5)
-    # gmsh.model.mesh.field.setNumber(2, "DistMin", 1)
-    # gmsh.model.mesh.field.setNumber(2, "DistMax", 5)
+    gmsh.model.mesh.field.add("Threshold", 2)
+    gmsh.model.mesh.field.setNumber(2, "InField", 1)
+    gmsh.model.mesh.field.setNumber(2, "SizeMin", 0.5)
+    gmsh.model.mesh.field.setNumber(2, "SizeMax", 2.5)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 1)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 5)
 
-    # gmsh.model.mesh.field.setAsBackgroundMesh(2)
+    gmsh.model.mesh.field.setAsBackgroundMesh(2)
     gmsh.model.geo.synchronize()
     gmsh.write(os.path.join(workdir, "mesh.geo_unrolled"))
     gmsh.model.mesh.generate()
