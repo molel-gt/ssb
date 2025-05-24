@@ -361,7 +361,7 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.positive_am)
     gmsh.model.geo.synchronize()
     # Selection of the Delaunay algorithm for meshing
-    gmsh.option.setNumber("Mesh.Algorithm", 6)
+    gmsh.option.setNumber("Mesh.Algorithm", 5)
     # gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
     # gmsh.option.setNumber("Mesh.MeshSizeMax", 10)
 
