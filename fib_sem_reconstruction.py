@@ -280,7 +280,7 @@ if __name__ == '__main__':
     markers = commons.Markers()
     tomo = np.zeros((500, 500, 202), dtype=np.bool)
     tomo_raw = tomo.astype(np.uint8)
-    for img_id in range(1, Lz + 2):
+    for img_id in range(1, LZ + 2):
         img_cam = plt.imread(os.path.join(cam_dir, f"{str(img_id).zfill(3)}.tif")).copy()
         img_cam[:10, :] = 2
         # img_cam = img_cam[:, :]#[:Lx+1, :Ly+1]
