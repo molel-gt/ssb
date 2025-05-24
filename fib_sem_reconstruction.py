@@ -26,7 +26,7 @@ plt.rcParams.update(plot_opts.params)
 
 cam_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/cam")
 voids_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/voids")
-SCALING = [1, 1, 1]#[0.0858e-6, 0.0858e-6, 0.05e-6]
+SCALING = [0.0858e-6, 0.0858e-6, 0.05e-6]
 
 
 def group_surfaces_adjacencies(adj):
@@ -287,12 +287,13 @@ if __name__ == '__main__':
         # img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
         tomo[:, :, img_id - 1] = np.isclose(img_cam, 2)
     tomo[:10, :, :] = 1
-    # tomo[-1, :, :] = 1
-    # tomo[:, 0, :] = 1
-    # tomo[:, -1, :] = 1
-    # tomo[:, :, 0] = 1
-    # tomo[:, :, -1] = 1
-    tomo[:LX+1, :LY+1, LZ+1:] = 0
+    # tomo[LX+1:, LY+1:, LZ+1:] = 0
+    tomo = tomo[:LX+1, :LY+1:, :LZ+1]
+    tomo[-1, :, :] = 0
+    tomo[:, 0, :] = 0
+    tomo[:, -1, :] = 0
+    tomo[:, :, 0] = 0
+    tomo[:, :, -1] = 0
     get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
     gmsh.initialize()  # Initialize the gmsh API
     # gmsh.option.setNumber("Mesh.Smoothing", 10)
