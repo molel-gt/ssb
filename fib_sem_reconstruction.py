@@ -198,7 +198,7 @@ def create_volumes_from_stl(phase, workdir):
         gmsh.merge(os.path.join(agg_path))
     # Split each surfaces for creating the separated geometry entities
     #gmsh.model.mesh.createTopology()
-    angle = 10 * np.pi/180.
+    angle = 180 * np.pi/180.
     curveAngle = 180 * np.pi / 180.
     gmsh.model.mesh.classifySurfaces(angle, True, True, curveAngle)
 
@@ -301,15 +301,15 @@ if __name__ == '__main__':
     tomo[:, :, 0] = 0
     tomo[:, :, -1] = 0
     tol = 1e-4
-    get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
+    # get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
     gmsh.initialize()  # Initialize the gmsh API
     gmsh.option.setNumber("Mesh.Smoothing", 10)
     gmsh.option.setNumber("General.AbortOnError", 1)
 
     phase_volumes, agg_surf_loop_list, surfaces_to_combine = create_volumes_from_stl(phase=phase, workdir=workdir)
     gmsh.model.geo.synchronize()
-    gmsh.option.setNumber('Geometry.Tolerance', tol)
-    gmsh.model.mesh.removeDuplicateNodes()
+    # gmsh.option.setNumber('Geometry.Tolerance', tol)
+    # gmsh.model.mesh.removeDuplicateNodes()
     gmsh.model.geo.synchronize()
     # Save the last tag index for the aggregate
     agg_last_idx = phase_volumes[-1]
@@ -325,8 +325,8 @@ if __name__ == '__main__':
     lx = max(x_vals) #- min(x_vals)
     ly = max(y_vals) #- min(y_vals)
     lz = max(z_vals) #- min(z_vals)
-    sloop = create_box_surface_loop(Lx=lx+tol, Ly=ly+tol, Lz=lz+tol, L_sep=L_sep, origin=(min(x_vals)-tol, min(y_vals)-tol, min(z_vals)-tol))
-    gmsh.model.geo.remove([(3, agg_last_idx + 1)])
+    sloop = create_box_surface_loop(Lx=lx, Ly=ly, Lz=lz, L_sep=L_sep, origin=(min(x_vals), min(y_vals), min(z_vals)))
+    # gmsh.model.geo.remove([(3, agg_last_idx + 1)])
     gmsh.model.geo.synchronize()
     matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list, tag=agg_last_idx + 1)
     gmsh.model.geo.synchronize()
@@ -361,7 +361,7 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.positive_am)
     gmsh.model.geo.synchronize()
     # Selection of the Delaunay algorithm for meshing
-    gmsh.option.setNumber("Mesh.Algorithm", 5)
+    gmsh.option.setNumber("Mesh.Algorithm", 6)
     # gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
     # gmsh.option.setNumber("Mesh.MeshSizeMax", 10)
 
