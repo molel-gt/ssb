@@ -129,30 +129,30 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     surf_raw_mesh.clean(inplace=True)
 
     print("Repairing mesh using pymeshfix")
-    mesh = pymeshlab.Mesh(surf_raw_mesh.points,  surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
-    ms = pymeshlab.MeshSet()
-    ms.add_mesh(mesh, "cam")
-    ms.meshing_remove_unreferenced_vertices()
-    ms.meshing_remove_duplicate_vertices()
-    ms.meshing_remove_duplicate_faces()
-    ms.meshing_repair_non_manifold_vertices()
-    ms.meshing_repair_non_manifold_edges()
-    ms.meshing_re_orient_faces_coherently()
-    ms.meshing_remove_folded_faces()
-    ms.meshing_remove_null_faces()
-    ms.compute_selection_by_self_intersections_per_face()
-    ms.meshing_remove_selected_vertices_and_faces()
-    ms.compute_selection_by_non_manifold_edges_per_face()
-    ms.compute_selection_by_non_manifold_per_vertex()
-    #ms.meshing_snap_mismatched_borders()
-    ms.meshing_close_holes()
-    mesh = ms.current_mesh()
-    vert, faces = mesh.vertex_matrix(), mesh.face_matrix()
+    # mesh = pymeshlab.Mesh(surf_raw_mesh.points,  surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
+    # ms = pymeshlab.MeshSet()
+    # ms.add_mesh(mesh, "cam")
+    # ms.meshing_remove_unreferenced_vertices()
+    # ms.meshing_remove_duplicate_vertices()
+    # ms.meshing_remove_duplicate_faces()
+    # ms.meshing_repair_non_manifold_vertices()
+    # ms.meshing_repair_non_manifold_edges()
+    # ms.meshing_re_orient_faces_coherently()
+    # ms.meshing_remove_folded_faces()
+    # ms.meshing_remove_null_faces()
+    # ms.compute_selection_by_self_intersections_per_face()
+    # ms.meshing_remove_selected_vertices_and_faces()
+    # ms.compute_selection_by_non_manifold_edges_per_face()
+    # ms.compute_selection_by_non_manifold_per_vertex()
+    # ms.meshing_snap_mismatched_borders()
+    # ms.meshing_close_holes()
+    # mesh = ms.current_mesh()
+    # vert, faces = mesh.vertex_matrix(), mesh.face_matrix()
 
-    #mfix = PyTMesh(False)  # False removes extra verbose output
-    #mfix.load_array(surf_raw_mesh.points,  surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
-    #mfix.fill_small_boundaries()
-    #vert, faces = mfix.return_arrays()
+    mfix = PyTMesh(False)  # False removes extra verbose output
+    mfix.load_array(surf_raw_mesh.points,  surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
+    mfix.fill_small_boundaries(refine=True)
+    vert, faces = mfix.return_arrays()
     #meshfix = mf.MeshFix(surf_raw_mesh.triangulate())
     #meshfix.repair(verbose=True, joincomp=True, remove_smallest_components=False)
     #vert, faces = meshfix.points, meshfix.faces
@@ -180,7 +180,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     for i, sie_agg in enumerate(sieved_aggs):
         print(f'Getting Mesh for Agg: {i+1}')
         sie_agg_raw_surf = sie_agg.extract_geometry()
-        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=100, pass_band=0.05)
+        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=20, pass_band=0.1)
         pv.save_meshio(os.path.join(workdir, f'aggs/agg_{i+1}.stl'), sie_agg_smooth_surf)
 
     # Saving it to a vtk file
@@ -197,13 +197,11 @@ def create_volumes_from_stl(phase, workdir):
         print(i)
         gmsh.merge(os.path.join(agg_path))
     # Split each surfaces for creating the separated geometry entities
-    #gmsh.model.mesh.createTopology()
-    angle = 180 * np.pi/180.
-    curveAngle = 180 * np.pi / 180.
-    gmsh.model.mesh.classifySurfaces(angle, True, True, curveAngle)
+    gmsh.model.mesh.createTopology()
+    gmsh.model.mesh.classifySurfaces(gmsh.pi, True, True, gmsh.pi)
 
     # Create a geometry for each one of the discrete entities (aggregates)
-    # gmsh.model.mesh.createGeometry()
+    gmsh.model.mesh.createGeometry()
 
     # As the gmsh `classifySurfaces()` function splits the aggregates
     # surfaces into multiple parts (most of the time into two parts), retrieve 
@@ -290,8 +288,11 @@ if __name__ == '__main__':
         img_cam = plt.imread(os.path.join(cam_dir, f"{str(img_id).zfill(3)}.tif")).copy()
         img_cam[:10, :] = 2
         # img_cam = img_cam[:, :]#[:Lx+1, :Ly+1]
-        # img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
+        img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
+        # print(np.unique(img_voids))
+        # quit()
         tomo[:, :, img_id - 1] = np.isclose(img_cam, 2)
+        # tomo[np.isclose(img_voids, 1), img_id - 1] = 1#np.isclose(img_voids, 1)
     tomo[:10, :, :] = 1
     # tomo[LX+1:, LY+1:, LZ+1:] = 0
     tomo = tomo[:LX+1, :LY+1:, :LZ+1]
@@ -301,16 +302,16 @@ if __name__ == '__main__':
     tomo[:, :, 0] = 0
     tomo[:, :, -1] = 0
     tol = 1e-4
-    # get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
+    get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
     gmsh.initialize()  # Initialize the gmsh API
-    gmsh.option.setNumber("Mesh.Smoothing", 10)
-    gmsh.option.setNumber("General.AbortOnError", 1)
+    # gmsh.option.setNumber("Mesh.Smoothing", 10)
+    # gmsh.option.setNumber("General.AbortOnError", 1)
 
     phase_volumes, agg_surf_loop_list, surfaces_to_combine = create_volumes_from_stl(phase=phase, workdir=workdir)
     gmsh.model.geo.synchronize()
     # gmsh.option.setNumber('Geometry.Tolerance', tol)
     # gmsh.model.mesh.removeDuplicateNodes()
-    gmsh.model.geo.synchronize()
+    # gmsh.model.geo.synchronize()
     # Save the last tag index for the aggregate
     agg_last_idx = phase_volumes[-1]
     surfs = gmsh.model.getEntities(2)
@@ -325,49 +326,49 @@ if __name__ == '__main__':
     lx = max(x_vals) #- min(x_vals)
     ly = max(y_vals) #- min(y_vals)
     lz = max(z_vals) #- min(z_vals)
-    sloop = create_box_surface_loop(Lx=lx, Ly=ly, Lz=lz, L_sep=L_sep, origin=(min(x_vals), min(y_vals), min(z_vals)))
+    # sloop = create_box_surface_loop(Lx=lx, Ly=ly, Lz=lz, L_sep=L_sep, origin=(min(x_vals), min(y_vals), min(z_vals)))
     # gmsh.model.geo.remove([(3, agg_last_idx + 1)])
-    gmsh.model.geo.synchronize()
-    matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list, tag=agg_last_idx + 1)
-    gmsh.model.geo.synchronize()
+    # gmsh.model.geo.synchronize()
+    # matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list, tag=agg_last_idx + 1)
+    # gmsh.model.geo.synchronize()
 
     # Synchronize the built-in CAD representation with the current Gmsh model
     surfs = gmsh.model.getEntities(2)
-    left_surfs = []
-    right_surfs = []
-    interface_surfs = []
-    insulated_am = []
-    insulated_se = []
-    for surf in surfs:
-        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
-        if np.isclose(ymin, ymax) and np.isclose(ymin, 0):
-            right_surfs.append(surf[1])
-        elif np.isclose(ymin, ymax) and np.isclose(ymin, Ly + args.L_sep):
-            left_surfs.append(surf[1])
-        elif np.isclose(xmin, xmax) and (np.isclose(xmin, 0) or np.isclose(xmin, Lx)):
-            insulated_am.append(surf[1])
-        elif np.isclose(zmin, zmax) and (np.isclose(zmin, 0) or np.isclose(zmin, Lz)):
-            insulated_am.append(surf[1])
-        else:
-            if surf[1] in agg_surf_loop_list:
-                interface_surfs.append(surf[1])
-            else:
-                print(surf[1])
-    gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "Left")
-    gmsh.model.addPhysicalGroup(2, right_surfs, markers.right, "Right")
-    gmsh.model.addPhysicalGroup(2, interface_surfs, markers.electrolyte_v_positive_am, "SE/AM")
-    gmsh.model.geo.synchronize()
-    gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
+    # left_surfs = []
+    # right_surfs = []
+    # interface_surfs = []
+    # insulated_am = []
+    # insulated_se = []
+    # for surf in surfs:
+    #     xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
+    #     if np.isclose(ymin, ymax) and np.isclose(ymin, 0):
+    #         right_surfs.append(surf[1])
+    #     elif np.isclose(ymin, ymax) and np.isclose(ymin, Ly + args.L_sep):
+    #         left_surfs.append(surf[1])
+    #     elif np.isclose(xmin, xmax) and (np.isclose(xmin, 0) or np.isclose(xmin, Lx)):
+    #         insulated_am.append(surf[1])
+    #     elif np.isclose(zmin, zmax) and (np.isclose(zmin, 0) or np.isclose(zmin, Lz)):
+    #         insulated_am.append(surf[1])
+    #     else:
+    #         if surf[1] in agg_surf_loop_list:
+    #             interface_surfs.append(surf[1])
+    #         else:
+    #             print(surf[1])
+    # gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "Left")
+    # gmsh.model.addPhysicalGroup(2, right_surfs, markers.right, "Right")
+    # gmsh.model.addPhysicalGroup(2, interface_surfs, markers.electrolyte_v_positive_am, "SE/AM")
+    # gmsh.model.geo.synchronize()
+    # gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
     gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.positive_am)
     gmsh.model.geo.synchronize()
     # Selection of the Delaunay algorithm for meshing
-    gmsh.option.setNumber("Mesh.Algorithm", 6)
+    gmsh.option.setNumber("Mesh.Algorithm", 5)
     # gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
     # gmsh.option.setNumber("Mesh.MeshSizeMax", 10)
 
     # Creation of a distance field to control the mesh element sides
     gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "FacesList", [item for sublist in surfaces_to_combine for item in sublist])
+    gmsh.model.mesh.field.setNumbers(1, "SurfacesList", [item for sublist in surfaces_to_combine for item in sublist])
     gmsh.model.mesh.field.setNumber(1, "NNodesByEdge", 50)
 
     # # We then define a `Threshold' field, which uses the return value of the
@@ -381,14 +382,14 @@ if __name__ == '__main__':
     # # SizeMin -o----------------/
     # #          |                |    |
     # #        Point         DistMin  DistMax
-    # gmsh.model.mesh.field.add("Threshold", 2)
-    # gmsh.model.mesh.field.setNumber(2, "InField", 1)
-    # gmsh.model.mesh.field.setNumber(2, "SizeMin", 0.5)
-    # gmsh.model.mesh.field.setNumber(2, "SizeMax", 2.5)
-    # gmsh.model.mesh.field.setNumber(2, "DistMin", 1)
-    # gmsh.model.mesh.field.setNumber(2, "DistMax", 5)
+    gmsh.model.mesh.field.add("Threshold", 2)
+    gmsh.model.mesh.field.setNumber(2, "InField", 1)
+    gmsh.model.mesh.field.setNumber(2, "SizeMin", 0.25)
+    gmsh.model.mesh.field.setNumber(2, "SizeMax", 1.0)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", 2)
 
-    # gmsh.model.mesh.field.setAsBackgroundMesh(2)
+    gmsh.model.mesh.field.setAsBackgroundMesh(2)
     gmsh.model.geo.synchronize()
     gmsh.write(os.path.join(workdir, "mesh.geo_unrolled"))
     gmsh.model.mesh.generate()
