@@ -26,7 +26,7 @@ plt.rcParams.update(plot_opts.params)
 
 cam_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/cam")
 voids_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/voids")
-SCALING = [0.0858e-6, 0.0858e-6, 0.05e-6]
+SCALING = [1, 1, 1]#[0.0858e-6, 0.0858e-6, 0.05e-6]
 
 
 def group_surfaces_adjacencies(adj):
@@ -129,28 +129,30 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     surf_raw_mesh.clean(inplace=True)
 
     print("Repairing mesh using pymeshfix")
-    # mesh = pymeshlab.Mesh(surf_raw_mesh.points,  surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
-    # ms = pymeshlab.MeshSet()
-    # ms.add_mesh(mesh, "cam")
-    # ms.meshing_remove_unreferenced_vertices()
-    # ms.meshing_remove_duplicate_vertices()
-    # ms.meshing_remove_duplicate_faces()
-    # ms.meshing_repair_non_manifold_vertices()
-    # ms.meshing_repair_non_manifold_edges()
-    # self_int = ms.compute_selection_by_self_intersections_per_face()
-    # ms.meshing_remove_selected_vertices_and_faces()
-    # ms.meshing_snap_mismatched_borders()
-    # ms.meshing_close_holes()
-    # mesh = ms.current_mesh()
-    # vert, faces = mesh.vertex_matrix(), mesh.face_matrix()
+    mesh = pymeshlab.Mesh(surf_raw_mesh.points,  surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
+    ms = pymeshlab.MeshSet()
+    ms.add_mesh(mesh, "cam")
+    ms.meshing_remove_unreferenced_vertices()
+    ms.meshing_remove_duplicate_vertices()
+    ms.meshing_remove_duplicate_faces()
+    ms.meshing_repair_non_manifold_vertices()
+    ms.meshing_repair_non_manifold_edges()
+    ms.meshing_re_orient_faces_coherently()
+    ms.meshing_remove_folded_faces()
+    ms.compute_selection_by_self_intersections_per_face()
+    ms.meshing_remove_selected_vertices_and_faces()
+    #ms.meshing_snap_mismatched_borders()
+    ms.meshing_close_holes()
+    mesh = ms.current_mesh()
+    vert, faces = mesh.vertex_matrix(), mesh.face_matrix()
 
-    mfix = PyTMesh(False)  # False removes extra verbose output
-    mfix.load_array(surf_raw_mesh.points,  surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
-    mfix.fill_small_boundaries()
-    vert, faces = mfix.return_arrays()
-    # meshfix = mf.MeshFix(surf_raw_mesh.triangulate())
-    # meshfix.repair(verbose=True, joincomp=True, remove_smallest_components=False)
-    # vert, faces = meshfix.points, meshfix.faces
+    #mfix = PyTMesh(False)  # False removes extra verbose output
+    #mfix.load_array(surf_raw_mesh.points,  surf_raw_mesh.faces.reshape((surf_raw_mesh.n_faces_strict, 4))[:, 1:] )
+    #mfix.fill_small_boundaries()
+    #vert, faces = mfix.return_arrays()
+    #meshfix = mf.MeshFix(surf_raw_mesh.triangulate())
+    #meshfix.repair(verbose=True, joincomp=True, remove_smallest_components=False)
+    #vert, faces = meshfix.points, meshfix.faces
     # Converting the pymeshfix object to pyvista polydata
     triangles = np.empty((faces.shape[0], 4), dtype=faces.dtype)
     triangles[:, -3:] = faces
@@ -192,9 +194,9 @@ def create_volumes_from_stl(phase, workdir):
         print(i)
         gmsh.merge(os.path.join(agg_path))
     # Split each surfaces for creating the separated geometry entities
-    # gmsh.model.mesh.createTopology()
-    angle = 180.0*np.pi/180
-    curveAngle = 180.0*np.pi/180
+    #gmsh.model.mesh.createTopology()
+    angle = 180 * np.pi/180.
+    curveAngle = 180 * np.pi / 180.
     gmsh.model.mesh.classifySurfaces(angle, True, True, curveAngle)
 
     # Create a geometry for each one of the discrete entities (aggregates)
@@ -220,7 +222,7 @@ def create_volumes_from_stl(phase, workdir):
         agg_surf_loop_list.append(agg_surf)             # Include in the list
         gmsh.model.geo.addVolume([agg_surf], tag=i)     # Create the volume
         volumes.append(i)
-    gmsh.model.geo.synchronize()
+    #gmsh.model.geo.synchronize()
     return volumes, agg_surf_loop_list, surfaces_to_combine
 
 
@@ -245,16 +247,16 @@ def create_box_surface_loop(Lx, Ly, Lz, L_sep):
     lines.append(gmsh.model.geo.addLine(points[1], points[5])) # line 10
     lines.append(gmsh.model.geo.addLine(points[2], points[6])) # line 11
     loops = []
-    gmsh.model.geo.synchronize()
+    #gmsh.model.geo.synchronize()
     loops.append(gmsh.model.geo.addCurveLoop([lines[idx] for idx in [0, 1, 2, 3]], reorient=True))
     loops.append(gmsh.model.geo.addCurveLoop([lines[idx] for idx in [4, 5, 6, 7]], reorient=True))
     loops.append(gmsh.model.geo.addCurveLoop([lines[idx] for idx in [8, 7, 9, 3]], reorient=True))
     loops.append(gmsh.model.geo.addCurveLoop([lines[idx] for idx in [9, 0, 10, 4]], reorient=True))
     loops.append(gmsh.model.geo.addCurveLoop([lines[idx] for idx in [10, 5, 11, 1]], reorient=True))
     loops.append(gmsh.model.geo.addCurveLoop([lines[idx] for idx in [11, 6, 8, 2]], reorient=True))
-    gmsh.model.geo.synchronize()
+    #gmsh.model.geo.synchronize()
     surfs = [gmsh.model.geo.addPlaneSurface([loop]) for loop in loops]
-    gmsh.model.geo.synchronize()
+    #gmsh.model.geo.synchronize()
     surf_loop = gmsh.model.geo.addSurfaceLoop(surfs)
 
     return surf_loop
@@ -296,19 +298,19 @@ if __name__ == '__main__':
     tomo[:, :, -1] = 0
     get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
     gmsh.initialize()  # Initialize the gmsh API
-    # gmsh.option.setNumber("Mesh.Smoothing", 10)
+    gmsh.option.setNumber("Mesh.Smoothing", 10)
+    #gmsh.option.setNumber("Mesh.forceReparametrizablePatches", 1)
     phase_volumes, agg_surf_loop_list, surfaces_to_combine = create_volumes_from_stl(phase=phase, workdir=workdir)
-
+    gmsh.model.geo.synchronize()
     # Save the last tag index for the aggregate
     agg_last_idx = phase_volumes[-1]
     sloop = create_box_surface_loop(Lx=Lx, Ly=Ly, Lz=Lz, L_sep=L_sep)
+    gmsh.model.geo.remove([(3, agg_last_idx + 1)])
+    gmsh.model.geo.synchronize()
     matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list, tag=agg_last_idx + 1)
+    gmsh.model.geo.synchronize()
 
     # Synchronize the built-in CAD representation with the current Gmsh model
-    gmsh.model.geo.synchronize()
-    gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
-    gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.positive_am)
-    gmsh.model.geo.synchronize()
     surfs = gmsh.model.getEntities(2)
     left_surfs = []
     right_surfs = []
@@ -333,15 +335,18 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "Left")
     gmsh.model.addPhysicalGroup(2, right_surfs, markers.right, "Right")
     gmsh.model.addPhysicalGroup(2, interface_surfs, markers.electrolyte_v_positive_am, "SE/AM")
-    # gmsh.model.geo.synchronize()
+    gmsh.model.geo.synchronize()
+    gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
+    gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.positive_am)
+    gmsh.model.geo.synchronize()
     # Selection of the Delaunay algorithm for meshing
-    # gmsh.option.setNumber("Mesh.Algorithm", 5)
+    gmsh.option.setNumber("Mesh.Algorithm", 6)
     # gmsh.option.setNumber("Mesh.SizeMax", 1)
 
     # Creation of a distance field to control the mesh element sides
-    # gmsh.model.mesh.field.add("Distance", 1)
-    # gmsh.model.mesh.field.setNumbers(1, "FacesList", [item for sublist in surfaces_to_combine for item in sublist])
-    # gmsh.model.mesh.field.setNumber(1, "NNodesByEdge", 50)
+    gmsh.model.mesh.field.add("Distance", 1)
+    gmsh.model.mesh.field.setNumbers(1, "FacesList", [item for sublist in surfaces_to_combine for item in sublist])
+    gmsh.model.mesh.field.setNumber(1, "NNodesByEdge", 50)
 
     # # We then define a `Threshold' field, which uses the return value of the
     # # `Distance' field 1 in order to define a simple change in element size
@@ -363,6 +368,7 @@ if __name__ == '__main__':
 
     # gmsh.model.mesh.field.setAsBackgroundMesh(2)
     gmsh.model.geo.synchronize()
+    gmsh.write(os.path.join(workdir, "mesh.geo_unrolled"))
     gmsh.model.mesh.generate()
     # Writing the `.msh` file
     gmsh.write(os.path.join(workdir, "mesh.msh"))
