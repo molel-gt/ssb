@@ -238,16 +238,20 @@ if __name__ == '__main__':
     interface_surfs = []
     insulated_am = []
     insulated_se = []
-    lxs = []
-    lys = []
-    lzs = []
+    # lxs = []
+    # lys = []
+    # lzs = []
+    print(np.min(lxs))
     for surf in surfs:
         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
-        if np.isclose(ymin, ymax) and np.isclose(ymin, 0):
+        if np.isclose(xmin, np.min(lxs), atol=1e-5) and np.isclose(xmax, np.min(lxs), atol=1e-5):
             right_surfs.append(surf[1])
-        elif np.isclose(ymin, ymax) and np.isclose(ymin, ly + L_sep):
+            print(np.isclose(xmin, 0, atol=1e-7), np.isclose(xmax, 0, atol=1e-7))
+        if np.isclose(xmin, 0, atol=1e-7) and np.isclose(xmax, 0, atol=1e-7):
+            right_surfs.append(surf[1])
+        elif np.isclose(xmin, lx + L_sep, atol=1e-7) and np.isclose(xmin, lx + L_sep, atol=1e-7):
             left_surfs.append(surf[1])
-        elif np.isclose(xmin, xmax) and (np.isclose(xmin, 0) or np.isclose(xmin, lx)):
+        elif np.isclose(ymin, ymax) and (np.isclose(ymin, np.min(lxs)) or np.isclose(ymin, ly)):
             insulated_am.append(surf[1])
         elif np.isclose(zmin, zmax) and (np.isclose(zmin, 0) or np.isclose(zmin, lz)):
             insulated_am.append(surf[1])
