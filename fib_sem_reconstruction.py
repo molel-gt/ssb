@@ -26,7 +26,7 @@ plt.rcParams.update(plot_opts.params)
 
 cam_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/cam")
 voids_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/voids")
-SCALING = [1, 1, 1]#[0.0858e-6, 0.0858e-6, 0.05e-6]
+SCALING = [0.0858e-6, 0.0858e-6, 0.05e-6]
 
 
 def group_surfaces_adjacencies(adj):
@@ -170,7 +170,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
 
     # Performing the sieving based on the surface area of the aggregates
     for agg in aggs_raw:
-        if agg.area > 100:
+        if agg.area / (SCALING[0] ** 2) > 100:
             sieved_aggs.append(agg)
             
     sieved_aggs_raw = pv.MultiBlock(sieved_aggs)
@@ -193,7 +193,7 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
 
 def create_volumes_from_stl(phase, workdir):
     # Merge each aggregate STL file
-    for i, agg_path in enumerate(glob.glob(os.path.join(workdir, 'aggs/*'))):
+    for i, agg_path in enumerate(glob.glob(os.path.join(workdir, 'aggs/*.stl'))):
         print(i)
         gmsh.merge(os.path.join(agg_path))
     # Split each surfaces for creating the separated geometry entities
@@ -358,18 +358,20 @@ if __name__ == '__main__':
     # gmsh.model.addPhysicalGroup(2, right_surfs, markers.right, "Right")
     # gmsh.model.addPhysicalGroup(2, interface_surfs, markers.electrolyte_v_positive_am, "SE/AM")
     # gmsh.model.geo.synchronize()
+    gmsh.model.geo.removeAllDuplicates()
+    gmsh.model.geo.synchronize()
     # gmsh.model.addPhysicalGroup(3, [matrix_volume], tag=markers.electrolyte)
     gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.positive_am)
     gmsh.model.geo.synchronize()
     # Selection of the Delaunay algorithm for meshing
-    gmsh.option.setNumber("Mesh.Algorithm", 5)
+    # gmsh.option.setNumber("Mesh.Algorithm", 5)
     # gmsh.option.setNumber("Mesh.MeshSizeMax", 0.1)
     # gmsh.option.setNumber("Mesh.MeshSizeMax", 10)
 
     # Creation of a distance field to control the mesh element sides
-    gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "SurfacesList", [item for sublist in surfaces_to_combine for item in sublist])
-    gmsh.model.mesh.field.setNumber(1, "NNodesByEdge", 50)
+    # gmsh.model.mesh.field.add("Distance", 1)
+    # gmsh.model.mesh.field.setNumbers(1, "SurfacesList", [item for sublist in surfaces_to_combine for item in sublist])
+    # gmsh.model.mesh.field.setNumber(1, "NNodesByEdge", 50)
 
     # # We then define a `Threshold' field, which uses the return value of the
     # # `Distance' field 1 in order to define a simple change in element size
@@ -382,14 +384,14 @@ if __name__ == '__main__':
     # # SizeMin -o----------------/
     # #          |                |    |
     # #        Point         DistMin  DistMax
-    gmsh.model.mesh.field.add("Threshold", 2)
-    gmsh.model.mesh.field.setNumber(2, "InField", 1)
-    gmsh.model.mesh.field.setNumber(2, "SizeMin", 0.25)
-    gmsh.model.mesh.field.setNumber(2, "SizeMax", 1.0)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", 2)
+    # gmsh.model.mesh.field.add("Threshold", 2)
+    # gmsh.model.mesh.field.setNumber(2, "InField", 1)
+    # gmsh.model.mesh.field.setNumber(2, "SizeMin", 0.25)
+    # gmsh.model.mesh.field.setNumber(2, "SizeMax", 1.0)
+    # gmsh.model.mesh.field.setNumber(2, "DistMin", 0.5)
+    # gmsh.model.mesh.field.setNumber(2, "DistMax", 2)
 
-    gmsh.model.mesh.field.setAsBackgroundMesh(2)
+    # gmsh.model.mesh.field.setAsBackgroundMesh(2)
     gmsh.model.geo.synchronize()
     gmsh.write(os.path.join(workdir, "mesh.geo_unrolled"))
     gmsh.model.mesh.generate()
