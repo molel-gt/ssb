@@ -157,8 +157,9 @@ if __name__ == '__main__':
     # matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list)
     # gmsh.model.geo.synchronize()
     # gmsh.model.geo.synchronize()
-    for idx in range(1, 3):
-        gmsh.merge(f"output/segmentation/cam/201-201-201/0-0-0/aggs/agg_{idx}.ply")
+    # for idx in range(1, 3):
+    #     gmsh.merge(f"output/segmentation/cam/201-201-201/0-0-0/aggs/agg_{idx}.ply")
+    gmsh.merge(f"output/segmentation/cam/201-201-201/0-0-0/3_surf_smooth_mesh.ply")
     # gmsh.model.geo.synchronize()
     # gmsh.model.mesh.createTopology()
     vols = gmsh.model.getEntities(3)
@@ -206,7 +207,7 @@ if __name__ == '__main__':
         lxs.extend([xmin, xmax])
         lys.extend([ymin, ymax])
         lzs.extend([zmin, zmax])
-    tol = 1e-9
+    tol = 1e-8
     lx = np.max(lxs) + tol
     ly = np.max(lys) + tol
     lz = np.max(lzs) + tol
@@ -216,7 +217,7 @@ if __name__ == '__main__':
     gmsh.model.geo.removeAllDuplicates()
     # gmsh.model.geo.synchronize()
     surf_loops = []
-    sloop = create_box_surface_loop(Lx=lx, Ly=ly, Lz=lz, L_sep=L_sep, origin=(np.min(lxs), np.min(lys), np.min(lzs)))
+    sloop = create_box_surface_loop(Lx=lx, Ly=ly, Lz=lz, L_sep=L_sep, origin=(np.min(lxs), np.min(lys)-tol, np.min(lzs)-tol))
     gmsh.model.geo.synchronize()
     bndry = [s[1] for s in gmsh.model.getBoundary([(3, v) for v in phase_volumes])]
     # hole = gmsh.model.geo.addSurfaceLoop(bndry)
