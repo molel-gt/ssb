@@ -5,7 +5,6 @@ import os
 import sys
 
 import gmsh
-import meshlib.mrmeshpy as mrmeshpy
 import numpy as np
 import pymeshlab
 import trimesh
@@ -130,7 +129,7 @@ if __name__ == '__main__':
           {
             "type":"number",
             "name":"Parameters/Angle for surface detection",
-            "values":[40],
+            "values":[1],
             "min":20,
             "max":120,
             "step":1
@@ -138,7 +137,7 @@ if __name__ == '__main__':
           {
             "type":"number",
             "name":"Parameters/Create surfaces guaranteed to be parametrizable",
-            "values":[0],
+            "values":[1],
             "choices":[0, 1]
           },
           {
@@ -157,13 +156,15 @@ if __name__ == '__main__':
     # matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list)
     # gmsh.model.geo.synchronize()
     # gmsh.model.geo.synchronize()
-    # for idx in range(1, 3):
+    # for idx in range(1, 2):
     #     gmsh.merge(f"output/segmentation/cam/201-201-201/0-0-0/aggs/agg_{idx}.ply")
-    gmsh.merge(f"output/segmentation/cam/201-201-201/0-0-0/3_surf_smooth_mesh.ply")
+    # gmsh.merge(f"output/segmentation/cam/201-201-201/0-0-0/3_surf_smooth_mesh.ply")
+    gmsh.merge("cam.msh")
     # gmsh.model.geo.synchronize()
-    # gmsh.model.mesh.createTopology()
     vols = gmsh.model.getEntities(3)
-    # gmsh.option.setNumber('Geometry.Tolerance', 1e-12)
+    gmsh.option.setNumber("General.Verbosity", 1)
+    gmsh.option.setNumber('Geometry.Tolerance', 1e-8)
+    gmsh.option.setNumber("Mesh.AngleToleranceFacetOverlap", 0.05)
     # gmsh.option.setNumber('Mesh.Optimize', 1)
     # gmsh.option.setNumber('Mesh.Algorithm', 5)
     # gmsh.model.mesh.removeDuplicateNodes()
@@ -171,13 +172,16 @@ if __name__ == '__main__':
     angle = gmsh.onelab.getNumber('Parameters/Angle for surface detection')[0]
     forceParametrizablePatches = gmsh.onelab.getNumber(
         'Parameters/Create surfaces guaranteed to be parametrizable')[0]
-    curveAngle = 180#1.0 * np.pi
+    curveAngle = 180
+    gmsh.model.mesh.createTopology()
     gmsh.model.mesh.classifySurfaces(angle * math.pi/180., True, forceParametrizablePatches, curveAngle * math.pi/180.)
-    # gmsh.model.mesh.createGeometry()
+    gmsh.model.mesh.createGeometry()
+    
     surfaces_adjacencies = []
 
     for i, entity in enumerate(gmsh.model.getEntities(1)):
-        surfaces_adjacencies.append(gmsh.model.get_adjacencies(entity[0], entity[1])[0])
+        adj = gmsh.model.get_adjacencies(entity[0], entity[1])
+        surfaces_adjacencies.append(adj[0])
 
     # Python function to group surfacs that share at least a single upward adjency
     surfaces_to_combine = group_surfaces_adjacencies(surfaces_adjacencies)
@@ -188,17 +192,36 @@ if __name__ == '__main__':
     for i, stc in enumerate(surfaces_to_combine):
         agg_surf = gmsh.model.geo.addSurfaceLoop(stc)   # Add the surface loop
         agg_surf_loop_list.append(agg_surf)             # Include in the list
-        gmsh.model.geo.addVolume([agg_surf], tag=i)     # Create the volume
-        phase_volumes.append(i)
+        # gmsh.model.geo.addVolume([agg_surf], tag=i)     # Create the volume
+        # phase_volumes.append(i)
     gmsh.model.geo.synchronize()
+    vols = gmsh.model.getEntities(3)
+    bndry = [s[1] for s in gmsh.model.getBoundary(vols)]
+    surfaces_adjacencies = []
+
+    for i, entity in enumerate(gmsh.model.getEntities(1)):
+        adj = gmsh.model.get_adjacencies(entity[0], entity[1])
+        surfs_new = [surf for surf in adj[0] if surf in bndry]
+        # if adj[0] in bndry:
+        surfaces_adjacencies.append(surfs_new)
+
+    # Python function to group surfacs that share at least a single upward adjency
+    surfaces_to_combine = group_surfaces_adjacencies(surfaces_adjacencies)
+
+    # Create a list with the surface loops of each aggregate
+    agg_surf_loop_list = []
+    phase_volumes = []
+    for i, stc in enumerate(surfaces_to_combine):
+        agg_surf = gmsh.model.geo.addSurfaceLoop(stc)   # Add the surface loop
+        agg_surf_loop_list.append(agg_surf) 
     # gmsh.model.geo.removeAllDuplicates()
     # gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.positive_am)
     # gmsh.model.geo.synchronize()
     # print(phase_volumes, agg_surf_loop_list)
     # Save the last tag index for the aggregate
-    agg_last_idx = phase_volumes[-1]
+    # agg_last_idx = phase_volumes[-1]
     surfs = gmsh.model.getEntities(2)
-    vols = gmsh.model.getEntities(3)
+    
     lxs = []
     lys = []
     lzs = []
@@ -208,18 +231,20 @@ if __name__ == '__main__':
         lys.extend([ymin, ymax])
         lzs.extend([zmin, zmax])
     tol = 1e-8
-    lx = np.max(lxs) + tol
-    ly = np.max(lys) + tol
-    lz = np.max(lzs) + tol
+    lx = np.max(lxs) #+ tol
+    ly = np.max(lys) #+ tol
+    lz = np.max(lzs) #+ tol
     # gmsh.model.geo.remove([(3, agg_last_idx+1)])
     # gmsh.model.geo.dilate(gmsh.model.getEntities(0)+gmsh.model.getEntities(1)+gmsh.model.getEntities(2)+gmsh.model.getEntities(3), 1, 1, 1, 0.0858e-6, 0.0858e-6, 0.05e-6)
     # gmsh.model.geo.synchronize()
     gmsh.model.geo.removeAllDuplicates()
     # gmsh.model.geo.synchronize()
     surf_loops = []
-    sloop = create_box_surface_loop(Lx=lx, Ly=ly, Lz=lz, L_sep=L_sep, origin=(np.min(lxs), np.min(lys)-tol, np.min(lzs)-tol))
+    # print(vols)
+    # quit()
+
+    sloop = create_box_surface_loop(Lx=lx, Ly=ly, Lz=lz, L_sep=L_sep, origin=(10*SCALING[0], np.min(lys), np.min(lzs)))
     gmsh.model.geo.synchronize()
-    bndry = [s[1] for s in gmsh.model.getBoundary([(3, v) for v in phase_volumes])]
     # hole = gmsh.model.geo.addSurfaceLoop(bndry)
     # print(agg_surf_loop_list, hole)
     gmsh.model.addPhysicalGroup(3, phase_volumes, markers.positive_am, "CAM")
@@ -241,14 +266,15 @@ if __name__ == '__main__':
     # lxs = []
     # lys = []
     # lzs = []
+    surfs = gmsh.model.getEntities(2)
     print(np.min(lxs))
     for surf in surfs:
         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
-        if np.isclose(xmin, np.min(lxs), atol=1e-5) and np.isclose(xmax, np.min(lxs), atol=1e-5):
+        if np.isclose(xmin, 0, atol=1e-8) and np.isclose(xmax, 0, atol=1e-8):
             right_surfs.append(surf[1])
             print(np.isclose(xmin, 0, atol=1e-7), np.isclose(xmax, 0, atol=1e-7))
-        if np.isclose(xmin, 0, atol=1e-7) and np.isclose(xmax, 0, atol=1e-7):
-            right_surfs.append(surf[1])
+        # if np.isclose(xmin, 0, atol=1e-6) and np.isclose(xmax, 0, atol=1e-6):
+        #     right_surfs.append(surf[1])
         elif np.isclose(xmin, lx + L_sep, atol=1e-7) and np.isclose(xmin, lx + L_sep, atol=1e-7):
             left_surfs.append(surf[1])
         elif np.isclose(ymin, ymax) and (np.isclose(ymin, np.min(lxs)) or np.isclose(ymin, ly)):
@@ -268,4 +294,4 @@ if __name__ == '__main__':
 
     gmsh.write("mesh.geo_unrolled")
     gmsh.model.mesh.generate()
-    gmsh.write(os.path.join(workdir, "mesh.msh"))
+    gmsh.write(os.path.join(workdir, "mesh-new.msh"))

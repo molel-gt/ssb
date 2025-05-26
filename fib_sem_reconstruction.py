@@ -180,14 +180,14 @@ def get_aggregates_and_write_to_file(tomo, phase="voids", data_shape=(500, 500, 
     for i, sie_agg in enumerate(sieved_aggs):
         print(f'Getting Mesh for Agg: {i+1}')
         sie_agg_raw_surf = sie_agg.extract_geometry()
-        sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=20, pass_band=0.1)
-        pv.save_meshio(os.path.join(workdir, f'aggs/agg_{i+1}.stl'), sie_agg_smooth_surf)
+        # sie_agg_smooth_surf = sie_agg_raw_surf.smooth_taubin(n_iter=100, pass_band=0.05)
+        pv.save_meshio(os.path.join(workdir, f'aggs/agg_{i+1}.stl'), sie_agg_raw_surf)
 
     # Saving it to a vtk file
     sieved_aggs_raw_surf = sieved_aggs_raw.extract_geometry()
-    surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=100, pass_band=0.05)
+    # surf_smooth_mesh = sieved_aggs_raw_surf.smooth_taubin(n_iter=100, pass_band=0.05)
     # surf_smooth_mesh.save(os.path.join(workdir, f'3_surf_smooth_mesh.vtk'))
-    pv.save_meshio(os.path.join(workdir, f'3_surf_smooth_mesh.stl'), surf_smooth_mesh)
+    pv.save_meshio(os.path.join(workdir, f'3_surf_smooth_mesh.stl'), sieved_aggs_raw_surf)
 
     return
 
@@ -289,7 +289,7 @@ if __name__ == '__main__':
         img_cam = plt.imread(os.path.join(cam_dir, f"{str(img_id).zfill(3)}.tif")).copy()
         img_cam[:10, :] = 2
         # img_cam = img_cam[:, :]#[:Lx+1, :Ly+1]
-        img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
+        # img_voids = plt.imread(os.path.join(voids_dir, f"{str(img_id).zfill(3)}.tif"))
         # print(np.unique(img_voids))
         # quit()
         tomo[:, :, img_id - 1] = np.isclose(img_cam, 2)
@@ -297,11 +297,12 @@ if __name__ == '__main__':
     tomo[:10, :, :] = 1
     # tomo[LX+1:, LY+1:, LZ+1:] = 0
     tomo = tomo[:LX+1, :LY+1:, :LZ+1]
+    tomo[0, :, :] = 0
     tomo[-1, :, :] = 0
-    tomo[:, 0, :] = 0
-    tomo[:, -1, :] = 0
-    tomo[:, :, 0] = 0
-    tomo[:, :, -1] = 0
+    tomo[:10, 0, :] = 0
+    tomo[:10, -1, :] = 0
+    tomo[:10, :, 0] = 0
+    tomo[:10, :, -1] = 0
     tol = 1e-4
     get_aggregates_and_write_to_file(tomo, phase=phase, data_shape=tomo.shape, workdir=workdir)
     gmsh.initialize()  # Initialize the gmsh API

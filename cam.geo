@@ -1,9 +1,9 @@
 Merge "output/segmentation/cam/201-201-201/0-0-0/3_surf_smooth_mesh.ply";
 //Nerge "cam.msh";
 //Coherence;
-CreateTopology;
-ClassifySurfaces{Pi, 1, 1, Pi};
-CreateGeometry;
+//CreateTopology;
+//ClassifySurfaces{10/180.*Pi, 1, 1, Pi};
+//CreateGeometry;
 
 s() = Surface{:}; // Get all the surfaces
 Surface Loop(1) = s(); // Creating a surface loop to be used to generate the volume
