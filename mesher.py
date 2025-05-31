@@ -157,7 +157,7 @@ if __name__ == '__main__':
     gmsh.option.setNumber("General.NumThreads", 8)
     gmsh.option.setNumber("Mesh.MeshSizeMin", 0.05)
     gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
-    gmsh.option.setNumber("Mesh.ScalingFactor", 0.05e-6/L_c)
+    #gmsh.option.setNumber("Mesh.ScalingFactor", 0.05e-6/L_c)
 
     # gmsh.model.mesh.removeDuplicateNodes()
     # angle = 180/180. * np.pi
