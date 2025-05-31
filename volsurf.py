@@ -77,7 +77,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     scaling = [float(v) for v in args.scale.split(",")]
     cam_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/cam")
-    workdir = os.path.join("output/segmentation", f"{args.phase}/{args.size}/{args.origin}")
+    workdir = os.path.join("output/segmentation", f"{args.size}/{args.origin}")
     utils.make_dir_if_missing(workdir)
     points = {}
     counter = 0
@@ -115,7 +115,7 @@ if __name__ == '__main__':
     mesh = voxels.marching_cubes
     scaled_verts = np.vstack((mesh.vertices[:, 0] * non_dim_scale[0], mesh.vertices[:, 1] * non_dim_scale[1], mesh.vertices[:, 2] * non_dim_scale[2]))
     scaled_mesh = trimesh.Trimesh(vertices=scaled_verts.T, faces=mesh.faces)
-    output_stl = os.path.join(workdir, "cam.stl")
+    output_stl = os.path.join(workdir, f"{args.phase}.stl")
     scaled_mesh.export(output_stl)
     # trimesh.exchange.export.export_mesh(scaled_mesh, output_stl)
     print(f"Wrote surface mesh to {output_stl}")
