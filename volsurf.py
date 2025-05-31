@@ -108,12 +108,13 @@ if __name__ == '__main__':
             data3d[new_coord] = 1
     print(cam_coords.shape)
     print("Generating surface mesh")
+    scale_mat = np.matrix([[scaling[0], 0, 0], [0, scaling[1], 0], [0, 0, scaling[2]] ])
+    transform = trimesh.voxel.transforms.Transform(scale_mat)
     encoding =  trimesh.voxel.encoding.DenseEncoding(data3d)
-    voxels = trimesh.voxel.base.VoxelGrid(encoding)
+    voxels = trimesh.voxel.base.VoxelGrid(encoding, scale_mat)
     print(voxels.volume)
-    scale_mat = np.matrix([[scaling[0], 0, 0, 0], [0, scaling[1], 0, 0], [0, 0, scaling[2], 0 ], [0, 0, 0, 0] ])
     print(scale_mat.shape)
-    vx = voxels.apply_transform(scale_mat)
+    vx = voxels.apply_scale(scale_mat)
     print(voxels.volume, vx.volume)
     mesh = vx.marching_cubes
     trimesh.exchange.export.export_mesh(mesh, os.path.join(workdir, "cam.stl"))
