@@ -12,7 +12,7 @@ import trimesh
 import commons, utils
 
 SCALING = [1, 1, 1]#[0.0858e-6, 0.0858e-6, 0.05e-6]
-
+PHASE_VALUES = {"voids": 0, "sse": 1, "cam": 2}
 
 def group_surfaces_adjacencies(adj):
     '''
@@ -140,19 +140,24 @@ if __name__ == '__main__':
     # gmsh.option.setNumber("Mesh.Algorithm", 6)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.1)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1)
-    gmsh.merge(f"output/segmentation/{args.phase}/{args.size}/{args.origin}/cam.1.vtk")
-    # gmsh.merge("cam.msh")
-    # gmsh.model.geo.synchronize()
-    vols = gmsh.model.getEntities(3)
+    threshold = 0
+    phase_volumes = {}
+    for phase in ["sse", "cam"]:
+        gmsh.merge(f"output/segmentation/{args.phase}/{args.size}/{args.origin}/{phase}.1.vtk")
+        gmsh.model.geo.synchronize()
+        vols = [v[1] for v in gmsh.model.getEntities(3) if v > threshold]
+        phase_volumes[phase] = vols
+        threshold = max(vols)
     # gmsh.option.setNumber("General.Verbosity", 1)
     gmsh.model.mesh.setOrder(1)
-    # gmsh.option.setNumber('Geometry.Tolerance', 1e-8)
+    gmsh.option.setNumber('Geometry.Tolerance', 1e-8)
     # gmsh.option.setNumber("Mesh.AngleToleranceFacetOverlap", 0.01)
     # gmsh.option.setNumber('Mesh.Optimize', 1)
     gmsh.option.setNumber('Mesh.Algorithm', 5)
     gmsh.option.setNumber("General.NumThreads", 8)
     gmsh.option.setNumber("Mesh.MeshSizeMin", 0.05)
     gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
+    gmsh.option.setNumber("Mesh.ScalingFactor", 0.05e-6/L_c)
 
     # gmsh.model.mesh.removeDuplicateNodes()
     # angle = 180/180. * np.pi
@@ -204,12 +209,14 @@ if __name__ == '__main__':
     print(np.min(lxs), np.max(lxs), Lx)
     print(np.min(lys), np.max(lys), Ly)
     print(np.min(lzs), np.max(lzs), Lz)
-    sloop = create_box_surface_loop(Lx=Lx, Ly=Ly+padding, Lz=Lz+padding, L_sep=L_sep, origin=(-padding, -padding, -padding))
+    # sloop = create_box_surface_loop(Lx=Lx, Ly=Ly+padding, Lz=Lz+padding, L_sep=L_sep, origin=(-padding, -padding, -padding))
     gmsh.model.geo.synchronize()
-    gmsh.model.addPhysicalGroup(3, phase_volumes, markers.positive_am, "CAM")
-    matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list)
-    gmsh.model.geo.synchronize()
-    gmsh.model.addPhysicalGroup(3, [matrix_volume], markers.electrolyte, "Electrolyte")
+    # gmsh.model.addPhysicalGroup(3, phase_volumes, markers.positive_am, "CAM")
+    # matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list)
+    # gmsh.model.geo.synchronize()
+    gmsh.model.addPhysicalGroup(3, phase_volumes["voids"], markers.void, "VOIDS")
+    gmsh.model.addPhysicalGroup(3, phase_volumes["cam"], markers.positive_am, "CAM")
+    gmsh.model.addPhysicalGroup(3, phase_volumes["sse"], markers.electrolyte, "SSE")
     gmsh.model.geo.synchronize()
     phys_vols = gmsh.model.getPhysicalGroups(3)
 

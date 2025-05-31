@@ -1,9 +1,9 @@
-Merge "output/segmentation/cam.stl";
+Merge "output/segmentation/cam.ply";
 SetOrder 1;
 //Nerge "cam.msh";
 Mesh.MeshSizeMin = 1;
 //Coherence;
-//CreateTopology;
+CreateTopology;
 ClassifySurfaces{180/180.*Pi, 1, 1, Pi};
 CreateGeometry;
 
