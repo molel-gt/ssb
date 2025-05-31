@@ -4,10 +4,6 @@ import os
 import matplotlib.pyplot as plt
 import pymeshfix as mf
 import numpy as np
-import open3d as o3d
-import pygalmesh
-import pyvista as pv
-import skimage as ski
 import trimesh
 
 import utils
