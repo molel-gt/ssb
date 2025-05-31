@@ -149,6 +149,7 @@ if __name__ == '__main__':
     # gmsh.option.setNumber("Mesh.AngleToleranceFacetOverlap", 0.01)
     # gmsh.option.setNumber('Mesh.Optimize', 1)
     gmsh.option.setNumber('Mesh.Algorithm', 5)
+    gmsh.option.setNumber("General.NumThreads", 8)
     # gmsh.model.mesh.removeDuplicateNodes()
     # angle = 180/180. * np.pi
     angle = gmsh.onelab.getNumber('Parameters/Angle for surface detection')[0]
