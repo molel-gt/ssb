@@ -87,6 +87,7 @@ if __name__ == '__main__':
     parser.add_argument('--scale', help='sx-sy-sz', required=True, type=str)
     parser.add_argument("--phase", help="particulate phase", nargs='?', const=1, default='cam', type=str)
     parser.add_argument("--L_sep", help="separator thickness [m]", nargs='?', const=1, default=15e-6, type=float)
+    parser.add_argument("--resolution", help="dimensionless resolution", nargs='?', const=1, default=0.05, type=float)
     args = parser.parse_args()
     scaling = [float(v) for v in args.scale.split(",")]
     markers = commons.Markers()
@@ -150,6 +151,9 @@ if __name__ == '__main__':
     # gmsh.option.setNumber('Mesh.Optimize', 1)
     gmsh.option.setNumber('Mesh.Algorithm', 5)
     gmsh.option.setNumber("General.NumThreads", 8)
+    gmsh.option.setNumber("Mesh.MeshSizeMin", 0.05)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
+
     # gmsh.model.mesh.removeDuplicateNodes()
     # angle = 180/180. * np.pi
     angle = gmsh.onelab.getNumber('Parameters/Angle for surface detection')[0]
