@@ -142,7 +142,7 @@ if __name__ == '__main__':
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1)
     threshold = 0
     phase_volumes = {}
-    for phase in ["sse", "cam"]:
+    for phase in ["voids", "sse", "cam"]:
         gmsh.merge(f"output/segmentation/{args.phase}/{args.size}/{args.origin}/{phase}.1.vtk")
         gmsh.model.geo.synchronize()
         vols = [v[1] for v in gmsh.model.getEntities(3) if v > threshold]
@@ -169,40 +169,40 @@ if __name__ == '__main__':
     gmsh.model.mesh.classifySurfaces(angle * math.pi/180., True, forceParametrizablePatches, curveAngle * math.pi/180.)
     #gmsh.model.mesh.createGeometry()
     
-    surfaces_adjacencies = []
+    # surfaces_adjacencies = []
 
-    for i, entity in enumerate(gmsh.model.getEntities(1)):
-        adj = gmsh.model.get_adjacencies(entity[0], entity[1])
-        surfaces_adjacencies.append(adj[0])
+    # for i, entity in enumerate(gmsh.model.getEntities(1)):
+    #     adj = gmsh.model.get_adjacencies(entity[0], entity[1])
+    #     surfaces_adjacencies.append(adj[0])
 
-    # Python function to group surfacs that share at least a single upward adjency
-    surfaces_to_combine = group_surfaces_adjacencies(surfaces_adjacencies)
+    # # Python function to group surfacs that share at least a single upward adjency
+    # surfaces_to_combine = group_surfaces_adjacencies(surfaces_adjacencies)
 
-    # Create a list with the surface loops of each aggregate
-    agg_surf_loop_list = []
-    phase_volumes = [v[1] for v in gmsh.model.getEntities(3)]
-    print(phase_volumes)
-    for i, stc in enumerate(surfaces_to_combine):
-        agg_surf = gmsh.model.geo.addSurfaceLoop(stc)   # Add the surface loop
-        agg_surf_loop_list.append(agg_surf)             # Include in the list
+    # # Create a list with the surface loops of each aggregate
+    # agg_surf_loop_list = []
+    # phase_volumes = [v[1] for v in gmsh.model.getEntities(3)]
+    # print(phase_volumes)
+    # for i, stc in enumerate(surfaces_to_combine):
+    #     agg_surf = gmsh.model.geo.addSurfaceLoop(stc)   # Add the surface loop
+    #     agg_surf_loop_list.append(agg_surf)             # Include in the list
 
-    gmsh.model.geo.synchronize()
-    vols = gmsh.model.getEntities(3)
-    print(vols)
-    surfs = gmsh.model.getEntities(2)
+    # gmsh.model.geo.synchronize()
+    # vols = gmsh.model.getEntities(3)
+    # print(vols)
+    # surfs = gmsh.model.getEntities(2)
     
-    lxs = []
-    lys = []
-    lzs = []
-    for surf in surfs:
-        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
-        lxs.extend([xmin, xmax])
-        lys.extend([ymin, ymax])
-        lzs.extend([zmin, zmax])
-    tol = 1.0 * SCALING[0]
-    lx = np.max(lxs) + tol
-    ly = np.max(lys) + tol
-    lz = np.max(lzs) + tol
+    # lxs = []
+    # lys = []
+    # lzs = []
+    # for surf in surfs:
+    #     xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
+    #     lxs.extend([xmin, xmax])
+    #     lys.extend([ymin, ymax])
+    #     lzs.extend([zmin, zmax])
+    # tol = 1.0 * SCALING[0]
+    # lx = np.max(lxs) + tol
+    # ly = np.max(lys) + tol
+    # lz = np.max(lzs) + tol
     gmsh.model.geo.removeAllDuplicates()
     gmsh.model.geo.synchronize()
     surf_loops = []
