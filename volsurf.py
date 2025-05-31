@@ -121,7 +121,7 @@ if __name__ == '__main__':
     scaled_cam_output_meshfile = os.path.join(workdir, "cam.stl")
 
     print("Processing segmented images")
-    for phase in ["sse"]:#"voids", "cam", "sse"]:
+    for phase in ["voids", "cam", "sse"]:
         print(f"Processing phase {phase}")
         if phase == "sse":
             img_3d = np.ones((nx+n_sep, ny, nz), dtype=bool)
