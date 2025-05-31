@@ -9,9 +9,7 @@ import pyvista as pv
 import trimesh
 
 import utils
-
-SCALING = [0.0858e-6, 0.0858e-6, 0.2e-6]
-PHASE_VALUES = {"voids": 0, "sse": 1, "cam": 2}
+SCALING = [0.0858e-6, 0.0858e-6, 0.05e-6]
 
 
 def get_valid_coords(coords, limits):
@@ -68,12 +66,14 @@ def count_neighbors(arr, center):
     return neighors
 
 
-def generate_surface_mesh_for_phase(phase_coords, data3d, sizes):
+def generate_surface_mesh_for_phase(img_3d, sizes):
     """
     :rtype:
         trimesh.Trimesh
     """
     nx, ny, nz = sizes
+    data3d = np.zeros((2 * nx, 2 * ny, 2 * nz), dtype=bool)
+    phase_coords = np.array(np.where(img_3d)).T
     print("Generating neighboring cubes")
     for coord in phase_coords:
         x = 2 * coord[0]
@@ -102,40 +102,60 @@ if __name__ == '__main__':
     voids_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/voids")
     workdir = os.path.join("output/segmentation", f"{args.size}/{args.origin}")
     utils.make_dir_if_missing(workdir)
-    points = {}
-    counter = 0
+    cam_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/cam")
+    voids_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/voids")
+
+    nx, ny, nz = [int(v) for v in args.size.split("-")]
     L_SEP = args.L_sep
-    nx, ny, nz = [int(s) for s in args.size.split("-")]
     LX = nx - 1
     LY = ny - 1
     LZ = nz - 1
     L_c = LX * scaling[0] + L_SEP
-    Lx = LX / L_c
-    Ly = LY * scaling[1] / L_c
-    Lz = LZ * scaling[2] / L_c
-    L_sep = L_SEP / L_c
-    n_sep = np.int32(args.L_sep / scaling[1])
-    non_dim_scale = [scaling[0]/L_c, scaling[1]/L_c, scaling[2]/L_c]
-    img_3d = np.full((nx, ny, nz+n_sep), np.int32(PHASE_VALUES["sse"]), dtype=np.int32)
-    data3d = np.zeros((2 * nx, 2 * ny, 2 * (nz + n_sep)), dtype=bool)
-    print("Processing segmented images")
-    for idx in range(1, nz+1):
-        cam_img_file = os.path.join(cam_dir, f"{str(idx).zfill(3)}.tif")
-        voids_img_file = os.path.join(voids_dir, f"{str(idx).zfill(3)}.tif")
-        cam_img = plt.imread(cam_img_file).copy()[:nx, :ny]
-        voids_img = plt.imread(voids_img_file).copy()[:nx, :ny]
-        # add cam padding for full contact with +ve current collector
-        cam_img[:10, ] = PHASE_VALUES["cam"]
-        img_3d[:, :, idx-1] = cam_img[:nx, :ny]
-        img_3d[np.isclose(voids_img, 1), idx-1] = 1
+    n_sep = 175
+    voids_output_meshfile = os.path.join(workdir, "voids-unscaled.stl")
+    sse_output_meshfile = os.path.join(workdir, "sse-unscaled.stl")
+    cam_output_meshfile = os.path.join(workdir, "cam-unscaled.stl")
 
-    for phase in ["voids", "sse", "cam"]:
-        phase_coords = np.array(np.where(np.isclose(img_3d, PHASE_VALUES[phase]))).T
-        mesh = generate_surface_mesh_for_phase(phase_coords, data3d, sizes=(nx, ny, nz+n_sep))
-        scaled_verts = np.vstack((mesh.vertices[:, 0] * non_dim_scale[0]/2, mesh.vertices[:, 1] * non_dim_scale[1]/2, mesh.vertices[:, 2] * non_dim_scale[2]/2))
+    scaled_voids_output_meshfile = os.path.join(workdir, "voids.stl")
+    scaled_sse_output_meshfile = os.path.join(workdir, "sse.stl")
+    scaled_cam_output_meshfile = os.path.join(workdir, "cam.stl")
+
+    print("Processing segmented images")
+    for phase in ["sse"]:#"voids", "cam", "sse"]:
+        print(f"Processing phase {phase}")
+        if phase == "sse":
+            img_3d = np.ones((nx+n_sep, ny, nz), dtype=bool)
+            img_3d[-1, :, :] = np.full((ny, nz), 0)
+        else:
+            img_3d = np.zeros((nx+n_sep, ny, nz), dtype=bool)
+
+        for idx in range(1, nz+1):
+            print(f"Processing image {idx}")
+            img_file = os.path.join(cam_dir, f"{str(idx).zfill(3)}.tif")
+            voids_img_file = os.path.join(voids_dir, f"{str(idx).zfill(3)}.tif")
+            cam_img = plt.imread(img_file).copy()[:nx, :ny]
+            cam_img[:10, ] = 2
+            voids_img = plt.imread(voids_img_file).copy()[:nx, :ny]
+            if phase == "sse":
+                print(np.average(img_3d))
+                img_3d[:nx, :ny, idx-1] = np.logical_not(np.logical_or(np.isclose(voids_img[:, :], 1), np.isclose(cam_img[:, :], 2)))
+                print(np.average(img_3d))
+            if phase == "voids":
+                img_3d[:nx, :ny, idx-1] = np.isclose(voids_img[:, :], 1)
+            if phase == "cam":
+                img_3d[:nx, :ny, idx-1] = np.logical_and(np.isclose(voids_img[:nx, :ny], 0), np.isclose(cam_img[:, :], 2))
+
+        print(f"Rough {phase} volume fraction {np.average(img_3d[:nx, :ny, :])}")
+        mesh = generate_surface_mesh_for_phase(img_3d, sizes=(nx+n_sep, ny, nz))
+        non_dim_scale = [0.5*scaling[0]/L_c, 0.5*scaling[1]/L_c, 0.5*scaling[2]/L_c]
+        scaled_verts = np.vstack((mesh.vertices[:, 0] * non_dim_scale[0], mesh.vertices[:, 1] * non_dim_scale[1], mesh.vertices[:, 2] * non_dim_scale[2]))
         scaled_mesh = trimesh.Trimesh(vertices=scaled_verts.T, faces=mesh.faces)
-        output_stl = os.path.join(workdir, f"{phase}.stl")
-        scaled_mesh.export(output_stl)
-        # trimesh.exchange.export.export_mesh(scaled_mesh, output_stl)
-        print(f"Wrote surface mesh to {output_stl}")
-        data3d[:, :, :] = False
+        if phase == "voids":
+            trimesh.exchange.export.export_mesh(mesh, voids_output_meshfile)
+            trimesh.exchange.export.export_mesh(scaled_mesh, scaled_voids_output_meshfile)
+        elif phase == "sse":
+            trimesh.exchange.export.export_mesh(mesh, sse_output_meshfile)
+            trimesh.exchange.export.export_mesh(scaled_mesh, scaled_sse_output_meshfile)
+        elif phase == "cam":
+            trimesh.exchange.export.export_mesh(mesh, cam_output_meshfile)
+            trimesh.exchange.export.export_mesh(scaled_mesh, scaled_cam_output_meshfile)
