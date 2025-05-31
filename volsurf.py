@@ -127,7 +127,6 @@ if __name__ == '__main__':
         print(f"Processing phase {phase}")
         if phase == "sse":
             img_3d = np.ones((nx+n_sep, ny, nz), dtype=bool)
-            # img_3d[-1, :, :] = np.full((ny, nz), 0)
         else:
             img_3d = np.zeros((nx+n_sep, ny, nz), dtype=bool)
 
