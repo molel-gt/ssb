@@ -231,10 +231,10 @@ if __name__ == '__main__':
         lxs.extend([xmin, xmax])
         lys.extend([ymin, ymax])
         lzs.extend([zmin, zmax])
-    tol = 1e-8
-    lx = np.max(lxs) #+ tol
-    ly = np.max(lys) #+ tol
-    lz = np.max(lzs) #+ tol
+    tol = 1e-7
+    lx = np.max(lxs) + tol
+    ly = np.max(lys) + tol
+    lz = np.max(lzs) + tol
     # gmsh.model.geo.remove([(3, agg_last_idx+1)])
     # gmsh.model.geo.dilate(gmsh.model.getEntities(0)+gmsh.model.getEntities(1)+gmsh.model.getEntities(2)+gmsh.model.getEntities(3), 1, 1, 1, 0.0858e-6, 0.0858e-6, 0.05e-6)
     # gmsh.model.geo.synchronize()
@@ -244,7 +244,7 @@ if __name__ == '__main__':
     # print(vols)
     # quit()
 
-    sloop = create_box_surface_loop(Lx=lx, Ly=ly, Lz=lz, L_sep=L_sep, origin=(10*SCALING[0], np.min(lys)-tol, np.min(lzs)-tol))
+    sloop = create_box_surface_loop(Lx=lx, Ly=ly, Lz=lz, L_sep=L_sep, origin=(np.min(lxs)-tol, np.min(lys)-tol, np.min(lzs)-tol))
     gmsh.model.geo.synchronize()
     # hole = gmsh.model.geo.addSurfaceLoop(bndry)
     # print(agg_surf_loop_list, hole)
