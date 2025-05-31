@@ -11,7 +11,7 @@ import trimesh
 
 import commons, utils
 
-SCALING = [0.0858e-6, 0.0858e-6, 0.05e-6]
+SCALING = [1, 1, 1]#[0.0858e-6, 0.0858e-6, 0.05e-6]
 
 
 def group_surfaces_adjacencies(adj):
@@ -119,7 +119,7 @@ if __name__ == '__main__':
     x0, y0, z0 = [int(val) for val in args.origin.split("-")]
     LX, LY, LZ = [int(val) for val in args.size.split("-")]
     L_sep = args.L_sep * SCALING[0]
-    Lx = (LX+1) * SCALING[0]
+    Lx = (LX-10) * SCALING[0]
     Ly = (LY+5) * SCALING[1]
     Lz = (LZ+5) * SCALING[2]
     gmsh.initialize()
@@ -129,7 +129,7 @@ if __name__ == '__main__':
           {
             "type":"number",
             "name":"Parameters/Angle for surface detection",
-            "values":[1],
+            "values":[180],
             "min":20,
             "max":120,
             "step":1
@@ -156,15 +156,16 @@ if __name__ == '__main__':
     # matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list)
     # gmsh.model.geo.synchronize()
     # gmsh.model.geo.synchronize()
-    # for idx in range(1, 2):
-    #     gmsh.merge(f"output/segmentation/cam/201-201-201/0-0-0/aggs/agg_{idx}.ply")
-    # gmsh.merge(f"output/segmentation/cam/201-201-201/0-0-0/3_surf_smooth_mesh.ply")
-    gmsh.merge("cam.msh")
+    # for idx in range(2, 3):
+    #     gmsh.merge(f"output/segmentation/cam/200-200-200/0-0-0/aggs/agg_{idx}.stl")
+    gmsh.merge(f"output/segmentation/cam.1.vtk")
+    # gmsh.merge("cam.msh")
     # gmsh.model.geo.synchronize()
     vols = gmsh.model.getEntities(3)
-    gmsh.option.setNumber("General.Verbosity", 1)
-    gmsh.option.setNumber('Geometry.Tolerance', 1e-8)
-    gmsh.option.setNumber("Mesh.AngleToleranceFacetOverlap", 0.05)
+    # gmsh.option.setNumber("General.Verbosity", 1)
+    gmsh.model.mesh.setOrder(1)
+    # gmsh.option.setNumber('Geometry.Tolerance', 1e-8)
+    # gmsh.option.setNumber("Mesh.AngleToleranceFacetOverlap", 0.01)
     # gmsh.option.setNumber('Mesh.Optimize', 1)
     # gmsh.option.setNumber('Mesh.Algorithm', 5)
     # gmsh.model.mesh.removeDuplicateNodes()
@@ -192,7 +193,7 @@ if __name__ == '__main__':
     for i, stc in enumerate(surfaces_to_combine):
         agg_surf = gmsh.model.geo.addSurfaceLoop(stc)   # Add the surface loop
         agg_surf_loop_list.append(agg_surf)             # Include in the list
-        # gmsh.model.geo.addVolume([agg_surf], tag=i)     # Create the volume
+        gmsh.model.geo.addVolume([agg_surf], tag=i)     # Create the volume
         # phase_volumes.append(i)
     gmsh.model.geo.synchronize()
     vols = gmsh.model.getEntities(3)
@@ -243,7 +244,7 @@ if __name__ == '__main__':
     # print(vols)
     # quit()
 
-    sloop = create_box_surface_loop(Lx=lx, Ly=ly, Lz=lz, L_sep=L_sep, origin=(10*SCALING[0], np.min(lys), np.min(lzs)))
+    sloop = create_box_surface_loop(Lx=lx, Ly=ly, Lz=lz, L_sep=L_sep, origin=(10*SCALING[0], np.min(lys)-tol, np.min(lzs)-tol))
     gmsh.model.geo.synchronize()
     # hole = gmsh.model.geo.addSurfaceLoop(bndry)
     # print(agg_surf_loop_list, hole)
@@ -294,4 +295,4 @@ if __name__ == '__main__':
 
     gmsh.write("mesh.geo_unrolled")
     gmsh.model.mesh.generate()
-    gmsh.write(os.path.join(workdir, "mesh-new.msh"))
+    gmsh.write(os.path.join(workdir, "mesh.msh"))
