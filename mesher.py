@@ -139,7 +139,7 @@ if __name__ == '__main__':
     # gmsh.option.setNumber("Mesh.Algorithm", 6)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.1)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1)
-    gmsh.merge(f"output/segmentation/cam.1.vtk")
+    gmsh.merge(f"output/segmentation/{args.phase}/{args.size}/{args.origin}/cam.1.vtk")
     # gmsh.merge("cam.msh")
     # gmsh.model.geo.synchronize()
     vols = gmsh.model.getEntities(3)
