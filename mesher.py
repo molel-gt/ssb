@@ -151,13 +151,6 @@ if __name__ == '__main__':
     # gmsh.option.setNumber("Mesh.Algorithm", 6)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.1)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1)
-    # sloop = create_box_surface_loop(Lx=Lx, Ly=Ly, Lz=Lz, L_sep=args.L_sep)
-    # gmsh.model.geo.synchronize()
-    # matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list)
-    # gmsh.model.geo.synchronize()
-    # gmsh.model.geo.synchronize()
-    # for idx in range(2, 3):
-    #     gmsh.merge(f"output/segmentation/cam/200-200-200/0-0-0/aggs/agg_{idx}.stl")
     gmsh.merge(f"output/segmentation/cam.1.vtk")
     # gmsh.merge("cam.msh")
     # gmsh.model.geo.synchronize()
@@ -167,7 +160,7 @@ if __name__ == '__main__':
     # gmsh.option.setNumber('Geometry.Tolerance', 1e-8)
     # gmsh.option.setNumber("Mesh.AngleToleranceFacetOverlap", 0.01)
     # gmsh.option.setNumber('Mesh.Optimize', 1)
-    # gmsh.option.setNumber('Mesh.Algorithm', 5)
+    gmsh.option.setNumber('Mesh.Algorithm', 5)
     # gmsh.model.mesh.removeDuplicateNodes()
     # angle = 180/180. * np.pi
     angle = gmsh.onelab.getNumber('Parameters/Angle for surface detection')[0]
@@ -176,7 +169,7 @@ if __name__ == '__main__':
     curveAngle = 180
     gmsh.model.mesh.createTopology()
     gmsh.model.mesh.classifySurfaces(angle * math.pi/180., True, forceParametrizablePatches, curveAngle * math.pi/180.)
-    gmsh.model.mesh.createGeometry()
+    #gmsh.model.mesh.createGeometry()
     
     surfaces_adjacencies = []
 
@@ -188,39 +181,16 @@ if __name__ == '__main__':
     surfaces_to_combine = group_surfaces_adjacencies(surfaces_adjacencies)
 
     # Create a list with the surface loops of each aggregate
-    # agg_surf_loop_list = []
-    # phase_volumes = []
-    # for i, stc in enumerate(surfaces_to_combine):
-    #     agg_surf = gmsh.model.geo.addSurfaceLoop(stc)   # Add the surface loop
-    #     agg_surf_loop_list.append(agg_surf)             # Include in the list
-        # gmsh.model.geo.addVolume([agg_surf], tag=i)     # Create the volume
-        # phase_volumes.append(i)
-    gmsh.model.geo.synchronize()
-    vols = gmsh.model.getEntities(3)
-    bndry = [s[1] for s in gmsh.model.getBoundary(vols)]
-    surfaces_adjacencies = []
-
-    for i, entity in enumerate(gmsh.model.getEntities(1)):
-        adj = gmsh.model.get_adjacencies(entity[0], entity[1])
-        surfs_new = [surf for surf in adj[0] if surf in bndry]
-        # if adj[0] in bndry:
-        surfaces_adjacencies.append(surfs_new)
-
-    # Python function to group surfacs that share at least a single upward adjency
-    surfaces_to_combine = group_surfaces_adjacencies(surfaces_adjacencies)
-
-    # Create a list with the surface loops of each aggregate
     agg_surf_loop_list = []
-    phase_volumes = []
+    phase_volumes = [v[1] for v in gmsh.model.getEntities(3)]
+    print(phase_volumes)
     for i, stc in enumerate(surfaces_to_combine):
         agg_surf = gmsh.model.geo.addSurfaceLoop(stc)   # Add the surface loop
-        agg_surf_loop_list.append(agg_surf) 
-    # gmsh.model.geo.removeAllDuplicates()
-    # gmsh.model.addPhysicalGroup(3, phase_volumes, tag=markers.positive_am)
-    # gmsh.model.geo.synchronize()
-    # print(phase_volumes, agg_surf_loop_list)
-    # Save the last tag index for the aggregate
-    # agg_last_idx = phase_volumes[-1]
+        agg_surf_loop_list.append(agg_surf)             # Include in the list
+
+    gmsh.model.geo.synchronize()
+    vols = gmsh.model.getEntities(3)
+    print(vols)
     surfs = gmsh.model.getEntities(2)
     
     lxs = []
@@ -231,42 +201,28 @@ if __name__ == '__main__':
         lxs.extend([xmin, xmax])
         lys.extend([ymin, ymax])
         lzs.extend([zmin, zmax])
-    tol = 1e-7
+    tol = 1.0 * SCALING[0]
     lx = np.max(lxs) + tol
     ly = np.max(lys) + tol
     lz = np.max(lzs) + tol
-    # gmsh.model.geo.remove([(3, agg_last_idx+1)])
-    # gmsh.model.geo.dilate(gmsh.model.getEntities(0)+gmsh.model.getEntities(1)+gmsh.model.getEntities(2)+gmsh.model.getEntities(3), 1, 1, 1, 0.0858e-6, 0.0858e-6, 0.05e-6)
-    # gmsh.model.geo.synchronize()
     gmsh.model.geo.removeAllDuplicates()
-    # gmsh.model.geo.synchronize()
+    gmsh.model.geo.synchronize()
     surf_loops = []
-    # print(vols)
-    # quit()
 
     sloop = create_box_surface_loop(Lx=lx, Ly=ly, Lz=lz, L_sep=L_sep, origin=(np.min(lxs)-tol, np.min(lys)-tol, np.min(lzs)-tol))
     gmsh.model.geo.synchronize()
-    # hole = gmsh.model.geo.addSurfaceLoop(bndry)
-    # print(agg_surf_loop_list, hole)
     gmsh.model.addPhysicalGroup(3, phase_volumes, markers.positive_am, "CAM")
-    # sloop = create_box_surface_loop(Lx=Lx, Ly=Ly, Lz=Lz, L_sep=L_sep)
-    # gmsh.model.geo.synchronize()
-    # print(sloop)
     matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list)
     gmsh.model.geo.synchronize()
     gmsh.model.addPhysicalGroup(3, [matrix_volume], markers.electrolyte, "Electrolyte")
     gmsh.model.geo.synchronize()
-    vols = gmsh.model.getPhysicalGroups(3)
-    print(vols)
+    phys_vols = gmsh.model.getPhysicalGroups(3)
 
     left_surfs = []
     right_surfs = []
     interface_surfs = []
     insulated_am = []
     insulated_se = []
-    # lxs = []
-    # lys = []
-    # lzs = []
     surfs = gmsh.model.getEntities(2)
     print(np.min(lxs))
     for surf in surfs:
