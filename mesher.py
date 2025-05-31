@@ -94,11 +94,6 @@ if __name__ == '__main__':
     workdir = os.path.join(f"output/segmentation/{args.phase}/{args.size}/{args.origin}")
     utils.make_dir_if_missing(workdir)
     x0, y0, z0 = [int(val) for val in args.origin.split("-")]
-    # LX, LY, LZ = [int(val) for val in args.size.split("-")]
-    # L_sep = args.L_sep * SCALING[0]
-    # Lx = (LX-10) * SCALING[0]
-    # Ly = (LY+5) * SCALING[1]
-    # Lz = (LZ+5) * SCALING[2]
     L_SEP = args.L_sep
     nx, ny, nz = [int(s) for s in args.size.split("-")]
     LX = nx - 1
@@ -168,15 +163,6 @@ if __name__ == '__main__':
     gmsh.model.geo.synchronize()
     gmsh.model.geo.removeAllDuplicates()
     gmsh.model.geo.synchronize()
-    surf_loops = []
-    print(np.min(lxs), np.max(lxs), Lx)
-    print(np.min(lys), np.max(lys), Ly)
-    print(np.min(lzs), np.max(lzs), Lz)
-    # sloop = create_box_surface_loop(Lx=Lx, Ly=Ly+padding, Lz=Lz+padding, L_sep=L_sep, origin=(-padding, -padding, -padding))
-    gmsh.model.geo.synchronize()
-    # gmsh.model.addPhysicalGroup(3, phase_volumes, markers.positive_am, "CAM")
-    # matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list)
-    # gmsh.model.geo.synchronize()
     gmsh.model.addPhysicalGroup(3, phase_volumes["voids"], markers.void, "VOIDS")
     gmsh.model.addPhysicalGroup(3, phase_volumes["cam"], markers.positive_am, "CAM")
     gmsh.model.addPhysicalGroup(3, phase_volumes["sse"], markers.electrolyte, "SSE")
@@ -189,7 +175,6 @@ if __name__ == '__main__':
     insulated_am = []
     insulated_se = []
     surfs = gmsh.model.getEntities(2)
-    print(np.min(lxs))
     tol = 1e-8
     for surf in surfs:
         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
