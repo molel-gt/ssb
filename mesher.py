@@ -84,44 +84,32 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='secondary current distribution')
     parser.add_argument('--size', help='Lx-Ly-Lz', required=True, type=str)
     parser.add_argument("--origin", help="where to extract data", nargs='?', const=1, default='0-0-0', type=str)
+    parser.add_argument('--scale', help='sx-sy-sz', required=True, type=str)
     parser.add_argument("--phase", help="particulate phase", nargs='?', const=1, default='cam', type=str)
-    parser.add_argument("--L_sep", help="separator thickness", nargs='?', const=1, default=100, type=float)
+    parser.add_argument("--L_sep", help="separator thickness [m]", nargs='?', const=1, default=15e-6, type=float)
     args = parser.parse_args()
+    scaling = [float(v) for v in args.scale.split(",")]
     markers = commons.Markers()
     workdir = os.path.join(f"output/segmentation/{args.phase}/{args.size}/{args.origin}")
-    
-
-    # mesh = mrmeshpy.loadMesh("output/segmentation/cam.stl")
-    # params = mrmeshpy.FixMeshDegeneraciesParams()
-    # params.maxDeviation = 1e-5 * mesh.computeBoundingBox().diagonal()
-    # params.tinyEdgeLength = 1e-3
-    # mrmeshpy.fixMeshDegeneracies(mesh, params)
-    # # Find single edge for each hole in mesh
-    # hole_edges = mesh.topology.findHoleRepresentiveEdges()
-
-    # for e in hole_edges:
-    #     #  Setup filling parameters
-    #     params = mrmeshpy.FillHoleParams()
-    #     params.metric = mrmeshpy.getUniversalMetric(mesh)
-    #     #  Fill hole represented by `e`
-    #     mrmeshpy.fillHole(mesh, e, params)
-    # mrmeshpy.saveMesh(mesh, "output/segmentation/cam-repaired.stl")
-    # ms = pymeshlab.MeshSet()
-    # ms.load_new_mesh("output/segmentation/cam.stl")
-    # ms.meshing_remove_unreferenced_vertices()
-    # ms.meshing_repair_non_manifold_vertices()
-    # ms.meshing_repair_non_manifold_edges()
-    # ms.meshing_close_holes()
-    # ms.meshing_snap_mismatched_borders()
-    # # ms.generate_resampled_uniform_mesh()
-    # ms.save_current_mesh("output/segmentation/cam-repaired.stl")
     utils.make_dir_if_missing(workdir)
     x0, y0, z0 = [int(val) for val in args.origin.split("-")]
-    LX, LY, LZ = [int(val) for val in args.size.split("-")]
-    L_sep = args.L_sep * SCALING[0]
-    Lx = (LX-10) * SCALING[0]
-    Ly = (LY+5) * SCALING[1]
-    Lz = (LZ+5) * SCALING[2]
+    # LX, LY, LZ = [int(val) for val in args.size.split("-")]
+    # L_sep = args.L_sep * SCALING[0]
+    # Lx = (LX-10) * SCALING[0]
+    # Ly = (LY+5) * SCALING[1]
+    # Lz = (LZ+5) * SCALING[2]
+    L_SEP = args.L_sep
+    nx, ny, nz = [int(s) for s in args.size.split("-")]
+    LX = nx - 1
+    LY = ny - 1
+    LZ = nz - 1
+    L_c = LX * scaling[0] + L_SEP
+    Lx = LX / L_c
+    Ly = LY * scaling[1] / L_c
+    Lz = LZ * scaling[2] / L_c
+    L_sep = L_SEP / L_c
+    padding = 1e-6 / L_c
+    non_dim_scale = [scaling[0]/L_c, scaling[1]/L_c, scaling[2]/L_c]
     gmsh.initialize()
     gmsh.model.add("fib_sem")
     gmsh.onelab.set("""
@@ -208,8 +196,10 @@ if __name__ == '__main__':
     gmsh.model.geo.removeAllDuplicates()
     gmsh.model.geo.synchronize()
     surf_loops = []
-
-    sloop = create_box_surface_loop(Lx=lx, Ly=ly, Lz=lz, L_sep=L_sep, origin=(np.min(lxs)-tol, np.min(lys)-tol, np.min(lzs)-tol))
+    print(np.min(lxs), np.max(lxs), Lx)
+    print(np.min(lys), np.max(lys), Ly)
+    print(np.min(lzs), np.max(lzs), Lz)
+    sloop = create_box_surface_loop(Lx=Lx, Ly=Ly+padding, Lz=Lz+padding, L_sep=L_sep, origin=(-padding, -padding, -padding))
     gmsh.model.geo.synchronize()
     gmsh.model.addPhysicalGroup(3, phase_volumes, markers.positive_am, "CAM")
     matrix_volume = gmsh.model.geo.addVolume([sloop] + agg_surf_loop_list)
