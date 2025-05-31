@@ -188,11 +188,11 @@ if __name__ == '__main__':
     surfaces_to_combine = group_surfaces_adjacencies(surfaces_adjacencies)
 
     # Create a list with the surface loops of each aggregate
-    agg_surf_loop_list = []
-    phase_volumes = []
-    for i, stc in enumerate(surfaces_to_combine):
-        # agg_surf = gmsh.model.geo.addSurfaceLoop(stc)   # Add the surface loop
-        agg_surf_loop_list.append(agg_surf)             # Include in the list
+    # agg_surf_loop_list = []
+    # phase_volumes = []
+    # for i, stc in enumerate(surfaces_to_combine):
+    #     agg_surf = gmsh.model.geo.addSurfaceLoop(stc)   # Add the surface loop
+    #     agg_surf_loop_list.append(agg_surf)             # Include in the list
         # gmsh.model.geo.addVolume([agg_surf], tag=i)     # Create the volume
         # phase_volumes.append(i)
     gmsh.model.geo.synchronize()
