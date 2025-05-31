@@ -193,7 +193,7 @@ if __name__ == '__main__':
     for i, stc in enumerate(surfaces_to_combine):
         agg_surf = gmsh.model.geo.addSurfaceLoop(stc)   # Add the surface loop
         agg_surf_loop_list.append(agg_surf)             # Include in the list
-        gmsh.model.geo.addVolume([agg_surf], tag=i)     # Create the volume
+        # gmsh.model.geo.addVolume([agg_surf], tag=i)     # Create the volume
         # phase_volumes.append(i)
     gmsh.model.geo.synchronize()
     vols = gmsh.model.getEntities(3)
