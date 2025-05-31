@@ -1,3 +1,4 @@
+import argparse
 import os
 
 import matplotlib.pyplot as plt
@@ -7,7 +8,9 @@ import open3d as o3d
 import pyvista as pv
 import trimesh
 
-SCALING = [0.0858e-6, 0.0858e-6, 0.05e-6]
+import utils
+
+SCALING = [0.0858e-6, 0.0858e-6, 0.2e-6]
 
 
 def get_valid_coords(coords, limits):
@@ -65,10 +68,20 @@ def count_neighbors(arr, center):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='secondary current distribution')
+    parser.add_argument('--size', help='Lx-Ly-Lz', required=True, type=str)
+    parser.add_argument("--origin", help="where to extract data", nargs='?', const=1, default='0-0-0', type=str)
+    parser.add_argument('--scale', help='sx-sy-sz', required=True, type=str)
+    parser.add_argument("--phase", help="particulate phase", nargs='?', const=1, default='cam', type=str)
+    parser.add_argument("--L_sep", help="separator thickness", nargs='?', const=1, default=100, type=float)
+    args = parser.parse_args()
+    scaling = [float(v) for v in args.scale.split(",")]
     cam_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/cam")
+    workdir = os.path.join("output/segmentation", f"{args.phase}/{args.size}/{args.origin}")
+    utils.make_dir_if_missing(workdir)
     points = {}
     counter = 0
-    L_sep = 175
+    L_sep = 15e-6
     nx = 201
     ny = 201
     nz = 201
@@ -98,9 +111,13 @@ if __name__ == '__main__':
     encoding =  trimesh.voxel.encoding.DenseEncoding(data3d)
     voxels = trimesh.voxel.base.VoxelGrid(encoding)
     print(voxels.volume)
-    mesh = voxels.marching_cubes
-    trimesh.exchange.export.export_mesh(mesh, f"output/segmentation/cam.stl")
-    # print("Generated points")
+    scale_mat = np.matrix([[scaling[0], 0, 0, 0], [0, scaling[1], 0, 0], [0, 0, scaling[2], 0 ], [0, 0, 0, 0] ])
+    print(scale_mat.shape)
+    vx = voxels.apply_transform(scale_mat)
+    print(voxels.volume, vx.volume)
+    mesh = vx.marching_cubes
+    trimesh.exchange.export.export_mesh(mesh, os.path.join(workdir, "cam.stl"))
+    print("Generated points")
     # cloud = o3d.geometry.PointCloud()
     # point_cloud = np.vstack(np.where(data3d == 1)).T
     # cloud.points = o3d.utility.Vector3dVector(point_cloud)
@@ -116,20 +133,20 @@ if __name__ == '__main__':
     # # o3d.visualization.draw_geometries([cloud,], point_show_normal=True)
     # print("Fixed normals")
 
-    plotter = pv.Plotter()
+    # plotter = pv.Plotter()
 
-    trimesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(cloud)
-    trimesh.estimate_normals()
-    o3d.io.write_triangle_mesh("cam.stl", trimesh, write_ascii=False, print_progress=True)
+    # trimesh, densities = o3d.geometry.TriangleMesh.create_from_point_cloud_poisson(cloud)
+    # trimesh.estimate_normals()
+    # o3d.io.write_triangle_mesh("cam.stl", trimesh, write_ascii=False, print_progress=True)
 
-    v = np.asarray(trimesh.vertices)
-    f = np.array(trimesh.triangles)
-    f = np.c_[np.full(len(f), 3), f]
+    # v = np.asarray(trimesh.vertices)
+    # f = np.array(trimesh.triangles)
+    # f = np.c_[np.full(len(f), 3), f]
 
-    envelope = pv.PolyData(v, f).clean()
-    envelope.actor = plotter.add_mesh(envelope, color='red', show_edges=True, opacity=0.5)
+    # envelope = pv.PolyData(v, f).clean()
+    # envelope.actor = plotter.add_mesh(envelope, color='red', show_edges=True, opacity=0.5)
 
-    plotter.show()
+    # plotter.show()
 
     # meshfix = mf.MeshFix(envelope)
 
