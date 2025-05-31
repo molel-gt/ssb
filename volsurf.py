@@ -113,7 +113,8 @@ if __name__ == '__main__':
     encoding =  trimesh.voxel.encoding.DenseEncoding(data3d)
     voxels = trimesh.voxel.base.VoxelGrid(encoding)
     mesh = voxels.marching_cubes
-    scaled_mesh = trimesh.Trimesh(vertices=np.hstack((mesh.vertices[:, 0] * non_dim_scale[0], mesh.vertices[:, 1] * non_dim_scale[1], mesh.vertices[:, 2] * non_dim_scale[2])), faces=mesh.faces)
+    scaled_verts = np.vstack((mesh.vertices[:, 0] * non_dim_scale[0], mesh.vertices[:, 1] * non_dim_scale[1], mesh.vertices[:, 2] * non_dim_scale[2]))
+    scaled_mesh = trimesh.Trimesh(vertices=scaled_verts, faces=mesh.faces)
     output_stl = os.path.join(workdir, "cam.stl")
     scaled_mesh.export(output_stl)
     # trimesh.exchange.export.export_mesh(scaled_mesh, output_stl)
