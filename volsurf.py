@@ -5,7 +5,9 @@ import matplotlib.pyplot as plt
 import pymeshfix as mf
 import numpy as np
 import open3d as o3d
+import pygalmesh
 import pyvista as pv
+import skimage as ski
 import trimesh
 
 import utils
@@ -16,7 +18,7 @@ def get_valid_coords(coords, limits):
     out_coords = []
     x_lims, y_lims, z_lims = limits
     for (x, y, z) in coords:
-        if (x_lims[0] <= x <= x_lims[1]) and (y_lims[0] <= y <= y_lims[1]) and (z_lims[0] <= x <= z_lims[1]):
+        if (x_lims[0] <= x <= x_lims[1]) and (y_lims[0] <= y <= y_lims[1]) and (z_lims[0] <= z <= z_lims[1]):
             out_coords.append((x, y, z))
     return out_coords
 
@@ -125,7 +127,7 @@ if __name__ == '__main__':
         print(f"Processing phase {phase}")
         if phase == "sse":
             img_3d = np.ones((nx+n_sep, ny, nz), dtype=bool)
-            img_3d[-1, :, :] = np.full((ny, nz), 0)
+            # img_3d[-1, :, :] = np.full((ny, nz), 0)
         else:
             img_3d = np.zeros((nx+n_sep, ny, nz), dtype=bool)
 
@@ -136,6 +138,8 @@ if __name__ == '__main__':
             cam_img = plt.imread(img_file).copy()[:nx, :ny]
             cam_img[:10, ] = 2
             voids_img = plt.imread(voids_img_file).copy()[:nx, :ny]
+            cam_img = np.array(cam_img)
+            voids_img = np.array(voids_img)
             if phase == "sse":
                 print(np.average(img_3d))
                 img_3d[:nx, :ny, idx-1] = np.logical_not(np.logical_or(np.isclose(voids_img[:, :], 1), np.isclose(cam_img[:, :], 2)))
@@ -145,17 +149,19 @@ if __name__ == '__main__':
             if phase == "cam":
                 img_3d[:nx, :ny, idx-1] = np.logical_and(np.isclose(voids_img[:nx, :ny], 0), np.isclose(cam_img[:, :], 2))
 
-        print(f"Rough {phase} volume fraction {np.average(img_3d[:nx, :ny, :])}")
+        print(f"Rough {phase} volume fraction {np.average(img_3d[:nx, :ny, :])}", np.average(img_3d[nx:, :, :]))
+
         mesh = generate_surface_mesh_for_phase(img_3d, sizes=(nx+n_sep, ny, nz))
-        non_dim_scale = [0.5*scaling[0]/L_c, 0.5*scaling[1]/L_c, 0.5*scaling[2]/L_c]
-        scaled_verts = np.vstack((mesh.vertices[:, 0] * non_dim_scale[0], mesh.vertices[:, 1] * non_dim_scale[1], mesh.vertices[:, 2] * non_dim_scale[2]))
+        spacing = [0.5*scaling[0]/L_c, 0.5*scaling[1]/L_c, 0.5*scaling[2]/L_c]
+        scaled_verts = np.vstack((mesh.vertices[:, 0] * spacing[0], mesh.vertices[:, 1] * spacing[1], mesh.vertices[:, 2] * spacing[2]))
         scaled_mesh = trimesh.Trimesh(vertices=scaled_verts.T, faces=mesh.faces)
+
         if phase == "voids":
             trimesh.exchange.export.export_mesh(mesh, voids_output_meshfile)
-            trimesh.exchange.export.export_mesh(scaled_mesh, scaled_voids_output_meshfile)
+            scaled_mesh.export(scaled_voids_output_meshfile)
         elif phase == "sse":
             trimesh.exchange.export.export_mesh(mesh, sse_output_meshfile)
-            trimesh.exchange.export.export_mesh(scaled_mesh, scaled_sse_output_meshfile)
+            scaled_mesh.export(scaled_sse_output_meshfile)
         elif phase == "cam":
             trimesh.exchange.export.export_mesh(mesh, cam_output_meshfile)
-            trimesh.exchange.export.export_mesh(scaled_mesh, scaled_cam_output_meshfile)
+            scaled_mesh.export(scaled_cam_output_meshfile)
