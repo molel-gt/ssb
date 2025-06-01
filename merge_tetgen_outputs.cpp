@@ -233,8 +233,6 @@ void write_nodes_to_file(std::map<std::vector<float>, int>& nodes, std::string o
     } else {
         std::cerr << "Error: Unable to open the file for writing." << std::endl;
     }
-
-    return 0;
 }
 
 void write_faces_to_file(std::map<Triangle, std::vector<int> >& faces, std::string output_faces_file){
