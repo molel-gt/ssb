@@ -70,20 +70,25 @@ def generate_surface_mesh_for_phase(img_3d, sizes):
         trimesh.Trimesh
     """
     nx, ny, nz = sizes
-    data3d = np.zeros((2 * nx, 2 * ny, 2 * nz), dtype=bool)
+    # data3d = np.zeros((2 * nx, 2 * ny, 2 * nz), dtype=bool)
     phase_coords = np.array(np.where(img_3d)).T
     print("Generating neighboring cubes")
+    coords = []
     for coord in phase_coords:
         x = 2 * coord[0]
         y = 2 * coord[1]
         z = 2 * coord[2]
         cube_coords = generate_neighboring_subcubes((x, y, z), [(0, nx * 2), (0, ny * 2), (0, nz * 2)])
         for new_coord in cube_coords:
-            data3d[new_coord] = 1
+            coords.append(new_coord)
+            # data3d[new_coord] = 1
     print("Generating surface mesh")
-    encoding =  trimesh.voxel.encoding.DenseEncoding(data3d)
-    voxels = trimesh.voxel.base.VoxelGrid(encoding)
-    mesh = voxels.marching_cubes
+    pc = trimesh.PointCloud(np.array(coords))
+    pitch = 2
+    mesh = trimesh.voxel.ops.points_to_marching_cubes(pc.vertices, pitch=pitch)
+    # encoding =  trimesh.voxel.encoding.DenseEncoding(data3d)
+    # voxels = trimesh.voxel.base.VoxelGrid(encoding)
+    # mesh = voxels.marching_cubes
 
     return mesh
 
@@ -95,6 +100,7 @@ if __name__ == '__main__':
     parser.add_argument('--scale', help='sx-sy-sz', required=True, type=str)
     parser.add_argument("--L_sep", help="separator thickness", nargs='?', const=1, default=15e-6, type=float)
     args = parser.parse_args()
+    trimesh.util.attach_to_log()
     scaling = [float(v) for v in args.scale.split(",")]
     cam_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/cam")
     voids_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/voids")
