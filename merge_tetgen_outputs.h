@@ -1,8 +1,18 @@
+#include <array>
+#include <cstdlib>
 #include <iostream>
 #include <map>
+#include <stdio.h>
 #include <string>
 #include <vector>
 
+typedef std::array<float, 3> Point;
+typedef std::array<int, 3> Triangle;
+typedef std::array<int, 4> Tetrahedron;
+
+void strip_leading_character(std::string input_file, char character);
+
+template <typename std::pair<T, V> split_string_into_pair(char[] text, char delimiter, int size_key);
 
 std::map<std::pair<std::vector<float>, int>> read_tetgen_nodes_to_map(std::string nodes_file);
 
