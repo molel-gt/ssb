@@ -116,28 +116,18 @@ std::map<Triangle, std::vector<int> > read_tetgen_faces_to_map(std::string faces
             if (count == 0){
                 n_entities = parts[0];
                 entity_size = parts[1]
-                attribute = parts[2];
-                boundary = parts[3];
+                boundary = parts[2];
             }
             else {
                 int idx = parts[0];
-                int attribute_val = -1;
                 int boundary_val = -1;
                 Triangle f = {parts[1], parts[2], parts[3]};
                 if (parts.size() == 5){
-                    if (attribute){
-                        attribute_val = parts[4];
-
-                    }
                     if (boundary){
                         boundary_val = parts[4];
                     }
-                else if (parts.size() == 6){
-                    attribute_val = parts[5];
-                    boundary_val = parts[6];
-                }
             }
-            output_faces[f] = {idx, attribute_val, boundary_val};
+            output_faces[f] = {idx, boundary_val};
             count ++;
         }
 
@@ -170,7 +160,6 @@ std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::string tet
     int count = 0;
     int n_entities;
     int entity_size = 4;
-    bool attribute = false;
     bool boundary = false; 
     if (file.is_open()) {
         // Read each line from the file and store it in the
@@ -180,8 +169,7 @@ std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::string tet
             if (count == 0){
                 n_entities = parts[0];
                 entity_size = parts[1]
-                attribute = parts[2];
-                boundary = parts[3];
+                boundary = parts[2];
             }
             else {
                 int idx = parts[0];
@@ -189,19 +177,11 @@ std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::string tet
                 int boundary_val = -1;
                 Tetrahedron t = {parts[1], parts[2], parts[3], parts[4]};
                 if (parts.size() == 6){
-                    if (attribute){
-                        attribute_val = parts[5];
-
-                    }
                     if (boundary){
                         boundary_val = parts[5];
                     }
-                else if (parts.size() == 7){
-                    attribute_val = parts[5];
-                    boundary_val = parts[6];
-                }
             }
-            output_tets[t] = {idx, attribute_val, boundary_val};
+            output_tets[t] = {idx, boundary_val};
             count ++;
         }
 
@@ -244,7 +224,12 @@ void write_faces_to_file(std::map<Triangle, std::vector<int> >& faces, std::stri
      outputFile << *faces.size() << " " << 3 << " " << 0 << " " << 0 << "\n";
      if (outputFile.is_open()) {
         for (const auto& pair : *faces) {
-            outputFile << pair.second[0] << " " << pair.first[0] << " " << pair.first[1] << " " << pair.first[2] << "\n";
+            if (pair.second.size() == 2){
+                outputFile << pair.second[0] << " " << pair.first[0] << " " << pair.first[1] << " " << pair.first[2] << "\n";
+            }
+            else {
+                outputFile << pair.second[0] << " " << pair.first[0] << " " << pair.first[1] << "\n";
+            }
         }
         outputFile.close();
         std::cout << "Data successfully written to " + std::format("{}", output_faces_file) << std::endl;
