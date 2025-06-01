@@ -13,13 +13,13 @@
 
 // namespace fs = std::filesystem;
 
-typedef std::array<float, 3> Point;
+typedef std::array<int, 3> Point;
 typedef std::array<int, 3> Triangle;
 typedef std::array<int, 4> Tetrahedron;
 
 // void strip_leading_hash_character(std::filesystem::path);
 
-std::vector<float> split_string_into_array(char* text, const char* delimiter);
+std::vector<int> split_string_into_array(char* text, const char* delimiter);
 
 std::map< Point, std::vector<int> > read_tetgen_nodes_to_map(std::filesystem::path nodes_file);
 

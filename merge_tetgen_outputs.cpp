@@ -3,16 +3,18 @@
 
 int main(int argc, char** argv){
     std::filesystem::path input_dir = "output/segmentation/201-201-201/0-0-0/";
-    std::vector<std::filesystem::path> input_nodes_files = {input_dir / "voids.1.node", input_dir / "sse.1.node", input_dir / "cam.1.node"};
-    std::vector<std::filesystem::path> input_faces_files = {input_dir / "voids.1.face", input_dir / "sse.1.face", input_dir / "cam.1.face"};
-    std::vector<std::filesystem::path> input_tets_files = {input_dir / "voids.1.ele", input_dir / "sse.1.ele", input_dir / "cam.1.ele"};
+    std::vector<std::filesystem::path> input_nodes_files = {input_dir / "voids-unscaled.1.node", input_dir / "sse-unscaled.1.node", input_dir / "cam-unscaled.1.node"};
+    std::vector<std::filesystem::path> input_faces_files = {input_dir / "voids-unscaled.1.face", input_dir / "sse-unscaled.1.face", input_dir / "cam-unscaled.1.face"};
+    std::vector<std::filesystem::path> input_tets_files = {input_dir / "voids-unscaled.1.ele", input_dir / "sse-unscaled.1.ele", input_dir / "cam-unscaled.1.ele"};
 
     std::filesystem::path output_nodes_file = input_dir / "tomo.1.node";
     std::filesystem::path output_faces_file = input_dir / "tomo.1.face";
     std::filesystem::path output_tets_file = input_dir / "tomo.1.ele";
 
     std::map<std::string, std::map<int, int>> nodes_lookup;
+    std::cout << "Reading nodes data and merging";
     merge_tetgen_nodes(input_nodes_files, output_nodes_file, nodes_lookup);
+    std::cout << "Reading tets data and merging";
     merge_tetgen_tets(input_tets_files, output_tets_file, nodes_lookup);
     return 0;
 }
@@ -22,9 +24,9 @@ int main(int argc, char** argv){
 //     std::system(sed_cmd);
 // }
 
-std::vector<float> split_string_into_array(char* text, const char* delimiter){
+std::vector<int> split_string_into_array(char* text, const char* delimiter){
     char *token = strtok(text, delimiter);
-    std::vector<float> output;
+    std::vector<int> output;
     int count = 0;
     while (token != NULL)
     {
@@ -51,7 +53,7 @@ std::map<Point, std::vector<int>> read_tetgen_nodes_to_map(std::filesystem::path
             int idx = 0;
             char* line_text;
             strcpy(line_text, line.c_str());
-            std::vector<float> parts = split_string_into_array(line_text, " ");
+            std::vector<int> parts = split_string_into_array(line_text, " ");
             if (count == 0){
                 n_entities = parts[0];
                 entity_size = parts[1];
@@ -149,7 +151,7 @@ std::map<Triangle, std::vector<int> > read_tetgen_faces_to_map(std::filesystem::
         while (getline(file, line)) {
             char* line_text;
             strcpy(line_text, line.c_str());
-            std::vector<float> parts = split_string_into_array(line_text, " ");
+            std::vector<int> parts = split_string_into_array(line_text, " ");
             int boundary_val = -1;
             if (count == 0){
                 n_entities = parts[0];
@@ -191,7 +193,7 @@ std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::filesystem
         while (getline(file, line)) {
             char* line_text;
             strcpy(line_text, line.c_str());
-            std::vector<float> parts = split_string_into_array(line_text, " ");
+            std::vector<int> parts = split_string_into_array(line_text, " ");
             if (count == 0){
                 n_entities = parts[0];
                 entity_size = parts[1];
