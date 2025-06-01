@@ -159,7 +159,7 @@ if __name__ == '__main__':
     #     vols = [v[1] for v in gmsh.model.getEntities(3) if v[1] > threshold]
     #     phase_volumes[phase] = vols
     #     threshold = max(vols)
-    gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{args.phase}.1.vtk")
+    gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{args.phase}.stl")
     gmsh.model.geo.synchronize()
     gmsh.model.mesh.removeDuplicateElements()
     # gmsh.model.geo.removeAllDuplicates()
