@@ -78,6 +78,8 @@ std::map<Point, std::vector<int>> read_tetgen_nodes_to_map(std::string nodes_fil
         std::cerr << "Unable to open file!" << endl;
     }
 
+    std::cout <<  "Read " << n_entities << " coordinates from file " << nodes_file << "\n";
+
     return output_nodes;
 
 }
@@ -98,7 +100,7 @@ void renumber_tetgen_tets(std::map<int, int> old_to_new);
 std::map<Triangle, std::vector<int> > read_tetgen_faces_to_map(std::string faces_file){
     // remove lines begining with #
     std::map<Triangle, std::vector<int>> output_faces;
-    strip_leading_character(nodes_file, "#");
+    strip_leading_character(faces_file, "#");
     ifstream file(faces_file);
     std::string line;
     int count = 0;
@@ -148,6 +150,7 @@ std::map<Triangle, std::vector<int> > read_tetgen_faces_to_map(std::string faces
         // stream if the file cannot be opened.
         std::cerr << "Unable to open file!" << endl;
     }
+    std::cout <<  "Read " << n_entities << " triangles from file " << faces_file << "\n";
 
     return output_faces;
 
@@ -161,8 +164,8 @@ void merge_tetgen_faces(std::vector<<std::string>> node_files, std::string faces
 std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::string tets_file){
     // remove lines begining with #
     std::map<Tetrahedron, std::vector<int>> output_tets;
-    strip_leading_character(nodes_file, "#");
-    ifstream file(nodes_file);
+    strip_leading_character(tets_file, "#");
+    ifstream file(tets_file);
     std::string line;
     int count = 0;
     int n_entities;
@@ -211,6 +214,7 @@ std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::string tet
         // stream if the file cannot be opened.
         std::cerr << "Unable to open file!" << endl;
     }
+    std::cout <<  "Read " << n_entities << " tetrahedrons from file " << tets_file << "\n";
 
     return output_tets;
 
