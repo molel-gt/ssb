@@ -8,6 +8,7 @@ import gmsh
 import numpy as np
 import pymeshlab
 import trimesh
+import timeit
 
 import commons, utils
 
@@ -89,6 +90,7 @@ if __name__ == '__main__':
     parser.add_argument("--L_sep", help="separator thickness [m]", nargs='?', const=1, default=15e-6, type=float)
     parser.add_argument("--resolution", help="dimensionless resolution", nargs='?', const=1, default=0.05, type=float)
     args = parser.parse_args()
+    start_time = timeit.default_timer()
     scaling = [float(v) for v in args.scale.split(",")]
     markers = commons.Markers()
     workdir = os.path.join(f"output/segmentation/{args.size}/{args.origin}")
@@ -204,3 +206,4 @@ if __name__ == '__main__':
     gmsh.write("mesh.geo_unrolled")
     gmsh.model.mesh.generate(3)
     gmsh.write(os.path.join(workdir, "mesh.msh"))
+    print(f"Time elapsed {timeit.default_timer()-start_time:,.0f}s")
