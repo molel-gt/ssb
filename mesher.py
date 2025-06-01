@@ -180,7 +180,7 @@ if __name__ == '__main__':
     print(void_vols)
     print(sse_vols)
     print(cam_vols)
-    if args.phase == "voids:"
+    if args.phase == "voids":
         gmsh.model.addPhysicalGroup(3, vols, markers.void, "VOIDS")
     elif args.phase == "cam":
         gmsh.model.addPhysicalGroup(3, vols, markers.positive_am, "CAM")
