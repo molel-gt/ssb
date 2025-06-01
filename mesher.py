@@ -91,7 +91,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     scaling = [float(v) for v in args.scale.split(",")]
     markers = commons.Markers()
-    workdir = os.path.join(f"output/segmentation/{args.phase}/{args.size}/{args.origin}")
+    workdir = os.path.join(f"output/segmentation/{args.size}/{args.origin}")
     utils.make_dir_if_missing(workdir)
     x0, y0, z0 = [int(val) for val in args.origin.split("-")]
     L_SEP = args.L_sep
@@ -168,6 +168,9 @@ if __name__ == '__main__':
     void_vols = [v for v in phase_volumes["voids"] if v in all_vols]
     sse_vols = [v for v in phase_volumes["sse"] if v in all_vols]
     cam_vols = [v for v in phase_volumes["cam"] if v in all_vols]
+    print(void_vols)
+    print(sse_vols)
+    print(cam_vols)
     gmsh.model.addPhysicalGroup(3, void_vols, markers.void, "VOIDS")
     gmsh.model.addPhysicalGroup(3, cam_vols, markers.positive_am, "CAM")
     gmsh.model.addPhysicalGroup(3, sse_vols, markers.electrolyte, "SSE")
@@ -196,9 +199,8 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "Left")
     gmsh.model.addPhysicalGroup(2, right_surfs, markers.right, "Right")
     gmsh.model.addPhysicalGroup(2, interface_surfs, markers.electrolyte_v_positive_am, "SE/AM")
-
     gmsh.model.geo.synchronize()
 
     gmsh.write("mesh.geo_unrolled")
-    gmsh.model.mesh.generate()
+    gmsh.model.mesh.generate(3)
     gmsh.write(os.path.join(workdir, "mesh.msh"))
