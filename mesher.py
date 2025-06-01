@@ -160,7 +160,8 @@ if __name__ == '__main__':
         phase_volumes[phase] = vols
         threshold = max(vols)
     gmsh.model.geo.synchronize()
-    gmsh.model.geo.removeAllDuplicates()
+    gmsh.model.mesh.removeDuplicateElements()
+    # gmsh.model.geo.removeAllDuplicates()
     gmsh.model.geo.synchronize()
     print( [v[1] for v in gmsh.model.getEntities(3)])
 
