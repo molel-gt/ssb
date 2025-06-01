@@ -196,8 +196,14 @@ if __name__ == '__main__':
     insulated_se = []
     surfs = gmsh.model.getEntities(2)
     tol = 1e-5
+    xs = []
+    ys = []
+    zs = []
     for surf in surfs:
         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
+        xs.extend([xmin, xmax])
+        ys.extend([ymin, ymax])
+        zs.extend([zmin, zmax])
         if np.isclose(xmin, 0, atol=tol) and np.isclose(xmax, 0, atol=tol):
             right_surfs.append(surf[1])
         elif np.isclose(xmin, 1.0, atol=tol) and np.isclose(xmax, 1.0, atol=tol):
@@ -214,6 +220,10 @@ if __name__ == '__main__':
                 insulated_se.append(surf[1])
         else:
             interface_surfs.append(surf[1])
+    print(np.min(xs), np.max(xs))
+    print(np.min(ys), np.max(ys))
+    print(np.min(zs), np.max(zs))
+    quit()
     if args.phase == "sse":
         gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "Left")
     elif args.phase == "cam":
