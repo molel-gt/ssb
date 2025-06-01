@@ -34,8 +34,8 @@ std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::filesystem
 
 void merge_tetgen_tets(std::vector<<std::string>> tets_files, std::string tets_files);
 
-void write_nodes_to_file(std::map<Point, std::vector<int> >& nodes, std::filesystem::path output_nodes_file);
+void write_nodes_to_file(const std::map<Point, std::vector<int> >& nodes, std::filesystem::path output_nodes_file);
 
-void write_faces_to_file(std::map<Triangle, std::vector<int> >& faces, std::filesystem::path output_faces_file);
+void write_faces_to_file(const std::map<Triangle, std::vector<int> >& faces, std::filesystem::path output_faces_file);
 
-void write_tets_to_file(std::map<Tetrahedron, std::vector<int>>& tets, std::filesystem::path output_tets_file);
+void write_tets_to_file(const std::map<Tetrahedron, std::vector<int>>& tets, std::filesystem::path output_tets_file);

@@ -2,6 +2,17 @@
 
 
 int main(int argc, char** argv){
+    std::filesystem::path input_dir = "output/segmentation/201-201-201/0-0-0/";
+    std::vector<std::filesystem::path> input_nodes_files = {input_dir / "voids.1.node", input_dir / "sse.1.node", input_dir / "cam.1.node"};
+    std::vector<std::filesystem::path> input_faces_files = {input_dir / "voids.1.face", input_dir / "sse.1.face", input_dir / "cam.1.face"};
+    std::vector<std::filesystem::path> input_tets_files = {input_dir / "voids.1.ele", input_dir / "sse.1.ele", input_dir / "cam.1.ele"};
+
+    std::filesystem::path output_nodes_file = input_dir / "tomo.1.node";
+    std::filesystem::path output_faces_file = input_dir / "tomo.1.face";
+    std::filesystem::path output_tets_file = input_dir / "tomo.1.ele";
+
+    std::map<std::string, std::map<int, int>> nodes_lookup;
+    merge_tetgen_nodes(input_nodes_files, output_nodes_file, nodes_lookup);
     return 0;
 }
 
@@ -85,7 +96,44 @@ std::map<Point, std::vector<int>> read_tetgen_nodes_to_map(std::filesystem::path
 }
 }
 
-void merge_tetgen_nodes(std::vector<<std::string>> nodes_files, std::filesystem::path nodes_file){
+void merge_tetgen_nodes(std::vector<std::filesystem::path> input_nodes_files, std::filesystem::path output_nodes_file, std::map<std::string, std::map<int, int>>& nodes_lookup){
+    std::map<Point, std::vector<int>> merged_nodes;
+    int file_count = 0;
+    int node_idx = 0;
+    for (const auto& nodes_file : input_nodes_files){
+        std::map<Point, std::vector<int>> nodes = read_tetgen_nodes_to_map(nodes_file);
+        if (file_count == 0) {
+            merged_nodes.insert(nodes.begin(), nodes.end());
+            for (const auto& pair : nodes){
+                nodes_lookup[nodes_file][pair.second[0]] = pair.second[0];
+                node_idx = pair.second[0];
+            }
+        }
+        else {
+            for (const auto& pair : nodes){
+                if (merged_nodes.contains(pair.first)){
+                    std::vector<int> value = merged_nodes[pair.first];
+                    nodes_lookup[nodes_file][pair.second[0]] = value[0];
+                }
+                else {
+                    node_idx ++;
+                    if (pair.second.size() == 1){
+                        merged_nodes[pair.first] = {node_idx};
+                    }
+                    else if (pair.second.size() == 2){
+                        merged_nodes[pair.first] = {node_idx, pair.second[1]};
+                    }
+                    else if (pair.second.size() == 3){
+                        merged_nodes[pair.first] = {node_idx, pair.second[1], pair.second[2]};
+                    }
+                    nodes_lookup[nodes_file][[pair.second[0]]] = node_idx;
+                }
+            }
+        }
+        file_count ++;
+    }
+
+    write_nodes_to_file(merged_nodes, output_nodes_file);
 
 }
 
@@ -205,7 +253,7 @@ void merge_tetgen_tets(std::vector<<std::string>> tets_files, std::string tets_f
 
 }
 
-void write_nodes_to_file(std::map<std::vector<float>, int>& nodes, std::filesystem::path output_nodes_file){
+void write_nodes_to_file(const std::map<Point, std::vector<int>>& nodes, std::filesystem::path output_nodes_file){
      std::ofstream outputFile(output_nodes_file);
      outputFile << nodes.size() << " " << 3 << " " << 0 << " " << 0 << "\n";
      if (outputFile.is_open()) {
