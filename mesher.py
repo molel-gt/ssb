@@ -195,7 +195,7 @@ if __name__ == '__main__':
     insulated_am = []
     insulated_se = []
     surfs = gmsh.model.getEntities(2)
-    tol = 1e-6
+    tol = 1e-5
     xs = []
     ys = []
     zs = []
