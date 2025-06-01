@@ -164,9 +164,13 @@ if __name__ == '__main__':
     gmsh.model.geo.synchronize()
     gmsh.model.geo.removeAllDuplicates()
     gmsh.model.geo.synchronize()
-    gmsh.model.addPhysicalGroup(3, phase_volumes["voids"], markers.void, "VOIDS")
-    gmsh.model.addPhysicalGroup(3, phase_volumes["cam"], markers.positive_am, "CAM")
-    gmsh.model.addPhysicalGroup(3, phase_volumes["sse"], markers.electrolyte, "SSE")
+    all_vols = [v[1] for v in gmsh.model.getEntities(3)]
+    void_vols = [v for v in phase_volumes["voids"] if v in all_vols]
+    sse_vols = [v for v in phase_volumes["sse"] if v in all_vols]
+    cam_vols = [v for v in phase_volumes["cam"] if v in all_vols]
+    gmsh.model.addPhysicalGroup(3, void_vols, markers.void, "VOIDS")
+    gmsh.model.addPhysicalGroup(3, cam_vols, markers.positive_am, "CAM")
+    gmsh.model.addPhysicalGroup(3, sse_vols, markers.electrolyte, "SSE")
     gmsh.model.geo.synchronize()
     phys_vols = gmsh.model.getPhysicalGroups(3)
 
