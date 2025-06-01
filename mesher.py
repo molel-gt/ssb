@@ -159,7 +159,7 @@ if __name__ == '__main__':
     #     vols = [v[1] for v in gmsh.model.getEntities(3) if v[1] > threshold]
     #     phase_volumes[phase] = vols
     #     threshold = max(vols)
-    gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{phase}.1.vtk")
+    gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{args.phase}.1.vtk")
     gmsh.model.geo.synchronize()
     gmsh.model.mesh.removeDuplicateElements()
     # gmsh.model.geo.removeAllDuplicates()
@@ -173,13 +173,13 @@ if __name__ == '__main__':
     gmsh.model.geo.removeAllDuplicates()
     gmsh.model.geo.synchronize()
     vols = [v[1] for v in gmsh.model.getEntities(3)]
-    void_vols = [v for v in phase_volumes["voids"] if v in all_vols]
-    sse_vols = [v for v in phase_volumes["sse"] if v in all_vols]
-    cam_vols = [v for v in phase_volumes["cam"] if v in all_vols]
-    print(np.min(all_vols), np.max(all_vols), len(all_vols))
-    print(void_vols)
-    print(sse_vols)
-    print(cam_vols)
+    # void_vols = [v for v in phase_volumes["voids"] if v in all_vols]
+    # sse_vols = [v for v in phase_volumes["sse"] if v in all_vols]
+    # cam_vols = [v for v in phase_volumes["cam"] if v in all_vols]
+    # print(np.min(all_vols), np.max(all_vols), len(all_vols))
+    # print(void_vols)
+    # print(sse_vols)
+    # print(cam_vols)
     if args.phase == "voids":
         gmsh.model.addPhysicalGroup(3, vols, markers.void, "VOIDS")
     elif args.phase == "cam":
