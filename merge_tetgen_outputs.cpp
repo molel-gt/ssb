@@ -12,30 +12,31 @@ int main(int argc, char** argv){
     std::filesystem::path output_tets_file = input_dir / "tomo.1.ele";
 
     std::map<std::string, std::map<int, int>> nodes_lookup;
-    std::cout << "Reading nodes data and merging";
+    std::cout << "Reading nodes data and merging\n";
     merge_tetgen_nodes(input_nodes_files, output_nodes_file, nodes_lookup);
-    std::cout << "Reading tets data and merging";
+    std::cout << "Reading faces data and merging\n";
+    merge_tetgen_faces(input_faces_files, output_faces_file, nodes_lookup);
+    std::cout << "Reading tets data and merging\n";
     merge_tetgen_tets(input_tets_files, output_tets_file, nodes_lookup);
     return 0;
 }
 
-// void strip_leading_hash_character(std::filesystem::path input_file){
-//     const char* sed_cmd = strcat("sed -i \'/#/d\' ",input_file.c_str());
-//     std::system(sed_cmd);
-// }
-
-std::vector<int> split_string_into_array(char* text, const char* delimiter){
+template <typename T>
+void split_string_into_array(char* text, const char* delimiter, std::vector<T>& output){
     char *token = strtok(text, delimiter);
-    std::vector<int> output;
     int count = 0;
     while (token != NULL)
     {
-        output.push_back(std::stof(token));
+        if (typeid(T) == typeid(int)) {
+            T num = std::stoi(token);
+            output.push_back(num);
+        } else {
+            float num = std::stof(token);
+            output.push_back(num);
+        }
         count ++;
         token = strtok(NULL, delimiter);
     }
-
-    return output;
     
 }
 
@@ -47,31 +48,44 @@ std::map<Point, std::vector<int>> read_tetgen_nodes_to_map(std::filesystem::path
     int n_entities;
     int entity_size = 3;
     bool attribute = false;
-    bool boundary = false; 
+    bool boundary = false;
     if (file.is_open()) {
         while (getline(file, line)) {
             int idx = 0;
-            char* line_text;
-            strcpy(line_text, line.c_str());
-            std::vector<int> parts = split_string_into_array(line_text, " ");
+            char line_text[100];
+            const char* old_line = line.c_str();
+            strcpy(line_text, old_line);
+            std::vector<float> parts;
+            split_string_into_array(line_text, " ", parts);
             if (count == 0){
                 n_entities = parts[0];
                 entity_size = parts[1];
                 attribute = parts[2];
                 boundary = parts[3];
+                std::cout << "Reading " << parts[0] << " nodes from " << nodes_file << "\n";
             }
             else {
                 int idx = parts[0];
                 int attribute_val = -1;
                 int boundary_val = -1;
                 Point p = {parts[1], parts[2], parts[3]};
-                if (parts.size() == 5){
-                    if (attribute){ attribute_val = parts[4]; }
-                    if (boundary){ boundary_val = parts[4]; }
+                if (parts.size() == 4){
+                    output_nodes[p] = {idx};
+                }
+                else if (parts.size() == 5){
+                    if (attribute){
+                        attribute_val = parts[4];
+                        output_nodes[p] = {idx, attribute_val};
+                    }
+                    if (boundary){
+                        boundary_val = parts[4];
+                        output_nodes[p] = {idx, boundary_val};
+                    }
                 }
                 else if (parts.size() == 6){
                     attribute_val = parts[4];
-                    boundary_val = parts[4];
+                    boundary_val = parts[5];
+                    output_nodes[p] = {idx, attribute_val, boundary_val};
                 }
             }
             count ++;
@@ -82,7 +96,7 @@ std::map<Point, std::vector<int>> read_tetgen_nodes_to_map(std::filesystem::path
         std::cerr << "Unable to open file!" << std::endl;
     }
 
-    std::cout <<  "Read " << n_entities << " coordinates from file " << nodes_file << "\n";
+    std::cout <<  "Read " << output_nodes.size() << " coordinates from file " << nodes_file << "\n";
 
     return output_nodes;
 
@@ -149,9 +163,11 @@ std::map<Triangle, std::vector<int> > read_tetgen_faces_to_map(std::filesystem::
     bool boundary = false; 
     if (file.is_open()) {
         while (getline(file, line)) {
-            char* line_text;
-            strcpy(line_text, line.c_str());
-            std::vector<int> parts = split_string_into_array(line_text, " ");
+            char line_text[100];
+            const char* old_line = line.c_str();
+            strcpy(line_text, old_line);
+            std::vector<int> parts;
+            split_string_into_array(line_text, " ", parts);
             int boundary_val = -1;
             if (count == 0){
                 n_entities = parts[0];
@@ -161,8 +177,8 @@ std::map<Triangle, std::vector<int> > read_tetgen_faces_to_map(std::filesystem::
             else {
                 int idx = parts[0];
                 Triangle f = {parts[1], parts[2], parts[3]};
-                if (parts.size() == 5 && boundary){ boundary_val = parts[4]; }
-                output_faces[f] = {idx, boundary_val};
+                if (parts.size() == 4){ output_faces[f] = {idx}; } else { output_faces[f] = {idx, parts[4]}; }
+                
             }
             
             count ++;
@@ -177,8 +193,35 @@ std::map<Triangle, std::vector<int> > read_tetgen_faces_to_map(std::filesystem::
     return output_faces;
 }
 
-void merge_tetgen_faces(std::vector<std::filesystem::path> node_files, std::string faces_files){
+void merge_tetgen_faces(std::vector<std::filesystem::path> input_faces_files, std::filesystem::path output_faces_file, std::map<std::string, std::map<int, int>>& nodes_lookup){
+    std::map<Triangle, std::vector<int>> faces;
+    int file_count = 0;
+    int faces_count = 0;
+    for (auto& faces_file : input_faces_files){
+        std::map<Triangle, std::vector<int>> raw_faces = read_tetgen_faces_to_map(faces_file);
+        std::string lookup_key = faces_file.filename().string().substr(0, 3);
+        std::map<int, int> lookup_table = nodes_lookup[lookup_key];
+        if (file_count == 0){
+            faces.insert(raw_faces.begin(), raw_faces.end());
+            faces_count += raw_faces.size();
+        }
+        else {
+            for (auto& pair : raw_faces){
+                Triangle new_key = {lookup_table.at(pair.first[0]), lookup_table.at(pair.first[1]), lookup_table.at(pair.first[2])};
+                if (pair.second.size() == 2){
+                    faces[new_key] = {pair.second[0] + faces_count, pair.second[1] + faces_count};
+                } else {
+                    faces[new_key] = {pair.second[0] + faces_count};
+                }
+            }
+            faces_count += raw_faces.size();
 
+        }
+        file_count += 1;
+
+    }
+    std::cout << "Processed " << faces.size() << " faces\n";
+    write_faces_to_file(faces, output_faces_file);
 }
 
 std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::filesystem::path tets_file){
@@ -191,9 +234,11 @@ std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::filesystem
     bool boundary = false; 
     if (file.is_open()) {
         while (getline(file, line)) {
-            char* line_text;
-            strcpy(line_text, line.c_str());
-            std::vector<int> parts = split_string_into_array(line_text, " ");
+            char line_text[100];
+            const char* old_line = line.c_str();
+            strcpy(line_text, old_line);
+            std::vector<int> parts;
+            split_string_into_array(line_text, " ", parts);
             if (count == 0){
                 n_entities = parts[0];
                 entity_size = parts[1];
@@ -204,21 +249,17 @@ std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::filesystem
                 int attribute_val = -1;
                 int boundary_val = -1;
                 Tetrahedron t = {parts[1], parts[2], parts[3], parts[4]};
-                if (parts.size() == 6){
-                    if (boundary){
-                        boundary_val = parts[5];
-                    }
+                if (parts.size() == 5){ output_tets[t] = {idx}; }
+                if (parts.size() == 6 && boundary){ output_tets[t] = {idx, parts[5]}; }
             }
-            output_tets[t] = {idx, boundary_val};
             count ++;
         }
         file.close();
-    }
 }
     else {
         std::cerr << "Unable to open file!" << std::endl;
     }
-    std::cout <<  "Read " << n_entities << " tetrahedrons from file " << tets_file << "\n";
+    std::cout <<  "Read " << output_tets.size() << " tetrahedrons from file " << tets_file << "\n";
 
     return output_tets;
 
@@ -247,6 +288,7 @@ void merge_tetgen_tets(std::vector<std::filesystem::path> tets_files, std::files
         file_count += 1;
 
     }
+    std::cout << "Processed " << tets.size() << " tetrahedrons\n";
     write_tets_to_file(tets, output_tets_file);
 }
 
@@ -264,7 +306,7 @@ void write_nodes_to_file(const std::map<Point, std::vector<int>>& nodes, std::fi
     }
 }
 
-void write_faces_to_file(std::map<Triangle, std::vector<int> >& faces, std::filesystem::path output_faces_file){
+void write_faces_to_file(const std::map<Triangle, std::vector<int> >& faces, std::filesystem::path output_faces_file){
     std::ofstream outputFile(output_faces_file);
      outputFile << faces.size() << " " << 3 << " " << 0 << " " << 0 << "\n";
      if (outputFile.is_open()) {
@@ -285,10 +327,10 @@ void write_faces_to_file(std::map<Triangle, std::vector<int> >& faces, std::file
 
 void write_tets_to_file(const std::map<Tetrahedron, std::vector<int>>& tets, std::filesystem::path output_tets_file){
     std::ofstream outputFile(output_tets_file);
-     outputFile << tets.size() << " " << 4 << " " << 0 << " " << 0 << "\n";
+     outputFile << tets.size() << " " << 4 << " " << 0 << " " << 1 << "\n";
      if (outputFile.is_open()) {
         for (const auto& pair : tets) {
-            if (pair.second.size() == 0){
+            if (pair.second.size() == 1){
                 outputFile << pair.second[0] << " " << pair.first[0] << " " << pair.first[1] << " " << pair.first[2] << " " << pair.first[3] << "\n";
             }
             else {

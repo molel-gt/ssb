@@ -9,17 +9,20 @@
 #include <map>
 #include <stdio.h>
 #include <string>
+#include <sstream>
+#include <typeinfo>
 #include <vector>
 
 // namespace fs = std::filesystem;
 
-typedef std::array<int, 3> Point;
+typedef std::array<float, 3> Point;
 typedef std::array<int, 3> Triangle;
 typedef std::array<int, 4> Tetrahedron;
 
 // void strip_leading_hash_character(std::filesystem::path);
 
-std::vector<int> split_string_into_array(char* text, const char* delimiter);
+template <typename T>
+void split_string_into_array(char*, const char*, std::vector<T>&);
 
 std::map< Point, std::vector<int> > read_tetgen_nodes_to_map(std::filesystem::path nodes_file);
 
@@ -33,7 +36,7 @@ void renumber_tetgen_tets(std::map<int, int> old_to_new);
 
 std::map<Triangle, std::vector<int> > read_tetgen_faces_to_map(std::filesystem::path faces_file);
 
-void merge_tetgen_faces(std::vector<std::filesystem::path> node_files, std::string faces_files);
+void merge_tetgen_faces(std::vector<std::filesystem::path>, std::filesystem::path, std::map<std::string, std::map<int, int>>&);
 
 std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::filesystem::path tets_file);
 
