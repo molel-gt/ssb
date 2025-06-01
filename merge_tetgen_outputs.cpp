@@ -13,20 +13,22 @@ int main(int argc, char** argv){
 
     std::map<std::string, std::map<int, int>> nodes_lookup;
     merge_tetgen_nodes(input_nodes_files, output_nodes_file, nodes_lookup);
+    merge_tetgen_tets(input_tets_files, output_tets_file, nodes_lookup);
     return 0;
 }
 
-void strip_leading_character(std::filesystem::path input_file, const char character){
-    std::system("sed -i '/#/d'" + " " + std::format("{}", input_file));
-}
+// void strip_leading_hash_character(std::filesystem::path input_file){
+//     const char* sed_cmd = strcat("sed -i \'/#/d\' ",input_file.c_str());
+//     std::system(sed_cmd);
+// }
 
-template <typename std::vector<T>> split_string_into_array(std::string text, char delimiter){
+std::vector<float> split_string_into_array(char* text, const char* delimiter){
     char *token = strtok(text, delimiter);
-    std::vector<T> output;
+    std::vector<float> output;
     int count = 0;
     while (token != NULL)
     {
-        output.push_back(T()token);
+        output.push_back(std::stof(token));
         count ++;
         token = strtok(NULL, delimiter);
     }
@@ -36,10 +38,7 @@ template <typename std::vector<T>> split_string_into_array(std::string text, cha
 }
 
 std::map<Point, std::vector<int>> read_tetgen_nodes_to_map(std::filesystem::path nodes_file){
-    // remove lines begining with #
     std::map<Point, std::vector<int>> output_nodes;
-    const char character = '#';
-    strip_leading_character(nodes_file, character);
     std::ifstream file(nodes_file);
     std::string line;
     int count = 0;
@@ -50,7 +49,9 @@ std::map<Point, std::vector<int>> read_tetgen_nodes_to_map(std::filesystem::path
     if (file.is_open()) {
         while (getline(file, line)) {
             int idx = 0;
-            std::vector<float> parts = split_string_into_array(line, ' ');
+            char* line_text;
+            strcpy(line_text, line.c_str());
+            std::vector<float> parts = split_string_into_array(line_text, " ");
             if (count == 0){
                 n_entities = parts[0];
                 entity_size = parts[1];
@@ -84,7 +85,6 @@ std::map<Point, std::vector<int>> read_tetgen_nodes_to_map(std::filesystem::path
     return output_nodes;
 
 }
-}
 
 void merge_tetgen_nodes(std::vector<std::filesystem::path> input_nodes_files, std::filesystem::path output_nodes_file, std::map<std::string, std::map<int, int>>& nodes_lookup){
     std::map<Point, std::vector<int>> merged_nodes;
@@ -92,10 +92,11 @@ void merge_tetgen_nodes(std::vector<std::filesystem::path> input_nodes_files, st
     int node_idx = 0;
     for (const auto& nodes_file : input_nodes_files){
         std::map<Point, std::vector<int>> nodes = read_tetgen_nodes_to_map(nodes_file);
+        std::string lookup_key = nodes_file.filename().string().substr(0, 3);
         if (file_count == 0) {
             merged_nodes.insert(nodes.begin(), nodes.end());
             for (const auto& pair : nodes){
-                nodes_lookup[nodes_file][pair.second[0]] = pair.second[0];
+                nodes_lookup[lookup_key][pair.second[0]] = pair.second[0];
                 node_idx = pair.second[0];
             }
         }
@@ -103,7 +104,7 @@ void merge_tetgen_nodes(std::vector<std::filesystem::path> input_nodes_files, st
             for (const auto& pair : nodes){
                 if (merged_nodes.contains(pair.first)){
                     std::vector<int> value = merged_nodes[pair.first];
-                    nodes_lookup[nodes_file][pair.second[0]] = value[0];
+                    nodes_lookup[lookup_key][pair.second[0]] = value[0];
                 }
                 else {
                     node_idx ++;
@@ -116,7 +117,7 @@ void merge_tetgen_nodes(std::vector<std::filesystem::path> input_nodes_files, st
                     else if (pair.second.size() == 3){
                         merged_nodes[pair.first] = {node_idx, pair.second[1], pair.second[2]};
                     }
-                    nodes_lookup[nodes_file][pair.second[0]] = node_idx;
+                    nodes_lookup[lookup_key][pair.second[0]] = node_idx;
                 }
             }
         }
@@ -136,10 +137,7 @@ void renumber_tetgen_faces(std::map<int, int> old_to_new);
 void renumber_tetgen_tets(std::map<int, int> old_to_new);
 
 std::map<Triangle, std::vector<int> > read_tetgen_faces_to_map(std::filesystem::path faces_file){
-    // remove lines begining with #
-    const char character = '#';
     std::map<Triangle, std::vector<int>> output_faces;
-    strip_leading_character(faces_file, character);
     std::ifstream file(faces_file);
     std::string line;
     int count = 0;
@@ -149,7 +147,9 @@ std::map<Triangle, std::vector<int> > read_tetgen_faces_to_map(std::filesystem::
     bool boundary = false; 
     if (file.is_open()) {
         while (getline(file, line)) {
-            std::vector<float> parts = split_string_into_array(line, " ");
+            char* line_text;
+            strcpy(line_text, line.c_str());
+            std::vector<float> parts = split_string_into_array(line_text, " ");
             int boundary_val = -1;
             if (count == 0){
                 n_entities = parts[0];
@@ -180,10 +180,7 @@ void merge_tetgen_faces(std::vector<std::filesystem::path> node_files, std::stri
 }
 
 std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::filesystem::path tets_file){
-    // remove lines begining with #
     std::map<Tetrahedron, std::vector<int>> output_tets;
-    const char character = '#';
-    strip_leading_character(tets_file, character);
     std::ifstream file(tets_file);
     std::string line;
     int count = 0;
@@ -192,7 +189,9 @@ std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::filesystem
     bool boundary = false; 
     if (file.is_open()) {
         while (getline(file, line)) {
-            std::vector<float> parts = split_string_into_array(line, ' ');
+            char* line_text;
+            strcpy(line_text, line.c_str());
+            std::vector<float> parts = split_string_into_array(line_text, " ");
             if (count == 0){
                 n_entities = parts[0];
                 entity_size = parts[1];
@@ -223,8 +222,30 @@ std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::filesystem
 
 }
 
-void merge_tetgen_tets(std::vector<std::filesystem::path> tets_files, std::filesystem::path output_tets_file){
+void merge_tetgen_tets(std::vector<std::filesystem::path> tets_files, std::filesystem::path output_tets_file, std::map<std::string, std::map<int, int>>& nodes_lookup){
+    std::map<Tetrahedron, std::vector<int>> tets;
+    int file_count = 0;
+    int tets_count = 0;
+    for (auto& tets_file : tets_files){
+        std::map<Tetrahedron, std::vector<int>> raw_tets = read_tetgen_tets_to_map(tets_file);
+        std::string lookup_key = tets_file.filename().string().substr(0, 3);
+        std::map<int, int> lookup_table = nodes_lookup[lookup_key];
+        if (file_count == 0){
+            tets.insert(raw_tets.begin(), raw_tets.end());
+            tets_count += raw_tets.size();
+        }
+        else {
+            for (auto& pair : raw_tets){
+                Tetrahedron new_key = {lookup_table.at(pair.first[0]), lookup_table.at(pair.first[1]), lookup_table.at(pair.first[2]), lookup_table.at(pair.first[3])};
+                tets[new_key] = {pair.second[0] + tets_count, pair.second[1] + tets_count};
+            }
+            tets_count += raw_tets.size();
 
+        }
+        file_count += 1;
+
+    }
+    write_tets_to_file(tets, output_tets_file);
 }
 
 void write_nodes_to_file(const std::map<Point, std::vector<int>>& nodes, std::filesystem::path output_nodes_file){
@@ -235,7 +256,7 @@ void write_nodes_to_file(const std::map<Point, std::vector<int>>& nodes, std::fi
             outputFile << pair.second[0] << " " << pair.first[0] << " " << pair.first[1] << " " << pair.first[2] << "\n";
         }
         outputFile.close();
-        std::cout << "Data successfully written to " + std::format("{}", output_nodes_file) << std::endl;
+        std::cout << "Data successfully written to " << output_nodes_file << std::endl;
     } else {
         std::cerr << "Error: Unable to open the file for writing." << std::endl;
     }
@@ -254,13 +275,13 @@ void write_faces_to_file(std::map<Triangle, std::vector<int> >& faces, std::file
             }
         }
         outputFile.close();
-        std::cout << "Data successfully written to " + std::format("{}", output_faces_file) << std::endl;
+        std::cout << "Data successfully written to " << output_faces_file << std::endl;
     } else {
         std::cerr << "Error: Unable to open the file for writing." << std::endl;
     }
 }
 
-void write_tets_to_file(std::map<Tetrahedron, std::vector<int>>& tets, std::filesystem::path output_tets_file){
+void write_tets_to_file(const std::map<Tetrahedron, std::vector<int>>& tets, std::filesystem::path output_tets_file){
     std::ofstream outputFile(output_tets_file);
      outputFile << tets.size() << " " << 4 << " " << 0 << " " << 0 << "\n";
      if (outputFile.is_open()) {
@@ -273,7 +294,7 @@ void write_tets_to_file(std::map<Tetrahedron, std::vector<int>>& tets, std::file
             }
         }
         outputFile.close();
-        std::cout << "Data successfully written to " + std::format("{}", output_tets_file) << std::endl;
+        std::cout << "Data successfully written to " << output_tets_file << std::endl;
     } else {
         std::cerr << "Error: Unable to open the file for writing." << std::endl;
     }

@@ -1,8 +1,9 @@
 #include <array>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
-#include <format>
+// #include <format>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -10,17 +11,19 @@
 #include <string>
 #include <vector>
 
+// namespace fs = std::filesystem;
+
 typedef std::array<float, 3> Point;
 typedef std::array<int, 3> Triangle;
 typedef std::array<int, 4> Tetrahedron;
 
-void strip_leading_character(std::filesystem::path input_file, const char character);
+// void strip_leading_hash_character(std::filesystem::path);
 
-template <typename std::vector<T>> split_string_into_array(std::string text, const char delimiter);
+std::vector<float> split_string_into_array(char* text, const char* delimiter);
 
 std::map< Point, std::vector<int> > read_tetgen_nodes_to_map(std::filesystem::path nodes_file);
 
-void merge_tetgen_nodes(std::vector<std::filesystem::path> nodes_files, std::filesystem::path nodes_file);
+void merge_tetgen_nodes(std::vector<std::filesystem::path>, std::filesystem::path, std::map<std::string, std::map<int, int>>&);
 
 void renumber_tetgen_nodes(std::map<int, int> old_to_new);
 
@@ -34,7 +37,7 @@ void merge_tetgen_faces(std::vector<std::filesystem::path> node_files, std::stri
 
 std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::filesystem::path tets_file);
 
-void merge_tetgen_tets(std::vector<std::filesystem::path> tets_files, std::string output_tets_files);
+void merge_tetgen_tets(std::vector<std::filesystem::path>, std::filesystem::path, std::map<std::string, std::map<int, int>>&);
 
 void write_nodes_to_file(const std::map<Point, std::vector<int> >& nodes, std::filesystem::path output_nodes_file);
 
