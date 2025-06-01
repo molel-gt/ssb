@@ -81,6 +81,7 @@ std::map<Point, std::vector<int>> read_tetgen_nodes_to_map(std::string nodes_fil
     return output_nodes;
 
 }
+}
 
 void merge_tetgen_nodes(std::vector<<std::string>> nodes_files, std::string nodes_file){
 
@@ -151,6 +152,7 @@ std::map<Triangle, std::vector<int> > read_tetgen_faces_to_map(std::string faces
     return output_faces;
 
 }
+}
 
 void merge_tetgen_faces(std::vector<<std::string>> node_files, std::string faces_files){
 
@@ -213,19 +215,57 @@ std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::string tet
     return output_tets;
 
 }
+}
 
 void merge_tetgen_tets(std::vector<<std::string>> tets_files, std::string tets_files){
 
 }
 
 void write_nodes_to_file(std::map<std::vector<float>, int>& nodes, std::string output_nodes_file){
+     std::ofstream outputFile(output_nodes_file);
+     outputFile << nodes.size() << " " << 3 << " " << 0 << " " << 0 << "\n";
+     if (outputFile.is_open()) {
+        for (const auto& pair : *nodes) {
+            outputFile << pair.second[0] << " " << pair.first[0] << " " << pair.first[1] << " " << pair.first[2] << "\n";
+        }
+        outputFile.close();
+        std::cout << "Data successfully written to " + std::format("{}", output_nodes_file) << std::endl;
+    } else {
+        std::cerr << "Error: Unable to open the file for writing." << std::endl;
+    }
 
+    return 0;
 }
 
-void write_faces_to_file(std::map<std::vector<float>, int>& faces, std::string output_faces_file){
-
+void write_faces_to_file(std::map<Triangle, std::vector<int> >& faces, std::string output_faces_file){
+    std::ofstream outputFile(output_faces_file);
+     outputFile << *faces.size() << " " << 3 << " " << 0 << " " << 0 << "\n";
+     if (outputFile.is_open()) {
+        for (const auto& pair : *faces) {
+            outputFile << pair.second[0] << " " << pair.first[0] << " " << pair.first[1] << " " << pair.first[2] << "\n";
+        }
+        outputFile.close();
+        std::cout << "Data successfully written to " + std::format("{}", output_faces_file) << std::endl;
+    } else {
+        std::cerr << "Error: Unable to open the file for writing." << std::endl;
+    }
 }
 
-void write_tets_to_file(std::map<std::vector<float>, int>& tets, std::string output_tets_file){
-
+void write_tets_to_file(std::map<Tetrahedron, std::vector<int>>& tets, std::string output_tets_file){
+    std::ofstream outputFile(output_tets_file);
+     outputFile << *tets.size() << " " << 4 << " " << 0 << " " << 0 << "\n";
+     if (outputFile.is_open()) {
+        for (const auto& pair : *tets) {
+            if (pair.second.size() == 0){
+                outputFile << pair.second[0] << " " << pair.first[0] << " " << pair.first[1] << " " << pair.first[2] << " " << pair.first[3] << "\n";
+            }
+            else {
+                outputFile << pair.second[0] << " " << pair.first[0] << " " << pair.first[1] << " " << pair.first[2] << " " << pair.first[3] << " " << pair.second[1] << "\n";
+            }
+        }
+        outputFile.close();
+        std::cout << "Data successfully written to " + std::format("{}", output_faces_file) << std::endl;
+    } else {
+        std::cerr << "Error: Unable to open the file for writing." << std::endl;
+    }
 }
