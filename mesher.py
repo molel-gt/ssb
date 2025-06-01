@@ -12,7 +12,7 @@ import timeit
 
 import commons, utils
 
-SCALING = [1, 1, 1]#[0.0858e-6, 0.0858e-6, 0.05e-6]
+
 PHASE_VALUES = {"voids": 0, "sse": 1, "cam": 2}
 
 def group_surfaces_adjacencies(adj):

@@ -7,7 +7,6 @@ import numpy as np
 import trimesh
 
 import utils
-SCALING = [0.0858e-6, 0.0858e-6, 0.05e-6]
 
 
 def get_valid_coords(coords, limits):
