@@ -156,12 +156,13 @@ if __name__ == '__main__':
     for phase in ["voids", "sse", "cam"]:
         print(threshold)
         gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{phase}.1.vtk")
-        gmsh.model.geo.synchronize()
-        gmsh.model.geo.removeAllDuplicates()
-        gmsh.model.geo.synchronize()
         vols = [v[1] for v in gmsh.model.getEntities(3) if v[1] > threshold]
         phase_volumes[phase] = vols
         threshold = max(vols)
+    gmsh.model.geo.synchronize()
+
+    gmsh.model.geo.removeAllDuplicates()
+    gmsh.model.geo.synchronize()
 
     gmsh.model.mesh.createTopology()
     gmsh.model.mesh.classifySurfaces(angle * math.pi/180., True, forceParametrizablePatches, curveAngle * math.pi/180.)
