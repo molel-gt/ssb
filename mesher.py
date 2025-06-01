@@ -135,15 +135,6 @@ if __name__ == '__main__':
     # gmsh.option.setNumber("Mesh.Algorithm", 6)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.1)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1)
-    threshold = 0
-    phase_volumes = {}
-    for phase in ["voids", "sse", "cam"]:
-        gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{phase}.1.vtk")
-        gmsh.model.geo.synchronize()
-        vols = [v[1] for v in gmsh.model.getEntities(3) if v[1] > threshold]
-        phase_volumes[phase] = vols
-        threshold = max(vols)
-    # gmsh.option.setNumber("General.Verbosity", 1)
     gmsh.model.mesh.setOrder(1)
     gmsh.option.setNumber('Geometry.Tolerance', 1e-8)
     # gmsh.option.setNumber("Mesh.AngleToleranceFacetOverlap", 0.01)
@@ -153,10 +144,20 @@ if __name__ == '__main__':
     gmsh.option.setNumber("Mesh.MeshSizeMin", 0.05)
     gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
     #gmsh.option.setNumber("Mesh.ScalingFactor", 0.05e-6/L_c)
+    # gmsh.option.setNumber("General.Verbosity", 1)
     angle = gmsh.onelab.getNumber('Parameters/Angle for surface detection')[0]
     forceParametrizablePatches = gmsh.onelab.getNumber(
         'Parameters/Create surfaces guaranteed to be parametrizable')[0]
     curveAngle = 180
+    threshold = 0
+    phase_volumes = {}
+    for phase in ["voids", "sse", "cam"]:
+        gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{phase}.1.vtk")
+        gmsh.model.geo.synchronize()
+        vols = [v[1] for v in gmsh.model.getEntities(3) if v[1] > threshold]
+        phase_volumes[phase] = vols
+        threshold = max(vols)
+
     gmsh.model.mesh.createTopology()
     gmsh.model.mesh.classifySurfaces(angle * math.pi/180., True, forceParametrizablePatches, curveAngle * math.pi/180.)
     #gmsh.model.mesh.createGeometry()
