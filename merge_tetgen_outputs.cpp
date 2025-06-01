@@ -5,7 +5,7 @@ int main(int argc, char** argv){
     return 0;
 }
 
-void strip_leading_character(std::string input_file, char character){
+void strip_leading_character(std::filesystem::path input_file, char character){
     std::system("sed -i '/#/d'" + " " + std::format("{}", input_file));
 }
 
@@ -24,7 +24,7 @@ template <typename std::vector<T>> split_string_into_array(char[] text, char del
     
 }
 
-std::map<Point, std::vector<int>> read_tetgen_nodes_to_map(std::string nodes_file){
+std::map<Point, std::vector<int>> read_tetgen_nodes_to_map(std::filesystem::path nodes_file){
     // remove lines begining with #
     std::map<Point, std::vector<int>> output_nodes;
     strip_leading_character(nodes_file, "#");
@@ -85,7 +85,7 @@ std::map<Point, std::vector<int>> read_tetgen_nodes_to_map(std::string nodes_fil
 }
 }
 
-void merge_tetgen_nodes(std::vector<<std::string>> nodes_files, std::string nodes_file){
+void merge_tetgen_nodes(std::vector<<std::string>> nodes_files, std::filesystem::path nodes_file){
 
 }
 
@@ -97,7 +97,7 @@ void renumber_tetgen_faces(std::map<int, int> old_to_new);
 
 void renumber_tetgen_tets(std::map<int, int> old_to_new);
 
-std::map<Triangle, std::vector<int> > read_tetgen_faces_to_map(std::string faces_file){
+std::map<Triangle, std::vector<int> > read_tetgen_faces_to_map(std::filesystem::path faces_file){
     // remove lines begining with #
     std::map<Triangle, std::vector<int>> output_faces;
     strip_leading_character(faces_file, "#");
@@ -151,7 +151,7 @@ void merge_tetgen_faces(std::vector<<std::string>> node_files, std::string faces
 
 }
 
-std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::string tets_file){
+std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::filesystem::path tets_file){
     // remove lines begining with #
     std::map<Tetrahedron, std::vector<int>> output_tets;
     strip_leading_character(tets_file, "#");
@@ -205,7 +205,7 @@ void merge_tetgen_tets(std::vector<<std::string>> tets_files, std::string tets_f
 
 }
 
-void write_nodes_to_file(std::map<std::vector<float>, int>& nodes, std::string output_nodes_file){
+void write_nodes_to_file(std::map<std::vector<float>, int>& nodes, std::filesystem::path output_nodes_file){
      std::ofstream outputFile(output_nodes_file);
      outputFile << nodes.size() << " " << 3 << " " << 0 << " " << 0 << "\n";
      if (outputFile.is_open()) {
@@ -219,7 +219,7 @@ void write_nodes_to_file(std::map<std::vector<float>, int>& nodes, std::string o
     }
 }
 
-void write_faces_to_file(std::map<Triangle, std::vector<int> >& faces, std::string output_faces_file){
+void write_faces_to_file(std::map<Triangle, std::vector<int> >& faces, std::filesystem::path output_faces_file){
     std::ofstream outputFile(output_faces_file);
      outputFile << *faces.size() << " " << 3 << " " << 0 << " " << 0 << "\n";
      if (outputFile.is_open()) {
@@ -238,7 +238,7 @@ void write_faces_to_file(std::map<Triangle, std::vector<int> >& faces, std::stri
     }
 }
 
-void write_tets_to_file(std::map<Tetrahedron, std::vector<int>>& tets, std::string output_tets_file){
+void write_tets_to_file(std::map<Tetrahedron, std::vector<int>>& tets, std::filesystem::path output_tets_file){
     std::ofstream outputFile(output_tets_file);
      outputFile << *tets.size() << " " << 4 << " " << 0 << " " << 0 << "\n";
      if (outputFile.is_open()) {
