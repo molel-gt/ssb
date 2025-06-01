@@ -172,7 +172,7 @@ if __name__ == '__main__':
     gmsh.model.geo.synchronize()
     gmsh.model.geo.removeAllDuplicates()
     gmsh.model.geo.synchronize()
-    all_vols = [v[1] for v in gmsh.model.getEntities(3)]
+    vols = [v[1] for v in gmsh.model.getEntities(3)]
     void_vols = [v for v in phase_volumes["voids"] if v in all_vols]
     sse_vols = [v for v in phase_volumes["sse"] if v in all_vols]
     cam_vols = [v for v in phase_volumes["cam"] if v in all_vols]
