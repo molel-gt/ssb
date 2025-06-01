@@ -195,7 +195,7 @@ if __name__ == '__main__':
     insulated_am = []
     insulated_se = []
     surfs = gmsh.model.getEntities(2)
-    tol = 1e-5
+    tol = 1e-6
     xs = []
     ys = []
     zs = []
@@ -204,26 +204,28 @@ if __name__ == '__main__':
         xs.extend([xmin, xmax])
         ys.extend([ymin, ymax])
         zs.extend([zmin, zmax])
-        if np.isclose(xmin, 0, atol=tol) and np.isclose(xmax, 0, atol=tol):
+
+    print(np.min(xs), np.max(xs))
+    print(np.min(ys), np.max(ys))
+    print(np.min(zs), np.max(zs))
+    for surf in surfs:
+        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
+        if np.isclose(xmin, np.min(xs), atol=tol) and np.isclose(xmax, np.min(xs), atol=tol):
             right_surfs.append(surf[1])
-        elif np.isclose(xmin, 1.0, atol=tol) and np.isclose(xmax, 1.0, atol=tol):
+        elif np.isclose(xmin, np.max(xs), atol=tol) and np.isclose(xmax, np.max(xs), atol=tol):
             left_surfs.append(surf[1])
-        elif np.isclose(ymin, ymax, atol=tol) and (np.isclose(ymin, 0, atol=tol) or np.isclose(ymax, Ly, atol=tol)):
+        elif np.isclose(ymin, ymax, atol=tol) and (np.isclose(ymin, np.min(ys), atol=tol) or np.isclose(ymax, np.max(ys), atol=tol)):
             if args.phase == "cam":
                 insulated_am.append(surf[1])
             elif args.phase == "sse":
                 insulated_se.append(surf[1])
-        elif np.isclose(zmin, zmax, atol=tol) and (np.isclose(zmin, 0, atol=tol) or np.isclose(zmax, Lz, atol=tol)):
+        elif np.isclose(zmin, zmax, atol=tol) and (np.isclose(zmin, np.min(zs), atol=tol) or np.isclose(zmax, np.max(zs), atol=tol)):
             if args.phase == "cam":
                 insulated_am.append(surf[1])
             elif args.phase == "sse":
                 insulated_se.append(surf[1])
         else:
             interface_surfs.append(surf[1])
-    print(np.min(xs), np.max(xs))
-    print(np.min(ys), np.max(ys))
-    print(np.min(zs), np.max(zs))
-    quit()
     if args.phase == "sse":
         gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "Left")
     elif args.phase == "cam":
