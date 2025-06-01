@@ -28,4 +28,6 @@ sed -i '/#/d' output/segmentation/$1/0-0-0/sse*.1.ele
 
 ./merge_tetgen
 
+tetgen -AYpk output/segmentation/$1/0-0-0/tomo.1.ele
+
 python3 mesher.py --size $1 --scale 0.08e-6,0.08e-6,0.2e-6 --L_sep 15e-6
