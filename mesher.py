@@ -170,6 +170,7 @@ if __name__ == '__main__':
     void_vols = [v for v in phase_volumes["voids"] if v in all_vols]
     sse_vols = [v for v in phase_volumes["sse"] if v in all_vols]
     cam_vols = [v for v in phase_volumes["cam"] if v in all_vols]
+    print(np.min(all_vols), np.max(all_vols), len(all_vols))
     print(void_vols)
     print(sse_vols)
     print(cam_vols)
