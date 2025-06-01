@@ -203,9 +203,15 @@ if __name__ == '__main__':
         elif np.isclose(xmin, 1.0, atol=tol) and np.isclose(xmax, 1.0, atol=tol):
             left_surfs.append(surf[1])
         elif np.isclose(ymin, ymax, atol=tol) and (np.isclose(ymin, 0, atol=tol) or np.isclose(ymax, Ly, atol=tol)):
-            insulated_am.append(surf[1])
+            if args.phase == "cam":
+                insulated_am.append(surf[1])
+            elif args.phase == "sse":
+                insulated_se.append(surf[1])
         elif np.isclose(zmin, zmax, atol=tol) and (np.isclose(zmin, 0, atol=tol) or np.isclose(zmax, Lz, atol=tol)):
-            insulated_am.append(surf[1])
+            if args.phase == "cam":
+                insulated_am.append(surf[1])
+            elif args.phase == "sse":
+                insulated_se.append(surf[1])
         else:
             interface_surfs.append(surf[1])
     if args.phase == "sse":
