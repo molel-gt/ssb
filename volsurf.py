@@ -132,7 +132,6 @@ if __name__ == '__main__':
             img_3d = np.zeros((nx+n_sep, ny, nz), dtype=bool)
 
         for idx in range(1, nz+1):
-            print(f"Processing image {idx}")
             img_file = os.path.join(cam_dir, f"{str(idx).zfill(3)}.tif")
             voids_img_file = os.path.join(voids_dir, f"{str(idx).zfill(3)}.tif")
             cam_img = plt.imread(img_file).copy()[:nx, :ny]
@@ -141,15 +140,13 @@ if __name__ == '__main__':
             cam_img = np.array(cam_img)
             voids_img = np.array(voids_img)
             if phase == "sse":
-                print(np.average(img_3d))
                 img_3d[:nx, :ny, idx-1] = np.logical_not(np.logical_or(np.isclose(voids_img[:, :], 1), np.isclose(cam_img[:, :], 2)))
-                print(np.average(img_3d))
             if phase == "voids":
                 img_3d[:nx, :ny, idx-1] = np.isclose(voids_img[:, :], 1)
             if phase == "cam":
                 img_3d[:nx, :ny, idx-1] = np.logical_and(np.isclose(voids_img[:nx, :ny], 0), np.isclose(cam_img[:, :], 2))
 
-        print(f"Rough {phase} volume fraction {np.average(img_3d[:nx, :ny, :])}", np.average(img_3d[nx:, :, :]))
+        print(f"Rough {phase} volume fraction {np.average(img_3d[:nx, :ny, :])}")
 
         mesh = generate_surface_mesh_for_phase(img_3d, sizes=(nx+n_sep, ny, nz))
         spacing = [0.5*scaling[0]/L_c, 0.5*scaling[1]/L_c, 0.5*scaling[2]/L_c]
