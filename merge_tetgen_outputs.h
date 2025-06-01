@@ -14,22 +14,26 @@ void strip_leading_character(std::string input_file, char character);
 
 template <typename std::pair<T, V> split_string_into_pair(char[] text, char delimiter, int size_key);
 
-std::map<std::pair<std::vector<float>, int>> read_tetgen_nodes_to_map(std::string nodes_file);
+std::map< Point, std::vector<int> > read_tetgen_nodes_to_map(std::string nodes_file);
 
 void merge_tetgen_nodes(std::vector<<std::string>> nodes_files, std::string nodes_file);
 
+void renumber_tetgen_nodes(std::map<int, int> old_to_new);
+
 void renumber_tetgen_faces(std::map<int, int> old_to_new);
 
-std::map<std::vector<int>, int> read_tetgen_faces_to_map(std::string faces_file);
+void renumber_tetgen_tets(std::map<int, int> old_to_new);
+
+std::map<Triangle, std::vector<int> > read_tetgen_faces_to_map(std::string faces_file);
 
 void merge_tetgen_faces(std::vector<<std::string>> node_files, std::string faces_files);
 
-std::map<std::vector<int>, int> read_tetgen_tets_to_map(std::string tets_file);
+std::map<Tetrahedron, std::vector<int> > read_tetgen_tets_to_map(std::string tets_file);
 
 void merge_tetgen_tets(std::vector<<std::string>> tets_files, std::string tets_files);
 
-void write_nodes_to_file(std::map<std::vector<float>, int>& nodes, std::string output_nodes_file);
+void write_nodes_to_file(std::map<Point, std::vector<int> >& nodes, std::string output_nodes_file);
 
-void write_faces_to_file(std::map<std::vector<float>, int>& faces, std::string output_faces_file);
+void write_faces_to_file(std::map<Triangle, std::vector<int> >& faces, std::string output_faces_file);
 
-void write_tets_to_file(std::map<std::vector<float>, int>& tets, std::string output_tets_file);
+void write_tets_to_file(std::map<Tetrahedron, std::vector<int>>& tets, std::string output_tets_file);
