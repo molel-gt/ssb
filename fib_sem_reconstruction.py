@@ -361,7 +361,7 @@ if __name__ == '__main__':
             left_surfs.append(surf[1])
         elif (np.isclose(ymax, np.min(y_vals), atol=tol) or np.isclose(ymin, ly)):
             insulated_am.append(surf[1])
-        elif np.isclose(zmax, np.min(x_vals), atol=tol) or np.isclose(zmin, lz, atol=tol)):
+        elif np.isclose(zmax, np.min(z_vals), atol=tol) or np.isclose(zmin, lz, atol=tol):
             insulated_am.append(surf[1])
         else:
             if surf[1] in agg_surf_loop_list:
