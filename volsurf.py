@@ -151,6 +151,7 @@ if __name__ == '__main__':
             img_3d[:10, :, :] = 0
         print(f"Rough {phase} volume fraction {np.average(img_3d[:nx, :ny, :])}")
         mesh = generate_surface_mesh_for_phase(img_3d, (nx+n_sep, ny, nz))
+        mesh = trimesh.Trimesh(vertices=mesh.vertices + 1, faces=mesh.faces)
         spacing = [0.5*scaling[0]/L_c, 0.5*scaling[1]/L_c, 0.5*scaling[2]/L_c]
         print(np.unique(mesh.vertices[:, 0]), np.unique(mesh.vertices[:, 1]), np.unique(mesh.vertices[:, 2]))
         scaled_verts = np.vstack((mesh.vertices[:, 0] * spacing[0], mesh.vertices[:, 1] * spacing[1], mesh.vertices[:, 2] * spacing[2]))
