@@ -164,6 +164,10 @@ if __name__ == '__main__':
     # gmsh.model.geo.removeAllDuplicates()
     gmsh.model.geo.synchronize()
     print( [v[1] for v in gmsh.model.getEntities(3)])
+    gmsh.model.addPhysicalGroup(3, [1], markers.void, "VOIDS")
+    gmsh.model.addPhysicalGroup(3, [3], markers.positive_am, "CAM")
+    gmsh.model.addPhysicalGroup(3, [2], markers.electrolyte, "SSE")
+    gmsh.model.geo.synchronize()
 
     gmsh.model.mesh.createTopology()
     gmsh.model.mesh.classifySurfaces(angle * math.pi/180., True, forceParametrizablePatches, curveAngle * math.pi/180.)
@@ -171,18 +175,18 @@ if __name__ == '__main__':
     gmsh.model.geo.synchronize()
     gmsh.model.geo.removeAllDuplicates()
     gmsh.model.geo.synchronize()
-    vols = [v[1] for v in gmsh.model.getEntities(3)]
-    void_vols = [v for v in phase_volumes["voids"] if v in all_vols]
-    sse_vols = [v for v in phase_volumes["sse"] if v in all_vols]
-    cam_vols = [v for v in phase_volumes["cam"] if v in all_vols]
-    print(np.min(all_vols), np.max(all_vols), len(all_vols))
-    print(void_vols)
-    print(sse_vols)
-    print(cam_vols)
-    gmsh.model.addPhysicalGroup(3, voids_vols, markers.void, "VOIDS")
-    gmsh.model.addPhysicalGroup(3, cam_vols, markers.positive_am, "CAM")
-    gmsh.model.addPhysicalGroup(3, sse_vols, markers.electrolyte, "SSE")
-    gmsh.model.geo.synchronize()
+    # vols = [v[1] for v in gmsh.model.getEntities(3)]
+    # void_vols = [v for v in phase_volumes["voids"] if v in all_vols]
+    # sse_vols = [v for v in phase_volumes["sse"] if v in all_vols]
+    # cam_vols = [v for v in phase_volumes["cam"] if v in all_vols]
+    # print(np.min(all_vols), np.max(all_vols), len(all_vols))
+    # print(void_vols)
+    # print(sse_vols)
+    # print(cam_vols)
+    # gmsh.model.addPhysicalGroup(3, voids_vols, markers.void, "VOIDS")
+    # gmsh.model.addPhysicalGroup(3, cam_vols, markers.positive_am, "CAM")
+    # gmsh.model.addPhysicalGroup(3, sse_vols, markers.electrolyte, "SSE")
+    # gmsh.model.geo.synchronize()
     # phys_vols = gmsh.model.getPhysicalGroups(3)
 
     left_surfs = []
