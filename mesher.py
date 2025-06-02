@@ -133,7 +133,7 @@ if __name__ == '__main__':
           }
           ]
     """)
-    # gmsh.option.setNumber("Mesh.Algorithm", 6)
+    gmsh.option.setNumber("Mesh.Algorithm", 6)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.1)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1)
     gmsh.model.mesh.setOrder(1)
@@ -153,7 +153,6 @@ if __name__ == '__main__':
     threshold = 0
     phase_volumes = {}
     for phase in ["voids", "sse", "cam"]:
-        print(threshold)
         gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{phase}.1.vtk")
         gmsh.model.geo.synchronize()
         gmsh.model.mesh.createTopology()
@@ -161,7 +160,6 @@ if __name__ == '__main__':
         gmsh.model.geo.removeAllDuplicates()
         gmsh.model.geo.synchronize()
         vols = [v[1] for v in gmsh.model.getEntities(3) if v[1] > threshold]
-        print(vols)
         phase_volumes[phase] = vols
         threshold = max(vols)
     gmsh.model.addPhysicalGroup(3, phase_volumes["voids"], markers.void, "VOIDS")
@@ -175,7 +173,7 @@ if __name__ == '__main__':
     insulated_am = []
     insulated_se = []
     surfs = gmsh.model.getEntities(2)
-    tol = 1e-4
+    tol = 1e-6
     xs = []
     ys = []
     zs = []
@@ -188,9 +186,11 @@ if __name__ == '__main__':
     print(np.min(xs), np.max(xs))
     print(np.min(ys), np.max(ys))
     print(np.min(zs), np.max(zs))
+    left_surfaces = gmsh.model.getEntitiesInBoundingBox(-tol, 0, 0, tol, 4, 4, dim=2)
+    print(left_surfaces)
     for surf in surfs:
         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
-        if np.isclose(xmax, 0, atol=tol):
+        if np.isclose(xmin, 0, atol=tol) and np.isclose(xmax, 0, atol=tol):
             right_surfs.append(surf[1])
         elif np.isclose(xmin, np.max(xs), atol=tol) and np.isclose(xmax, np.max(xs), atol=tol):
             left_surfs.append(surf[1])
