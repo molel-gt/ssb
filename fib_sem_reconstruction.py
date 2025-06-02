@@ -323,7 +323,7 @@ if __name__ == '__main__':
     phase_volumes, agg_surf_loop_list, surfaces_to_combine = create_volumes_from_stl(phase=phase, workdir=workdir)
     gmsh.model.geo.synchronize()
     # gmsh.option.setNumber('Geometry.Tolerance', tol)
-    gmsh.model.mesh.removeAllDuplicates()
+    gmsh.model.geo.removeAllDuplicates()
     # gmsh.model.geo.synchronize()
     # Save the last tag index for the aggregate
     agg_last_idx = phase_volumes[-1]
