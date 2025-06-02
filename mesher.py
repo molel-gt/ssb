@@ -190,6 +190,8 @@ if __name__ == '__main__':
     print(left_surfaces)
     for surf in surfs:
         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
+        if xmax < tol and xmin < tol:
+            print(surf)
         if np.isclose(xmin, 0, atol=tol) and np.isclose(xmax, 0, atol=tol):
             right_surfs.append(surf[1])
         elif np.isclose(xmin, np.max(xs), atol=tol) and np.isclose(xmax, np.max(xs), atol=tol):
