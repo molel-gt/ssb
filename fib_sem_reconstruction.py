@@ -264,7 +264,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     phase = args.phase
-    workdir = os.path.join(f"output/segmentation/{phase}/{args.size}/{args.origin}")
+    workdir = os.path.join(f"output/segmentation/{args.size}/{args.origin}")
     utils.make_dir_if_missing(workdir)
     x0, y0, z0 = [int(val) for val in args.origin.split("-")]
     LX, LY, LZ = [int(val) for val in args.size.split("-")]
