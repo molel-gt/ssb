@@ -86,7 +86,6 @@ if __name__ == '__main__':
     parser.add_argument('--size', help='Lx-Ly-Lz', required=True, type=str)
     parser.add_argument("--origin", help="where to extract data", nargs='?', const=1, default='0-0-0', type=str)
     parser.add_argument('--scale', help='sx-sy-sz', required=True, type=str)
-    parser.add_argument("--phase", help="particulate phase", nargs='?', const=1, default='cam', type=str)
     parser.add_argument("--L_sep", help="separator thickness [m]", nargs='?', const=1, default=15e-6, type=float)
     parser.add_argument("--resolution", help="dimensionless resolution", nargs='?', const=1, default=0.05, type=float)
     args = parser.parse_args()
