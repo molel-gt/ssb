@@ -153,13 +153,13 @@ if __name__ == '__main__':
     curveAngle = 180
     threshold = 0
     phase_volumes = {}
-    # for phase in ["voids", "sse", "cam"]:
-    #     print(threshold)
-    #     gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{phase}.1.vtk")
-    #     vols = [v[1] for v in gmsh.model.getEntities(3) if v[1] > threshold]
-    #     phase_volumes[phase] = vols
-    #     threshold = max(vols)
-    gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{args.phase}.stl")
+    for phase in ["voids", "sse", "cam"]:
+        print(threshold)
+        gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{phase}.1.vtk")
+        vols = [v[1] for v in gmsh.model.getEntities(3) if v[1] > threshold]
+        phase_volumes[phase] = vols
+        threshold = max(vols)
+    # gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{args.phase}.stl")
     gmsh.model.geo.synchronize()
     gmsh.model.mesh.removeDuplicateElements()
     # gmsh.model.geo.removeAllDuplicates()
@@ -173,19 +173,16 @@ if __name__ == '__main__':
     gmsh.model.geo.removeAllDuplicates()
     gmsh.model.geo.synchronize()
     vols = [v[1] for v in gmsh.model.getEntities(3)]
-    # void_vols = [v for v in phase_volumes["voids"] if v in all_vols]
-    # sse_vols = [v for v in phase_volumes["sse"] if v in all_vols]
-    # cam_vols = [v for v in phase_volumes["cam"] if v in all_vols]
-    # print(np.min(all_vols), np.max(all_vols), len(all_vols))
-    # print(void_vols)
-    # print(sse_vols)
-    # print(cam_vols)
-    if args.phase == "voids":
-        gmsh.model.addPhysicalGroup(3, vols, markers.void, "VOIDS")
-    elif args.phase == "cam":
-        gmsh.model.addPhysicalGroup(3, vols, markers.positive_am, "CAM")
-    elif args.phase == "sse":
-        gmsh.model.addPhysicalGroup(3, vols, markers.electrolyte, "SSE")
+    void_vols = [v for v in phase_volumes["voids"] if v in all_vols]
+    sse_vols = [v for v in phase_volumes["sse"] if v in all_vols]
+    cam_vols = [v for v in phase_volumes["cam"] if v in all_vols]
+    print(np.min(all_vols), np.max(all_vols), len(all_vols))
+    print(void_vols)
+    print(sse_vols)
+    print(cam_vols)
+    gmsh.model.addPhysicalGroup(3, voids_vols, markers.void, "VOIDS")
+    gmsh.model.addPhysicalGroup(3, cam_vols, markers.positive_am, "CAM")
+    gmsh.model.addPhysicalGroup(3, sse_vols, markers.electrolyte, "SSE")
     gmsh.model.geo.synchronize()
     # phys_vols = gmsh.model.getPhysicalGroups(3)
 
@@ -215,25 +212,21 @@ if __name__ == '__main__':
         elif np.isclose(xmin, np.max(xs), atol=tol) and np.isclose(xmax, np.max(xs), atol=tol):
             left_surfs.append(surf[1])
         elif np.isclose(ymin, ymax, atol=tol) and (np.isclose(ymin, np.min(ys), atol=tol) or np.isclose(ymax, np.max(ys), atol=tol)):
-            if args.phase == "cam":
-                insulated_am.append(surf[1])
-            elif args.phase == "sse":
-                insulated_se.append(surf[1])
+            pass
+            # insulated_am.append(surf[1])
+            # insulated_se.append(surf[1])
         elif np.isclose(zmin, zmax, atol=tol) and (np.isclose(zmin, np.min(zs), atol=tol) or np.isclose(zmax, np.max(zs), atol=tol)):
-            if args.phase == "cam":
-                insulated_am.append(surf[1])
-            elif args.phase == "sse":
-                insulated_se.append(surf[1])
+            pass
+            # insulated_am.append(surf[1])
+            # insulated_se.append(surf[1])
         else:
             interface_surfs.append(surf[1])
-    if args.phase == "sse":
-        gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "Left")
-    elif args.phase == "cam":
-        gmsh.model.addPhysicalGroup(2, right_surfs, markers.right, "Right")
-        gmsh.model.addPhysicalGroup(2, interface_surfs, markers.electrolyte_v_positive_am, "SE/AM")
+    gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "Left")
+    gmsh.model.addPhysicalGroup(2, right_surfs, markers.right, "Right")
+    gmsh.model.addPhysicalGroup(2, interface_surfs, markers.electrolyte_v_positive_am, "SE/AM")
     gmsh.model.geo.synchronize()
 
-    gmsh.write(f"{args.phase}.geo_unrolled")
+    gmsh.write(f"mesh.geo_unrolled")
     gmsh.model.mesh.generate(3)
-    gmsh.write(os.path.join(workdir, f"{args.phase}.msh"))
+    gmsh.write(os.path.join(workdir, f"mesh.msh"))
     print(f"Time elapsed {timeit.default_timer()-start_time:,.0f}s")
