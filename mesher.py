@@ -155,40 +155,19 @@ if __name__ == '__main__':
     for phase in ["voids", "sse", "cam"]:
         print(threshold)
         gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{phase}.1.vtk")
+        gmsh.model.geo.synchronize()
+        gmsh.model.mesh.createTopology()
+        gmsh.model.geo.synchronize()
+        gmsh.model.geo.removeAllDuplicates()
+        gmsh.model.geo.synchronize()
         vols = [v[1] for v in gmsh.model.getEntities(3) if v[1] > threshold]
+        print(vols)
         phase_volumes[phase] = vols
         threshold = max(vols)
-    # gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{args.phase}.stl")
+    gmsh.model.addPhysicalGroup(3, phase_volumes["voids"], markers.void, "VOIDS")
+    gmsh.model.addPhysicalGroup(3, phase_volumes["cam"], markers.positive_am, "CAM")
+    gmsh.model.addPhysicalGroup(3, phase_volumes["sse"], markers.electrolyte, "SSE")
     gmsh.model.geo.synchronize()
-    gmsh.model.mesh.removeDuplicateElements()
-    # gmsh.model.geo.removeAllDuplicates()
-    gmsh.model.geo.synchronize()
-    print( [v[1] for v in gmsh.model.getEntities(3)])
-    print( [v[1] for v in gmsh.model.getEntities(2)])
-    gmsh.model.addPhysicalGroup(3, [1], markers.void, "VOIDS")
-    gmsh.model.addPhysicalGroup(3, [3], markers.positive_am, "CAM")
-    gmsh.model.addPhysicalGroup(3, [2], markers.electrolyte, "SSE")
-    gmsh.model.geo.synchronize()
-
-    gmsh.model.mesh.createTopology()
-    gmsh.model.mesh.classifySurfaces(angle * math.pi/180., True, forceParametrizablePatches, curveAngle * math.pi/180.)
-    #gmsh.model.mesh.createGeometry()
-    gmsh.model.geo.synchronize()
-    gmsh.model.geo.removeAllDuplicates()
-    gmsh.model.geo.synchronize()
-    # vols = [v[1] for v in gmsh.model.getEntities(3)]
-    # void_vols = [v for v in phase_volumes["voids"] if v in all_vols]
-    # sse_vols = [v for v in phase_volumes["sse"] if v in all_vols]
-    # cam_vols = [v for v in phase_volumes["cam"] if v in all_vols]
-    # print(np.min(all_vols), np.max(all_vols), len(all_vols))
-    # print(void_vols)
-    # print(sse_vols)
-    # print(cam_vols)
-    # gmsh.model.addPhysicalGroup(3, voids_vols, markers.void, "VOIDS")
-    # gmsh.model.addPhysicalGroup(3, cam_vols, markers.positive_am, "CAM")
-    # gmsh.model.addPhysicalGroup(3, sse_vols, markers.electrolyte, "SSE")
-    # gmsh.model.geo.synchronize()
-    # phys_vols = gmsh.model.getPhysicalGroups(3)
 
     left_surfs = []
     right_surfs = []
@@ -196,7 +175,7 @@ if __name__ == '__main__':
     insulated_am = []
     insulated_se = []
     surfs = gmsh.model.getEntities(2)
-    tol = 1e-5
+    tol = 1e-4
     xs = []
     ys = []
     zs = []
@@ -211,15 +190,15 @@ if __name__ == '__main__':
     print(np.min(zs), np.max(zs))
     for surf in surfs:
         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
-        if np.isclose(xmax, np.min(xs), atol=tol):
+        if np.isclose(xmax, 0, atol=tol):
             right_surfs.append(surf[1])
         elif np.isclose(xmin, np.max(xs), atol=tol) and np.isclose(xmax, np.max(xs), atol=tol):
             left_surfs.append(surf[1])
-        elif np.isclose(ymin, ymax, atol=tol) and (np.isclose(ymin, np.min(ys), atol=tol) or np.isclose(ymax, np.max(ys), atol=tol)):
+        elif np.isclose(ymin, 0, atol=tol) or np.isclose(ymax, np.max(ys), atol=tol):
             pass
             # insulated_am.append(surf[1])
             # insulated_se.append(surf[1])
-        elif np.isclose(zmin, zmax, atol=tol) and (np.isclose(zmin, np.min(zs), atol=tol) or np.isclose(zmax, np.max(zs), atol=tol)):
+        elif np.isclose(zmin, 0, atol=tol) or np.isclose(zmax, np.max(zs), atol=tol):
             pass
             # insulated_am.append(surf[1])
             # insulated_se.append(surf[1])
