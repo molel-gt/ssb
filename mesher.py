@@ -156,6 +156,8 @@ if __name__ == '__main__':
         gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{phase}.1.vtk")
         gmsh.model.geo.synchronize()
         gmsh.model.mesh.createTopology()
+        gmsh.model.mesh.classifySurfaces(angle * math.pi/180., True, forceParametrizablePatches, curveAngle * math.pi/180.)
+        gmsh.model.mesh.createGeometry()
         gmsh.model.geo.synchronize()
         gmsh.model.geo.removeAllDuplicates()
         gmsh.model.geo.synchronize()
