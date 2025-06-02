@@ -97,7 +97,7 @@ if __name__ == '__main__':
     x0, y0, z0 = [int(val) for val in args.origin.split("-")]
     L_SEP = args.L_sep
     nx, ny, nz = [int(s) for s in args.size.split("-")]
-    LX = nx - 1
+    LX = nx #- 1
     LY = ny - 1
     LZ = nz - 1
     L_c = LX * scaling[0] + L_SEP
@@ -122,7 +122,7 @@ if __name__ == '__main__':
           {
             "type":"number",
             "name":"Parameters/Create surfaces guaranteed to be parametrizable",
-            "values":[1],
+            "values":[0],
             "choices":[0, 1]
           },
           {
@@ -133,17 +133,17 @@ if __name__ == '__main__':
           }
           ]
     """)
-    gmsh.option.setNumber("Mesh.Algorithm", 6)
+    gmsh.option.setNumber("Mesh.Algorithm", 5)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.1)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1)
     gmsh.model.mesh.setOrder(1)
-    gmsh.option.setNumber('Geometry.Tolerance', 1e-8)
+    gmsh.option.setNumber('Geometry.Tolerance', 1e-3)
     # gmsh.option.setNumber("Mesh.AngleToleranceFacetOverlap", 0.01)
     # gmsh.option.setNumber('Mesh.Optimize', 1)
     gmsh.option.setNumber('Mesh.Algorithm', 5)
     gmsh.option.setNumber("General.NumThreads", 8)
-    gmsh.option.setNumber("Mesh.MeshSizeMin", 0.05)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
+    # gmsh.option.setNumber("Mesh.MeshSizeMin", 0.05)
+    # gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
     #gmsh.option.setNumber("Mesh.ScalingFactor", 0.05e-6/L_c)
     # gmsh.option.setNumber("General.Verbosity", 1)
     angle = gmsh.onelab.getNumber('Parameters/Angle for surface detection')[0]
@@ -151,18 +151,22 @@ if __name__ == '__main__':
         'Parameters/Create surfaces guaranteed to be parametrizable')[0]
     curveAngle = 180
     threshold = 0
+    threshold_surf = 0
     phase_volumes = {}
+    phase_surfaces = {}
     for phase in ["voids", "sse", "cam"]:
         gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{phase}.1.vtk")
         gmsh.model.geo.synchronize()
         gmsh.model.mesh.createTopology()
-        gmsh.model.mesh.classifySurfaces(angle * math.pi/180., True, forceParametrizablePatches, curveAngle * math.pi/180.)
-        gmsh.model.mesh.createGeometry()
+        gmsh.model.mesh.classifySurfaces(angle * math.pi/180., False, forceParametrizablePatches, curveAngle * math.pi/180., False)
+        # gmsh.model.mesh.createGeometry()
         gmsh.model.geo.synchronize()
         gmsh.model.geo.removeAllDuplicates()
         gmsh.model.geo.synchronize()
         vols = [v[1] for v in gmsh.model.getEntities(3) if v[1] > threshold]
+        surfs = [s[1] for s in gmsh.model.getEntities(2) if s[1] > threshold_surf]
         phase_volumes[phase] = vols
+        phase_surfaces[phase] = surfs
         threshold = max(vols)
     gmsh.model.addPhysicalGroup(3, phase_volumes["voids"], markers.void, "VOIDS")
     gmsh.model.addPhysicalGroup(3, phase_volumes["cam"], markers.positive_am, "CAM")
@@ -175,30 +179,29 @@ if __name__ == '__main__':
     insulated_am = []
     insulated_se = []
     surfs = gmsh.model.getEntities(2)
+    surface_ids = [s[1] for s in surfs]
     tol = 1e-3
     xs = []
     ys = []
     zs = []
+
     for surf in surfs:
         xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
         xs.extend([xmin, xmax])
         ys.extend([ymin, ymax])
         zs.extend([zmin, zmax])
 
-    print(np.min(xs), np.max(xs))
-    print(np.min(ys), np.max(ys))
-    print(np.min(zs), np.max(zs))
-    left_surfaces = gmsh.model.getEntitiesInBoundingBox(-tol, 0, 0, tol, 4, 4, dim=2)
+    left_surfaces = gmsh.model.getEntitiesInBoundingBox(-tol, np.min(ys), np.min(zs), tol, np.max(ys), np.max(zs), dim=2)
     print(left_surfaces)
-    for surf in surfs:
-        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
+    # quit()
+
+    for surf in phase_surfaces["cam"]:
+        if surf not in surface_ids:
+            continue
+        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(2, surf)
         if xmax < tol and xmin < tol:
-            print(surf)
-        if np.isclose(xmin, 0, atol=tol) and np.isclose(xmax, 0, atol=tol):
-            right_surfs.append(surf[1])
-        elif np.isclose(xmin, np.max(xs), atol=tol) and np.isclose(xmax, np.max(xs), atol=tol):
-            left_surfs.append(surf[1])
-        elif np.isclose(ymin, 0, atol=tol) or np.isclose(ymax, np.max(ys), atol=tol):
+            right_surfs.append(surf)
+        elif abs(ymin) < tol or abs(ymax - np.max(ys)) < tol:
             pass
             # insulated_am.append(surf[1])
             # insulated_se.append(surf[1])
@@ -207,7 +210,39 @@ if __name__ == '__main__':
             # insulated_am.append(surf[1])
             # insulated_se.append(surf[1])
         else:
-            interface_surfs.append(surf[1])
+            interface_surfs.append(surf)
+    for surf in phase_surfaces["sse"]:
+        if surf not in surface_ids:
+            continue
+        xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(2, surf)
+        if np.isclose(xmin, 1, atol=tol) and np.isclose(xmin, 1, atol=tol):
+            left_surfs.append(surf)
+
+    print(np.min(xs), np.max(xs))
+    print(np.min(ys), np.max(ys))
+    print(np.min(zs), np.max(zs))
+    # for surf in surfs:
+    #     xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.get_bounding_box(*surf)
+    #     if xmax < tol and xmin < tol:
+    #         right_surfs.append(surf[1])
+    #     elif abs(xmax - 1) < tol and abs(xmin - 1) < tol:
+    #         left_surfs.append(surf[1])
+    #     elif np.isclose(xmin, 0, atol=tol) and np.isclose(xmax, 0, atol=tol):
+    #         print(surf, "right")
+    #         # right_surfs.append(surf[1])
+    #     elif np.isclose(xmin, np.max(xs), atol=tol) and np.isclose(xmax, np.max(xs), atol=tol):
+    #         print(surf, "left")
+    #         # left_surfs.append(surf[1])
+    #     elif np.isclose(ymin, 0, atol=tol) or np.isclose(ymax, np.max(ys), atol=tol):
+    #         pass
+    #         # insulated_am.append(surf[1])
+    #         # insulated_se.append(surf[1])
+    #     elif np.isclose(zmin, 0, atol=tol) or np.isclose(zmax, np.max(zs), atol=tol):
+    #         pass
+    #         # insulated_am.append(surf[1])
+    #         # insulated_se.append(surf[1])
+    #     else:
+    #         interface_surfs.append(surf[1])
     gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "Left")
     gmsh.model.addPhysicalGroup(2, right_surfs, markers.right, "Right")
     gmsh.model.addPhysicalGroup(2, interface_surfs, markers.electrolyte_v_positive_am, "SE/AM")
