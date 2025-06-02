@@ -164,6 +164,7 @@ if __name__ == '__main__':
     # gmsh.model.geo.removeAllDuplicates()
     gmsh.model.geo.synchronize()
     print( [v[1] for v in gmsh.model.getEntities(3)])
+    print( [v[1] for v in gmsh.model.getEntities(2)])
     gmsh.model.addPhysicalGroup(3, [1], markers.void, "VOIDS")
     gmsh.model.addPhysicalGroup(3, [3], markers.positive_am, "CAM")
     gmsh.model.addPhysicalGroup(3, [2], markers.electrolyte, "SSE")
