@@ -6,8 +6,11 @@ import pymeshfix as mf
 import numpy as np
 import trimesh
 
+from inrimage import *
+
 import utils
 
+PHASE_VALUES = {"voids": 0, "cam": 2}
 
 def get_valid_coords(coords, limits):
     out_coords = []
@@ -89,7 +92,7 @@ def generate_surface_mesh_for_phase(img_3d, sizes):
     # voxels = trimesh.voxel.base.VoxelGrid(encoding)
     # mesh = voxels.marching_cubes
 
-    return mesh
+    return mesh, coords
 
 
 if __name__ == '__main__':
@@ -99,7 +102,7 @@ if __name__ == '__main__':
     parser.add_argument('--scale', help='sx-sy-sz', required=True, type=str)
     parser.add_argument("--L_sep", help="separator thickness", nargs='?', const=1, default=15e-6, type=float)
     args = parser.parse_args()
-    trimesh.util.attach_to_log()
+    # trimesh.util.attach_to_log()
     scaling = [float(v) for v in args.scale.split(",")]
     cam_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/cam")
     voids_dir = os.path.join(os.environ["WORK_DIR"], "output/segmentation/voids")
@@ -122,6 +125,9 @@ if __name__ == '__main__':
     scaled_voids_output_meshfile = os.path.join(workdir, "voids.stl")
     scaled_sse_output_meshfile = os.path.join(workdir, "sse.stl")
     scaled_cam_output_meshfile = os.path.join(workdir, "cam.stl")
+    inria_meshfile = os.path.join(workdir, "tomo.inr")
+
+    data = np.full((2*(nx + n_sep), 2*ny, 2*nz), 1, dtype=int)
 
     print("Processing segmented images")
     for phase in ["voids", "cam", "sse"]:
@@ -150,7 +156,10 @@ if __name__ == '__main__':
         else:
             img_3d[:10, :, :] = 0
         print(f"Rough {phase} volume fraction {np.average(img_3d[:nx, :ny, :])}")
-        mesh = generate_surface_mesh_for_phase(img_3d, (nx+n_sep, ny, nz))
+
+        mesh, coords = generate_surface_mesh_for_phase(img_3d, (nx+n_sep, ny, nz))
+        if phase != "sse":
+            data[coords] = PHASE_VALUES[phase]
         mesh = trimesh.Trimesh(vertices=mesh.vertices + 1, faces=mesh.faces)
         spacing = [0.5*scaling[0]/L_c, 0.5*scaling[1]/L_c, 0.5*scaling[2]/L_c]
         print(np.unique(mesh.vertices[:, 0]), np.unique(mesh.vertices[:, 1]), np.unique(mesh.vertices[:, 2]))
@@ -166,3 +175,8 @@ if __name__ == '__main__':
         elif phase == "cam":
             trimesh.exchange.export.export_mesh(mesh, cam_output_meshfile)
             scaled_mesh.export(scaled_cam_output_meshfile)
+
+    im = InrImage('int', 2*(nx + n_sep), 2 * ny, 2*nz)
+    im.create(inria_meshfile)
+    im.write(data)
+    im.close()
