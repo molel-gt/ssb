@@ -5,9 +5,8 @@ import matplotlib.pyplot as plt
 import pymeshfix as mf
 import numpy as np
 import trimesh
-from numpy import *
-
-from inrimage import *
+# from numpy import *
+# from inrimage import *
 
 import commons, utils
 
