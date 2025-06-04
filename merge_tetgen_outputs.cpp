@@ -2,14 +2,24 @@
 
 
 int main(int argc, char** argv){
-    std::filesystem::path input_dir = "output/segmentation/201-201-201/0-0-0/";
-    std::vector<std::filesystem::path> input_nodes_files = {input_dir / "voids-unscaled.1.node", input_dir / "sse-unscaled.1.node", input_dir / "cam-unscaled.1.node"};
-    std::vector<std::filesystem::path> input_faces_files = {input_dir / "voids-unscaled.1.face", input_dir / "sse-unscaled.1.face", input_dir / "cam-unscaled.1.face"};
-    std::vector<std::filesystem::path> input_tets_files = {input_dir / "voids-unscaled.1.ele", input_dir / "sse-unscaled.1.ele", input_dir / "cam-unscaled.1.ele"};
+    po::options_description desc("Options");
+    desc.add_options()
+        ("input_dir,i", po::value<std::filesystem::path>(), "directory containing input files");
 
-    std::filesystem::path output_nodes_file = input_dir / "tomo.1.node";
-    std::filesystem::path output_faces_file = input_dir / "tomo.1.face";
-    std::filesystem::path output_tets_file = input_dir / "tomo.1.ele";
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, desc), vm);
+    po::notify(vm);
+
+    if (vm.count("input_dir")) {
+        std::filesystem::path input_dir = vm["input_dir"].as<std::filesystem::path>();
+    }
+    std::vector<std::filesystem::path> input_nodes_files = {input_dir / "voids.node", input_dir / "sse.node", input_dir / "cam.node"};
+    std::vector<std::filesystem::path> input_faces_files = {input_dir / "voids.face", input_dir / "sse.face", input_dir / "cam.face"};
+    std::vector<std::filesystem::path> input_tets_files = {input_dir / "voids.ele", input_dir / "sse.ele", input_dir / "cam.ele"};
+
+    std::filesystem::path output_nodes_file = input_dir / "output.1.node";
+    std::filesystem::path output_faces_file = input_dir / "output.1.face";
+    std::filesystem::path output_tets_file = input_dir / "output.1.ele";
 
     std::map<std::string, std::map<int, int>> nodes_lookup;
     std::cout << "Reading nodes data and merging\n";

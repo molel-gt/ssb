@@ -13,6 +13,8 @@
 #include <typeinfo>
 #include <vector>
 
+#include <boost/program_options.hpp>
+
 // namespace fs = std::filesystem;
 
 typedef std::array<float, 3> Point;
