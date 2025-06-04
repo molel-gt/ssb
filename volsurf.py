@@ -176,7 +176,7 @@ if __name__ == '__main__':
     scaled_cam_output_meshfile = os.path.join(workdir, "cam.stl")
     inria_meshfile = os.path.join(workdir, "tomo.inr")
 
-    data = np.full((2*(nx + n_sep), 2*ny, 2*nz), 1, dtype=uint8)
+    data = np.full((2*(nx + n_sep), 2*ny, 2*nz), 1, dtype=np.uint8)
     tets_count = 0
 
     print("Processing segmented images")
