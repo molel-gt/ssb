@@ -16,7 +16,7 @@
 #include <boost/program_options.hpp>
 
 // namespace fs = std::filesystem;
-
+namespace po = boost::program_options;
 typedef std::array<float, 3> Point;
 typedef std::array<int, 3> Triangle;
 typedef std::array<int, 4> Tetrahedron;

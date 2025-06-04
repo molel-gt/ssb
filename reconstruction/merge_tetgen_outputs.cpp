@@ -2,17 +2,18 @@
 
 
 int main(int argc, char** argv){
+    std::filesystem::path input_dir;
     po::options_description desc("Options");
     desc.add_options()
-        ("input_dir,i", po::value<std::filesystem::path>(), "directory containing input files");
+        ("input_dir,i", po::value<std::filesystem::path>(&input_dir)->required(), "directory containing input files");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
     po::notify(vm);
-
-    if (vm.count("input_dir")) {
-        std::filesystem::path input_dir = vm["input_dir"].as<std::filesystem::path>();
-    }
+    
+    // if (vm.count("input_dir")) {
+    //     input_dir = vm["input_dir"].as<std::filesystem::path>();
+    // }
     std::vector<std::filesystem::path> input_nodes_files = {input_dir / "voids.node", input_dir / "sse.node", input_dir / "cam.node"};
     std::vector<std::filesystem::path> input_faces_files = {input_dir / "voids.face", input_dir / "sse.face", input_dir / "cam.face"};
     std::vector<std::filesystem::path> input_tets_files = {input_dir / "voids.ele", input_dir / "sse.ele", input_dir / "cam.ele"};
