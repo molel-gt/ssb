@@ -18,9 +18,9 @@ int main(int argc, char** argv){
     std::vector<std::filesystem::path> input_faces_files = {input_dir / "voids.face", input_dir / "sse.face", input_dir / "cam.face"};
     std::vector<std::filesystem::path> input_tets_files = {input_dir / "voids.ele", input_dir / "sse.ele", input_dir / "cam.ele"};
 
-    std::filesystem::path output_nodes_file = input_dir / "output.1.node";
-    std::filesystem::path output_faces_file = input_dir / "output.1.face";
-    std::filesystem::path output_tets_file = input_dir / "output.1.ele";
+    std::filesystem::path output_nodes_file = input_dir / "output.node";
+    std::filesystem::path output_faces_file = input_dir / "output.face";
+    std::filesystem::path output_tets_file = input_dir / "output.ele";
 
     std::map<std::string, std::map<int, int>> nodes_lookup;
     std::cout << "Reading nodes data and merging\n";
