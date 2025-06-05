@@ -154,7 +154,7 @@ if __name__ == '__main__':
     threshold_surf = 0
     phase_volumes = {}
     phase_surfaces = {}
-    for phase in ["voids", "cam"]:
+    for phase in ["voids", "cam", "sse"]:
         gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{phase}.1.vtk")
         gmsh.model.geo.synchronize()
         gmsh.model.mesh.createTopology(False, False)
