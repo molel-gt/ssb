@@ -5,9 +5,8 @@ import matplotlib.pyplot as plt
 import meshio
 import pymeshfix as mf
 import numpy as np
+import skimage as ski
 import trimesh
-# from numpy import *
-# from inrimage import *
 
 import commons, utils
 
@@ -102,19 +101,19 @@ def generate_surface_mesh_for_phase(img_3d, sizes):
             coords.append(new_coord)
             data3d[new_coord] = 1
     print("Generating surface mesh")
-    pc = trimesh.PointCloud(np.array(coords))
+    # vertices, faces, normals, _vals = ski.measure.marching_cubes(data3d, allow_degenerate=False)
+    # mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
     pitch = 2
-    mesh = trimesh.voxel.ops.points_to_marching_cubes(pc.vertices, pitch=pitch)
-    # encoding =  trimesh.voxel.encoding.DenseEncoding(data3d)
-    # voxels = trimesh.voxel.base.VoxelGrid(encoding)
-    # mesh = voxels.marching_cubes
+    # pc = trimesh.PointCloud(np.array(coords))
+    # mesh = trimesh.voxel.ops.points_to_marching_cubes(pc.vertices, pitch=pitch)
+    mesh = trimesh.voxel.ops.matrix_to_marching_cubes(data3d, pitch=pitch)
 
     return mesh
 
 
 def coord_to_id(coord, Nx, Ny, Nz):
-    return coord[0] + coord[1] * 10 ** 3 + coord[2] * 10 ** 6
-    # return coord[0] + coord[1] * Nx + coord[2] * Nx * Ny + 1
+    # return coord[0] + coord[1] * 10 ** 3 + coord[2] * 10 ** 6
+    return coord[0] + coord[1] * Nx + coord[2] * Nx * Ny + 1
 
 
 def cube_to_tetrahedrons(coord_ids):
@@ -242,75 +241,72 @@ if __name__ == '__main__':
         else:
             img_3d[:10, :, :] = 0
         print(f"Rough {phase} volume fraction {np.average(img_3d[:nx, :ny, :])}")
-        # tetrahedrons = []
-        # data3d = get_extended_cubes(img_3d, (nx+n_sep, ny, nz))
-        # Nx, Ny, Nz = data3d.shape
-        # phase_coords = np.array(np.where(data3d)).T
-        # phase_nodes_file = None
-        # phase_tets_file = None
-        # if phase == "voids":
-        #     phase_nodes_file = voids_node_file
-        #     phase_tets_file = voids_tets_file
-        # elif phase == "cam":
-        #     phase_nodes_file = cam_node_file
-        #     phase_tets_file = cam_tets_file
-        # elif phase == "sse":
-        #     phase_nodes_file = sse_node_file
-        #     phase_tets_file = sse_tets_file
-        # n_nodes = phase_coords.shape[0]
-        # points = {}
-        # points_count = 0
-        # for (x, y, z) in phase_coords:
-        #     points_count += 1
-        #     points[(x, y, z)] = points_count
-        # with open(phase_nodes_file, "w") as fp:
-        #     fp.write(f"{n_nodes} 3 0 0\n")
-        #     for (x, y, z) in phase_coords:
-        #         coord_id = points[(x, y, z)]
-        #         fp.write(f"{coord_id} {x} {y} {z}\n")
-        # phase_coords_list = phase_coords.tolist()
-        # phase_coords_set = set([tuple(coord) for coord in phase_coords_list])
-
-        # for coord in phase_coords:
-        #     x, y, z = coord
-        #     cube_coords = [
-        #         (x, y, z),
-        #         (x+1, y, z),
-        #         (x+1, y+1, z),
-        #         (x, y+1, z),
-        #         (x, y, z+1),
-        #         (x+1, y, z+1),
-        #         (x+1, y+1, z+1),
-        #         (x, y+1, z+1),
-        #     ]
-        #     if set(cube_coords).issubset(phase_coords_set):
-        #         cube_coord_ids = [points[*coord] for coord in cube_coords]
-        #         tetrahedrons.extend(cube_to_tetrahedrons(cube_coord_ids))
-        # n_tets = len(tetrahedrons)
-        # tets_count = 0
-        # with open(phase_tets_file, "w") as fp:
-        #     tets_count += 1
-        #     fp.write(f"{n_tets} 4 1\n")
-        #     for idx, tet in enumerate(tetrahedrons):
-        #         fp.write(f"{idx+1} {tet[0]} {tet[1]} {tet[2]} {tet[3]} {PHASE_VALUES[phase]}\n")
-
-        mesh = generate_surface_mesh_for_phase(img_3d, (nx+n_sep, ny, nz))
-        mesh = trimesh.Trimesh(vertices=mesh.vertices + 1, faces=mesh.faces)
-        spacing = [0.5*scaling[0]/L_c, 0.5*scaling[1]/L_c, 0.5*scaling[2]/L_c]
-        scaled_verts = np.vstack((mesh.vertices[:, 0] * spacing[0], mesh.vertices[:, 1] * spacing[1], mesh.vertices[:, 2] * spacing[2]))
-        scaled_mesh = trimesh.Trimesh(vertices=scaled_verts.T, faces=mesh.faces)
-
+        tetrahedrons = []
+        data3d = get_extended_cubes(img_3d, (nx+n_sep, ny, nz))
+        Nx, Ny, Nz = data3d.shape
+        phase_coords = np.array(np.where(data3d)).T
+        phase_nodes_file = None
+        phase_tets_file = None
         if phase == "voids":
-            trimesh.exchange.export.export_mesh(mesh, voids_output_meshfile)
-            scaled_mesh.export(scaled_voids_output_meshfile)
-        elif phase == "sse":
-            trimesh.exchange.export.export_mesh(mesh, sse_output_meshfile)
-            scaled_mesh.export(scaled_sse_output_meshfile)
+            phase_nodes_file = voids_node_file
+            phase_tets_file = voids_tets_file
         elif phase == "cam":
-            trimesh.exchange.export.export_mesh(mesh, cam_output_meshfile)
-            scaled_mesh.export(scaled_cam_output_meshfile)
+            phase_nodes_file = cam_node_file
+            phase_tets_file = cam_tets_file
+        elif phase == "sse":
+            phase_nodes_file = sse_node_file
+            phase_tets_file = sse_tets_file
+        n_nodes = phase_coords.shape[0]
+        points = {}
+        points_count = 0
+        for (x, y, z) in phase_coords:
+            points_count += 1
+            points[(x, y, z)] = points_count
+        with open(phase_nodes_file, "w") as fp:
+            fp.write(f"{n_nodes} 3 0 0\n")
+            for (x, y, z) in phase_coords:
+                # coord_id = coord_to_id((x, y, z), Nx, Ny, Nz)
+                coord_id = points[(x, y, z)]
+                fp.write(f"{coord_id} {x} {y} {z}\n")
+        phase_coords_list = phase_coords.tolist()
+        phase_coords_set = set([tuple(coord) for coord in phase_coords_list])
 
-    # im = InrImage('uint8', int(2*(nx + n_sep)), int(2 * ny), int(2*nz))
-    # im.create(inria_meshfile)
-    # im.write(data)
-    # im.close()
+        for coord in phase_coords:
+            x, y, z = coord
+            cube_coords = [
+                (x, y, z),
+                (x+1, y, z),
+                (x+1, y+1, z),
+                (x, y+1, z),
+                (x, y, z+1),
+                (x+1, y, z+1),
+                (x+1, y+1, z+1),
+                (x, y+1, z+1),
+            ]
+            if set(cube_coords).issubset(phase_coords_set):
+                # cube_coord_ids = [coord_to_id(coord, Nx, Ny, Nz) for coord in cube_coords]
+                cube_coord_ids = [points[*coord] for coord in cube_coords]
+                tetrahedrons.extend(cube_to_tetrahedrons(cube_coord_ids))
+        n_tets = len(tetrahedrons)
+        tets_count = 0
+        with open(phase_tets_file, "w") as fp:
+            tets_count += 1
+            fp.write(f"{n_tets} 4 1\n")
+            for idx, tet in enumerate(tetrahedrons):
+                fp.write(f"{idx+1} {tet[0]} {tet[1]} {tet[2]} {tet[3]} {PHASE_VALUES[phase]}\n")
+
+        # mesh = generate_surface_mesh_for_phase(img_3d, (nx+n_sep, ny, nz))
+        # mesh = trimesh.Trimesh(vertices=mesh.vertices + 1, faces=mesh.faces)
+        # spacing = [0.5*scaling[0]/L_c, 0.5*scaling[1]/L_c, 0.5*scaling[2]/L_c]
+        # scaled_verts = np.vstack((mesh.vertices[:, 0] * spacing[0], mesh.vertices[:, 1] * spacing[1], mesh.vertices[:, 2] * spacing[2]))
+        # scaled_mesh = trimesh.Trimesh(vertices=scaled_verts.T, faces=mesh.faces)
+
+        # if phase == "voids":
+        #     trimesh.exchange.export.export_mesh(mesh, voids_output_meshfile)
+        #     scaled_mesh.export(scaled_voids_output_meshfile)
+        # elif phase == "sse":
+        #     trimesh.exchange.export.export_mesh(mesh, sse_output_meshfile)
+        #     scaled_mesh.export(scaled_sse_output_meshfile)
+        # elif phase == "cam":
+        #     trimesh.exchange.export.export_mesh(mesh, cam_output_meshfile)
+        #     scaled_mesh.export(scaled_cam_output_meshfile)
