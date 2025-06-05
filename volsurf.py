@@ -161,7 +161,7 @@ if __name__ == '__main__':
     LZ = nz - 1
     L_c = LX * scaling[0] + L_SEP
     n_sep = int(np.ceil(L_SEP/scaling[0]))
-    voids_output_meshfile = os.path.join(workdir, "voids-unscaled.off")
+    voids_output_meshfile = os.path.join(workdir, "voids-unscaled.stl")
     sse_output_meshfile = os.path.join(workdir, "sse-unscaled.stl")
     cam_output_meshfile = os.path.join(workdir, "cam-unscaled.stl")
     voids_node_file = os.path.join(workdir, "voids.node")
