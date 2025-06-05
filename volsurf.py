@@ -194,7 +194,7 @@ if __name__ == '__main__':
     LX = nx - 1
     LY = ny - 1
     LZ = nz - 1
-    L_c = LX * scaling[0] + L_SEP
+    L_c = (LX + 1) * scaling[0] + L_SEP
     n_sep = int(np.ceil(L_SEP/scaling[0]))
     voids_output_meshfile = os.path.join(workdir, "voids-unscaled.stl")
     sse_output_meshfile = os.path.join(workdir, "sse-unscaled.stl")
