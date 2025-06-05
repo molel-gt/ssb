@@ -159,7 +159,7 @@ def msh_to_xdmf(mesh, scale, triangle_output, tetrahedral_output):
     for tria in triangles:
         coords = [points[idx, :] for idx in tria]
         x_vals = [coord[0] for coord in coords]
-        if np.all(np.isclose(x_vals, 0)):
+        if np.all(np.isclose(x_vals, 0, atol=1e-8)):
             tria_cell_data[counter] = markers.left
         elif np.all(np.isclose(x_vals, 1)):
             tria_cell_data[counter] = markers.right
