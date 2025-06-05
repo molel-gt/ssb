@@ -155,11 +155,11 @@ if __name__ == '__main__':
     phase_volumes = {}
     phase_surfaces = {}
     for phase in ["voids", "cam", "sse"]:
-        gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{phase}.1.vtk")
+        gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{phase}.stl")
         gmsh.model.geo.synchronize()
         gmsh.model.mesh.createTopology(False, False)
         gmsh.model.mesh.classifySurfaces(angle * math.pi/180., True, forceParametrizablePatches, curveAngle * math.pi/180., False)
-        # gmsh.model.mesh.createGeometry()
+        gmsh.model.mesh.createGeometry()
         gmsh.model.geo.synchronize()
         gmsh.model.geo.removeAllDuplicates()
         gmsh.model.geo.synchronize()
