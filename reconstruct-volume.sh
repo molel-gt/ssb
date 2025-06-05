@@ -41,4 +41,4 @@ tetgen -pkAY output/segmentation/$1/0-0-0/sse-unscaled.stl
 
 python3 mesher.py --size $1 --scale 0.08e-6,0.08e-6,0.2e-6 --L_sep 15e-6
 
-python3 -c "import meshio; import volsurf; mesh = meshio.read('output/segmentation/$1/0-0-0/mesh.msh'); volsurf.msh_to_xdmf(mesh, (1, 1, 1), 'tria.xdmf', 'tetr.xdmf')"
+python3 -c "import meshio; import volsurf; mesh = meshio.read('output/segmentation/$1/0-0-0/mesh.msh'); volsurf.msh_to_xdmf(mesh, (1, 1, 1), 'output/segmentation/$1/0-0-0/tria.xdmf', 'output/segmentation/$1/0-0-0/tetr.xdmf')"
