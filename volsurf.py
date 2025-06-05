@@ -2,6 +2,7 @@ import argparse
 import os
 
 import matplotlib.pyplot as plt
+import meshio
 import pymeshfix as mf
 import numpy as np
 import trimesh
@@ -137,6 +138,40 @@ def cube_to_tetrahedrons(coord_ids):
     #     (p8, p7, p5, p4),
     #     (p2, p4, p7, p5)
     # ]
+
+def msh_to_xdmf(mesh, scale, triangle_output, tetrahedral_output):
+    tets = mesh.get_cells_type("tetra")
+    tets_cell_data = mesh.get_cell_data("gmsh:physical", "tetra")
+    points = mesh.points.copy()
+    points[:, 0] = points[:, 0] * scale[0]
+    points[:, 1] = points[:, 1] * scale[1]
+    points[:, 2] = points[:, 2] * scale[2]
+    out_tet_mesh = meshio.Mesh(points=points,
+                           cells={"tetra": tets},
+                           cell_data={"name_to_read": [tets_cell_data]}
+                           )
+    out_tet_mesh.write(tetrahedral_output)
+    cam_tets = set(tets[np.isclose(tets_cell_data, markers.positive_am), :].flatten().tolist())
+    sse_tets = set(tets[np.isclose(tets_cell_data, markers.electrolyte), :].flatten().tolist())
+    triangles = mesh.get_cells_type("triangle")
+    tria_cell_data = np.zeros((triangles.shape[0], ), dtype=np.int32)
+    counter = 0
+    for tria in triangles:
+        coords = [points[idx, :] for idx in tria]
+        x_vals = [coord[0] for coord in coords]
+        if np.all(np.isclose(x_vals, 0)):
+            tria_cell_data[counter] = markers.left
+        elif np.all(np.isclose(x_vals, 1)):
+            tria_cell_data[counter] = markers.right
+        elif set(tria).issubset(cam_tets) and set(tria).issubset(sse_tets):
+            tria_cell_data[counter] = markers.electrolyte_v_positive_am
+        counter += 1
+
+    out_tria_mesh = meshio.Mesh(points=points,
+                           cells={"triangle": triangles},
+                           cell_data={"name_to_read": [tria_cell_data]}
+                           )
+    out_tria_mesh.write(triangle_output)
 
 
 if __name__ == '__main__':
