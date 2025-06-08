@@ -3,11 +3,179 @@ import argparse
 import os
 
 import gmsh
+import matplotlib.pyplot as plt
 import numpy as np
+import alphashape
 
-import commons, utils
+import commons, configs, geometry, grapher, utils
 
 markers = commons.Markers()
+
+area_frac_to_img_id = {
+    "98.41": 6,
+    "36.38": 11,
+    "6.30": 16,
+    "0.45": 22,
+}
+
+def get_box_se(img, z0_points, zL_points, scale_x, scale_y):
+    max_surf_id = max([s[1] for s in gmsh.model.occ.getEntities(2)])
+    points0 = []
+    points1 = []
+    lines = []
+
+    for i in range(4):
+        idx = gmsh.model.occ.addPoint(*z0_points[i])
+        points0.append(idx)
+    for i in range(4):
+        idx = gmsh.model.occ.addPoint(*zL_points[i])
+        points1.append(
+            idx
+        )
+    gmsh.model.occ.synchronize()
+    for i in range(-1, 3):
+        idx = gmsh.model.occ.addLine(points0[i], points0[i + 1])
+        lines.append(
+            idx
+        )
+
+    for i in range(-1, 3):
+        idx = gmsh.model.occ.addLine(points1[i], points1[i + 1])
+        lines.append(
+            idx
+        )
+
+    # 1 --> 5
+    idx = gmsh.model.occ.addLine(points0[1], points1[1])
+    lines.append(
+        idx
+    )
+
+    # 2 --> 6
+    idx = gmsh.model.occ.addLine(points0[2], points1[2])
+    lines.append(
+        idx
+    )
+
+    # 3 --> 7
+    idx = gmsh.model.occ.addLine(points0[3], points1[3])
+    lines.append(
+        idx
+    )
+
+    # 0 --> 4
+    idx = gmsh.model.occ.addLine(points0[0], points1[0])
+    lines.append(
+        idx
+    )
+
+    gmsh.model.occ.synchronize()
+
+    loops = []
+    # xy sides
+    idx = gmsh.model.occ.addCurveLoop(lines[:4])
+    loops.append(
+        idx
+    )
+
+    idx = gmsh.model.occ.addCurveLoop(lines[4:8])
+    loops.append(
+        idx
+    )
+
+    # xz sides
+    idx = gmsh.model.occ.addCurveLoop([lines[1]] + [lines[8]] + [lines[5]] + [lines[11]])
+    loops.append(
+        idx
+    )
+
+    idx = gmsh.model.occ.addCurveLoop([lines[3]] + [lines[9]] + [lines[7]] + [lines[10]])
+    loops.append(
+        idx
+    )
+
+    # yz sides
+    idx = gmsh.model.occ.addCurveLoop([lines[2]] + [lines[8]] + [lines[6]] + [lines[9]])
+    loops.append(
+        idx
+    )
+
+    idx = gmsh.model.occ.addCurveLoop([lines[0]] + [lines[11]] + [lines[4]] + [lines[10]])
+    loops.append(
+        idx
+    )
+
+    gmsh.model.occ.synchronize()
+
+    side_loops = []
+    insulated = []
+    right = []
+    left_active = []
+    left = []
+    process_count = 0
+    image = img.copy()
+    image[0, :] = 0
+    image[-1, :] = 0
+    image[:, 0] = 0
+    image[:, -1] = 0
+    boundary_pieces, count, points, points_view = geometry.get_phase_boundary_pieces(image)
+    for hull in boundary_pieces:
+        hull_arr = np.asarray(hull)
+        hull_points = []
+        for pp in hull[:-1]:
+            idx = gmsh.model.occ.addPoint(int(pp[0]) * scale_x, int(pp[1]) * scale_y, 0)
+            hull_points.append(
+                idx
+            )
+        gmsh.model.occ.synchronize()
+        hull_lines = []
+        for i in range(-1, len(hull_points) - 1):
+            idx = gmsh.model.occ.addLine(hull_points[i], hull_points[i + 1])
+            hull_lines.append(
+                idx
+            )
+
+        gmsh.model.occ.synchronize()
+        idx = gmsh.model.occ.addCurveLoop(hull_lines)
+        side_loops.append(idx)
+        idx2 = gmsh.model.occ.addPlaneSurface((idx, ))
+        left.append(idx2)
+        gmsh.model.occ.synchronize()
+
+    right = [gmsh.model.occ.addPlaneSurface((loops[1], ))]
+    gmsh.model.occ.synchronize()
+
+    for vv in loops[2:]:
+        idx = gmsh.model.occ.addPlaneSurface((vv, ))
+        insulated.append(
+            idx
+        )
+        gmsh.model.occ.synchronize()
+
+    if len(np.unique(img)) == 1 and np.isclose(np.unique(img)[0], 1):
+        insulated += [gmsh.model.occ.addPlaneSurface((loops[0], ))]
+    else:
+        insulated += [gmsh.model.occ.addPlaneSurface((loops[0], *side_loops))]
+        insulated += [2, 3, 4, 5, 6]
+
+    gmsh.model.occ.healShapes()
+    gmsh.model.occ.synchronize()
+    print("Generating surface tags..")
+    if len(np.unique(img)) == 1 and np.isclose(np.unique(img)[0], 1):
+        left_surfs = [6]
+        right_surf = [1]
+        surfaces = list(range(1, 7))
+    else:
+        left_surfs = [vv[1] for vv in gmsh.model.occ.getEntities(2) if vv[1] >= (max_surf_id + 7)]
+        surfaces = tuple(left + insulated + right)
+
+    gmsh.model.occ.synchronize()
+    sloop = gmsh.model.occ.addSurfaceLoop(surfaces)
+    gmsh.model.occ.synchronize()
+    vol = gmsh.model.occ.addVolume([sloop], tag=2)
+    print(sloop, vol)
+    gmsh.model.occ.synchronize()
+    return left_surfs, 2
 
 
 if __name__ == '__main__':
@@ -18,6 +186,7 @@ if __name__ == '__main__':
     parser.add_argument("-f", "--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("-hexahedron", "--hexahedron", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("-format", "--format", help="Mesh format", default="msh", nargs='?', const=1)
+    parser.add_argument("-A", "--active_area_fraction", help="active area fraction", default=1, nargs='?', const=1, type=float)
     args = parser.parse_args()
 
     workdir = os.path.join("output", args.name_of_study, args.dimensions, str(args.resolution))
@@ -29,6 +198,9 @@ if __name__ == '__main__':
     L_slab_am = 5
     LY = 20
     LX = 20
+    img_id = area_frac_to_img_id.get(f"{args.active_area_fraction:.2f}")
+    if not np.isclose(args.active_area_fraction, 1) and img_id is not None:
+        img = np.asarray(plt.imread(f'data/current_constriction/test{str(int(img_id))}.tif')[:, :, 0], dtype=np.uint8)
 
     utils.make_dir_if_missing(workdir)
     mshpath = os.path.join(workdir, f"mesh.{args.format}")
