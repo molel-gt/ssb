@@ -4,14 +4,21 @@
 int main(int argc, char** argv){
     std::filesystem::path input_dir;
     int h_max;
+    int grid_x;
+    float scale_x, scale_y, scale_z;
     po::options_description desc("Options");
     desc.add_options()
         ("input_dir,i", po::value<std::filesystem::path>(&input_dir)->required(), "directory containing input files")
-        ("h_max,h", po::value<int>(&h_max)->required(), "maximum unscaled mesh size");
+        ("h_max,h", po::value<int>(&h_max)->required(), "maximum unscaled mesh size")
+        ("grid_x,Nx", po::value<int>(&grid_x)->required(), "Nx grid size")
+        ("scale_x,s_x", po::value<float>(&scale_x)->required(), "scale x factor")
+        ("scale_y,s_y", po::value<float>(&scale_y)->required(), "scale y factor")
+        ("scale_z,s_z", po::value<float>(&scale_z)->required(), "scale z factor");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
     po::notify(vm);
+    std::array<float, 3> scale = {scale_x, scale_y, scale_z};
 
     std::vector<std::filesystem::path> input_files = {input_dir / "voids.dat", input_dir / "cam.dat", input_dir / "sse.dat"};
     std::vector<std::filesystem::path> output_tetgen_node_files = {input_dir / "voids.node", input_dir / "cam.node", input_dir / "sse.node"};
@@ -87,7 +94,7 @@ int main(int argc, char** argv){
         }
         // write nodes to file
         std::filesystem::path output_nodes_file = output_tetgen_node_files[file_id];
-        write_tetgen_node_file(output_nodes_file, points);
+        write_tetgen_node_file(output_nodes_file, points, grid_x, scale);
         // // write tets to file
         std::filesystem::path output_tets_file = output_tetgen_ele_files[file_id];
         write_tetgen_ele_file(output_tets_file, tets, tets_counter);
@@ -191,12 +198,12 @@ std::array<Tetrahedron, 5> make_tetrahedrons_from_cube(const std::array<int, 8>&
     return cube_tets;
 }
 
-void write_tetgen_node_file(std::filesystem::path output_nodes_file, const std::map<Coordinate, int>& nodes){
+void write_tetgen_node_file(std::filesystem::path output_nodes_file, const std::map<Coordinate, int>& nodes, int grid_x, std::array<float, 3>& scale){
     std::ofstream outputFile(output_nodes_file);
      outputFile << nodes.size() << " " << 3 << " " << 0 << " " << 0 << "\n";
      if (outputFile.is_open()) {
         for (const auto& pair : nodes) {
-            outputFile << pair.second << " " << pair.first[0] << " " << pair.first[1] << " " << pair.first[2] << "\n";
+            outputFile << pair.second << " " << pair.first[0] * float(grid_x) << " " << pair.first[1] * scale[1]/(scale[0]*grid_x) << " " << pair.first[2] * scale[2]/(scale[0]*grid_x) << "\n";
         }
         outputFile.close();
         std::cout << "Data successfully written to " << output_nodes_file << std::endl;

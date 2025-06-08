@@ -33,7 +33,7 @@ std::array<Coordinate, 8> make_cube(const std::map<Coordinate, int>&, Coordinate
 
 std::array<Tetrahedron, 5> make_tetrahedrons_from_cube(const std::array<int, 8>&);
 
-void write_tetgen_node_file(std::filesystem::path, const std::map<Coordinate, int>&);
+void write_tetgen_node_file(std::filesystem::path, const std::map<Coordinate, int>&, int, std::array<float, 3>&);
 
 void write_tetgen_ele_file(std::filesystem::path, const std::vector<Tetrahedron>&, int);
 
