@@ -1,12 +1,13 @@
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
-// #include <format>
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <ranges>
 #include <stdio.h>
 #include <string>
 #include <sstream>
@@ -29,12 +30,12 @@ void read_phase_data(std::filesystem::path, std::map<Coordinate, int>&);
 
 std::array<Coordinate, 8> make_cube(std::map<Coordinate, int>&, Coordinate&, int);
 
-std::array<Tetrahedron, 5> make_tetrahedrons_from_cube(std::array<int, 8>&);
+std::array<Tetrahedron, 5> make_tetrahedrons_from_cube(const std::array<int, 8>&);
 
 void write_tetgen_node_file(std::filesystem::path, const std::map<Coordinate, int>&);
 
 void write_tetgen_ele_file(std::filesystem::path, const std::array<Tetrahedron, N_tets>&, int);
 
-bool cube_is_filled(std::map<Coordinate, int>, Coordinate&, int);
+bool cube_is_filled(const std::map<Coordinate, int>&, const Coordinate&, int);
 
 std::array<int, 8> cube_coords_to_cube_ids(const std::map<Coordinate, int>&, std::array<Coordinate, 8>&);
