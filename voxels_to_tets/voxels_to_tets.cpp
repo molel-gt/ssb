@@ -36,7 +36,7 @@ int main(int argc, char** argv){
             int x = coord[0];
             int y = coord[1];
             int z = coord[2];
-            int h = 5;
+            int h = 2;
             if (x % h == 0 && y % h == 0 && z % h == 0){
                 std::array<Coordinate, 8> in_cube = make_cube(points, coord, h);
                 if (!in_cube.empty()){
