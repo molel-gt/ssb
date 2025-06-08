@@ -3,9 +3,11 @@
 
 int main(int argc, char** argv){
     std::filesystem::path input_dir;
+    std::array<float, 3> scale;
     po::options_description desc("Options");
     desc.add_options()
-        ("input_dir,i", po::value<std::filesystem::path>(&input_dir)->required(), "directory containing input files");
+        ("input_dir,i", po::value<std::filesystem::path>(&input_dir)->required(), "directory containing input files")
+        ("scale,s", po::value<std::array<float, 3>(&scale)->required(), "scale factor");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -308,7 +310,7 @@ void write_nodes_to_file(const std::map<Point, std::vector<int>>& nodes, std::fi
      outputFile << nodes.size() << " " << 3 << " " << 0 << " " << 0 << "\n";
      if (outputFile.is_open()) {
         for (const auto& pair : nodes) {
-            outputFile << pair.second[0] << " " << pair.first[0] << " " << pair.first[1] << " " << pair.first[2] << "\n";
+            outputFile << pair.second[0] << " " << pair.first[0]*scale[0] << " " << pair.first[1]*scale[1] << " " << pair.first[2]*scale[2] << "\n";
         }
         outputFile.close();
         std::cout << "Data successfully written to " << output_nodes_file << std::endl;
