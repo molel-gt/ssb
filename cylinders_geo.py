@@ -62,7 +62,7 @@ if __name__ == '__main__':
     parser.add_argument("-f", "--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("-hexahedron", "--hexahedron", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("-format", "--format", help="Mesh format", default="msh", nargs='?', const=1)
-    parser.add_argument("-A", "--active_area_fraction", help="active area fraction", default=1, nargs='?', const=1, type=float)
+    parser.add_argument("-A", "--active_area_fraction", help="active area fraction (%)", default=100, nargs='?', const=1, type=float)
     args = parser.parse_args()
 
     L_CELL = 80
@@ -73,7 +73,7 @@ if __name__ == '__main__':
     scale_x = LX/L_CELL * 1.0/470.0
     scale_y = LY/L_CELL * 1.0/470.0
     img_id = area_frac_to_img_id.get(f"{args.active_area_fraction:.2f}")
-    if not np.isclose(args.active_area_fraction, 1) and img_id is not None:
+    if not np.isclose(args.active_area_fraction, 100) and img_id is not None:
         img = np.asarray(plt.imread(f'data/current_constriction/test{str(int(img_id))}.tif')[:, :, 0], dtype=np.uint8)
 
     workdir = os.path.join("output", args.name_of_study, args.dimensions, str(args.resolution), f"{args.active_area_fraction:.2f}")
