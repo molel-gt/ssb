@@ -209,9 +209,12 @@ if __name__ == '__main__':
     scaled_voids_output_meshfile = os.path.join(workdir, "voids.stl")
     scaled_sse_output_meshfile = os.path.join(workdir, "sse.stl")
     scaled_cam_output_meshfile = os.path.join(workdir, "cam.stl")
+
+    voids_dat_file = os.path.join(workdir, "voids.dat")
+    cam_dat_file = os.path.join(workdir, "cam.dat")
+    sse_dat_file = os.path.join(workdir, "sse.dat")
     inria_meshfile = os.path.join(workdir, "tomo.inr")
 
-    data = np.full((2*(nx + n_sep), 2*ny, 2*nz), 1, dtype=np.uint8)
     tets_count = 0
 
     print("Processing segmented images")
@@ -243,103 +246,111 @@ if __name__ == '__main__':
         print(f"Rough {phase} volume fraction {np.average(img_3d[:nx, :ny, :])}")
         tetrahedrons = []
         data3d = get_extended_cubes(img_3d, (nx+n_sep, ny, nz))
-        Nx, Ny, Nz = data3d.shape
-        print(Nx, Ny, Nz)
-        phase_coords = np.array(np.where(data3d)).T
-        phase_nodes_file = None
-        phase_tets_file = None
         if phase == "voids":
             phase_nodes_file = voids_node_file
             phase_tets_file = voids_tets_file
+            dat_file = voids_dat_file
         elif phase == "cam":
             phase_nodes_file = cam_node_file
             phase_tets_file = cam_tets_file
+            dat_file = cam_dat_file
         elif phase == "sse":
             phase_nodes_file = sse_node_file
             phase_tets_file = sse_tets_file
-        n_nodes = phase_coords.shape[0]
-        points = {}
-        points_count = 0
-        even_coords = []
-        odd_coords = []
-        for (x, y, z) in phase_coords:
-            if np.isclose(x%2, 0) and np.isclose(y%2, 0) and np.isclose(z%2, 0):
-                even_coords.append((x, y, z))
-            else:
-                odd_coords.append((x, y, z))
-            points_count += 1
-            points[(x, y, z)] = points_count
-        with open(phase_nodes_file, "w") as fp:
-            fp.write(f"{n_nodes} 3 0 0\n")
-            for (x, y, z) in phase_coords:
-                coord_id = points[(x, y, z)]
-                fp.write(f"{coord_id} {x} {y} {z}\n")
-        phase_coords_list = phase_coords.tolist()
-        phase_coords_set = set([tuple(coord) for coord in phase_coords_list])
+            dat_file = sse_dat_file
+        phase_coords = np.array(np.where(data3d)).T
+        with open(dat_file, "w") as fp:
+            for row in phase_coords:
+                fp.write(f"{row[0]},{row[1]},{row[2]}\n")
 
-        for coord in even_coords:
-            x, y, z = coord
-            double_cube = data3d[x:x+3, y:y+3, z:z+3]
-            if np.isclose(np.sum(double_cube), 27):
-                cube_coords = [
-                    (x, y, z),
-                    (x+2, y, z),
-                    (x+2, y+2, z),
-                    (x, y+2, z),
-                    (x, y, z+2),
-                    (x+2, y, z+2),
-                    (x+2, y+2, z+2),
-                    (x, y+2, z+2),]
-                internal_nodes = [
-                    (x+1, y, z),
-                    (x, y+1, z),
-                    (x, y, z+1),
-                    (x+1, y+1, z),
-                    (x+1, y+1, z+1),
-                    (x, y+1, z+1),
-                    (x+1, y, z+1),
-                    ]
-                for (_x, _y, _z) in internal_nodes:
-                    try:
-                        odd_coords.remove((_x, _y, _z))
-                    except IndexError:
-                        pass
-            else:
-                cube_coords = [
-                (x, y, z),
-                (x+1, y, z),
-                (x+1, y+1, z),
-                (x, y+1, z),
-                (x, y, z+1),
-                (x+1, y, z+1),
-                (x+1, y+1, z+1),
-                (x, y+1, z+1),
-                ]
-            if set(cube_coords).issubset(phase_coords_set):
-                cube_coord_ids = [points[*coord] for coord in cube_coords]
-                tetrahedrons.extend(cube_to_tetrahedrons(cube_coord_ids))
-        for coord in odd_coords:
-            x, y, z = coord
-            cube_coords = [
-                (x, y, z),
-                (x+1, y, z),
-                (x+1, y+1, z),
-                (x, y+1, z),
-                (x, y, z+1),
-                (x+1, y, z+1),
-                (x+1, y+1, z+1),
-                (x, y+1, z+1),
-            ]
-            if set(cube_coords).issubset(phase_coords_set):
-                cube_coord_ids = [points[*coord] for coord in cube_coords]
-                tetrahedrons.extend(cube_to_tetrahedrons(cube_coord_ids))
-        n_tets = len(tetrahedrons)
-        tets_count = 0
-        with open(phase_tets_file, "w") as fp:
-            tets_count += 1
-            fp.write(f"{n_tets} 4 1\n")
-            for idx, tet in enumerate(tetrahedrons):
-                fp.write(f"{idx+1} {tet[0]} {tet[1]} {tet[2]} {tet[3]} {PHASE_VALUES[phase]}\n")
+        # Nx, Ny, Nz = data3d.shape
+        # print(Nx, Ny, Nz)
+        # phase_coords = np.array(np.where(data3d)).T
+        # phase_nodes_file = None
+        # phase_tets_file = None
+        # n_nodes = phase_coords.shape[0]
+        # points = {}
+        # points_count = 0
+        # even_coords = []
+        # odd_coords = []
+        # for (x, y, z) in phase_coords:
+        #     if np.isclose(x%2, 0) and np.isclose(y%2, 0) and np.isclose(z%2, 0):
+        #         even_coords.append((x, y, z))
+        #     else:
+        #         odd_coords.append((x, y, z))
+        #     points_count += 1
+        #     points[(x, y, z)] = points_count
+        # with open(phase_nodes_file, "w") as fp:
+        #     fp.write(f"{n_nodes} 3 0 0\n")
+        #     for (x, y, z) in phase_coords:
+        #         coord_id = points[(x, y, z)]
+        #         fp.write(f"{coord_id} {x} {y} {z}\n")
+        # phase_coords_list = phase_coords.tolist()
+        # phase_coords_set = set([tuple(coord) for coord in phase_coords_list])
+
+        # for coord in even_coords:
+        #     x, y, z = coord
+        #     double_cube = data3d[x:x+3, y:y+3, z:z+3]
+        #     if np.isclose(np.sum(double_cube), 27):
+        #         cube_coords = [
+        #             (x, y, z),
+        #             (x+2, y, z),
+        #             (x+2, y+2, z),
+        #             (x, y+2, z),
+        #             (x, y, z+2),
+        #             (x+2, y, z+2),
+        #             (x+2, y+2, z+2),
+        #             (x, y+2, z+2),]
+        #         internal_nodes = [
+        #             (x+1, y, z),
+        #             (x, y+1, z),
+        #             (x, y, z+1),
+        #             (x+1, y+1, z),
+        #             (x+1, y+1, z+1),
+        #             (x, y+1, z+1),
+        #             (x+1, y, z+1),
+        #             ]
+        #         for (_x, _y, _z) in internal_nodes:
+        #             try:
+        #                 odd_coords.remove((_x, _y, _z))
+        #             except IndexError:
+        #                 pass
+        #     else:
+        #         cube_coords = [
+        #         (x, y, z),
+        #         (x+1, y, z),
+        #         (x+1, y+1, z),
+        #         (x, y+1, z),
+        #         (x, y, z+1),
+        #         (x+1, y, z+1),
+        #         (x+1, y+1, z+1),
+        #         (x, y+1, z+1),
+        #         ]
+        #     if set(cube_coords).issubset(phase_coords_set):
+        #         cube_coord_ids = [points[*coord] for coord in cube_coords]
+        #         tetrahedrons.extend(cube_to_tetrahedrons(cube_coord_ids))
+        # for coord in odd_coords:
+        #     x, y, z = coord
+        #     cube_coords = [
+        #         (x, y, z),
+        #         (x+1, y, z),
+        #         (x+1, y+1, z),
+        #         (x, y+1, z),
+        #         (x, y, z+1),
+        #         (x+1, y, z+1),
+        #         (x+1, y+1, z+1),
+        #         (x, y+1, z+1),
+        #     ]
+        #     if set(cube_coords).issubset(phase_coords_set):
+        #         cube_coord_ids = [points[*coord] for coord in cube_coords]
+        #         tetrahedrons.extend(cube_to_tetrahedrons(cube_coord_ids))
+        # n_tets = len(tetrahedrons)
+        # tets_count = 0
+        # with open(phase_tets_file, "w") as fp:
+        #     tets_count += 1
+        #     fp.write(f"{n_tets} 4 1\n")
+        #     for idx, tet in enumerate(tetrahedrons):
+        #         fp.write(f"{idx+1} {tet[0]} {tet[1]} {tet[2]} {tet[3]} {PHASE_VALUES[phase]}\n")
 
         # mesh = generate_surface_mesh_for_phase(img_3d, (nx+n_sep, ny, nz))
         # mesh = trimesh.Trimesh(vertices=mesh.vertices + 1, faces=mesh.faces)
