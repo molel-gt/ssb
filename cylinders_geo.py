@@ -18,95 +18,9 @@ area_frac_to_img_id = {
     "0.45": 22,
 }
 
-def get_box_se(img, z0_points, zL_points, scale_x, scale_y):
+
+def build_active_contact_area_map(img, scale_x, scale_y, LX, LY, L_CELL):
     max_surf_id = max([s[1] for s in gmsh.model.occ.getEntities(2)])
-    points0 = []
-    points1 = []
-    lines = []
-
-    for i in range(4):
-        idx = gmsh.model.occ.addPoint(*z0_points[i])
-        points0.append(idx)
-    for i in range(4):
-        idx = gmsh.model.occ.addPoint(*zL_points[i])
-        points1.append(
-            idx
-        )
-    gmsh.model.occ.synchronize()
-    for i in range(-1, 3):
-        idx = gmsh.model.occ.addLine(points0[i], points0[i + 1])
-        lines.append(
-            idx
-        )
-
-    for i in range(-1, 3):
-        idx = gmsh.model.occ.addLine(points1[i], points1[i + 1])
-        lines.append(
-            idx
-        )
-
-    # 1 --> 5
-    idx = gmsh.model.occ.addLine(points0[1], points1[1])
-    lines.append(
-        idx
-    )
-
-    # 2 --> 6
-    idx = gmsh.model.occ.addLine(points0[2], points1[2])
-    lines.append(
-        idx
-    )
-
-    # 3 --> 7
-    idx = gmsh.model.occ.addLine(points0[3], points1[3])
-    lines.append(
-        idx
-    )
-
-    # 0 --> 4
-    idx = gmsh.model.occ.addLine(points0[0], points1[0])
-    lines.append(
-        idx
-    )
-
-    gmsh.model.occ.synchronize()
-
-    loops = []
-    # xy sides
-    idx = gmsh.model.occ.addCurveLoop(lines[:4])
-    loops.append(
-        idx
-    )
-
-    idx = gmsh.model.occ.addCurveLoop(lines[4:8])
-    loops.append(
-        idx
-    )
-
-    # xz sides
-    idx = gmsh.model.occ.addCurveLoop([lines[1]] + [lines[8]] + [lines[5]] + [lines[11]])
-    loops.append(
-        idx
-    )
-
-    idx = gmsh.model.occ.addCurveLoop([lines[3]] + [lines[9]] + [lines[7]] + [lines[10]])
-    loops.append(
-        idx
-    )
-
-    # yz sides
-    idx = gmsh.model.occ.addCurveLoop([lines[2]] + [lines[8]] + [lines[6]] + [lines[9]])
-    loops.append(
-        idx
-    )
-
-    idx = gmsh.model.occ.addCurveLoop([lines[0]] + [lines[11]] + [lines[4]] + [lines[10]])
-    loops.append(
-        idx
-    )
-
-    gmsh.model.occ.synchronize()
-
     side_loops = []
     insulated = []
     right = []
@@ -123,59 +37,21 @@ def get_box_se(img, z0_points, zL_points, scale_x, scale_y):
         hull_arr = np.asarray(hull)
         hull_points = []
         for pp in hull[:-1]:
-            idx = gmsh.model.occ.addPoint(int(pp[0]) * scale_x, int(pp[1]) * scale_y, 0)
+            idx = gmsh.model.occ.addPoint(int(pp[0]) * scale_x - 0.5*LX/L_CELL, int(pp[1]) * scale_y - 0.5*LY/L_CELL, 0)
             hull_points.append(
                 idx
             )
-        gmsh.model.occ.synchronize()
         hull_lines = []
         for i in range(-1, len(hull_points) - 1):
             idx = gmsh.model.occ.addLine(hull_points[i], hull_points[i + 1])
             hull_lines.append(
                 idx
             )
-
-        gmsh.model.occ.synchronize()
         idx = gmsh.model.occ.addCurveLoop(hull_lines)
         side_loops.append(idx)
         idx2 = gmsh.model.occ.addPlaneSurface((idx, ))
         left.append(idx2)
-        gmsh.model.occ.synchronize()
-
-    right = [gmsh.model.occ.addPlaneSurface((loops[1], ))]
-    gmsh.model.occ.synchronize()
-
-    for vv in loops[2:]:
-        idx = gmsh.model.occ.addPlaneSurface((vv, ))
-        insulated.append(
-            idx
-        )
-        gmsh.model.occ.synchronize()
-
-    if len(np.unique(img)) == 1 and np.isclose(np.unique(img)[0], 1):
-        insulated += [gmsh.model.occ.addPlaneSurface((loops[0], ))]
-    else:
-        insulated += [gmsh.model.occ.addPlaneSurface((loops[0], *side_loops))]
-        insulated += [2, 3, 4, 5, 6]
-
-    gmsh.model.occ.healShapes()
-    gmsh.model.occ.synchronize()
-    print("Generating surface tags..")
-    if len(np.unique(img)) == 1 and np.isclose(np.unique(img)[0], 1):
-        left_surfs = [6]
-        right_surf = [1]
-        surfaces = list(range(1, 7))
-    else:
-        left_surfs = [vv[1] for vv in gmsh.model.occ.getEntities(2) if vv[1] >= (max_surf_id + 7)]
-        surfaces = tuple(left + insulated + right)
-
-    gmsh.model.occ.synchronize()
-    sloop = gmsh.model.occ.addSurfaceLoop(surfaces)
-    gmsh.model.occ.synchronize()
-    vol = gmsh.model.occ.addVolume([sloop], tag=2)
-    print(sloop, vol)
-    gmsh.model.occ.synchronize()
-    return left_surfs, 2
+    return left
 
 
 if __name__ == '__main__':
@@ -198,6 +74,8 @@ if __name__ == '__main__':
     L_slab_am = 5
     LY = 20
     LX = 20
+    scale_x = LX/L_CELL * 1.0/470.0
+    scale_y = LY/L_CELL * 1.0/470.0
     img_id = area_frac_to_img_id.get(f"{args.active_area_fraction:.2f}")
     if not np.isclose(args.active_area_fraction, 1) and img_id is not None:
         img = np.asarray(plt.imread(f'data/current_constriction/test{str(int(img_id))}.tif')[:, :, 0], dtype=np.uint8)
@@ -244,18 +122,23 @@ if __name__ == '__main__':
     res = gmsh.model.occ.cut([(3, box_se)], vols, removeTool=False)
     gmsh.model.occ.synchronize()
     vols = gmsh.model.getEntities(3)
-    # gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.electrolyte, "electrolyte")
-    # gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.positive_am, "positive am")
     centers = []
     for v in vols:
         com = gmsh.model.occ.getCenterOfMass(*v)
         centers.append(com[2])
     if centers[0] > centers[1]:
-        gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.electrolyte, "electrolyte")
-        gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.positive_am, "positive am")
+        se_vols = [vols[1][1]]
+        am_vols = [vols[0][1]]
     else:
-        gmsh.model.addPhysicalGroup(3, [vols[0][1]], markers.electrolyte, "electrolyte")
-        gmsh.model.addPhysicalGroup(3, [vols[1][1]], markers.positive_am, "positive am")
+        se_vols = [vols[0][1]]
+        am_vols = [vols[1][1]]
+    left_active = build_active_contact_area_map(img, scale_x, scale_y, LX, LY, L_CELL)
+    ov, ovv = gmsh.model.occ.fragment([(3, se_vols[0])], [(2, s) for s in left_active], removeTool=False)
+    surfs = [s[1] for s in ov if s[0] == 2]
+    se_vols = surfs = [s[1] for s in ov if s[0] == 3]
+    gmsh.model.occ.synchronize()
+    gmsh.model.addPhysicalGroup(3, se_vols, markers.electrolyte, "electrolyte")
+    gmsh.model.addPhysicalGroup(3, am_vols, markers.positive_am, "positive am")
     left = []
     right = []
     insulated_am = []
@@ -288,7 +171,10 @@ if __name__ == '__main__':
             else:
                 interface.append(surf[1])
 
-    gmsh.model.addPhysicalGroup(2, left, markers.left, "left")
+    if img_id is not None:
+        gmsh.model.addPhysicalGroup(2, left_active, markers.left, "left")
+    else:
+        gmsh.model.addPhysicalGroup(2, left, markers.left, "left")
     # gmsh.model.setColor([(2, s) for s in left], 255, 0, 0)
     gmsh.model.addPhysicalGroup(2, right, markers.right, "right")
     gmsh.model.addPhysicalGroup(2, insulated_am, markers.insulated_positive_am, "insulated_positive_am")
