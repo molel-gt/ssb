@@ -3,9 +3,11 @@
 
 int main(int argc, char** argv){
     std::filesystem::path input_dir;
+    int h_max;
     po::options_description desc("Options");
     desc.add_options()
-        ("input_dir,i", po::value<std::filesystem::path>(&input_dir)->required(), "directory containing input files");
+        ("input_dir,i", po::value<std::filesystem::path>(&input_dir)->required(), "directory containing input files")
+        ("h_max,h", po::value<int>(&h_max)->required(), "maximum unscaled mesh size");
 
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, desc), vm);
@@ -36,9 +38,9 @@ int main(int argc, char** argv){
             int x = coord[0];
             int y = coord[1];
             int z = coord[2];
-            int h = 2;
-            if (x % h == 0 && y % h == 0 && z % h == 0){
-                std::array<Coordinate, 8> in_cube = make_cube(points, coord, h);
+            // int h_max = 5;
+            if (x % h_max == 0 && y % h_max == 0 && z % h_max == 0){
+                std::array<Coordinate, 8> in_cube = make_cube(points, coord, h_max);
                 if (!in_cube.empty()){
                     try {
                         std::array<int, 8> cids = cube_coords_to_cube_ids(points, in_cube);
@@ -49,9 +51,9 @@ int main(int argc, char** argv){
                     catch (std::out_of_range){};
                 }
                 else {
-                    for (int i=0; i < 2; i++){
-                        for (int j=0; j < 2; j++){
-                            for (int k=0; k < 2; k++){
+                    for (int i=0; i < h_max; i++){
+                        for (int j=0; j < h_max; j++){
+                            for (int k=0; k < h_max; k++){
                                 Coordinate coord = {x+i, y+j, z+k};
                                 std::array<Coordinate, 8> small_cube = make_cube(points, coord, 1);
                                 if (!small_cube.empty()){
