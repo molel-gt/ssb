@@ -13,10 +13,10 @@ find_package(Boost
   COMPONENTS program_options
   )
 
-find_package(OpenMP REQUIRED)
+# find_package(OpenMP REQUIRED)
 
 add_executable(${PROJECT_NAME} voxels_to_tets.cpp)
-target_link_libraries(${PROJECT_NAME} Boost::program_options OpenMP::OpenMP_CXX)
+target_link_libraries(${PROJECT_NAME} Boost::program_options)# OpenMP::OpenMP_CXX)
 include(CheckCXXCompilerFlag)
 CHECK_CXX_COMPILER_FLAG("-Wno-comment" HAVE_NO_MULTLINE)
 set_source_files_properties(tomo_to_tets.cpp PROPERTIES COMPILE_FLAGS "$<$<BOOL:${HAVE_NO_MULTLINE}>:-Wno-comment -Wall -Wextra -pedantic -Werror>")

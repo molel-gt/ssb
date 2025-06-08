@@ -8,6 +8,7 @@
 #include <iostream>
 #include <map>
 #include <ranges>
+#include <set>
 #include <stdio.h>
 #include <string>
 #include <sstream>
@@ -15,7 +16,7 @@
 #include <vector>
 
 #include <boost/program_options.hpp>
-#include <omp.h>
+// #include <omp.h>
 
 typedef std::array<int, 4> Tetrahedron;
 typedef std::array<int, 3> Coordinate;
@@ -28,14 +29,14 @@ void split_string_into_array(char* text, const char* delimiter, std::vector<int>
 
 void read_phase_data(std::filesystem::path, std::map<Coordinate, int>&);
 
-std::array<Coordinate, 8> make_cube(std::map<Coordinate, int>&, Coordinate&, int);
+std::array<Coordinate, 8> make_cube(const std::map<Coordinate, int>&, Coordinate&, int);
 
 std::array<Tetrahedron, 5> make_tetrahedrons_from_cube(const std::array<int, 8>&);
 
 void write_tetgen_node_file(std::filesystem::path, const std::map<Coordinate, int>&);
 
-void write_tetgen_ele_file(std::filesystem::path, const std::array<Tetrahedron, N_tets>&, int);
+void write_tetgen_ele_file(std::filesystem::path, const std::vector<Tetrahedron>&, int);
 
-bool cube_is_filled(const std::map<Coordinate, int>&, const Coordinate&, int);
+bool cube_is_filled(const std::map<Coordinate, int>&, Coordinate&, int);
 
 std::array<int, 8> cube_coords_to_cube_ids(const std::map<Coordinate, int>&, std::array<Coordinate, 8>&);

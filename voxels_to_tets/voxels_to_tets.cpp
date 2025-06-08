@@ -11,8 +11,6 @@ int main(int argc, char** argv){
     po::store(po::parse_command_line(argc, argv, desc), vm);
     po::notify(vm);
 
-    omp_set_num_threads(4);
-
     std::vector<std::filesystem::path> input_files = {input_dir / "voids.dat", input_dir / "cam.dat", input_dir / "sse.dat"};
     std::vector<std::filesystem::path> output_tetgen_node_files = {input_dir / "voids.node", input_dir / "cam.node", input_dir / "sse.node"};
     std::vector<std::filesystem::path> output_tetgen_ele_files = {input_dir / "voids.ele", input_dir / "cam.ele", input_dir / "sse.ele"};
@@ -23,11 +21,8 @@ int main(int argc, char** argv){
         std::map<Coordinate, int> points;
         std::cout << "Reading phase data..\n";
         read_phase_data(dat_file, points);
-        std::array<std::array<int, 8>, N> cubes;
+        std::vector<std::array<int, 8>> cubes;
         int idx = 0;
-        auto ks = std::views::values(points);
-        std::vector<int> values{ ks.begin(), ks.end() };
-        auto max_element_it = std::max_element(values.begin(), values.end());
         const int N_points = points.size();
         std::vector<Coordinate> all_coords;
         for (auto& pair : points){
@@ -36,8 +31,6 @@ int main(int argc, char** argv){
             all_coords.push_back(coord);
         }
         std::cout << "Number of points " << points.size() << std::endl;
-        // #pragma omp for
-        // #pragma omp for
         for (int point_id=0; point_id < N_points; point_id++){
             Coordinate coord = all_coords.at(point_id);
             int x = coord[0];
@@ -47,22 +40,24 @@ int main(int argc, char** argv){
                 std::array<Coordinate, 8> in_cube = make_cube(points, coord, 2);
                 if (!in_cube.empty()){
                     try {
-                        cubes[idx] = cube_coords_to_cube_ids(points, in_cube);
+                        std::array<int, 8> cids = cube_coords_to_cube_ids(points, in_cube);
+                        std::set cids_set(cids.begin(), cids.end());
+                        if (cids_set.size() == 8) cubes.push_back(cids);
                         idx ++;
                     }
                     catch (std::out_of_range){};
                 }
                 else {
-                    #pragma omp parallel for num_threads(4)
                     for (int i=0; i < 2; i++){
                         for (int j=0; j < 2; j++){
                             for (int k=0; k < 2; k++){
-                                std::cout << "Running program with " << omp_get_thread_num() << " threads\n";
                                 Coordinate coord = {x+i, y+j, z+k};
                                 std::array<Coordinate, 8> small_cube = make_cube(points, coord, 1);
                                 if (!small_cube.empty()){
                                     try {
-                                        cubes[idx] = cube_coords_to_cube_ids(points, small_cube);
+                                        std::array<int, 8> cids = cube_coords_to_cube_ids(points, in_cube);
+                                        std::set cids_set(cids.begin(), cids.end());
+                                        if (cids_set.size() == 8) cubes.push_back(cids);
                                         idx ++;
                                     }
                                     catch (std::out_of_range){};
@@ -75,17 +70,15 @@ int main(int argc, char** argv){
             }
         }
         // Process tetrahedrons
-        std::array<Tetrahedron, N_tets> tets;
+        std::vector<Tetrahedron> tets;
         int tets_counter = 0;
-        // #pragma omp for
-        for (int idx=0; idx < N; idx++){
-            std::array<int, 8> cube = cubes[idx];
+        for (auto& cube : cubes){
+            // std::cout << cube[0] << std::endl;
             if (!cube.empty()){
                 std::array<Tetrahedron, 5> cube_tets = make_tetrahedrons_from_cube(cube);
                 for (int i=0; i < 5; i++){
                     Tetrahedron tet = cube_tets[i];
-                    tets[tets_counter] = tet;
-                    tets_counter ++;
+                    tets.push_back(tet);
                 }
             }
         }
@@ -94,8 +87,7 @@ int main(int argc, char** argv){
         write_tetgen_node_file(output_nodes_file, points);
         // // write tets to file
         std::filesystem::path output_tets_file = output_tetgen_ele_files[file_id];
-        // std::cout << tets[0][0] << " "<< tets[0][1] << " " << tets[0][2] << " " << tets[0][0] << std::endl;
-        // write_tetgen_ele_file(output_tets_file, tets, tets_counter);
+        write_tetgen_ele_file(output_tets_file, tets, tets_counter);
     }
 
     return 0;
@@ -130,8 +122,8 @@ void read_phase_data(std::filesystem::path input_file, std::map<Coordinate, int>
             std::vector<int> parts;
             split_string_into_array(line_text, ",", parts);
             Coordinate coord = {parts[0], parts[1], parts[2]};
-            points[coord] = idx;
             idx ++;
+            points[coord] = idx;
         }
         file.close();
     }
@@ -140,7 +132,7 @@ void read_phase_data(std::filesystem::path input_file, std::map<Coordinate, int>
     }
 }
 
-std::array<Coordinate, 8> make_cube(std::map<Coordinate, int>& points, Coordinate& coord, int h){
+std::array<Coordinate, 8> make_cube(const std::map<Coordinate, int>& points, Coordinate& coord, int h){
     int x = coord[0]; int y = coord[1]; int z = coord[2];
     std::array<Coordinate, 8> cube_coords;
     cube_coords[0] = {x, y, z};
@@ -156,7 +148,7 @@ std::array<Coordinate, 8> make_cube(std::map<Coordinate, int>& points, Coordinat
 }
 
 
-bool cube_is_filled(std::map<Coordinate, int>& points, Coordinate& coord, int h){
+bool cube_is_filled(const std::map<Coordinate, int>& points, Coordinate& coord, int h){
     int x, y, z;
     x = coord[0]; y = coord[1]; z = coord[2];
     int counter = 0;
@@ -164,7 +156,7 @@ bool cube_is_filled(std::map<Coordinate, int>& points, Coordinate& coord, int h)
         for (int j = 0; j < h+1; j++){
             for (int k = 0; k < h+1; k++){
                 Coordinate c = {x + i, y + j, z + k};
-                if (points.count(c)) counter ++;
+                if (points.count(c) > 0) counter ++;
             }
         }
     }
@@ -175,14 +167,12 @@ std::array<int, 8> cube_coords_to_cube_ids(const std::map<Coordinate, int>& poin
     std::array<int, 8> out_cube;
     for (int idx = 0; idx < 8; idx++){
         Coordinate coord = in_cube[idx];
-        // try {
-        out_cube[idx] = points.at(coord);
-    // }
-    // catch (std::out_of_range){
-    //     std::cout << coord[0] << "," << coord[1] << "," << coord[2] << std::endl;
-    //     throw;
-    // }
+        int point_id = points.at(coord);
+        if (point_id > 0) out_cube[idx] = point_id;
     }
+    // std::cout << "******************************************\n";
+    // printf("%d,%d\n", out_cube[0], out_cube[7]);
+    // std::cout << "******************************************\n";
 
     return out_cube;
 }
@@ -212,9 +202,9 @@ void write_tetgen_node_file(std::filesystem::path output_nodes_file, const std::
     }
 }
 
-void write_tetgen_ele_file(std::filesystem::path output_tets_file, const std::array<Tetrahedron, N_tets>& tets, int num_tets){
+void write_tetgen_ele_file(std::filesystem::path output_tets_file, const std::vector<Tetrahedron>& tets, int num_tets){
     std::ofstream outputFile(output_tets_file);
-     outputFile << num_tets << " " << 4 << " " << 0 << " " << 0 << "\n";
+     outputFile << tets.size() << " " << 4 << " " << 0 << " " << 0 << "\n";
      int idx = 0;
      if (outputFile.is_open()) {
         for (const auto& tet : tets) {
