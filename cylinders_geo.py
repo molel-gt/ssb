@@ -65,10 +65,6 @@ if __name__ == '__main__':
     parser.add_argument("-A", "--active_area_fraction", help="active area fraction", default=1, nargs='?', const=1, type=float)
     args = parser.parse_args()
 
-    workdir = os.path.join("output", args.name_of_study, args.dimensions, str(args.resolution))
-    if args.refine:
-        workdir = os.path.join("output", args.name_of_study, args.dimensions, str(args.resolution), "refined")
-
     L_CELL = 80
     L_SEP = 25
     L_slab_am = 5
@@ -79,6 +75,10 @@ if __name__ == '__main__':
     img_id = area_frac_to_img_id.get(f"{args.active_area_fraction:.2f}")
     if not np.isclose(args.active_area_fraction, 1) and img_id is not None:
         img = np.asarray(plt.imread(f'data/current_constriction/test{str(int(img_id))}.tif')[:, :, 0], dtype=np.uint8)
+
+    workdir = os.path.join("output", args.name_of_study, args.dimensions, str(args.resolution), f"{args.active_area_fraction:.2f}")
+    if args.refine:
+        workdir = os.path.join("output", args.name_of_study, args.dimensions, str(args.resolution), f"{args.active_area_fraction:.2f}", "refined")
 
     utils.make_dir_if_missing(workdir)
     mshpath = os.path.join(workdir, f"mesh.{args.format}")
