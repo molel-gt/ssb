@@ -180,15 +180,23 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, insulated_se, markers.insulated_electrolyte, "insulated_electrolyte")
     gmsh.model.addPhysicalGroup(2, interface, markers.electrolyte_v_positive_am, "electrolyte_v_positive_am")
     gmsh.model.occ.synchronize()
+
     if args.refine:
+        # gmsh.model.mesh.field.add("Distance", 1)
+        # gmsh.model.mesh.field.setNumbers(1, "FacesList", left + interface)
+
+        gmsh.option.setNumber("Mesh.Algorithm", 5)
+
+        # Creation of a distance field to control the mesh element sides
         gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "FacesList", left + interface)
+        gmsh.model.mesh.field.setNumbers(1, "SurfacesList", left + interface)
+        gmsh.model.mesh.field.setNumber(1, "NNodesByEdge", 50)
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
         gmsh.model.mesh.field.setNumber(2, "SizeMin", args.resolution / 5)
         gmsh.model.mesh.field.setNumber(2, "SizeMax", args.resolution)
-        gmsh.model.mesh.field.setNumber(2, "DistMin", 0.002)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", 0.0025)
         gmsh.model.mesh.field.setNumber(2, "DistMax", 0.01)
 
         gmsh.model.mesh.field.add("Max", 5)
