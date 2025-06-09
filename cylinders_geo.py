@@ -132,7 +132,8 @@ if __name__ == '__main__':
     else:
         se_vols = [vols[0][1]]
         am_vols = [vols[1][1]]
-    left_active = build_active_contact_area_map(img, scale_x, scale_y, LX, LY, L_CELL)
+    if img_id is not None:
+        left_active = build_active_contact_area_map(img, scale_x, scale_y, LX, LY, L_CELL)
     ov, ovv = gmsh.model.occ.fragment([(3, se_vols[0])], [(2, s) for s in left_active], removeTool=False)
     surfs = [s[1] for s in ov if s[0] == 2]
     se_vols = surfs = [s[1] for s in ov if s[0] == 3]
