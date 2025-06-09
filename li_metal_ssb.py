@@ -24,7 +24,7 @@ import scipy.special as sp
 import ufl
 import warnings
 
-os.environ["XDG_CACHE_HOME"] = os.path.join(os.getcwd(), ".cache/fenics", str(hash(tuple(sys.argv))))
+# os.environ["XDG_CACHE_HOME"] = os.path.join(os.getcwd(), ".cache/fenics", str(hash(tuple(sys.argv))))
 
 from dolfinx import cpp, default_real_type, default_scalar_type, fem, io, jit, mesh, log
 from dolfinx.geometry import bb_tree, compute_collisions_points, compute_colliding_cells
@@ -823,7 +823,6 @@ if __name__ == '__main__':
     F_1_cc += - v_1 * lmbda * ds_f(3)
     F_1a = (V_cell - u_1) * mu * ds_f(3)
     F_1b = w * (I_tot_tilde / A_right_tilde + lmbda) * ds_f(3)
-    PETSc.Sys.Print(dt.value)
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
     F_2 += -inner(kappa_total * phi_ref/(D * faraday_const * c_ref)/2 * (kappa_l * grad(u_l) + kappa_r * grad(u_r)), n_r) * q_r * dInterface
