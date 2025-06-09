@@ -172,9 +172,8 @@ if __name__ == '__main__':
                 interface.append(surf[1])
 
     if img_id is not None:
-        gmsh.model.addPhysicalGroup(2, left_active, markers.left, "left")
-    else:
-        gmsh.model.addPhysicalGroup(2, left, markers.left, "left")
+        left = left_active
+    gmsh.model.addPhysicalGroup(2, left, markers.left, "left")
     # gmsh.model.setColor([(2, s) for s in left], 255, 0, 0)
     gmsh.model.addPhysicalGroup(2, right, markers.right, "right")
     gmsh.model.addPhysicalGroup(2, insulated_am, markers.insulated_positive_am, "insulated_positive_am")
@@ -183,7 +182,7 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
     if args.refine:
         gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "FacesList", interface)
+        gmsh.model.mesh.field.setNumbers(1, "FacesList", left + interface)
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
