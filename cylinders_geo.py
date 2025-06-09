@@ -135,9 +135,8 @@ if __name__ == '__main__':
     left_active = None
     if img_id is not None:
         left_active = build_active_contact_area_map(img, scale_x, scale_y, LX, LY, L_CELL)
-    ov, ovv = gmsh.model.occ.fragment([(3, se_vols[0])], [(2, s) for s in left_active], removeTool=False)
-    surfs = [s[1] for s in ov if s[0] == 2]
-    se_vols = surfs = [s[1] for s in ov if s[0] == 3]
+        ov, ovv = gmsh.model.occ.fragment([(3, se_vols[0])], [(2, s) for s in left_active], removeTool=False)
+        se_vols = [s[1] for s in ov if s[0] == 3]
     gmsh.model.occ.synchronize()
     gmsh.model.addPhysicalGroup(3, se_vols, markers.electrolyte, "electrolyte")
     gmsh.model.addPhysicalGroup(3, am_vols, markers.positive_am, "positive am")
