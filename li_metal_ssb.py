@@ -25,12 +25,13 @@ import ufl
 import warnings
 
 # os.environ["XDG_CACHE_HOME"] = os.path.join(os.getcwd(), ".cache/fenics", str(hash(tuple(sys.argv))))
+from mpi4py import MPI
 
 from dolfinx import cpp, default_real_type, default_scalar_type, fem, io, jit, mesh, log
 from dolfinx.geometry import bb_tree, compute_collisions_points, compute_colliding_cells
+from dolfinx.graph import partitioner_kahip
 from dolfinx.nls import petsc as petsc_nls
 from matplotlib import rc
-from mpi4py import MPI
 from packaging.version import Version
 from petsc4py import PETSc
 from slepc4py import SLEPc
@@ -557,7 +558,7 @@ if __name__ == '__main__':
     log_datafile = os.path.join(results_dir, "log.txt")
 
     # load mesh
-    partitioner = mesh.create_cell_partitioner(mesh.GhostMode.none)
+    partitioner = mesh.create_cell_partitioner(partitioner_kahip(), mesh.GhostMode.shared_facet)
     domain, ct, ft = io.gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)[:3]
     tdim = domain.topology.dim
     fdim = tdim - 1
