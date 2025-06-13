@@ -182,6 +182,25 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, interface, markers.electrolyte_v_positive_am, "electrolyte_v_positive_am")
     gmsh.model.occ.synchronize()
 
+    if left_active:
+        boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left_active])]
+        gmsh.model.mesh.field.add("Distance", 1)
+        gmsh.model.mesh.field.setNumbers(1, "CurvesList", boundary)
+        gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
+
+        gmsh.model.mesh.field.add("Threshold", 2)
+        gmsh.model.mesh.field.setNumber(2, "IField", 1)
+        gmsh.model.mesh.field.setNumber(2, "SizeMin", args.resolution / 5)
+        gmsh.model.mesh.field.setNumber(2, "SizeMax", args.resolution)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", args.resolution/10)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", args.resolution)
+
+        gmsh.model.mesh.field.add("Max", 5)
+        gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+        gmsh.model.mesh.field.setAsBackgroundMesh(5)
+        gmsh.model.occ.synchronize()
+
+
     if args.refine:
         # gmsh.model.mesh.field.add("Distance", 1)
         # gmsh.model.mesh.field.setNumbers(1, "FacesList", left + interface)
@@ -189,19 +208,19 @@ if __name__ == '__main__':
         gmsh.option.setNumber("Mesh.Algorithm", 5)
 
         # Creation of a distance field to control the mesh element sides
-        gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "SurfacesList", left + interface)
-        gmsh.model.mesh.field.setNumber(1, "NNodesByEdge", 50)
+        gmsh.model.mesh.field.add("Distance", 3)
+        gmsh.model.mesh.field.setNumbers(3, "SurfacesList", left + interface)
+        gmsh.model.mesh.field.setNumber(3, "NNodesByEdge", 50)
 
         gmsh.model.mesh.field.add("Threshold", 2)
-        gmsh.model.mesh.field.setNumber(2, "IField", 1)
-        gmsh.model.mesh.field.setNumber(2, "SizeMin", args.resolution / 5)
-        gmsh.model.mesh.field.setNumber(2, "SizeMax", args.resolution)
-        gmsh.model.mesh.field.setNumber(2, "DistMin", 0.0025)
-        gmsh.model.mesh.field.setNumber(2, "DistMax", 0.01)
+        gmsh.model.mesh.field.setNumber(4, "IField", 3)
+        gmsh.model.mesh.field.setNumber(4, "SizeMin", args.resolution / 5)
+        gmsh.model.mesh.field.setNumber(4, "SizeMax", args.resolution)
+        gmsh.model.mesh.field.setNumber(4, "DistMin", 0.0025)
+        gmsh.model.mesh.field.setNumber(4, "DistMax", 0.01)
 
         gmsh.model.mesh.field.add("Max", 5)
-        gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+        gmsh.model.mesh.field.setNumbers(5, "FieldsList", [4])
         gmsh.model.mesh.field.setAsBackgroundMesh(5)
         gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
