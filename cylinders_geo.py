@@ -183,7 +183,7 @@ if __name__ == '__main__':
     gmsh.model.occ.synchronize()
 
     if left_active:
-        boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left_active])]
+        boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left_active + right + interface])]
         gmsh.model.mesh.field.add("Distance", 1)
         gmsh.model.mesh.field.setNumbers(1, "CurvesList", boundary)
         gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
