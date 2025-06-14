@@ -13,5 +13,6 @@ else
     spack env create fenicsx-env
     spack env activate fenicsx-env
     spack add fenics-dolfinx@main%gcc@12.3.0+adios2+petsc py-fenics-dolfinx%gcc@12.3.0 cflags="-O3" fflags="-O3"
+    spack add py-gmsh
     spack install
 fi
