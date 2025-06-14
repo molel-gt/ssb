@@ -19,8 +19,6 @@ import numpy as np
 import numpy.typing as npt
 
 import scifem
-import scipy
-import scipy.special as sp
 import ufl
 import warnings
 
@@ -34,7 +32,6 @@ from dolfinx.nls import petsc as petsc_nls
 from matplotlib import rc
 from packaging.version import Version
 from petsc4py import PETSc
-from slepc4py import SLEPc
 from ufl import dot, grad, inner
 
 import commons, constants, mesh_utils, plot_opts, solvers, solver_params, utils
