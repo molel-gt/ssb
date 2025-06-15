@@ -216,8 +216,8 @@ if __name__ == '__main__':
         gmsh.model.mesh.field.setNumber(4, "IField", 3)
         gmsh.model.mesh.field.setNumber(4, "SizeMin", args.resolution / 5)
         gmsh.model.mesh.field.setNumber(4, "SizeMax", args.resolution)
-        gmsh.model.mesh.field.setNumber(4, "DistMin", 0.0025)
-        gmsh.model.mesh.field.setNumber(4, "DistMax", 0.01)
+        gmsh.model.mesh.field.setNumber(4, "DistMin", args.resolution/5)
+        gmsh.model.mesh.field.setNumber(4, "DistMax", args.resolution)
 
         gmsh.model.mesh.field.add("Max", 5)
         gmsh.model.mesh.field.setNumbers(5, "FieldsList", [4])
