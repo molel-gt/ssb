@@ -195,9 +195,9 @@ if __name__ == '__main__':
         gmsh.model.mesh.field.setNumber(2, "DistMin", args.resolution/10)
         gmsh.model.mesh.field.setNumber(2, "DistMax", args.resolution)
 
-        gmsh.model.mesh.field.add("Max", 5)
-        gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-        gmsh.model.mesh.field.setAsBackgroundMesh(5)
+        # gmsh.model.mesh.field.add("Max", 5)
+        # gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+        # gmsh.model.mesh.field.setAsBackgroundMesh(5)
         gmsh.model.occ.synchronize()
 
 
@@ -212,7 +212,7 @@ if __name__ == '__main__':
         gmsh.model.mesh.field.setNumbers(3, "SurfacesList", left + interface)
         gmsh.model.mesh.field.setNumber(3, "NNodesByEdge", 50)
 
-        gmsh.model.mesh.field.add("Threshold", 2)
+        gmsh.model.mesh.field.add("Threshold", 4)
         gmsh.model.mesh.field.setNumber(4, "IField", 3)
         gmsh.model.mesh.field.setNumber(4, "SizeMin", args.resolution / 5)
         gmsh.model.mesh.field.setNumber(4, "SizeMax", args.resolution)
