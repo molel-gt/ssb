@@ -555,7 +555,7 @@ if __name__ == '__main__':
     log_datafile = os.path.join(results_dir, "log.txt")
 
     # load mesh
-    partitioner = mesh.create_cell_partitioner(mesh.GhostMode.none)
+    partitioner = mesh.create_cell_partitioner(partitioner_scotch(), mesh.GhostMode.none)
     domain, ct, ft = io.gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)[:3]
     tdim = domain.topology.dim
     fdim = tdim - 1
