@@ -173,9 +173,12 @@ if __name__ == '__main__':
     cam_boundary = [s[1] for s in gmsh.model.getBoundary([(3, v) for v in phase_volumes["cam"]], combined=False) if s[0] == 2]
     sse_boundary = [s[1] for s in gmsh.model.getBoundary([(3, v) for v in phase_volumes["sse"]], combined=False) if s[0] == 2]
     interface = set(tuple(cam_boundary)).union(set(tuple(sse_boundary)))
-    print(interface)
-    quit()
+    tol = 1e-8
+    left_surfs = [s[1] for s in gmsh.model.getEntitiesInBoundingBox(-tol, -tol, -tol, tol, 2, 2, dim=2) if s[0] == 2]
+    right_surfs = [s[1] for s in gmsh.model.getEntitiesInBoundingBox(1-tol, -tol, -tol, 1+tol, 2, 2, dim=2) if s[0] == 2]
     gmsh.model.addPhysicalGroup(2, list(interface), markers.electrolyte_v_positive_am, "positive charge xfer")
+    gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "left")
+    gmsh.model.addPhysicalGroup(2, right_surfs, markers.right, "right")
     gmsh.model.addPhysicalGroup(2, surfs, 0, "Surfaces")
 
     gmsh.write(f"mesh.geo_unrolled")
