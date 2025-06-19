@@ -133,17 +133,17 @@ if __name__ == '__main__':
           }
           ]
     """)
-    gmsh.option.setNumber("Mesh.Algorithm", 6)
+    gmsh.option.setNumber("Mesh.Algorithm", 5)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.1)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1)
     # gmsh.model.mesh.setOrder(1)
-    gmsh.option.setNumber('Geometry.Tolerance', 1e-7)
+    # gmsh.option.setNumber('Geometry.Tolerance', 1e-7)
     # gmsh.option.setNumber("Mesh.AngleToleranceFacetOverlap", 0.01)
     # gmsh.option.setNumber('Mesh.Optimize', 1)
     # gmsh.option.setNumber('Mesh.Algorithm', 5)
     gmsh.option.setNumber("General.NumThreads", 8)
     # gmsh.option.setNumber("Mesh.MeshSizeMin", 0.05)
-    # gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.002)
     #gmsh.option.setNumber("Mesh.ScalingFactor", 0.05e-6/L_c)
     # gmsh.option.setNumber("General.Verbosity", 1)
     angle = gmsh.onelab.getNumber('Parameters/Angle for surface detection')[0]
@@ -154,43 +154,28 @@ if __name__ == '__main__':
     threshold_surf = 0
     phase_volumes = {}
     phase_surfaces = {}
-    for phase in ["voids", "cam", "sse"]:
-        gmsh.merge(f"output/segmentation/{args.size}/{args.origin}/{phase}.stl")
-        gmsh.model.geo.synchronize()
-        gmsh.model.mesh.createTopology(False, False)
-        gmsh.model.mesh.classifySurfaces(angle * math.pi/180., True, forceParametrizablePatches, curveAngle * math.pi/180., False)
+    for phase in ["cam", "sse"]:
+        gmsh.merge(f"{phase}.vtk")
+        gmsh.model.mesh.createTopology()
+        gmsh.model.mesh.classifySurfaces(angle * math.pi/180., True, forceParametrizablePatches, curveAngle * math.pi/180.)
         gmsh.model.mesh.createGeometry()
+        vols = [v[1] for v in gmsh.model.getEntities(3) if v[1] > threshold]
+        phase_volumes[phase] = vols
+        threshold = max(vols)
         gmsh.model.geo.synchronize()
         gmsh.model.geo.removeAllDuplicates()
         gmsh.model.geo.synchronize()
-        vols = [v[1] for v in gmsh.model.getEntities(3) if v[1] > threshold]
-        surfs = [s[1] for s in gmsh.model.getEntities(2) if s[1] > threshold_surf]
-        surfaces_adjacencies = []
-        for i, entity in enumerate(gmsh.model.getEntities(1)):
-            if entity[1] in surfs:
-                surfaces_adjacencies.append(gmsh.model.get_adjacencies(entity[0], entity[1])[0])
-
-        # Python function to group surfacs that share at least a single upward adjency
-        surfaces_to_combine = group_surfaces_adjacencies(surfaces_adjacencies)
-
-
-        # Create a list with the surface loops of each aggregate
-        volumes = []
-        agg_surf_loop_list = []
-        for i, stc in enumerate(surfaces_to_combine):
-            print(f"Processing surface {i} to volume")
-            agg_surf = gmsh.model.geo.addSurfaceLoop(stc)   # Add the surface loop
-            agg_surf_loop_list.append(agg_surf)             # Include in the list
-            gmsh.model.geo.addVolume([agg_surf], tag=i)     # Create the volume
-            volumes.append(i)
-        phase_volumes[phase] = volumes
-        phase_surfaces[phase] = surfs
-        # threshold = max(vols)
-    gmsh.model.addPhysicalGroup(3, phase_volumes["voids"], markers.void, "VOIDS")
+    gmsh.model.geo.synchronize()
     gmsh.model.addPhysicalGroup(3, phase_volumes["cam"], markers.positive_am, "CAM")
     gmsh.model.addPhysicalGroup(3, phase_volumes["sse"], markers.electrolyte, "SSE")
     gmsh.model.geo.synchronize()
     surfs = [s[1] for s in gmsh.model.getEntities(2)]
+    cam_boundary = [s[1] for s in gmsh.model.getBoundary([(3, v) for v in phase_volumes["cam"]], combined=False) if s[0] == 2]
+    sse_boundary = [s[1] for s in gmsh.model.getBoundary([(3, v) for v in phase_volumes["sse"]], combined=False) if s[0] == 2]
+    interface = set(tuple(cam_boundary)).union(set(tuple(sse_boundary)))
+    print(interface)
+    quit()
+    gmsh.model.addPhysicalGroup(2, list(interface), markers.electrolyte_v_positive_am, "positive charge xfer")
     gmsh.model.addPhysicalGroup(2, surfs, 0, "Surfaces")
 
     gmsh.write(f"mesh.geo_unrolled")
