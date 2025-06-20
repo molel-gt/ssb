@@ -207,10 +207,10 @@ if __name__ == '__main__':
         gmsh.model.mesh.field.setNumber(2, "SizeMax", args.resolution)
         gmsh.model.mesh.field.setNumber(2, "DistMin", args.resolution/10)
         gmsh.model.mesh.field.setNumber(2, "DistMax", args.resolution)
-
-        # gmsh.model.mesh.field.add("Max", 5)
-        # gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-        # gmsh.model.mesh.field.setAsBackgroundMesh(5)
+        if not args.refine:
+            gmsh.model.mesh.field.add("Max", 5)
+            gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+            gmsh.model.mesh.field.setAsBackgroundMesh(5)
         gmsh.model.occ.synchronize()
     gmsh.model.addPhysicalGroup(2, left, markers.left, "left")
     gmsh.model.addPhysicalGroup(2, right, markers.right, "right")
