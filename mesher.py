@@ -154,32 +154,59 @@ if __name__ == '__main__':
     threshold_surf = 0
     phase_volumes = {}
     phase_surfaces = {}
-    for phase in ["cam", "sse"]:
-        gmsh.merge(f"{phase}.vtk")
-        gmsh.model.mesh.createTopology()
-        gmsh.model.mesh.classifySurfaces(angle * math.pi/180., True, forceParametrizablePatches, curveAngle * math.pi/180.)
-        gmsh.model.mesh.createGeometry()
-        vols = [v[1] for v in gmsh.model.getEntities(3) if v[1] > threshold]
-        phase_volumes[phase] = vols
-        threshold = max(vols)
-        gmsh.model.geo.synchronize()
-        gmsh.model.geo.removeAllDuplicates()
-        gmsh.model.geo.synchronize()
+    # for phase in ["cam", "sse"]:
+    #     gmsh.merge(f"{phase}.vtk")
+    #     gmsh.model.mesh.createTopology()
+    #     gmsh.model.mesh.classifySurfaces(angle * math.pi/180., True, True, curveAngle * math.pi/180.)
+    #     gmsh.model.mesh.createGeometry()
+    #     vols = [v[1] for v in gmsh.model.getEntities(3) if v[1] > threshold]
+    #     phase_volumes[phase] = vols
+    #     threshold = max(vols)
+    #     gmsh.model.geo.synchronize()
+    #     gmsh.model.geo.removeAllDuplicates()
+    #     gmsh.model.geo.synchronize()
+    gmsh.merge(os.path.join(os.environ["HOME"], "OneDrive/PhD/Data/composite-electrode/mesh.mesh"))
+    # gmsh.model.mesh.createTopology()
+    # gmsh.model.mesh.classifySurfaces(angle * math.pi/180., False, False, curveAngle * math.pi/180.)
+    # gmsh.model.mesh.createGeometry()
     gmsh.model.geo.synchronize()
-    gmsh.model.addPhysicalGroup(3, phase_volumes["cam"], markers.positive_am, "CAM")
-    gmsh.model.addPhysicalGroup(3, phase_volumes["sse"], markers.electrolyte, "SSE")
+    vols = gmsh.model.getEntities(3)
+    surfs = gmsh.model.getEntities(2)
+    print(vols)
+    print(surfs)
+    gmsh.model.addPhysicalGroup(3, [markers.positive_am], markers.positive_am, "CAM")
+    gmsh.model.addPhysicalGroup(3, [markers.electrolyte], markers.electrolyte, "SSE")
     gmsh.model.geo.synchronize()
-    surfs = [s[1] for s in gmsh.model.getEntities(2)]
-    cam_boundary = [s[1] for s in gmsh.model.getBoundary([(3, v) for v in phase_volumes["cam"]], combined=False) if s[0] == 2]
-    sse_boundary = [s[1] for s in gmsh.model.getBoundary([(3, v) for v in phase_volumes["sse"]], combined=False) if s[0] == 2]
-    interface = set(tuple(cam_boundary)).union(set(tuple(sse_boundary)))
-    tol = 1e-8
-    left_surfs = [s[1] for s in gmsh.model.getEntitiesInBoundingBox(-tol, -tol, -tol, tol, 2, 2, dim=2) if s[0] == 2]
-    right_surfs = [s[1] for s in gmsh.model.getEntitiesInBoundingBox(1-tol, -tol, -tol, 1+tol, 2, 2, dim=2) if s[0] == 2]
-    gmsh.model.addPhysicalGroup(2, list(interface), markers.electrolyte_v_positive_am, "positive charge xfer")
-    gmsh.model.addPhysicalGroup(2, left_surfs, markers.left, "left")
-    gmsh.model.addPhysicalGroup(2, right_surfs, markers.right, "right")
-    gmsh.model.addPhysicalGroup(2, surfs, 0, "Surfaces")
+    # surfs = [s[1] for s in gmsh.model.getEntities(2)]
+    # cam_boundary = [s[1] for s in gmsh.model.getBoundary([(3, v) for v in phase_volumes["cam"]], combined=False) if s[0] == 2]
+    # sse_boundary = [s[1] for s in gmsh.model.getBoundary([(3, v) for v in phase_volumes["sse"]], combined=False) if s[0] == 2]
+    # interface = set(tuple(cam_boundary)).union(set(tuple(sse_boundary)))
+    # tol = 1e-4
+    # left_surfs = [s[1] for s in gmsh.model.getEntitiesInBoundingBox(-tol, -tol, -tol, tol, 2, 2, dim=2) if s[0] == 2]
+    # # print(left_surfs)
+    # # x_vals = []
+    # # # xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(3, phase_volumes["sse"][0])
+    # # for v in phase_volumes["sse"]:
+    # #     _xmin, _ymin, _zmin, _xmax, _ymax, _zmax = gmsh.model.getBoundingBox(3, v)
+    # #     x_vals.extend([_xmin, _xmax])
+    # #     # xmax = max([xmax, _xmax])
+    # # for xval in x_vals:
+    # #     if xval > 0.99:
+    # #         print(xval)
+
+    # # right_surfs = [s[1] for s in gmsh.model.getEntitiesInBoundingBox(xmax-tol, -tol, -tol, xmax+tol, 2, 2, dim=2) if s[0] == 2]
+    # # print(right_surfs)
+    # right_surfs = []
+    # for surf in sse_boundary:
+    #     _xmin, _ymin, _zmin, _xmax, _ymax, _zmax = gmsh.model.getBoundingBox(2, surf)
+    #     if _xmin > 0.99 or _xmax > 0.99:
+    #         right_surfs.append(surf)
+    # print(right_surfs)
+    # quit()
+    gmsh.model.addPhysicalGroup(2, [markers.electrolyte_v_positive_am], markers.electrolyte_v_positive_am, "positive charge xfer")
+    gmsh.model.addPhysicalGroup(2, [markers.left], markers.left, "left")
+    gmsh.model.addPhysicalGroup(2, [markers.right], markers.right, "right")
+    # gmsh.model.addPhysicalGroup(2, surfs, 0, "Surfaces")
 
     gmsh.write(f"mesh.geo_unrolled")
     gmsh.model.mesh.generate(3)
