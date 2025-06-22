@@ -4,7 +4,7 @@ DOLFINX_BUILD_DIR=$SOFTWARES_DIR/dolfinx/cpp/build
 
 cd $SOFTWARES_DIR
 if [ -d $SOFTWARES_DIR/dolfinx ]; then
-    cd $SOFTWARES_DIR/dolfinx && git stash && git pull origin
+    # cd $SOFTWARES_DIR/dolfinx && git stash && git pull origin
     echo 'directory exists, skip cloning'
 else
     git clone https://github.com/FEniCS/dolfinx.git

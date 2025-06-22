@@ -7,7 +7,7 @@ BASIX_DIR=$SOFTWARES_DIR/basix
 . $PYTHON3_DIR/bin/activate
 
 if [ -d "$BASIX_DIR" ]; then
-    cd $BASIX_DIR && git stash && git pull origin
+    # cd $BASIX_DIR && git stash && git pull origin
     echo "Skip cloning, directory exists"
 else
     git clone https://github.com/FEniCS/basix.git
