@@ -8,5 +8,6 @@ else
 fi
 
 cd $SOFTWARES_DIR/METIS
-make config shared=1 cc=mpicc prefix=$CMAKE_INSTALL_PREFIX
+mkdir build
+make config shared=1 prefix=$CMAKE_INSTALL_PREFIX gklib_path=$CMAKE_INSTALL_PREFIX
 make install

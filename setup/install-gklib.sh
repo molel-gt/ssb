@@ -8,5 +8,5 @@ else
 fi
 
 cd $SOFTWARES_DIR/GKlib
-make config cc=mpicc prefix=$CMAKE_INSTALL_PREFIX
+make config prefix=$CMAKE_INSTALL_PREFIX openmp=set shared=1
 make install
