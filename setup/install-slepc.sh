@@ -7,7 +7,7 @@ else
     git clone https://gitlab.com/slepc/slepc
 fi
 cd $SOFTWARES_DIR/slepc
-git stash && git pull origin && git checkout v3.23.0
+git stash && git checkout main && git pull origin && git checkout v3.23.0
 ./configure --prefix=$CMAKE_INSTALL_PREFIX --with-clean
 make SLEPC_DIR=$SLEPC_DIR PETSC_DIR=$PETSC_DIR PETSC_ARCH=$PETSC_ARCH
 make SLEPC_DIR=$SLEPC_DIR PETSC_DIR=$PETSC_DIR install
