@@ -537,11 +537,11 @@ if __name__ == '__main__':
                                str(args.gamma) + "-" + str(args.alpha), str(comm.Get_size())
                                )
     utils.make_dir_if_missing(results_dir)
-    output_potential_file = os.path.join(results_dir, "potential.bp")
+    output_potential_file = os.path.join(results_dir, "potential.xdmf")
     elec_potential_file = os.path.join(results_dir, "electrolyte_potential.bp")
     positive_am_potential_file = os.path.join(results_dir, "positive_am_potential.bp")
     current_file = os.path.join(results_dir, "current.bp")
-    concentration_file = os.path.join(results_dir, "concentration.bp")
+    concentration_file = os.path.join(results_dir, "concentration.xdmf")
     potential_plot_file = os.path.join(results_dir, "potential.eps")
     concentration_plot_file = os.path.join(results_dir, "concentration.eps")
     simulation_metafile = os.path.join(results_dir, "simulation.json")
@@ -1235,9 +1235,15 @@ if __name__ == '__main__':
     idx = 0
     stop = False
 
-    cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
-    u_vtx = io.VTXWriter(comm, output_potential_file, [u], engine="BP5")
-    u_vtx.write(0)
+    # cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
+    # u_vtx = io.VTXWriter(comm, output_potential_file, [u], engine="BP5")
+    c_fp = io.XDMFFile(comm, concentration_file, "w")
+    c_fp.write_mesh(submesh_positive_am)
+    u_fp = io.XDMFFile(comm, output_potential_file, "w")
+    u_fp.write_mesh(domain)
+    u_fp.write_function(u, 0)
+    c_fp.write_function(c0, 0)
+    # u_vtx.write(0)
 
     # cycler.next()
     dt.value = cycler.dt
@@ -1464,11 +1470,13 @@ if __name__ == '__main__':
         dt.value = cycler.dt
         cycler.check_stop_criteria(I_cell=np.abs(I_right), V_cell=u_avg_right)
         cvtx.write(cycler.time)
+        c_fp.write_function(c, cycler.time)
 
         u.interpolate(u_0, cells1=submesh_electrolyte_to_mesh, cells0=np.arange(len(submesh_electrolyte_to_mesh)))
         u.interpolate(u_1, cells1=submesh_positive_am_to_mesh, cells0=np.arange(len(submesh_positive_am_to_mesh)))
         u.x.scatter_forward()
-        u_vtx.write(cycler.time)
+        # u_vtx.write(cycler.time)
+        u_fp.write_function(u, cycler.time)
 
         # current density distribution
         i_intervals = np.linspace(0, 1.05 * np.max([np.abs(i_avg_left), np.abs(i_avg_right)]), 101)
@@ -1521,8 +1529,10 @@ if __name__ == '__main__':
                 })
             fp.flush()
         cycler.next()
-    cvtx.close()
-    fp.close()
+    # cvtx.close()
+    # fp.close()
+    c_fp.close()
+    u_fp.close()
 
     time_elapsed = timeit.default_timer() - start_time
 
@@ -1579,14 +1589,18 @@ if __name__ == '__main__':
     u.interpolate(u_1, cells1=submesh_positive_am_to_mesh, cells0=np.arange(len(submesh_positive_am_to_mesh)))
     u.x.scatter_forward()
 
-    with io.VTXWriter(comm, output_potential_file, [u], engine="BP5") as vtx:
-        vtx.write(0)
+    with io.XDMFFile(comm, output_potential_file, "w") as file:
+        file.write_mesh(domain)
+        file.write_function(u, 0)
 
-    with io.VTXWriter(comm, elec_potential_file, [u_0], engine="BP5") as vtx:
-        vtx.write(0)
+    # with io.VTXWriter(comm, output_potential_file, [u], engine="BP5") as vtx:
+    #     vtx.write(0)
 
-    with io.VTXWriter(comm, positive_am_potential_file, [u_1], engine="BP5") as vtx:
-        vtx.write(0)
+    # with io.VTXWriter(comm, elec_potential_file, [u_0], engine="BP5") as vtx:
+    #     vtx.write(0)
+
+    # with io.VTXWriter(comm, positive_am_potential_file, [u_1], engine="BP5") as vtx:
+    #     vtx.write(0)
 
     if args.plot:
         n_points = 1000
