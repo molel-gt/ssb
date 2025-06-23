@@ -3,8 +3,13 @@
 cd $SOFTWARES_DIR
 version=1_86_0
 BOOST_DIR=$SOFTWARES_DIR/boost_$version
-if [ -d $BOOST_DIR ]; then
+if [ -f $BOOST_DIR.tar.gz ]; then
     echo "directory exists"
+    if [ -d $BOOST_DIR ]; then
+        echo "already extracted"
+    else
+        tar xvzf boost_$version.tar.gz
+    fi
 else
     wget https://archives.boost.io/release/$(echo $version | tr _ . )/source/boost_$version.tar.gz
     tar xvzf boost_$version.tar.gz
