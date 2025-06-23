@@ -16,5 +16,5 @@ else
 fi
 
 cd $BOOST_DIR
-./bootstrap.sh prefix=$CMAKE_INSTALL_PREFIX
+./bootstrap.sh
 ./b2 prefix=$CMAKE_INSTALL_PREFIX
