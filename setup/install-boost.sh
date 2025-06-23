@@ -18,4 +18,4 @@ fi
 cd $BOOST_DIR
 ./bootstrap.sh
 ./b2
-./b2 --prefix=$CMAKE_INSTALL_PREFIX
+./b2 install --prefix=$CMAKE_INSTALL_PREFIX
