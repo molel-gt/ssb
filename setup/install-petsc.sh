@@ -3,7 +3,7 @@
 cd $SOFTWARES_DIR
 if [ -d $SOFTWARES_DIR/petsc ]; then
     echo 'Directory exists, not cloning'
-    git stash && git pull origin
+    git stash && git checkout main && git pull origin
 else
     git clone https://gitlab.com/petsc/petsc.git
 fi
