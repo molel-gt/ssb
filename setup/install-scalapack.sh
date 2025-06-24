@@ -4,14 +4,14 @@ scalapack_DIR=$SOFTWARES_DIR/scalapack
 scalapack_BUILD_DIR=$scalapack_DIR/build
 cd $SOFTWARES_DIR
 
-if [ -d $scalapack_DIR ]; then
+if [ -d "$scalapack_DIR" ]; then
     echo "directory exists"
 else:
     git clone https://github.com/Reference-ScaLAPACK/scalapack/
 fi
 
 cd $scalapack_DIR
-if [ -d $scalapack_BUILD_DIR ]; then
+if [ -d "$scalapack_BUILD_DIR" ]; then
     rm -r build
 fi
 
