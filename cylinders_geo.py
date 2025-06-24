@@ -182,22 +182,21 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, interface, markers.electrolyte_v_positive_am, "electrolyte_v_positive_am")
     gmsh.model.occ.synchronize()
 
-    if left_active:
-        boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left_active + right + interface + insulated_am + insulated_se])]
-        gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "CurvesList", boundary)
-        gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
+    boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left + right + interface + insulated_am + insulated_se])]
+    gmsh.model.mesh.field.add("Distance", 1)
+    gmsh.model.mesh.field.setNumbers(1, "CurvesList", boundary)
+    gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
 
-        gmsh.model.mesh.field.add("Threshold", 2)
-        gmsh.model.mesh.field.setNumber(2, "IField", 1)
-        gmsh.model.mesh.field.setNumber(2, "SizeMin", args.resolution / 5)
-        gmsh.model.mesh.field.setNumber(2, "SizeMax", args.resolution)
-        gmsh.model.mesh.field.setNumber(2, "DistMin", args.resolution/10)
-        gmsh.model.mesh.field.setNumber(2, "DistMax", args.resolution)
-
-        # gmsh.model.mesh.field.add("Max", 5)
-        # gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-        # gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    gmsh.model.mesh.field.add("Threshold", 2)
+    gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    gmsh.model.mesh.field.setNumber(2, "SizeMin", args.resolution / 5)
+    gmsh.model.mesh.field.setNumber(2, "SizeMax", args.resolution)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", args.resolution/10)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", args.resolution)
+    if not args.refine:
+        gmsh.model.mesh.field.add("Max", 5)
+        gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+        gmsh.model.mesh.field.setAsBackgroundMesh(5)
         gmsh.model.occ.synchronize()
 
 

@@ -195,23 +195,22 @@ if __name__ == '__main__':
                 interface.append(surf[1])
     if img_id is not None:
         left = left_active
-    if left_active:
-        boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left_active + right + interface + insulated_am + insulated_se])]
-        gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "CurvesList", boundary)
-        gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
+    boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left + right + interface + insulated_am + insulated_se])]
+    gmsh.model.mesh.field.add("Distance", 1)
+    gmsh.model.mesh.field.setNumbers(1, "CurvesList", boundary)
+    gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
 
-        gmsh.model.mesh.field.add("Threshold", 2)
-        gmsh.model.mesh.field.setNumber(2, "IField", 1)
-        gmsh.model.mesh.field.setNumber(2, "SizeMin", args.resolution / 5)
-        gmsh.model.mesh.field.setNumber(2, "SizeMax", args.resolution)
-        gmsh.model.mesh.field.setNumber(2, "DistMin", args.resolution/10)
-        gmsh.model.mesh.field.setNumber(2, "DistMax", args.resolution)
-        if not args.refine:
-            gmsh.model.mesh.field.add("Max", 5)
-            gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-            gmsh.model.mesh.field.setAsBackgroundMesh(5)
-        gmsh.model.occ.synchronize()
+    gmsh.model.mesh.field.add("Threshold", 2)
+    gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    gmsh.model.mesh.field.setNumber(2, "SizeMin", args.resolution / 5)
+    gmsh.model.mesh.field.setNumber(2, "SizeMax", args.resolution)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", args.resolution/10)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", args.resolution)
+    if not args.refine:
+        gmsh.model.mesh.field.add("Max", 5)
+        gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+        gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    gmsh.model.occ.synchronize()
     gmsh.model.addPhysicalGroup(2, left, markers.left, "left")
     gmsh.model.addPhysicalGroup(2, right, markers.right, "right")
     gmsh.model.addPhysicalGroup(2, insulated_am, markers.insulated_positive_am, "insulated_positive_am")
