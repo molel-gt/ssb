@@ -14,10 +14,10 @@ sed -i 's#$tempdir/$user/spack-stage#/storage/coda1/p-tf74/0/shared/leshinka/spa
 . $SOFTWARES_DIR/spack/share/spack/setup-env.sh
 spack env create fenicsx-env
 spack env activate fenicsx-env
-spack add fenics-dolfinx@main+petsc+adios2 py-fenics-dolfinx@main cflags="-O3" fflags="-O3"
-spack add petsc+strumpack
+spack add petsc^strumpack
+spack add adios2
+spack add fenics-dolfinx@main py-fenics-dolfinx@main cflags="-O3" fflags="-O3"
 spack add py-gmsh
-spack add py-pip
 spack install
 
 python3 -m pip install matplotlib scipy
