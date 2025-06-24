@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 
-import scifem
+# import scifem
 import ufl
 import warnings
 
@@ -537,11 +537,11 @@ if __name__ == '__main__':
                                str(args.gamma) + "-" + str(args.alpha), str(comm.Get_size())
                                )
     utils.make_dir_if_missing(results_dir)
-    output_potential_file = os.path.join(results_dir, "potential.xdmf")
+    output_potential_file = os.path.join(results_dir, "potential.bp")
     elec_potential_file = os.path.join(results_dir, "electrolyte_potential.bp")
     positive_am_potential_file = os.path.join(results_dir, "positive_am_potential.bp")
     current_file = os.path.join(results_dir, "current.bp")
-    concentration_file = os.path.join(results_dir, "concentration.xdmf")
+    concentration_file = os.path.join(results_dir, "concentration.bp")
     potential_plot_file = os.path.join(results_dir, "potential.eps")
     concentration_plot_file = os.path.join(results_dir, "concentration.eps")
     simulation_metafile = os.path.join(results_dir, "simulation.json")
@@ -555,7 +555,7 @@ if __name__ == '__main__':
     log_datafile = os.path.join(results_dir, "log.txt")
 
     # load mesh
-    partitioner = mesh.create_cell_partitioner(partitioner_scotch(), mesh.GhostMode.none)
+    partitioner = mesh.create_cell_partitioner(partitioner_scotch(), mesh.GhostMode.shared_facet)
     domain, ct, ft = io.gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)[:3]
     tdim = domain.topology.dim
     fdim = tdim - 1
@@ -772,7 +772,8 @@ if __name__ == '__main__':
     PETSc.Sys.Print("SE/AM area to cross-section area      :", f"{A_se_am/A_right:,.0f}")
     PETSc.Sys.Print("SE/AM area to volume ratio            :", f"{A_se_am_to_vol_am:,.0f}")
 
-    R_right = scifem.create_real_functionspace(submesh_facets_right)
+    # R_right = scifem.create_real_functionspace(submesh_facets_right)
+    R_right = fem.functionspace(submesh_facets_right, ("CG", 1))
     if args.cell_type == "tetrahedron":
         _2d_shape = basix.CellType.triangle
     elif args.cell_type == "hexahedron":
@@ -1093,6 +1094,7 @@ if __name__ == '__main__':
         else:
             snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
             snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
+            # snes.getKSP().getPC().setFactorSolverType("strumpack")
             snes.getKSP().setOptionsPrefix("snes_")
             snes.getKSP().setOperators(Jmat2d, Jmat2d)
             snes.getKSP().setTolerances(rtol=1e-7)
@@ -1101,6 +1103,7 @@ if __name__ == '__main__':
             snes.getKSP().setConvergenceHistory()
             for kopt, vopt in solver_params.LINESEARCH.items():
                     petsc_options[kopt] = vopt
+            # petsc_options[f"{snes.getKSP().getOptionsPrefix()}mat_strumpack_reordering"] = 'SPECTRAL'
             petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_factor_levels"] = 0
             petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_factor_fill"] = 2.0
             snes.getKSP().setFromOptions()
@@ -1198,23 +1201,38 @@ if __name__ == '__main__':
         F_c = (c - c0)/dt * q * dx_c + inner(ufl.grad(c), ufl.grad(q)) * dx_c
         F_2 += -inner(kappa_pos_am * phi_ref/(D * faraday_const * c_ref) * grad(u_int), n_1) * q * ds_c(markers.electrolyte_v_positive_am)
         # F_c += -inner(grad(u_int), n_1) * q * ds_c(markers.electrolyte_v_positive_am)
-        problem_c = fem.petsc.NonlinearProblem(F_c, c, bcs=[])
-        solver = petsc_nls.NewtonSolver(comm, problem_c)
-        solver.convergence_criterion = "residual"
-        solver.maximum_iterations = 100
-        solver.rtol = 1e-8
-
-        ksp = solver.krylov_solver
-        option_prefix = ksp.getOptionsPrefix()
-        petsc_options[f"{option_prefix}ksp_type"] = "cg"
-        petsc_options[f"{option_prefix}pc_type"] = args.amg_type
+        petsc_options = {
+            "snes_type": "newtonls",
+            "snes_linesearch_type": "none",
+            "snes_stol": np.sqrt(np.finfo(default_real_type).eps) * 1e-2,
+            "snes_atol": 0,
+            "snes_rtol": 0,
+            "ksp_type": "cg",
+            "pc_type": args.amg_type,
+            # "pc_factor_mat_solver_type": linear_solver,
+            "snes_monitor": None,
+        }
+        option_prefix = ""
         for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
                 petsc_options[f"{option_prefix}{optk}"] = optv
+        problem_c = fem.petsc.NonlinearProblem(F_c, c, bcs=[], petsc_options=petsc_options)
+        # solver = petsc_nls.NewtonSolver(comm, problem_c)
+        # solver.convergence_criterion = "residual"
+        # solver.maximum_iterations = 100
+        # solver.rtol = 1e-8
+
+        # ksp = solver.krylov_solver
+        # option_prefix = ksp.getOptionsPrefix()
+        # petsc_options[f"{option_prefix}ksp_type"] = "cg"
+        # petsc_options[f"{option_prefix}pc_type"] = args.amg_type
+        # for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
+        #         petsc_options[f"{option_prefix}{optk}"] = optv
         # petsc_options[f"{option_prefix}pc_factor_levels"] = 0
         # petsc_options[f"{option_prefix}pc_factor_fill"] = 2.0
-        ksp.setFromOptions()
+        # ksp.setFromOptions()
         t0 = time.time()
-        n_iters, converged = solver.solve(c)
+        _, converged_reason, n_iters = problem_c.solve()
+        # n_iters, converged = problem_c.solve()
         t1 = time.time()
         PETSc.Sys.Print(f"Finished computation of improved guess of concentration distribution!\nn_dofs: {n_dofs_c:,}\nsolve time: {t1 - t0:.3f}s")
         PETSc.Sys.Print(utils.starpad("*"))
@@ -1235,15 +1253,9 @@ if __name__ == '__main__':
     idx = 0
     stop = False
 
-    # cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
-    # u_vtx = io.VTXWriter(comm, output_potential_file, [u], engine="BP5")
-    c_fp = io.XDMFFile(comm, concentration_file, "w")
-    c_fp.write_mesh(submesh_positive_am)
-    u_fp = io.XDMFFile(comm, output_potential_file, "w")
-    u_fp.write_mesh(domain)
-    u_fp.write_function(u, 0)
-    c_fp.write_function(c0, 0)
-    # u_vtx.write(0)
+    cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
+    u_vtx = io.VTXWriter(comm, output_potential_file, [u], engine="BP5")
+    u_vtx.write(0)
 
     # cycler.next()
     dt.value = cycler.dt
@@ -1470,13 +1482,11 @@ if __name__ == '__main__':
         dt.value = cycler.dt
         cycler.check_stop_criteria(I_cell=np.abs(I_right), V_cell=u_avg_right)
         cvtx.write(cycler.time)
-        c_fp.write_function(c, cycler.time)
 
         u.interpolate(u_0, cells1=submesh_electrolyte_to_mesh, cells0=np.arange(len(submesh_electrolyte_to_mesh)))
         u.interpolate(u_1, cells1=submesh_positive_am_to_mesh, cells0=np.arange(len(submesh_positive_am_to_mesh)))
         u.x.scatter_forward()
-        # u_vtx.write(cycler.time)
-        u_fp.write_function(u, cycler.time)
+        u_vtx.write(cycler.time)
 
         # current density distribution
         i_intervals = np.linspace(0, 1.05 * np.max([np.abs(i_avg_left), np.abs(i_avg_right)]), 101)
@@ -1529,10 +1539,8 @@ if __name__ == '__main__':
                 })
             fp.flush()
         cycler.next()
-    # cvtx.close()
-    # fp.close()
-    c_fp.close()
-    u_fp.close()
+    cvtx.close()
+    fp.close()
 
     time_elapsed = timeit.default_timer() - start_time
 
