@@ -6,7 +6,7 @@ cd $SOFTWARES_DIR
 
 if [ -d "$scalapack_DIR" ]; then
     echo "directory exists"
-else:
+else
     git clone https://github.com/Reference-ScaLAPACK/scalapack/
 fi
 
