@@ -19,5 +19,7 @@ spack add adios2
 spack add fenics-dolfinx@main+adios2+petsc^strumpack py-fenics-dolfinx@main cflags="-O3" fflags="-O3"
 #spack add py-gmsh
 spack install
-
+spack load py-pip
 python3 -m pip install matplotlib scipy
+spack add py-gmsh
+spack install
