@@ -27,7 +27,7 @@ from mpi4py import MPI
 
 from dolfinx import cpp, default_real_type, default_scalar_type, fem, io, jit, mesh, log
 from dolfinx.geometry import bb_tree, compute_collisions_points, compute_colliding_cells
-from dolfinx.graph import partitioner_scotch
+# from dolfinx.graph import partitioner_scotch
 from dolfinx.nls import petsc as petsc_nls
 from matplotlib import rc
 from packaging.version import Version
@@ -555,7 +555,7 @@ if __name__ == '__main__':
     log_datafile = os.path.join(results_dir, "log.txt")
 
     # load mesh
-    partitioner = mesh.create_cell_partitioner(partitioner_scotch(), mesh.GhostMode.shared_facet)
+    partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
     domain, ct, ft = io.gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)[:3]
     tdim = domain.topology.dim
     fdim = tdim - 1
