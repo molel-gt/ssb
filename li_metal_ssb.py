@@ -22,7 +22,7 @@ import numpy.typing as npt
 import ufl
 import warnings
 
-# os.environ["XDG_CACHE_HOME"] = os.path.join(os.getcwd(), ".cache/fenics", str(hash(tuple(sys.argv))))
+os.environ["XDG_CACHE_HOME"] = os.path.join(os.getcwd(), ".cache/fenics", str(hash(tuple(sys.argv))))
 from mpi4py import MPI
 
 from dolfinx import cpp, default_real_type, default_scalar_type, fem, io, jit, mesh, log
