@@ -1496,8 +1496,8 @@ if __name__ == '__main__':
         _freqs = {"t [s]": cycler.time*t_ref, "i_min [A/m2]": densities[:, 0].tolist(), "i_max [A/m2]": densities[:, 1].tolist(), "areal density": densities[:, 2].tolist()}
         output_i_x_density_json_file = i_interface_density_json[:-5] + "_" + str(cycler.time*t_ref) + ".json"
 
-        with open(output_i_x_density_json_file, "w", encoding="utf-8") as fp:
-            json.dump(_freqs, fp, indent=4, ensure_ascii=False)
+        with open(output_i_x_density_json_file, "w", encoding="utf-8") as f_ix:
+            json.dump(_freqs, f_ix, indent=4, ensure_ascii=False)
 
         if comm_rank == 0 and args.plot:
             fig, ax = plt.subplots()
