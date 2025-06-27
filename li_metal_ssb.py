@@ -1481,12 +1481,12 @@ if __name__ == '__main__':
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
         dt.value = cycler.dt
         cycler.check_stop_criteria(I_cell=np.abs(I_right), V_cell=u_avg_right)
-        cvtx.write(cycler.time)
+        cvtx.write(cycler.time*t_ref)
 
         u.interpolate(u_0, cells1=submesh_electrolyte_to_mesh, cells0=np.arange(len(submesh_electrolyte_to_mesh)))
         u.interpolate(u_1, cells1=submesh_positive_am_to_mesh, cells0=np.arange(len(submesh_positive_am_to_mesh)))
         u.x.scatter_forward()
-        u_vtx.write(cycler.time)
+        u_vtx.write(cycler.time*t_ref)
 
         # current density distribution
         i_intervals = np.linspace(0, 1.05 * np.max([np.abs(i_avg_left), np.abs(i_avg_right)]), 101)
@@ -1502,7 +1502,7 @@ if __name__ == '__main__':
             ax.set_ylim([0, 1.01 * np.max(densities[:, 2])])
             ax.set_xlim([0, np.max(i_intervals)])
             plt.tight_layout()
-            plt.savefig(i_interface_density_plot.strip(".eps") + str(cycler.time) + ".eps", )
+            plt.savefig(i_interface_density_plot.strip(".eps") + str(cycler.time*t_ref) + ".eps", )
             # plt.show()
 
         if comm_rank == 0:
