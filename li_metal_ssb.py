@@ -1502,7 +1502,7 @@ if __name__ == '__main__':
             ax.set_ylim([0, 1.01 * np.max(densities[:, 2])])
             ax.set_xlim([0, np.max(i_intervals)])
             plt.tight_layout()
-            plt.savefig(i_interface_density_plot, )
+            plt.savefig(i_interface_density_plot.strip(".eps") + str(cycler.time) + ".eps", )
             # plt.show()
 
         if comm_rank == 0:
