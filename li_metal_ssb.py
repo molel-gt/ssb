@@ -827,7 +827,7 @@ if __name__ == '__main__':
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
     F_2 += -inner(kappa_total * phi_ref/(D * faraday_const * c_ref)/2 * (kappa_l * grad(u_l) + kappa_r * grad(u_r)), n_r) * q_r * dInterface
     # F_2 += -(L_ref/(faraday_const * D * c_ref)) * 2*i0_p * (ufl.sinh(0.5 * phi_ref * (u_r - u_l - U_ocp(c_r)) * faraday_const / (R * T))) * q_r * dInterface
-    F_2 += -1e4 * gamma * h_r * inner(kappa_total * phi_ref/(D * faraday_const * c_ref)/2 * grad(kappa_l * u_l + kappa_r * u_r) - grad(c_r), n_r) * inner(grad(q_r), n_r) * dInterface
+    F_2 += - args.alpha * gamma * h_r * inner(kappa_total * phi_ref/(D * faraday_const * c_ref)/2 * grad(kappa_l * u_l + kappa_r * u_r) - grad(c_r), n_r) * inner(grad(q_r), n_r) * dInterface
 
     u_left = fem.Function(V0)
     u_left.x.array[:] = 0/phi_ref
