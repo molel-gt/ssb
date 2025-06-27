@@ -1494,8 +1494,9 @@ if __name__ == '__main__':
         densities = current_density_distribution(comm, current_h(r_res), n_r, tol_fun_left, tol_fun_right, dInterface, entity_maps, i_intervals)
         densities[:, 2] /= A_se_am_tilde
         _freqs = {"t [s]": cycler.time*t_ref, "i_min [A/m2]": densities[:, 0].tolist(), "i_max [A/m2]": densities[:, 1].tolist(), "areal density": densities[:, 2].tolist()}
+        output_i_x_density_json_file = i_interface_density_json[:-5] + "_" + str(cycler.time*t_ref) + ".json"
 
-        with open(i_interface_density_json.strip(".json") + str(cycler.time*t_ref) + ".json", "w", encoding="utf-8") as fp:
+        with open(output_i_x_density_json_file, "w", encoding="utf-8") as fp:
             json.dump(_freqs, fp, indent=4, ensure_ascii=False)
 
         if comm_rank == 0 and args.plot:
@@ -1508,7 +1509,7 @@ if __name__ == '__main__':
             ax.set_ylim([0, 1.01 * np.max(densities[:, 2])])
             ax.set_xlim([0, np.max(i_intervals)])
             plt.tight_layout()
-            plt.savefig(i_interface_density_plot.strip(".eps") + str(cycler.time*t_ref) + ".eps", )
+            plt.savefig(i_interface_density_plot[:-4] + "_" + str(cycler.time*t_ref) + ".eps", )
             # plt.show()
 
         if comm_rank == 0:
