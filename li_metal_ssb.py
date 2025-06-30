@@ -1153,6 +1153,9 @@ if __name__ == '__main__':
                                             (u_1 - u_avg_right_tilde) ** 2 * ds(markers.right),
                                             entity_maps=entity_maps)), op=MPI.SUM) / A_right_tilde)
         u_stdev_right = u_stdev_right_tilde  * phi_ref
+        I_left = comm.allreduce(fem.assemble_scalar(fem.form(
+                                inner(kappa_elec * phi_ref * L_ref ** (k) * grad(u_0), n) * ds(markers.left),
+                                entity_maps=entity_maps)), op=MPI.SUM)
         I_right = comm.allreduce(fem.assemble_scalar(fem.form(
                                 inner(kappa_pos_am * phi_ref * L_ref ** (k) * grad(u_1), n) * ds(markers.right),
                                 entity_maps=entity_maps)), op=MPI.SUM)
@@ -1164,13 +1167,13 @@ if __name__ == '__main__':
             stats_writer.writerow(
                          {
                         "t [s]": 0,
-                        "I left [A]": np.nan,
+                        "I left [A]": I_left,
                         "I interface [A]": np.nan,
                         "I interface (potential left) [A]": np.nan,
                         "I interface (potential right) [A]": np.nan,
                         "I (butler-volmer) [A]": np.nan,
                         "I right [A]": I_right,
-                        "I (target) right [A]": np.nan,
+                        "I (target) right [A]": I_tot.value,
                         "u (avg) left [V]": u_avg_left,
                         "u (stdev) left [v]": u_stdev_left,
                         "u (avg) right [V]": u_avg_right,
