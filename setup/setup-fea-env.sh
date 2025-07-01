@@ -5,8 +5,8 @@ sh install-openmpi.sh
 # sh install-pkgconf.sh
 # sh install-pugixml.sh
 sh install-spdlog.sh
-sh install-adios2.sh
 sh install-hdf5.sh
+sh install-adios2.sh
 sh install-gklib.sh
 sh install-metis.sh
 sh install-parmetis.sh
