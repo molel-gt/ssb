@@ -8,6 +8,8 @@ else
     git clone https://github.com/gabime/spdlog.git
 fi
 
+git checkout master && git checkout v1.11.0
+
 cd $SOFTWARES_DIR/spdlog
 if [ -d $SOFTWARES_DIR/spdlog/build ]; then
     rm -rf $SOFTWARES_DIR/spdlog/build
