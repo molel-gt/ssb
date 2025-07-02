@@ -7,7 +7,7 @@ if [ -d $SOFTWARES_DIR/pkg-config ]; then
 else
     git clone https://gitlab.freedesktop.org/pkg-config/pkg-config.git
 fi
-
+git checkout 0.29.2
 cd $SOFTWARES_DIR/pkg-config
 ./autogen.sh --prefix=$CMAKE_INSTALL_PREFIX --with-internal-glib
 ./configure --prefix=$CMAKE_INSTALL_PREFIX
