@@ -1,6 +1,26 @@
 #!/usr/bin/env python3
 import argparse
+import math
+import gmsh
 
+def create_mesh(input_file):
+    """"""
+    gmsh.initialize()
+    gmsh.model.add("Reconstruction")
+    gmsh.merge(input_file)
+    gmsh.option.setNumber("General.NumThreads", 8)
+    angle = 90
+    curveAngle = 180
+    gmsh.model.mesh.classifySurfaces(angle * math.pi/180., True, True, curveAngle * math.pi/180.)
+    # gmsh.model.mesh.createTopology()
+    gmsh.model.geo.synchronize()
+    vols = gmsh.model.getEntities(3)
+    print(vols)
+    surfs = gmsh.model.getEntities(2)
+    print(surfs)
+    gmsh.model.mesh.generate(3)
+    gmsh.write(f"mesh.msh")
+    gmsh.finalize()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Rescale output of cgalmesh")
@@ -9,7 +29,11 @@ if __name__ == '__main__':
     parser.add_argument("--scale", "-s", help="scaling factor in sx,sy,sz", type=str, required=True)
     parser.add_argument('--normalize_direction', help='normalize direction', nargs='?',
                         const=1, default=0, type=int)
+    parser.add_argument("--remesh_only", help="whether to remesh only", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
+    # if args.remesh_only:
+    #     create_mesh(args.output_file)
+    #     quit()
     scale_x, scale_y, scale_z = [float(s) for s in args.scale.split(",")]
 
     nodes = []
@@ -62,4 +86,4 @@ if __name__ == '__main__':
                     start_writing = True
                 if start_writing:
                     f_out.write(row)
-
+    create_mesh(args.output_file)

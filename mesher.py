@@ -87,12 +87,12 @@ if __name__ == '__main__':
     parser.add_argument("--origin", help="where to extract data", nargs='?', const=1, default='0-0-0', type=str)
     parser.add_argument('--scale', help='sx-sy-sz', required=True, type=str)
     parser.add_argument("--L_sep", help="separator thickness [m]", nargs='?', const=1, default=15e-6, type=float)
-    parser.add_argument("--resolution", help="dimensionless resolution", nargs='?', const=1, default=0.05, type=float)
+    parser.add_argument("--resolution", help="dimensionless resolution", nargs='?', const=1, default=0.005, type=float)
     args = parser.parse_args()
     start_time = timeit.default_timer()
     scaling = [float(v) for v in args.scale.split(",")]
     markers = commons.Markers()
-    workdir = os.path.join(f"output/segmentation/{args.size}/{args.origin}")
+    workdir = os.path.join(f"output/fib-sem-jg/{args.size}/{args.origin}")
     utils.make_dir_if_missing(workdir)
     x0, y0, z0 = [int(val) for val in args.origin.split("-")]
     L_SEP = args.L_sep
@@ -136,14 +136,14 @@ if __name__ == '__main__':
     gmsh.option.setNumber("Mesh.Algorithm", 5)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMin", 0.1)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 1)
-    # gmsh.model.mesh.setOrder(1)
+    gmsh.model.mesh.setOrder(1)
     # gmsh.option.setNumber('Geometry.Tolerance', 1e-7)
     # gmsh.option.setNumber("Mesh.AngleToleranceFacetOverlap", 0.01)
-    # gmsh.option.setNumber('Mesh.Optimize', 1)
-    # gmsh.option.setNumber('Mesh.Algorithm', 5)
+    gmsh.option.setNumber('Mesh.Optimize', 1)
+    gmsh.option.setNumber("Mesh.OptimizeThreshold", 0.85)
     gmsh.option.setNumber("General.NumThreads", 8)
     # gmsh.option.setNumber("Mesh.MeshSizeMin", 0.05)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", 0.002)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
     #gmsh.option.setNumber("Mesh.ScalingFactor", 0.05e-6/L_c)
     # gmsh.option.setNumber("General.Verbosity", 1)
     angle = gmsh.onelab.getNumber('Parameters/Angle for surface detection')[0]
@@ -154,18 +154,7 @@ if __name__ == '__main__':
     threshold_surf = 0
     phase_volumes = {}
     phase_surfaces = {}
-    # for phase in ["cam", "sse"]:
-    #     gmsh.merge(f"{phase}.vtk")
-    #     gmsh.model.mesh.createTopology()
-    #     gmsh.model.mesh.classifySurfaces(angle * math.pi/180., True, True, curveAngle * math.pi/180.)
-    #     gmsh.model.mesh.createGeometry()
-    #     vols = [v[1] for v in gmsh.model.getEntities(3) if v[1] > threshold]
-    #     phase_volumes[phase] = vols
-    #     threshold = max(vols)
-    #     gmsh.model.geo.synchronize()
-    #     gmsh.model.geo.removeAllDuplicates()
-    #     gmsh.model.geo.synchronize()
-    gmsh.merge(os.path.join(os.environ["HOME"], "OneDrive/PhD/Data/composite-electrode/mesh.mesh"))
+    gmsh.merge(os.path.join(os.environ["HOME"], "work/ssb/output/fib-sem-jg/mesh.mesh"))
     # gmsh.model.mesh.createTopology()
     # gmsh.model.mesh.classifySurfaces(angle * math.pi/180., False, False, curveAngle * math.pi/180.)
     # gmsh.model.mesh.createGeometry()
@@ -174,39 +163,29 @@ if __name__ == '__main__':
     surfs = gmsh.model.getEntities(2)
     print(vols)
     print(surfs)
+    gmsh.model.addPhysicalGroup(3, [markers.void], markers.void, "VOID")
     gmsh.model.addPhysicalGroup(3, [markers.positive_am], markers.positive_am, "CAM")
     gmsh.model.addPhysicalGroup(3, [markers.electrolyte], markers.electrolyte, "SSE")
     gmsh.model.geo.synchronize()
-    # surfs = [s[1] for s in gmsh.model.getEntities(2)]
-    # cam_boundary = [s[1] for s in gmsh.model.getBoundary([(3, v) for v in phase_volumes["cam"]], combined=False) if s[0] == 2]
-    # sse_boundary = [s[1] for s in gmsh.model.getBoundary([(3, v) for v in phase_volumes["sse"]], combined=False) if s[0] == 2]
-    # interface = set(tuple(cam_boundary)).union(set(tuple(sse_boundary)))
-    # tol = 1e-4
-    # left_surfs = [s[1] for s in gmsh.model.getEntitiesInBoundingBox(-tol, -tol, -tol, tol, 2, 2, dim=2) if s[0] == 2]
-    # # print(left_surfs)
-    # # x_vals = []
-    # # # xmin, ymin, zmin, xmax, ymax, zmax = gmsh.model.getBoundingBox(3, phase_volumes["sse"][0])
-    # # for v in phase_volumes["sse"]:
-    # #     _xmin, _ymin, _zmin, _xmax, _ymax, _zmax = gmsh.model.getBoundingBox(3, v)
-    # #     x_vals.extend([_xmin, _xmax])
-    # #     # xmax = max([xmax, _xmax])
-    # # for xval in x_vals:
-    # #     if xval > 0.99:
-    # #         print(xval)
-
-    # # right_surfs = [s[1] for s in gmsh.model.getEntitiesInBoundingBox(xmax-tol, -tol, -tol, xmax+tol, 2, 2, dim=2) if s[0] == 2]
-    # # print(right_surfs)
-    # right_surfs = []
-    # for surf in sse_boundary:
-    #     _xmin, _ymin, _zmin, _xmax, _ymax, _zmax = gmsh.model.getBoundingBox(2, surf)
-    #     if _xmin > 0.99 or _xmax > 0.99:
-    #         right_surfs.append(surf)
-    # print(right_surfs)
-    # quit()
     gmsh.model.addPhysicalGroup(2, [markers.electrolyte_v_positive_am], markers.electrolyte_v_positive_am, "positive charge xfer")
     gmsh.model.addPhysicalGroup(2, [markers.left], markers.left, "left")
     gmsh.model.addPhysicalGroup(2, [markers.right], markers.right, "right")
-    # gmsh.model.addPhysicalGroup(2, surfs, 0, "Surfaces")
+    boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in [markers.left, markers.right, markers.electrolyte_v_positive_am]])]
+    gmsh.model.mesh.field.add("Distance", 1)
+    gmsh.model.mesh.field.setNumbers(1, "CurvesList", boundary)
+    gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
+
+    gmsh.model.mesh.field.add("Threshold", 2)
+    gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    gmsh.model.mesh.field.setNumber(2, "SizeMin", args.resolution / 5)
+    gmsh.model.mesh.field.setNumber(2, "SizeMax", args.resolution)
+    gmsh.model.mesh.field.setNumber(2, "DistMin", args.resolution/10)
+    gmsh.model.mesh.field.setNumber(2, "DistMax", args.resolution)
+
+    gmsh.model.mesh.field.add("Max", 5)
+    gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    gmsh.model.occ.synchronize()
 
     gmsh.write(f"mesh.geo_unrolled")
     gmsh.model.mesh.generate(3)

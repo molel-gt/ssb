@@ -7,7 +7,8 @@ import numpy as np
 import commons
 
 if __name__ == '__main__':
-    workdir = os.path.join(os.environ["HOME"], "OneDrive/PhD/Data/composite-electrode")
+    # workdir = os.path.join(os.environ["HOME"], "OneDrive/PhD/Data/composite-electrode")
+    workdir = "output/fib-sem-jg"
     # input_file = os.path.join(workdir, "merged.1.mesh")
     input_file = os.path.join(workdir, "post_cgalmesh.mesh")
     output_file = os.path.join(workdir, "mesh.mesh")
@@ -25,6 +26,7 @@ if __name__ == '__main__':
 
     tets_cell_data = mesh.get_cell_data("medit:ref", "tetra")
     tets_cell_data2 = np.zeros(tets_cell_data.shape, dtype=np.int32)
+    tets_cell_data2[np.isclose(tets_cell_data, 1)] = markers.void
     tets_cell_data2[np.isclose(tets_cell_data, 2)] = markers.electrolyte
     tets_cell_data2[np.isclose(tets_cell_data, 3)] = markers.positive_am
     tets_cell_data = tets_cell_data2
