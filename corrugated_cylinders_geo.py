@@ -92,7 +92,6 @@ if __name__ == '__main__':
     geometry_metafile = os.path.join(workdir, "geometry.json")
     gmsh.initialize()
     gmsh.model.add('ellipsoidals')
-    gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
     gmsh.option.setNumber('Mesh.Optimize', 1)
     gmsh.option.setNumber("Mesh.OptimizeThreshold", 0.9)
     # gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 20)
@@ -225,8 +224,8 @@ if __name__ == '__main__':
 
         threshold = gmsh.model.mesh.field.add("Threshold")
         gmsh.model.mesh.field.setNumber(threshold, "InField", distance)
-        gmsh.model.mesh.field.setNumber(threshold, "SizeMin", 0.1/L_CELL)
-        gmsh.model.mesh.field.setNumber(threshold, "SizeMax", args.resolution)
+        gmsh.model.mesh.field.setNumber(threshold, "LcMin", 0.1/L_CELL)
+        gmsh.model.mesh.field.setNumber(threshold, "LcMax", args.resolution)
         gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0.1/L_CELL)
         gmsh.model.mesh.field.setNumber(threshold, "DistMax", 1.0/L_CELL)
 
