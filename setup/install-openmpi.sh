@@ -1,5 +1,5 @@
 #!/bin/bash
-version=5.0.5
+version=5.0.8
 OPENMPI_SRC_DIR=$SOFTWARES_DIR/openmpi-$version
 
 cd $SOFTWARES_DIR
