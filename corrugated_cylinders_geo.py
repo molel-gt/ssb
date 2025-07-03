@@ -197,7 +197,7 @@ if __name__ == '__main__':
     if not args.refine:
         boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left + right + interface + insulated_am + insulated_se], oriented=False)]
         boundary = []
-        for s in left + right + interface + insulated_am + insulated_se:
+        for s in left + right:
             loop = gmsh.model.occ.getCurveLoops(s)
             for c in loop:
                 if not isinstance(c, list):
