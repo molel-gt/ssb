@@ -195,18 +195,26 @@ if __name__ == '__main__':
     if img_id is not None:
         left = left_active
     if not args.refine:
-        boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left + right + interface + insulated_am + insulated_se])]
+        boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left + right + interface + insulated_am + insulated_se], oriented=False)]
+        boundary = []
+        for s in left + right + interface + insulated_am + insulated_se:
+            loop = gmsh.model.occ.getCurveLoops(s)
+            for c in loop:
+                if not isinstance(c, list):
+                    boundary.extend(c.tolist())
+                else:
+                    boundary.extend(c[0].tolist())
+        boundary = list(set(boundary))
         gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "CurvesList", boundary)
-        gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
+        gmsh.model.mesh.field.setNumbers(1, "EdgesList", boundary)
+        # gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
-        gmsh.model.mesh.field.setNumber(2, "SizeMin", args.resolution / 5)
-        gmsh.model.mesh.field.setNumber(2, "SizeMax", args.resolution)
+        gmsh.model.mesh.field.setNumber(2, "LcMin", args.resolution / 5)
+        gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution)
         gmsh.model.mesh.field.setNumber(2, "DistMin", args.resolution/10)
         gmsh.model.mesh.field.setNumber(2, "DistMax", args.resolution)
-    # if not args.refine:
         gmsh.model.mesh.field.add("Max", 5)
         gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
         gmsh.model.mesh.field.setAsBackgroundMesh(5)
