@@ -195,18 +195,19 @@ if __name__ == '__main__':
                 interface.append(surf[1])
     if img_id is not None:
         left = left_active
-    boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left + right + interface + insulated_am + insulated_se])]
-    gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "CurvesList", boundary)
-    gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
-
-    gmsh.model.mesh.field.add("Threshold", 2)
-    gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "SizeMin", args.resolution / 5)
-    gmsh.model.mesh.field.setNumber(2, "SizeMax", args.resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", args.resolution/10)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", args.resolution)
     if not args.refine:
+        boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left + right + interface + insulated_am + insulated_se])]
+        gmsh.model.mesh.field.add("Distance", 1)
+        gmsh.model.mesh.field.setNumbers(1, "CurvesList", boundary)
+        gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
+
+        gmsh.model.mesh.field.add("Threshold", 2)
+        gmsh.model.mesh.field.setNumber(2, "IField", 1)
+        gmsh.model.mesh.field.setNumber(2, "SizeMin", args.resolution / 5)
+        gmsh.model.mesh.field.setNumber(2, "SizeMax", args.resolution)
+        gmsh.model.mesh.field.setNumber(2, "DistMin", args.resolution/10)
+        gmsh.model.mesh.field.setNumber(2, "DistMax", args.resolution)
+    # if not args.refine:
         gmsh.model.mesh.field.add("Max", 5)
         gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
         gmsh.model.mesh.field.setAsBackgroundMesh(5)
@@ -217,24 +218,23 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, insulated_se, markers.insulated_electrolyte, "insulated_electrolyte")
     gmsh.model.addPhysicalGroup(2, interface, markers.electrolyte_v_positive_am, "electrolyte_v_positive_am")
     gmsh.model.occ.synchronize()
-    # gmsh.model.mesh.setTransfiniteAutomatic([(2, s) for s in left + interface + right], cornerAngle=np.pi/6, recombine=False)
-    gmsh.model.occ.synchronize()
-    if args.refine:
-        gmsh.model.mesh.field.add("Distance", 3)
-        gmsh.model.mesh.field.setNumbers(3, "SurfacesList", left + interface + right)
-        gmsh.model.mesh.field.setNumber(3, "Sampling", 1000)
 
-        gmsh.model.mesh.field.add("Threshold", 4)
-        gmsh.model.mesh.field.setNumber(4, "InField", 3)
-        gmsh.model.mesh.field.setNumber(4, "SizeMin", args.resolution / 5)
-        gmsh.model.mesh.field.setNumber(4, "SizeMax", args.resolution)
-        gmsh.model.mesh.field.setNumber(4, "DistMin", args.resolution/10)
-        gmsh.model.mesh.field.setNumber(4, "DistMax", args.resolution)
+    if args.refine:
+        distance = gmsh.model.mesh.field.add("Distance")
+        gmsh.model.mesh.field.setNumbers(distance, "FacesList", left + interface + right)
+
+        threshold = gmsh.model.mesh.field.add("Threshold")
+        gmsh.model.mesh.field.setNumber(threshold, "InField", distance)
+        gmsh.model.mesh.field.setNumber(threshold, "SizeMin", 0.1/L_CELL)
+        gmsh.model.mesh.field.setNumber(threshold, "SizeMax", args.resolution)
+        gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0.1/L_CELL)
+        gmsh.model.mesh.field.setNumber(threshold, "DistMax", 1.0/L_CELL)
 
         gmsh.model.mesh.field.add("Max", 5)
-        gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+        gmsh.model.mesh.field.setNumbers(5, "FieldsList", [threshold])
         gmsh.model.mesh.field.setAsBackgroundMesh(5)
         gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
+    gmsh.model.mesh.optimize("Netgen")
     gmsh.write(mshpath)
     gmsh.finalize()
