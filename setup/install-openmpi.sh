@@ -7,7 +7,11 @@ cd $SOFTWARES_DIR
 if [ -d "$OPENMPI_SRC_DIR" ]; then
     echo 'directory exists, skip cloning'
 else
-    wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-$version.tar.gz
+    if [ -d "$OPENMPI_SRC_DIR".tar.gz ]; then
+        echo "zipped file exists"
+    else
+        wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-$version.tar.gz
+    fi
     tar xvzf openmpi-$version.tar.gz
 fi
 
