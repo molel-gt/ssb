@@ -30,7 +30,6 @@ from dolfinx.nls import petsc as petsc_nls
 from matplotlib import rc
 from mpi4py import MPI
 from petsc4py import PETSc
-from slepc4py import SLEPc
 from ufl import dot, grad, inner
 
 import commons, constants, mesh_utils, plot_opts, solvers, solver_params, utils
