@@ -10,6 +10,7 @@ else
 fi
 
 cd $SOFTWARES_DIR/scotch
+git checkout v7.0.7
 
 if [ -d build ]; then
     rm -r build

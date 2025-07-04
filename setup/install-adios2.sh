@@ -8,6 +8,9 @@ if [ -d $SOFTWARES_DIR/ADIOS2 ]; then
 else
     git clone https://github.com/ornladios/ADIOS2.git
 fi
+cd $SOFTWARES_DIR/ADIOS2
+git checkout v2.10.2
+cd $SOFTWARES_DIR
 
 mkdir -p adios2-build && cd adios2-build
 
