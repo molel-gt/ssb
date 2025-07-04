@@ -28,16 +28,13 @@ if __name__ == '__main__':
     parser.add_argument("--refine", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
     micron = 1e-6
-    resolution = args.resolution * micron
-    LX, LY, LZ = [float(val) * micron for val in args.dimensions.split("-")]
-    step_length = 2 * args.particle_radius * micron
-    step_width1 = args.well_depth * micron
-    step_width2 = (args.l_pos - 2 * args.particle_radius) * micron
+    resolution = args.resolution #* micron
+    Lx, Ly, Lz = [float(val) * micron for val in args.dimensions.split("-")]
+    LY = Ly/Lx
+    LZ = Lz/Lx
+    LX = Lx/Lx
 
-    name_of_study = args.name_of_study
-    dimensions = args.dimensions
-    dimensions_ii = f'{int(step_width1/micron)}-{int(step_width2/micron)}-{int(step_length/micron)}'
-    workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, dimensions_ii, f'{args.resolution:.1f}')
+    workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], args.name_of_study, args.dimensions, f'{args.resolution}')
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(workdir, 'mesh.msh')
     output_metafile = os.path.join(workdir, 'geometry.json')
@@ -56,6 +53,8 @@ if __name__ == '__main__':
 
     gmsh.initialize()
     gmsh.model.add('full-cell')
+    if not args.refine:
+        gmsh.option.setNumber('Mesh.CharacteristicLengthMax', resolution)
     gmsh.option.setNumber("Mesh.MeshSizeExtendFromBoundary", 0)
     gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
     gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 1)

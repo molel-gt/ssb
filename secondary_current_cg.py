@@ -8,11 +8,13 @@ import dolfinx
 
 import dolfinx.fem.petsc
 import ufl
+import matplotlib.pyplot as plt
 import numpy as np
-
+from matspy import spy
 from dolfinx import cpp, fem, io, mesh
 from mpi4py import MPI
 from petsc4py import PETSc
+from slepc4py import SLEPc
 from ufl import dot, grad, inner
 
 import commons, constants, mesh_utils, solvers, utils 
@@ -168,8 +170,8 @@ if __name__ == '__main__':
     # entity_maps = {submesh_electrolyte._cpp_object: parent_to_sub_electrolyte, submesh_positive_am._cpp_object: parent_to_sub_positive_am}
 
 
-    u_0, F_00, m_to_elec = define_interior_eq(domain, 2, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec)
-    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 2, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am)
+    u_0, F_00, m_to_elec = define_interior_eq(domain, 1, submesh_electrolyte, submesh_electrolyte_to_mesh, 0.0, kappa_elec)
+    u_1, F_11, m_to_pos_am = define_interior_eq(domain, 1, submesh_positive_am, submesh_positive_am_to_mesh, 0.0, kappa_pos_am)
     u_0.name = "u_b"
     u_1.name = "u_t"
 
@@ -205,8 +207,8 @@ if __name__ == '__main__':
     dx_r = ufl.Measure('dx', domain=domain, subdomain_data=ct, subdomain_id=markers.positive_am)
     ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
     ds_r = ufl.Measure('ds', domain=submesh_positive_am, subdomain_data=ft_positive_am)
-    l_res = "+"
-    r_res = "-"
+    l_res = "-"
+    r_res = "+"
 
     v_l = ufl.TestFunction(u_0.function_space)(l_res)
     v_r = ufl.TestFunction(u_1.function_space)(r_res)
@@ -255,6 +257,12 @@ if __name__ == '__main__':
     J10 = fem.form(jac10, entity_maps=entity_maps)
     J11 = fem.form(jac11, entity_maps=entity_maps)
     J = [[J00, J01], [J10, J11]]
+
+    J_view = fem.petsc.assemble_matrix_block(J)
+    J_view.assemble()
+    # viewer = PETSc.Viewer().DRAW(comm)
+    J_view.view()
+
     F = [
         fem.form(F_0, entity_maps=entity_maps),
         fem.form(F_1, entity_maps=entity_maps),

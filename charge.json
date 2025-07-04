@@ -1,0 +1,5 @@
+{
+    "sod": 0.95,
+    "data": [
+    { "direction": -1, "c-rate": 5.0, "voltage": null, "time": 360.0, "stop": {"V_min": null, "V_max": 4.25, "I_min": null, "I_max": null} }
+]}

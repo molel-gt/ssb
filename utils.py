@@ -54,6 +54,13 @@ def c_rate_current(capacity, c_rate=1):
     return capacity * c_rate
 
 
+def get_c_rate_current(c_max, c_rate, volume):
+    faraday_constant = 96485  # A.s/mol
+    capacity = c_max * volume * faraday_constant / 3600 # A.h
+    return capacity * c_rate
+
+
+
 def lithium_concentration_nmc(density, Ni=0.6, Mn=0.2, Co=0.2):
     """
     :density: [kg/m3]
@@ -84,3 +91,25 @@ def extract_dimensions_from_meshfolder(mesh_folder):
     dimensions = [part for part in parts if re.findall(r"\b\d+-\d+-\d+\b", part)]
 
     return dimensions[0]
+
+
+def get_surface_overpotential(kappa, i0, u, n, kinetics_type="butler_volmer"):
+    i_loc = -ufl.inner((kappa * ufl.grad(u))('+'), n("+"))
+    if kinetics_type == "butler_volmer":
+        return 2 * ufl.ln(0.5 * i_loc/i0 + ufl.sqrt((0.5 * i_loc/i0)**2 + 1)) * (R * T / faraday_const)
+    elif kinetics_type == "linear":
+        return R * T * i_loc / (i0 * faraday_const)
+    elif kinetics_type == "tafel":
+        return ufl.sign(i_loc) * R * T / (0.5 * faraday_const) * ufl.ln(np.abs(i_loc)/i_0)
+
+
+def delete_numpy_rows(in_arr, to_delete):
+    out_arr = in_arr
+    for row in to_delete:
+        idx = np.where(np.all(out_arr == row, axis=1))[0][0]
+        out_arr = np.delete(out_arr, idx, axis=0)
+
+    return out_arr
+
+def starpad(text, n=90):
+    return text.center(n, "*")

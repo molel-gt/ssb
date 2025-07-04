@@ -1,3 +1,5 @@
+import numbers
+from dolfinx import cpp
 from mpi4py import MPI
 import dolfinx
 import dolfinx.fem.petsc
@@ -92,3 +94,70 @@ def transfer_meshtags(domain, submesh, entity_map, ft):
     submesh.topology.create_connectivity(submesh.topology.dim - 1, submesh.topology.dim)
 
     return submesh_ft
+
+
+
+def compute_cell_boundary_facets(domain, ct, marker):
+    """Compute the integration entities for integrals around the
+    boundaries of all cells in domain.
+
+    Parameters:
+        domain: The mesh.
+        ct: cell tags
+        marker: physical group label
+
+    Returns:
+        Facets to integrate over, identified by ``(cell, local facet
+        index)`` pairs.
+    """
+    tdim = domain.topology.dim
+    fdim = tdim - 1
+    n_f = cpp.mesh.cell_num_entities(domain.topology.cell_type, fdim)
+    if isinstance(marker, numbers.Number):
+        cells_1 = ct.find(marker)
+    else:
+        cells_1 = np.hstack([ct.find(m) for m in marker])
+    perm = np.argsort(cells_1)
+    n_c = cells_1.shape[0]
+
+    return np.vstack((np.repeat(cells_1[perm], n_f), np.tile(np.arange(n_f), n_c))).T
+
+
+def compute_interface_cell_boundary_facets(domain, ct, ft, cell_marker, facet_marker):
+    """
+    Compute integration entities for integrals around the boundaries of cells at the
+    location of prescribed flux expression
+
+    domain: the mesh
+    ct: cell tags
+    ft: facet tags
+    cell_marker: marker for subdomain
+    facet_marker: marker for interface
+    """
+    tdim = domain.topology.dim
+    fdim = tdim - 1
+    f_to_c = domain.topology.connectivity(fdim, tdim)
+    c_to_f = domain.topology.connectivity(tdim, fdim)
+    ft_imap = domain.topology.index_map(fdim)
+    num_facets = ft_imap.size_local + ft_imap.num_ghosts
+    interface_facets = ft.find(facet_marker)
+
+    int_facet_domain = []
+    lcells = []
+    for f in interface_facets:
+        if f >= ft_imap.size_local:
+            continue
+        c_0 = f_to_c.links(f)[0]
+        subdomain_0 = ct.values[c_0]
+        local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
+        if subdomain_0 == cell_marker:
+            int_facet_domain.append([c_0, local_f_0])
+
+        if len(f_to_c.links(f)) == 2:
+            c_1 = f_to_c.links(f)[1]
+            subdomain_1 = ct.values[c_1]
+            if subdomain_1 == cell_marker:
+                local_f_1 = np.where(c_to_f.links(c_1) == f)[0][0]
+                int_facet_domain.append([c_1, local_f_1])
+
+    return int_facet_domain

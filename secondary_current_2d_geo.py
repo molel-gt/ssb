@@ -22,17 +22,22 @@ if __name__ == '__main__':
     parser.add_argument('--resolution', help=f'max resolution resolution', nargs='?', const=1, default=1, type=float)
     parser.add_argument("--refine", help="whether to refine the mesh", default=False, action=argparse.BooleanOptionalAction)
     args = parser.parse_args()
-    micron = 1e-6
-    resolution = np.float16(args.resolution * micron)
-    particle_radius = 10
-    LX, LY, LZ = [float(val) * micron for val in args.dimensions.split("-")]
+    micron = 1
+    resolution = args.resolution
+    Lx, Ly, Lz = [float(val) * micron for val in args.dimensions.split("-")]
+    # LX, LY, LZ = [float(val) * micron for val in args.dimensions.split("-")]
+    micron = 1/Lx
+    particle_radius = 10 #/ Lx
+    LX = Lx / Lx
+    LY = Ly / Lx
+    LZ = Lz / Lx
 
     name_of_study = args.name_of_study
     dimensions = args.dimensions
     if not args.refine:
-        workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, "unrefined", f"{args.resolution}")
-    else:
         workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, f"{args.resolution}")
+    else:
+        workdir = os.path.join(configs.get_configs()['LOCAL_PATHS']['data_dir'], name_of_study, dimensions, f"{args.resolution}", "refined")
     utils.make_dir_if_missing(workdir)
     output_meshfile = os.path.join(workdir, 'mesh.msh')
     output_metafile = os.path.join(workdir, 'geometry.json')
@@ -40,7 +45,7 @@ if __name__ == '__main__':
     markers = commons.Markers()
     points_left = [
     (0, 0, 0),
-    (0 * micron, LY, 0)
+    (0, LY, 0)
     ]
     points_right = [
     (LX, 0, 0),

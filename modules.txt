@@ -1,0 +1,5 @@
+#module load gcc/13.3.0
+#module load cmake/3.26.3
+module load gcc/12.3.0
+module load cmake/3.30.2
+module load autoconf/2.72

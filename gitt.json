@@ -1,0 +1,14 @@
+{
+    "sod": 0.95,
+    "data": null,
+    "gitt" : {
+        "c-rate": 1.0,
+        "pulse-time": 30,
+        "rest-time": 300,
+        "n-cycles": 10,
+        "stop": {
+            "V_min": null,
+            "V_max": null,
+        }
+    }
+}

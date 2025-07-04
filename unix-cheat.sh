@@ -55,3 +55,37 @@ sudo setfacl -m user:$USER:rw /var/run/docker.sock
 
 # docker share current directory
 docker run -ti -v $(pwd):/root/shared -w /root/shared  dolfinx/dolfinx:nightly
+
+# allow ownership of folder
+sudo chown -R $(whoami):docker output
+
+# building in apptainer/singularity
+apptainer pull dolfinx.sif docker://dolfinx/dolfinx:nightly
+singularity build dolfinx/dolfinx:nightly dolfinx.sif
+
+# running program
+module purge
+module load gcc/10.3.0-o57x6h
+module load openmpi/4.1.4
+mpiexec -n 24 apptainer exec ~/dolfinx.sif python3
+
+# copy files to cluster
+scp src/ksp/ksp/impls/gmres/fgmres/fgmres.c emolel3@login-phoenix-rh9.pace.gatech.edu:/storage/coda1/p-tf74/0/shared/leshinka/softwares/petsc/src/ksp/ksp/impls/gmres/fgmres/
+
+# fetch tags on forked branch
+git fetch --tags https://github.com/petsc/petsc.git
+git push --tags
+
+# find resources in a partition
+sinfo --partition=cpu-amd -o "%50N  %10c  %20m  %30G "
+
+pace-check-queue cpu-amd
+
+# check resource usage
+sacct --format='Account,JobID,JobName,CPUTime%15,TotalCPU,Elapsed%15,MaxRS,MaxVMSize,ReqNodes,NCPU,Partition,QOS,NodeList'
+
+# resolve git fatal errors in commit refs
+git fsck && git gc && git push origin
+
+# kill current emacs buffer
+C-x k
