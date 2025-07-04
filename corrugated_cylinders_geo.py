@@ -196,15 +196,15 @@ if __name__ == '__main__':
         left = left_active
     if not args.refine:
         boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left + right + interface + insulated_am + insulated_se], oriented=False)]
-        boundary = []
-        for s in left + right:
-            loop = gmsh.model.occ.getCurveLoops(s)
-            for c in loop:
-                if not isinstance(c, list):
-                    boundary.extend(c.tolist())
-                else:
-                    boundary.extend(c[0].tolist())
-        boundary = list(set(boundary))
+        # boundary = []
+        # for s in left + right:
+        #     loop = gmsh.model.occ.getCurveLoops(s)
+        #     for c in loop:
+        #         if not isinstance(c, list):
+        #             boundary.extend(c.tolist())
+        #         else:
+        #             boundary.extend(c[0].tolist())
+        # boundary = list(set(boundary))
         gmsh.model.mesh.field.add("Distance", 1)
         gmsh.model.mesh.field.setNumbers(1, "EdgesList", boundary)
         # gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
