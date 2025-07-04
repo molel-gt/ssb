@@ -1,18 +1,30 @@
 #!/bin/bash
 
-cd $SOFTWARES_DIR
+cd $HPC_DIR
 
-if [ -d $SOFTWARES_DIR/spack ]; then
+if [ -d $HPC_DIR/spack ]; then
     echo 'directory exists, skip cloning'
 else
     git clone https://github.com/spack/spack.git
-    cd $SOFTWARES_DIR/spack
-    git checkout v0.23.0
-    cp $WORK_DIR/../spack/config.yaml $SOFTWARES_DIR/spack/
-    . $SOFTWARES_DIR/spack/share/spack/setup-env.sh
-    spack env create fenicsx-env
-    spack env activate fenicsx-env
-    spack add fenics-dolfinx@main%gcc@12.3.0+adios2 py-fenics-dolfinx%gcc@12.3.0 cflags="-O3" fflags="-O3"
-    # spack add openmpi%gcc@12.3.0
-    spack install
 fi
+
+cd $HPC_DIR/spack
+# git checkout v0.23.0
+module load gcc/12.3.0
+module load openmpi/4.1.5
+module load autoconf/2.72
+sed -i 's#$tempdir/$user/spack-stage#/storage/coda1/p-tf74/0/shared/leshinka/spack-temp#g' ./etc/spack/defaults/config.yaml
+. $HPC_DIR/spack/share/spack/setup-env.sh
+spack env create fenicsx-env
+spack env activate fenicsx-env
+spack external find slurm
+spack external find openmpi
+spack add petsc^strumpack~slate
+spack add adios2
+spack add fenics-dolfinx+adios2+petsc^strumpack~slate py-fenics-dolfinx^openmpi@4.1.5 cflags="-O3" fflags="-O3"
+spack add py-gmsh
+spack install
+spack load py-pip
+python3 -m pip install matplotlib scipy
+spack add py-gmsh
+spack install
