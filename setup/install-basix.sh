@@ -1,7 +1,7 @@
 #!/bin/bash
 
 cd $SOFTWARES_DIR
-
+version=v0.9.0
 BASIX_DIR=$SOFTWARES_DIR/basix
 
 . $PYTHON3_DIR/bin/activate
@@ -14,6 +14,7 @@ else
 fi
 
 cd $BASIX_DIR/cpp
+git checkout $version
 rm -r build
 mkdir build
 cd $BASIX_DIR/cpp/build

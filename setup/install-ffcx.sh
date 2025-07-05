@@ -12,8 +12,9 @@ if [ -d "$FFCX_DIR" ]; then
 else
     git clone https://github.com/FEniCS/ffcx.git
 fi
-
+version=v0.9.0
 cd $FFCX_DIR
+git checkout $version
 rm -r build
 mkdir -p build
 cd $FFCX_DIR/build

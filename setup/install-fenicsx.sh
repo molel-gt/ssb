@@ -1,14 +1,16 @@
 #!/bin/bash
 
 DOLFINX_BUILD_DIR=$SOFTWARES_DIR/dolfinx/cpp/build
-
+version=v0.9.0
 cd $SOFTWARES_DIR
 if [ -d $SOFTWARES_DIR/dolfinx ]; then
     cd $SOFTWARES_DIR/dolfinx && git stash && git pull origin
     echo 'directory exists, skip cloning'
 else
     git clone https://github.com/FEniCS/dolfinx.git
+    cd $SOFTWARES_DIR/dolfinx
 fi
+git checkout $version
 
 . $PYTHON3_DIR/bin/activate
 
