@@ -6,6 +6,11 @@ sh install-pkgconf.sh
 sh install-pugixml.sh
 sh install-spdlog.sh
 sh install-adios2.sh
+sh install-gklib.sh
+sh install-metis.sh
+sh install-parmetis.sh
+sh install-kahip.sh
+sh install-scotch.sh
 sh install-petsc.sh
 sh install-slepc.sh
 sh install-basix.sh
