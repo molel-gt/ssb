@@ -1396,7 +1396,7 @@ if __name__ == '__main__':
         u_vtx.write(cycler.time)
 
         # current density distribution
-        i_intervals = np.linspace(0, 1.05 * np.max([np.abs(i_avg_left), np.abs(i_avg_right)]), 101)
+        i_intervals = np.linspace(0, 1.05 * np.max([np.abs(i_avg_left), np.abs(i_avg_right)]), 501)
         densities = current_density_distribution(comm, current_h(r_res), n_r, tol_fun_left, tol_fun_right, dInterface, entity_maps, i_intervals)
         densities[:, 2] /= A_se_am_tilde
         _freqs = {"t [s]": cycler.time*t_ref, "i_min [A/m2]": densities[:, 0].tolist(), "i_max [A/m2]": densities[:, 1].tolist(), "areal density": densities[:, 2].tolist()}
