@@ -1151,7 +1151,7 @@ if __name__ == '__main__':
 
     # current density distribution setup
     W = fem.functionspace(submesh_positive_am, ("CG", 1, (tdim,)))
-    current_expr = fem.Expression(-kappa_pos_am * phi_ref/L_ref * ufl.grad(u_1), W.element.interpolation_points)
+    current_expr = fem.Expression(-kappa_pos_am * phi_ref/L_ref * ufl.grad(u_1), W.element.interpolation_points())
     current_h = fem.Function(W, name='current_density')
     tol_fun = fem.Function(V1)
     tol_fun_left = fem.Function(V1)
