@@ -510,9 +510,9 @@ if __name__ == '__main__':
     # domain, parent_cell, parent_facet = mesh.refine(domain_coarse, np.arange(domain_coarse.topology.index_map(1).size_local),
     #                                       partitioner=None, option=mesh.RefinementOption.parent_cell_and_facet)
     # domain.topology.create_entities(fdim)
-    ct = mesh.transfer_meshtag(ct_coarse, domain, parent_cell, parent_facet)
-    ft = mesh.transfer_meshtag(ft_coarse, domain, parent_cell, parent_facet)
-    domain.topology.create_connectivity(fdim, tdim)
+    # ct = mesh.transfer_meshtag(ct_coarse, domain, parent_cell, parent_facet)
+    # ft = mesh.transfer_meshtag(ft_coarse, domain, parent_cell, parent_facet)
+    # domain.topology.create_connectivity(fdim, tdim)
     ct_imap = domain.topology.index_map(tdim)
     num_entities_local = ct_imap.size_local + ct_imap.num_ghosts
     # tag internal facets as 0
