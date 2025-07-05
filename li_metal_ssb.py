@@ -499,7 +499,7 @@ if __name__ == '__main__':
     # load mesh
     partitioner = mesh.create_cell_partitioner(mesh.GhostMode.none)
     domain, ct, ft = io.gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)[:3]
-    tdim = domain_coarse.topology.dim
+    tdim = domain.topology.dim
     fdim = tdim - 1
     k = tdim - 2
     domain.topology.create_entities(1)
@@ -507,12 +507,6 @@ if __name__ == '__main__':
     domain.topology.create_connectivity(tdim, fdim)
     domain.topology.create_connectivity(tdim, tdim)
     domain.topology.create_connectivity(fdim, fdim)
-    # domain, parent_cell, parent_facet = mesh.refine(domain_coarse, np.arange(domain_coarse.topology.index_map(1).size_local),
-    #                                       partitioner=None, option=mesh.RefinementOption.parent_cell_and_facet)
-    # domain.topology.create_entities(fdim)
-    # ct = mesh.transfer_meshtag(ct_coarse, domain, parent_cell, parent_facet)
-    # ft = mesh.transfer_meshtag(ft_coarse, domain, parent_cell, parent_facet)
-    # domain.topology.create_connectivity(fdim, tdim)
     ct_imap = domain.topology.index_map(tdim)
     num_entities_local = ct_imap.size_local + ct_imap.num_ghosts
     # tag internal facets as 0
