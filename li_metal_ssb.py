@@ -16,6 +16,7 @@ import dolfinx.fem.petsc
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import scifem
 import scipy
 import scipy.special as sp
 import ufl
@@ -703,7 +704,7 @@ if __name__ == '__main__':
     PETSc.Sys.Print("SE/AM area to cross-section area      :", f"{A_se_am/A_right:,.0f}")
     PETSc.Sys.Print("SE/AM area to volume ratio            :", f"{A_se_am_to_vol_am:,.0f}")
 
-    R_right = fem.functionspace(submesh_facets_right, ("CG", 1))
+    R_right = scifem.create_real_functionspace(submesh_facets_right)
     if args.cell_type == "tetrahedron":
         _2d_shape = basix.CellType.triangle
     elif args.cell_type == "hexahedron":
