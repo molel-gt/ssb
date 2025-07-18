@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 
-# import scifem
+import scifem
 import ufl
 import warnings
 
@@ -773,8 +773,8 @@ if __name__ == '__main__':
     PETSc.Sys.Print("SE/AM area to cross-section area      :", f"{A_se_am/A_right:,.0f}")
     PETSc.Sys.Print("SE/AM area to volume ratio            :", f"{A_se_am_to_vol_am:,.0f}")
 
-    # R_right = scifem.create_real_functionspace(submesh_facets_right)
-    R_right = fem.functionspace(submesh_facets_right, ("CG", 1))
+    R_right = scifem.create_real_functionspace(submesh_facets_right)
+    # R_right = fem.functionspace(submesh_facets_right, ("CG", 1))
     if args.cell_type == "tetrahedron":
         _2d_shape = basix.CellType.triangle
     elif args.cell_type == "hexahedron":
