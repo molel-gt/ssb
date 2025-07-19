@@ -33,9 +33,11 @@ cubit.cmd(f"remove overlap volume {pos_am[0]} {volume_ids[0]} modify larger")
 curves = cubit.parse_cubit_list('curve', 'all')
 circle_arcs = []
 for curve in curves:
+    print(cubit.get_curve_center(curve))
     if np.isclose(cubit.get_arc_length(curve), 2 * np.pi * radius):
         circle_arcs.append(curve)
 cubit.cmd(f"modify curve {' '.join(map(str, circle_arcs))} blend radius 0.025")
+volumes = cubit.parse_cubit_list('volume', 'all')
 cubit.cmd("vol all scheme tetmesh")
 cubit.cmd("mesh volume all")
 filename = "mesh.bdf"
