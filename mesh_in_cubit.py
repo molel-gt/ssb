@@ -26,8 +26,6 @@ cubit.cmd("create brick x 20 y 20 z 80")
 last_id = cubit.parse_cubit_list('volume', 'all')[-1]
 cubit.cmd(f"volume {last_id} move z 40")
 volume_ids = cubit.parse_cubit_list('volume', 'all')
-# cubit.cmd(f"chop vol {volume_ids[0]} with vol {pos_am[0]} keep")
-# cubit.cmd(f"subtract vol {pos_am[0]} from vol {volume_ids[0]} keep")
 cubit.cmd(f"remove overlap volume {volume_ids[0]} {volume_ids[1]} modify larger")
 curves = cubit.parse_cubit_list('curve', 'all')
 circle_arcs = []
