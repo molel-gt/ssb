@@ -38,7 +38,9 @@ for curve in curves:
         circle_arcs.append(curve)
 cubit.cmd(f"modify curve {' '.join(map(str, circle_arcs))} blend radius 0.025")
 volumes = cubit.parse_cubit_list('volume', 'all')
+cubit.cmd(f"volume {volumes[0]} name 'positive_am'")
+cubit.cmd(f"volume {volumes[1]} name 'solid_electrolyte'")
 cubit.cmd("vol all scheme tetmesh")
 cubit.cmd("mesh volume all")
-filename = "mesh.bdf"
-cubit.cmd(f'export nastran {filename} overwrite')
+filename = "mesh.exo"
+cubit.cmd(f'export exodus {filename} overwrite')
