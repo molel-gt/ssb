@@ -46,7 +46,7 @@ for surf in surfaces:
     area = cubit.get_surface_area(surf)
     if np.all(np.isclose(centroid[:2], [0, 0])):
         normal = cubit.get_surface_normal(surf)
-        print("centroid:", centroid, "area:", area, "normal:", normal)
+        print(surf, "centroid:", centroid, "area:", area, "normal:", normal)
 cubit.cmd("vol all scheme tetmesh")
 cubit.cmd("mesh volume all")
 filename = "mesh.bdf"
