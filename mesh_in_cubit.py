@@ -22,14 +22,13 @@ cubit.cmd("create brick x 20 y 20 z 5")
 last_id += 1
 cubit.cmd(f"volume {last_id} move z 77.5")
 cubit.cmd("unite all")
-pos_am = cubit.parse_cubit_list('volume', 'all')
 cubit.cmd("create brick x 20 y 20 z 80")
 last_id = cubit.parse_cubit_list('volume', 'all')[-1]
 cubit.cmd(f"volume {last_id} move z 40")
-volume_ids = [v for v in cubit.parse_cubit_list('volume', 'all') if v not in pos_am]
+volume_ids = cubit.parse_cubit_list('volume', 'all')
 # cubit.cmd(f"chop vol {volume_ids[0]} with vol {pos_am[0]} keep")
 # cubit.cmd(f"subtract vol {pos_am[0]} from vol {volume_ids[0]} keep")
-cubit.cmd(f"remove overlap volume {pos_am[0]} {volume_ids[0]} modify larger")
+cubit.cmd(f"remove overlap volume {volume_ids[0]} {volume_ids[1]} modify larger")
 curves = cubit.parse_cubit_list('curve', 'all')
 circle_arcs = []
 for curve in curves:
@@ -38,8 +37,8 @@ for curve in curves:
         circle_arcs.append(curve)
 cubit.cmd(f"modify curve {' '.join(map(str, circle_arcs))} blend radius 0.025")
 volumes = cubit.parse_cubit_list('volume', 'all')
-cubit.cmd(f"volume {volumes[0]} name 'positive_am'")
-cubit.cmd(f"volume {volumes[1]} name 'solid_electrolyte'")
+cubit.cmd(f"volume {volumes[0]} name 'vol1'")
+cubit.cmd(f"volume {volumes[1]} name 'vol2'")
 surfaces = cubit.parse_cubit_list('surface', 'all')
 for surf in surfaces:
     centroid = cubit.get_surface_centroid(surf)
