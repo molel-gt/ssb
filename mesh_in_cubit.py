@@ -20,12 +20,12 @@ for x in lxs:
 
 cubit.cmd("create brick x 20 y 20 z 5")
 last_id += 1
-cubit.cmd(f"volume {last_id} move z 75")
+cubit.cmd(f"volume {last_id} move z 77.5")
 cubit.cmd("unite all")
 pos_am = cubit.parse_cubit_list('volume', 'all')
-cubit.cmd("create brick x 20 y 20 z 75")
+cubit.cmd("create brick x 20 y 20 z 80")
 last_id = cubit.parse_cubit_list('volume', 'all')[-1]
-cubit.cmd(f"volume {last_id} move z 37.5")
+cubit.cmd(f"volume {last_id} move z 40")
 volume_ids = [v for v in cubit.parse_cubit_list('volume', 'all') if v not in pos_am]
 # cubit.cmd(f"chop vol {volume_ids[0]} with vol {pos_am[0]} keep")
 # cubit.cmd(f"subtract vol {pos_am[0]} from vol {volume_ids[0]} keep")
@@ -33,14 +33,21 @@ cubit.cmd(f"remove overlap volume {pos_am[0]} {volume_ids[0]} modify larger")
 curves = cubit.parse_cubit_list('curve', 'all')
 circle_arcs = []
 for curve in curves:
-    print(cubit.get_curve_center(curve))
+    # print(cubit.get_curve_center(curve))
     if np.isclose(cubit.get_arc_length(curve), 2 * np.pi * radius):
         circle_arcs.append(curve)
 cubit.cmd(f"modify curve {' '.join(map(str, circle_arcs))} blend radius 0.025")
 volumes = cubit.parse_cubit_list('volume', 'all')
 cubit.cmd(f"volume {volumes[0]} name 'positive_am'")
 cubit.cmd(f"volume {volumes[1]} name 'solid_electrolyte'")
+surfaces = cubit.parse_cubit_list('surface', 'all')
+for surf in surfaces:
+    centroid = cubit.get_surface_centroid(surf)
+    area = cubit.get_surface_area(surf)
+    if np.all(np.isclose(centroid[:2], [0, 0])):
+        normal = cubit.get_surface_normal(surf)
+        print("centroid:", centroid, "area:", area, "normal:", normal)
 cubit.cmd("vol all scheme tetmesh")
 cubit.cmd("mesh volume all")
-filename = "mesh.exo"
-cubit.cmd(f'export exodus {filename} overwrite')
+filename = "mesh.bdf"
+cubit.cmd(f'export nastran {filename} overwrite')
