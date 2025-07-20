@@ -35,16 +35,32 @@ for curve in curves:
         circle_arcs.append(curve)
 cubit.cmd(f"modify curve {' '.join(map(str, circle_arcs))} blend radius 0.025")
 volumes = cubit.parse_cubit_list('volume', 'all')
-cubit.cmd(f"volume {volumes[0]} name 'vol1'")
-cubit.cmd(f"volume {volumes[1]} name 'vol2'")
+cubit.cmd(f"volume {volumes[0]} name 'positive_am'")
+cubit.cmd(f"volume {volumes[1]} name 'solid_electrolyte'")
+cubit.cmd(f"block 1 solid_electrolyte")
+cubit.cmd(f"block 2 positive_am")
 surfaces = cubit.parse_cubit_list('surface', 'all')
+insulated = []
+interface = []
 for surf in surfaces:
     centroid = cubit.get_surface_centroid(surf)
     area = cubit.get_surface_area(surf)
-    if np.all(np.isclose(centroid[:2], [0, 0])):
-        normal = cubit.get_surface_normal(surf)
-        print(surf, "centroid:", centroid, "area:", area, "normal:", normal)
+    if np.isclose(centroid[2], 0):
+        cubit.cmd(f"surface {surf} name 'left_surf'")
+        cubit.cmd(f"block 3 left_surf")
+    elif np.isclose(centroid[2], 80):
+        cubit.cmd(f"surface {surf} name 'right_surf'")
+        cubit.cmd(f"block 4 right_surf")
+    elif np.isclose(np.abs(centroid[0]), 10) or np.isclose(np.abs(centroid[1]), 10):
+        insulated.append(surf)
+    else:
+        interface.append(surf)
+cubit.cmd(f"block 5 surface {' '.join(map(str, insulated))}")
+cubit.cmd(f"block 6 surface {' '.join(map(str, interface))}")
+cubit.cmd("surface all scheme trimesh")
+cubit.cmd("mesh surface all")
 cubit.cmd("vol all scheme tetmesh")
 cubit.cmd("mesh volume all")
+
 filename = "mesh.bdf"
 cubit.cmd(f'export nastran {filename} overwrite')
