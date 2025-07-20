@@ -32,8 +32,15 @@ def build_active_contact_area_map(img, scale_x, scale_y, LX, LY, L_CELL):
     image[:, 0] = 0
     image[:, -1] = 0
     boundary_pieces, count, points, points_view = geometry.get_phase_boundary_pieces(image)
+    count = 0
     for hull in boundary_pieces:
+        count += 1
+        print(count, len(hull))
+        if len(hull) < 8:
+            continue
         hull_arr = np.asarray(hull)
+        print(hull_arr)
+        # hull_arr = np.sort(hull_arr, axis=0)
         hull_points = []
         for pp in hull[:-1]:
             idx = gmsh.model.occ.addPoint(int(pp[0]) * scale_x - 0.5*LX/L_CELL, int(pp[1]) * scale_y - 0.5*LY/L_CELL, 0)
@@ -41,6 +48,14 @@ def build_active_contact_area_map(img, scale_x, scale_y, LX, LY, L_CELL):
                 idx
             )
         hull_lines = []
+        points = np.array(hull_points)
+        pieces = np.array_split(points, 4)
+        C1 = gmsh.model.occ.addBSpline(pieces[0], degree=2)
+        C2 = gmsh.model.occ.addBSpline(pieces[1], degree=2)
+        C3 = gmsh.model.occ.addBSpline(pieces[2], degree=2)
+        C4 = gmsh.model.occ.addBSpline(pieces[3].tolist() + [pieces[0][0]], degree=2)
+        W1 = gmsh.model.occ.addWire([C1, C2, C3, C4])
+        idx2 = gmsh.model.occ.addBSplineFilling(W1, type="Curved")
         # for i in range(-1, len(hull_points) - 1):
         #     idx = gmsh.model.occ.addLine(hull_points[i], hull_points[i + 1])
         #     hull_lines.append(
@@ -49,9 +64,9 @@ def build_active_contact_area_map(img, scale_x, scale_y, LX, LY, L_CELL):
         # idx = gmsh.model.occ.addCurveLoop(hull_lines)
         # side_loops.append(idx)
         # idx2 = gmsh.model.occ.addPlaneSurface((idx, ))
-        b_curve = gmsh.model.occ.addBSpline(hull_points + hull_points[:1], degree=3)
-        b_loop = gmsh.model.occ.addCurveLoop([b_curve])
-        idx2 = gmsh.model.occ.addPlaneSurface([b_loop])
+        # b_curve = gmsh.model.occ.addBSpline(hull_points + hull_points[:1], degree=2)
+        # b_loop = gmsh.model.occ.addCurveLoop([b_curve])
+        # idx2 = gmsh.model.occ.addPlaneSurface([b_loop])
         left.append(idx2)
     return left
 
@@ -97,12 +112,12 @@ if __name__ == '__main__':
     gmsh.model.add('ellipsoidals')
     gmsh.option.setNumber('Mesh.Optimize', 1)
     gmsh.option.setNumber("Mesh.OptimizeThreshold", 0.9)
-    gmsh.option.setNumber("Mesh.Smoothing", 1)
+    # gmsh.option.setNumber("Mesh.Smoothing", 1)
     # gmsh.option.setNumber("Mesh.Algorithm", 5)
-    # gmsh.option.setNumber("Mesh.Algorithm3D", 10)
-    # gmsh.option.setNumber("General.NumThreads", 8)
-    gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
-    gmsh.option.setNumber("Mesh.ColorCarousel", 2)
+    gmsh.option.setNumber("Mesh.Algorithm3D", 10)
+    gmsh.option.setNumber("General.NumThreads", 4)
+    # gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
+    # gmsh.option.setNumber("Mesh.ColorCarousel", 2)
     if args.hexahedron:
         gmsh.option.setNumber('Mesh.SubdivisionAlgorithm', 2)
 
@@ -139,26 +154,26 @@ if __name__ == '__main__':
         z_pos -= 2.5/L_CELL
 
     ov, ovv = gmsh.model.occ.fuse(cylinders[:1], cylinders[1:] + spheres)
-    gmsh.model.occ.synchronize()
-    vols = []
-    tol = 0.005
-    for out in ov:
-        e = gmsh.model.getBoundary(gmsh.model.getBoundary([out]), False)
-        edges = []
-        sizes = []
-        for edge in e:
-            size = gmsh.model.occ.getMass(edge[0], abs(edge[1]))
-            if tol/2 <= size:
-                sizes.append(size)
-                edges.append(edge)
-        ratio = max(sizes)/min(sizes)
-        if ratio < 100:
-            v = gmsh.model.occ.fillet([out[1]], [abs(i[1]) for i in edges], [tol])
-            vols.extend(v)
-        else:
-            vols.append(out)
-    gmsh.model.occ.synchronize()
-    ov, ovv = gmsh.model.occ.fuse([(3, box_am)], vols)
+    # gmsh.model.occ.synchronize()
+    # vols = []
+    # tol = 0.005
+    # for out in ov:
+    #     e = gmsh.model.getBoundary(gmsh.model.getBoundary([out]), False)
+    #     edges = []
+    #     sizes = []
+    #     for edge in e:
+    #         size = gmsh.model.occ.getMass(edge[0], abs(edge[1]))
+    #         if tol/2 <= size:
+    #             sizes.append(size)
+    #             edges.append(edge)
+    #     ratio = max(sizes)/min(sizes)
+    #     if ratio < 100:
+    #         v = gmsh.model.occ.fillet([out[1]], [abs(i[1]) for i in edges], [tol])
+    #         vols.extend(v)
+    #     else:
+    #         vols.append(out)
+    # gmsh.model.occ.synchronize()
+    ov, ovv = gmsh.model.occ.fuse([(3, box_am)], ov)
     gmsh.model.occ.synchronize()
     vols = gmsh.model.getEntities(3)
     box_se = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, 0, LX/L_CELL, LY/L_CELL, 1)
@@ -221,19 +236,19 @@ if __name__ == '__main__':
     if img_id is not None:
         left = left_active
     if not args.refine:
-        # boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left + right + interface + insulated_am + insulated_se], oriented=False)]
-        boundary = []
-        for s in left + right:
-            loop = gmsh.model.occ.getCurveLoops(s)
-            for c in loop:
-                if not isinstance(c, list):
-                    boundary.extend(c.tolist())
-                else:
-                    boundary.extend(c[0].tolist())
-        boundary = list(set(boundary))
+        boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left + right + interface + insulated_am + insulated_se], oriented=False)]
+        # boundary = []
+        # for s in left + right:
+        #     loop = gmsh.model.occ.getCurveLoops(s)
+        #     for c in loop:
+        #         if not isinstance(c, list):
+        #             boundary.extend(c.tolist())
+        #         else:
+        #             boundary.extend(c[0].tolist())
+        # boundary = list(set(boundary))
         gmsh.model.mesh.field.add("Distance", 1)
         gmsh.model.mesh.field.setNumbers(1, "CurvesList", boundary)
-        # gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
+        gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
 
         gmsh.model.mesh.field.add("Threshold", 2)
         gmsh.model.mesh.field.setNumber(2, "IField", 1)
