@@ -11,7 +11,7 @@ fi
 cd $SOFTWARES_DIR/petsc
 git checkout $version
 
-./configure --with-clean --download-f2cblaslapack COPTFLAGS='-O2 -fPIC' CXXOPTFLAGS='-O2 -fPIC' FOPTFLAGS='-O2 -fPIC' --download-mumps --download-strumpack --download-superlu --with-mpi-dir=$CMAKE_INSTALL_PREFIX --download-hypre --with-64-bit-indices=no --download-metis --download-parmetis --download-ptscotch --download-eigen --download-hdf5 PETSC_ARCH=$PETSC_ARCH --with-scalar-type=real --with-shared-libraries --with-debugging=no --download-superlu_dist --download-scalapack --with-log=1 --download-netcdf --download-zlib --download-ml --download-suitesparse --download-spai
+./configure --with-clean --download-f2cblaslapack COPTFLAGS='-O2 -fPIC' CXXOPTFLAGS='-O2 -fPIC' FOPTFLAGS='-O2 -fPIC' --download-mumps --download-strumpack --download-superlu --with-mpi-dir=$CMAKE_INSTALL_PREFIX --download-hypre --with-64-bit-indices=no --download-metis --download-parmetis --download-ptscotch --download-eigen --download-hdf5 PETSC_ARCH=$PETSC_ARCH --with-scalar-type=real --with-shared-libraries --with-debugging=no --download-superlu_dist --download-scalapack --with-log=1 --download-netcdf --download-zlib --download-ml --download-suitesparse --download-spai --download-butterflypack
 make PETSC_DIR=$PETSC_DIR PETSC_ARCH=$PETSC_ARCH all
 make PETSC_DIR=$PETSC_DIR PETSC_ARCH=$PETSC_ARCH check
 $PYTHON3_DIR/bin/python3 -m pip install src/binding/petsc4py
