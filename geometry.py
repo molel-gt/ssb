@@ -58,11 +58,11 @@ def get_phase_boundary_pieces(voxels):
     return phase_boundary, count, all_points, points_view
 
 
-def create_mesh(mesh, cell_type, prune_z=False):
+def create_mesh(mesh, cell_type, key_name="gmsh:physical", prune_z=False):
     """
     """
     cells = mesh.get_cells_type(cell_type)
-    cell_data = mesh.get_cell_data("gmsh:physical", cell_type)
+    cell_data = mesh.get_cell_data(key_name, cell_type)
     out_mesh = meshio.Mesh(points=mesh.points,
                            cells={cell_type: cells},
                            cell_data={"name_to_read": [cell_data]}
