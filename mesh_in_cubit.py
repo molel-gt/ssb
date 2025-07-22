@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import random
 import sys
 
 import numpy as np
@@ -19,12 +20,35 @@ if __name__ == '__main__':
     lxs = np.arange(-0.5*LX/L_CELL+2.5/L_CELL, 0.5*LX/L_CELL, 5/L_CELL)
     lys = np.arange(-0.5*LY/L_CELL+2.5/L_CELL, 0.5*LY/L_CELL, 5/L_CELL)
     radius = 1.5/L_CELL
-    height = 50/L_CELL
+    height = 55/L_CELL
     for x in lxs:
         for y in lys:
             cubit.cmd(f"create cylinder radius {radius} height {height}")
             last_id += 1
-            cubit.cmd(f"volume {last_id} move x {x} y {y} z {50/L_CELL}")
+            cubit.cmd(f"volume {last_id} move x {x} y {y} z {52.5/L_CELL}")
+
+    L_slab_am = 5
+
+    z_pos = (L_CELL - L_slab_am)/L_CELL
+    random.seed(0)
+    L_SEP = 25
+    while z_pos > 0.3175:
+        for x in lxs:
+            for y in lys:
+                p_val = random.uniform(0, 1)
+                if p_val <= 0.25:
+                    p_val2 = random.uniform(0, 1)
+                    r = 1.75 + p_val2 * 5.0
+                    if (x + r/L_CELL) >= 0.5 * LX/L_CELL or (x - r/L_CELL) <= -0.5 * LX/L_CELL:
+                        continue
+                    if (y + r/L_CELL) >= 0.5 * LY/L_CELL or (y - r/L_CELL) <= -0.5 * LY/L_CELL:
+                        continue
+                    if (z_pos + r/L_CELL >= 1 - L_slab_am/L_CELL) or (z_pos -r/L_CELL) <= L_SEP/L_CELL:
+                        continue
+                    cubit.cmd(f"create sphere radius {r/L_CELL}")
+                    last_id = cubit.get_last_id("volume")
+                    cubit.cmd(f"volume {last_id} move x {x} y {y} z {z_pos}")
+        z_pos -= 2.5/L_CELL
 
     cubit.cmd(f"create brick x {20/L_CELL} y {20/L_CELL} z {5/L_CELL}")
     last_id += 1
@@ -35,8 +59,6 @@ if __name__ == '__main__':
     cubit.cmd(f"volume {last_id} move z {40/L_CELL}")
     volume_ids = cubit.parse_cubit_list('volume', 'all')
     cubit.cmd(f"remove overlap volume {volume_ids[0]} {volume_ids[1]} modify larger")
-    cubit.cmd("imprint all")
-    cubit.cmd("merge all")
     curves = cubit.parse_cubit_list('curve', 'all')
     circle_arcs = []
     for curve in curves:
@@ -44,6 +66,8 @@ if __name__ == '__main__':
         if np.isclose(cubit.get_arc_length(curve), 2 * np.pi * radius):
             circle_arcs.append(curve)
     cubit.cmd(f"modify curve {' '.join(map(str, circle_arcs))} blend radius 0.005")
+    cubit.cmd("imprint all")
+    cubit.cmd("merge all")
     volumes = cubit.parse_cubit_list('volume', 'all')
     cubit.cmd(f"volume {volumes[0]} name 'positive_am'")
     cubit.cmd(f"volume {volumes[1]} name 'solid_electrolyte'")
