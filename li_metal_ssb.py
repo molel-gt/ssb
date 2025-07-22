@@ -418,6 +418,7 @@ if __name__ == '__main__':
     parser.add_argument("--improved_guess", help="whether to solve for improved guess", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("--compute_distribution", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("--nested_fieldsplit", help="whether to use chain of fieldsplit preconditioners", default=False, action=argparse.BooleanOptionalAction)
+    parser.add_argument("--xdmf_mesh_input", help="whether to read xdmf file", default=False, action=argparse.BooleanOptionalAction)
 
     args = parser.parse_args()
 
@@ -430,7 +431,7 @@ if __name__ == '__main__':
     PETSc.Sys.Print(utils.starpad("*"))
     PETSc.Sys.Print(" SOLVER PARAMETERS ".center(90, "*"))
     PETSc.Sys.Print("interior penalty parameter (gamma)                     :", args.gamma)
-    PETSc.Sys.Print("solve improved guesss                                  :", args.improved_guess)
+    PETSc.Sys.Print("solve improved guess                                   :", args.improved_guess)
     PETSc.Sys.Print("minimum dt [s]                                         :", args.dt)
     PETSc.Sys.Print(utils.starpad("*"))
 
@@ -499,8 +500,12 @@ if __name__ == '__main__':
     log_datafile = os.path.join(results_dir, "log.txt")
 
     # load mesh
-    partitioner = mesh.create_cell_partitioner(partitioner_scotch(), mesh.GhostMode.shared_facet)
-    domain, ct, ft = io.gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)[:3]
+    if args.xdmf_mesh_input:
+        domain, ct, ft = mesh_utils.xdmf_reader(args.mesh_folder, comm)
+        domain.topology.create_entities(domain.topology.dim - 1)
+    else:
+        partitioner = mesh.create_cell_partitioner(partitioner_scotch(), mesh.GhostMode.shared_facet)
+        domain, ct, ft = io.gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)[:3]
     tdim = domain.topology.dim
     fdim = tdim - 1
     k = tdim - 2

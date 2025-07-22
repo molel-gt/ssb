@@ -1,12 +1,14 @@
 import numbers
-from dolfinx import cpp
+from dolfinx import cpp, io
 from mpi4py import MPI
 import dolfinx
 import dolfinx.fem.petsc
 import ufl
+import meshio
 import numpy as np
 from petsc4py import PETSc
 
+import geometry
 
 def transfer_meshtags_to_submesh(
     domain, entity_tag, submesh, sub_vertex_to_parent, sub_cell_to_parent
@@ -161,3 +163,38 @@ def compute_interface_cell_boundary_facets(domain, ct, ft, cell_marker, facet_ma
                 int_facet_domain.append([c_1, local_f_1])
 
     return int_facet_domain
+
+def xdmf_reader(mesh_folder, comm):
+    """
+    reads mesh_3d.xdmf and mesh_2d.xdmf from `mesh_folder`
+
+    :return:
+        domain, cell_tags, facet_tags
+    """
+    mesh_3d_file = os.path.join(mesh_folder, "mesh_3d.xdmf")
+    mesh_2d_file = os.path.join(mesh_folder, "mesh_2d.xdmf")
+    with io.XDMFFile(comm, mesh_3d_file, "r") as xdmf:
+        domain = xdmf.read_mesh(cpp.mesh.GhostMode.shared_facet, name="Grid")
+        ct = xdmf.read_meshtags(domain, name="Grid")
+
+    domain.topology.create_connectivity(domain.topology.dim, domain.topology.dim - 1)
+    with io.XDMFFile(comm, mesh_2d_file, "r") as xdmf:
+        ft = xdmf.read_meshtags(domain, name="Grid")
+
+    return domain, ct, ft
+
+
+def convert_to_xdmf(input_meshfile, cell_type_3d, cell_type_2d, key_name):
+    """
+    Extract 3D and 2D mesh from input file and convert to xdmf output file.
+    """
+    mesh = meshio.read(input_meshfile)
+    mesh_folder = os.path.dirname(input_meshfile)
+    mesh_3d_file = os.path.join(mesh_folder, "mesh_3d.xdmf")
+    mesh_2d_file = os.path.join(mesh_folder, "mesh_2d.xdmf")
+    mesh_3d = geometry.create_mesh(mesh, cell_type_3d, key_name=key_name)
+    mesh_3d.write(mesh_3d_file)
+    mesh_2d = geometry.create_mesh(mesh, cell_type_2d, key_name=key_name)
+    mesh_2d.write(mesh_2d_file)
+
+    return
