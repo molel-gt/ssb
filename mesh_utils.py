@@ -4,6 +4,7 @@ from mpi4py import MPI
 import dolfinx
 import dolfinx.fem.petsc
 import ufl
+import meshio
 import numpy as np
 from petsc4py import PETSc
 
