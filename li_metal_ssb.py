@@ -757,7 +757,7 @@ if __name__ == '__main__':
 
     F_2 = (c - c0)/dt * q * dx_r + inner(ufl.grad(c), ufl.grad(q)) * dx_r
     F_2 += -inner(kappa_total * phi_ref/(D * faraday_const * c_ref) * (kappa_r * grad(u_r)), n_r) * q_r * dInterface
-    F_2 += - 1.0 * h_r * inner(kappa_total * phi_ref/(D * faraday_const * c_ref) * grad(kappa_r * u_r) - grad(c_r), n_r) * inner(grad(q_r), n_r) * dInterface
+    F_2 += - args.alpha * args.gamma * h_r * inner(kappa_total * phi_ref/(D * faraday_const * c_ref) * grad(kappa_r * u_r) - grad(c_r), n_r) * inner(grad(q_r), n_r) * dInterface
     u_left = fem.Function(V0)
     u_left.x.array[:] = 0/phi_ref
     submesh_electrolyte.topology.create_connectivity(
