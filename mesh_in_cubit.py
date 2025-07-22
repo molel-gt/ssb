@@ -15,32 +15,35 @@ if __name__ == '__main__':
     last_id = 0
     LX = 20
     LY = 20
-    lxs = np.arange(-0.5*LX+2.5, 0.5*LX, 5)
-    lys = np.arange(-0.5*LY+2.5, 0.5*LY, 5)
-    radius = 1.5
-    height = 50
+    L_CELL = 80
+    lxs = np.arange(-0.5*LX/L_CELL+2.5/L_CELL, 0.5*LX/L_CELL, 5/L_CELL)
+    lys = np.arange(-0.5*LY/L_CELL+2.5/L_CELL, 0.5*LY/L_CELL, 5/L_CELL)
+    radius = 1.5/L_CELL
+    height = 50/L_CELL
     for x in lxs:
         for y in lys:
             cubit.cmd(f"create cylinder radius {radius} height {height}")
             last_id += 1
-            cubit.cmd(f"volume {last_id} move x {x} y {y} z 50")
+            cubit.cmd(f"volume {last_id} move x {x} y {y} z {50/L_CELL}")
 
-    cubit.cmd("create brick x 20 y 20 z 5")
+    cubit.cmd(f"create brick x {20/L_CELL} y {20/L_CELL} z {5/L_CELL}")
     last_id += 1
-    cubit.cmd(f"volume {last_id} move z 77.5")
+    cubit.cmd(f"volume {last_id} move z {77.5/L_CELL}")
     cubit.cmd("unite all")
-    cubit.cmd("create brick x 20 y 20 z 80")
+    cubit.cmd(f"create brick x {20/L_CELL} y {20/L_CELL} z {80/L_CELL}")
     last_id = cubit.parse_cubit_list('volume', 'all')[-1]
-    cubit.cmd(f"volume {last_id} move z 40")
+    cubit.cmd(f"volume {last_id} move z {40/L_CELL}")
     volume_ids = cubit.parse_cubit_list('volume', 'all')
     cubit.cmd(f"remove overlap volume {volume_ids[0]} {volume_ids[1]} modify larger")
+    cubit.cmd("imprint all")
+    cubit.cmd("merge all")
     curves = cubit.parse_cubit_list('curve', 'all')
     circle_arcs = []
     for curve in curves:
         # print(cubit.get_curve_center(curve))
         if np.isclose(cubit.get_arc_length(curve), 2 * np.pi * radius):
             circle_arcs.append(curve)
-    cubit.cmd(f"modify curve {' '.join(map(str, circle_arcs))} blend radius 0.025")
+    cubit.cmd(f"modify curve {' '.join(map(str, circle_arcs))} blend radius 0.005")
     volumes = cubit.parse_cubit_list('volume', 'all')
     cubit.cmd(f"volume {volumes[0]} name 'positive_am'")
     cubit.cmd(f"volume {volumes[1]} name 'solid_electrolyte'")
@@ -55,10 +58,10 @@ if __name__ == '__main__':
         if np.isclose(centroid[2], 0):
             cubit.cmd(f"surface {surf} name 'left_surf'")
             cubit.cmd(f"block {markers.left} left_surf")
-        elif np.isclose(centroid[2], 80):
+        elif np.isclose(centroid[2], 80/L_CELL):
             cubit.cmd(f"surface {surf} name 'right_surf'")
             cubit.cmd(f"block {markers.right} right_surf")
-        elif np.isclose(np.abs(centroid[0]), 10) or np.isclose(np.abs(centroid[1]), 10):
+        elif np.isclose(np.abs(centroid[0]), 10/L_CELL) or np.isclose(np.abs(centroid[1]), 10/L_CELL):
             insulated.append(surf)
         else:
             interface.append(surf)
