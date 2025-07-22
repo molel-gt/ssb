@@ -1,4 +1,5 @@
 import numbers
+import os
 from dolfinx import cpp, io
 from mpi4py import MPI
 import dolfinx
