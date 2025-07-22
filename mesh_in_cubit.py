@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+import os
 import sys
 
 import numpy as np
@@ -5,62 +7,67 @@ import numpy as np
 sys.path.append("/opt/Coreform-Cubit-2025.3/bin")
 import cubit
 
-last_id = 0
-LX = 20
-LY = 20
-lxs = np.arange(-0.5*LX+2.5, 0.5*LX, 5)
-lys = np.arange(-0.5*LY+2.5, 0.5*LY, 5)
-radius = 1.5
-height = 50
-for x in lxs:
-    for y in lys:
-        cubit.cmd(f"create cylinder radius {radius} height {height}")
-        last_id += 1
-        cubit.cmd(f"volume {last_id} move x {x} y {y} z 50")
+import commons
 
-cubit.cmd("create brick x 20 y 20 z 5")
-last_id += 1
-cubit.cmd(f"volume {last_id} move z 77.5")
-cubit.cmd("unite all")
-cubit.cmd("create brick x 20 y 20 z 80")
-last_id = cubit.parse_cubit_list('volume', 'all')[-1]
-cubit.cmd(f"volume {last_id} move z 40")
-volume_ids = cubit.parse_cubit_list('volume', 'all')
-cubit.cmd(f"remove overlap volume {volume_ids[0]} {volume_ids[1]} modify larger")
-curves = cubit.parse_cubit_list('curve', 'all')
-circle_arcs = []
-for curve in curves:
-    # print(cubit.get_curve_center(curve))
-    if np.isclose(cubit.get_arc_length(curve), 2 * np.pi * radius):
-        circle_arcs.append(curve)
-cubit.cmd(f"modify curve {' '.join(map(str, circle_arcs))} blend radius 0.025")
-volumes = cubit.parse_cubit_list('volume', 'all')
-cubit.cmd(f"volume {volumes[0]} name 'positive_am'")
-cubit.cmd(f"volume {volumes[1]} name 'solid_electrolyte'")
-cubit.cmd(f"block 1 solid_electrolyte")
-cubit.cmd(f"block 2 positive_am")
-surfaces = cubit.parse_cubit_list('surface', 'all')
-insulated = []
-interface = []
-for surf in surfaces:
-    centroid = cubit.get_surface_centroid(surf)
-    area = cubit.get_surface_area(surf)
-    if np.isclose(centroid[2], 0):
-        cubit.cmd(f"surface {surf} name 'left_surf'")
-        cubit.cmd(f"block 3 left_surf")
-    elif np.isclose(centroid[2], 80):
-        cubit.cmd(f"surface {surf} name 'right_surf'")
-        cubit.cmd(f"block 4 right_surf")
-    elif np.isclose(np.abs(centroid[0]), 10) or np.isclose(np.abs(centroid[1]), 10):
-        insulated.append(surf)
-    else:
-        interface.append(surf)
-cubit.cmd(f"block 5 surface {' '.join(map(str, insulated))}")
-cubit.cmd(f"block 6 surface {' '.join(map(str, interface))}")
-cubit.cmd("surface all scheme trimesh")
-cubit.cmd("mesh surface all")
-cubit.cmd("vol all scheme tetmesh")
-cubit.cmd("mesh volume all")
+if __name__ == '__main__':
+    mesh_folder = sys.argv[1]
+    markers = commons.Markers()
+    last_id = 0
+    LX = 20
+    LY = 20
+    lxs = np.arange(-0.5*LX+2.5, 0.5*LX, 5)
+    lys = np.arange(-0.5*LY+2.5, 0.5*LY, 5)
+    radius = 1.5
+    height = 50
+    for x in lxs:
+        for y in lys:
+            cubit.cmd(f"create cylinder radius {radius} height {height}")
+            last_id += 1
+            cubit.cmd(f"volume {last_id} move x {x} y {y} z 50")
 
-filename = "mesh.bdf"
-cubit.cmd(f'export nastran {filename} overwrite')
+    cubit.cmd("create brick x 20 y 20 z 5")
+    last_id += 1
+    cubit.cmd(f"volume {last_id} move z 77.5")
+    cubit.cmd("unite all")
+    cubit.cmd("create brick x 20 y 20 z 80")
+    last_id = cubit.parse_cubit_list('volume', 'all')[-1]
+    cubit.cmd(f"volume {last_id} move z 40")
+    volume_ids = cubit.parse_cubit_list('volume', 'all')
+    cubit.cmd(f"remove overlap volume {volume_ids[0]} {volume_ids[1]} modify larger")
+    curves = cubit.parse_cubit_list('curve', 'all')
+    circle_arcs = []
+    for curve in curves:
+        # print(cubit.get_curve_center(curve))
+        if np.isclose(cubit.get_arc_length(curve), 2 * np.pi * radius):
+            circle_arcs.append(curve)
+    cubit.cmd(f"modify curve {' '.join(map(str, circle_arcs))} blend radius 0.025")
+    volumes = cubit.parse_cubit_list('volume', 'all')
+    cubit.cmd(f"volume {volumes[0]} name 'positive_am'")
+    cubit.cmd(f"volume {volumes[1]} name 'solid_electrolyte'")
+    cubit.cmd(f"block {markers.electrolyte} solid_electrolyte")
+    cubit.cmd(f"block {markers.positive_am} positive_am")
+    surfaces = cubit.parse_cubit_list('surface', 'all')
+    insulated = []
+    interface = []
+    for surf in surfaces:
+        centroid = cubit.get_surface_centroid(surf)
+        area = cubit.get_surface_area(surf)
+        if np.isclose(centroid[2], 0):
+            cubit.cmd(f"surface {surf} name 'left_surf'")
+            cubit.cmd(f"block {markers.left} left_surf")
+        elif np.isclose(centroid[2], 80):
+            cubit.cmd(f"surface {surf} name 'right_surf'")
+            cubit.cmd(f"block {markers.right} right_surf")
+        elif np.isclose(np.abs(centroid[0]), 10) or np.isclose(np.abs(centroid[1]), 10):
+            insulated.append(surf)
+        else:
+            interface.append(surf)
+    cubit.cmd(f"block {markers.insulated} surface {' '.join(map(str, insulated))}")
+    cubit.cmd(f"block {markers.electrolyte_v_positive_am} surface {' '.join(map(str, interface))}")
+    cubit.cmd("surface all scheme trimesh")
+    cubit.cmd("mesh surface all")
+    cubit.cmd("vol all scheme tetmesh")
+    cubit.cmd("mesh volume all")
+
+    filename = os.path.join(mesh_folder, "mesh.bdf")
+    cubit.cmd(f"export nastran '{filename}' overwrite")
