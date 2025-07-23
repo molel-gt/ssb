@@ -8,7 +8,11 @@ import numpy as np
 sys.path.append("/opt/Coreform-Cubit-2025.3/bin")
 import cubit
 
-import commons
+import commons, mesh_utils
+
+
+resolution = 0.005
+
 
 if __name__ == '__main__':
     mesh_folder = sys.argv[1]
@@ -21,6 +25,7 @@ if __name__ == '__main__':
     lys = np.arange(-0.5*LY/L_CELL+2.5/L_CELL, 0.5*LY/L_CELL, 5/L_CELL)
     radius = 1.5/L_CELL
     height = 55/L_CELL
+    cubit.cmd("Set Quality Threshold 0.7")
     for x in lxs:
         for y in lys:
             cubit.cmd(f"create cylinder radius {radius} height {height}")
@@ -89,12 +94,16 @@ if __name__ == '__main__':
             insulated.append(surf)
         else:
             interface.append(surf)
+    cubit.cmd("set developer commands on")
     cubit.cmd(f"block {markers.insulated} surface {' '.join(map(str, insulated))}")
     cubit.cmd(f"block {markers.electrolyte_v_positive_am} surface {' '.join(map(str, interface))}")
+    # cubit.cmd(f"surface {' '.join(map(str, interface))} size {resolution}")
     cubit.cmd("surface all scheme trimesh")
     cubit.cmd("mesh surface all")
     cubit.cmd("vol all scheme tetmesh")
     cubit.cmd("mesh volume all")
+    # cubit.cmd(f"refine tet boundary surface {' '.join(map(str, interface))} volume {volumes[1]} first_delta 0.0025 bias 1.2 layer 4 smooth")
 
     filename = os.path.join(mesh_folder, "mesh.bdf")
     cubit.cmd(f"export nastran '{filename}' overwrite")
+    mesh_utils.convert_to_xdmf(filename, "tetra", "triangle", "nastran:ref")
