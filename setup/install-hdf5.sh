@@ -12,4 +12,4 @@ cd $SOFTWARES_DIR/hdf5
 git checkout hdf5_1.14.5
 ./autogen.sh
 CC=$CMAKE_INSTALL_PREFIX/bin/mpicc ./configure --enable-parallel --prefix=$CMAKE_INSTALL_PREFIX
-make -j && make install
+make -j3 && make install
