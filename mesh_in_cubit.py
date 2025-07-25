@@ -8,7 +8,7 @@ import numpy as np
 sys.path.append("/opt/Coreform-Cubit-2025.3/bin")
 import cubit
 
-import commons, mesh_utils
+import commons#, mesh_utils
 
 
 resolution = 0.005
@@ -102,8 +102,8 @@ if __name__ == '__main__':
     cubit.cmd("mesh surface all")
     cubit.cmd("vol all scheme tetmesh")
     cubit.cmd("mesh volume all")
-    # cubit.cmd(f"refine tet boundary surface {' '.join(map(str, interface))} volume {volumes[1]} first_delta 0.0025 bias 1.2 layer 4 smooth")
+    cubit.cmd(f"refine surface {' '.join(map(str, interface))} size 0.005 bias 1.2")
 
     filename = os.path.join(mesh_folder, "mesh.bdf")
     cubit.cmd(f"export nastran '{filename}' overwrite")
-    mesh_utils.convert_to_xdmf(filename, "tetra", "triangle", "nastran:ref")
+    # mesh_utils.convert_to_xdmf(filename, "tetra", "triangle", "nastran:ref")
