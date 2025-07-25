@@ -17,4 +17,4 @@ fi
 
 cd $OPENMPI_SRC_DIR
 ./configure --prefix=$CMAKE_INSTALL_PREFIX
-make -j && make install
+make -j3 && make install
