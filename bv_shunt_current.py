@@ -418,7 +418,7 @@ if __name__ == '__main__':
         # Figure 9
         fig, ax = plt.subplots()
         ax_2 = ax.twinx()
-        ax_2.semilogx(variables, i_p_max_vals_closed, 'k')
+        ax_2.semilogx(variables, i_p_max_vals_closed, 'r')
         ax.semilogx(variables, np.abs(I_ds_vals_closed), 'b--')
         ax_2.set_ylim([400, 1400])
         ax.set_ylim([1.5, 2.75])

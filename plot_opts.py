@@ -1,6 +1,7 @@
 # options for matplotlib.plt
 params = {
     # 'text.usetex': True,
+    "figure.dpi": 600,
     'figure.figsize': (5, 4.5),
     'font.size' : 12,
     'font.family': 'monospace',
