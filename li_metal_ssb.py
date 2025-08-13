@@ -482,6 +482,7 @@ if __name__ == '__main__':
                                )
     utils.make_dir_if_missing(results_dir)
     output_potential_file = os.path.join(results_dir, "potential.bp")
+    interface_current_density_file = os.path.join(results_dir, "interface_current_density.bp")
     elec_potential_file = os.path.join(results_dir, "electrolyte_potential.bp")
     positive_am_potential_file = os.path.join(results_dir, "positive_am_potential.bp")
     current_file = os.path.join(results_dir, "current.bp")
@@ -549,10 +550,14 @@ if __name__ == '__main__':
     parent_to_sub_electrolyte[submesh_electrolyte_to_mesh] = np.arange(len(submesh_electrolyte_to_mesh), dtype=np.int32)
     parent_to_sub_positive_am = np.full(num_entities_local, -1, dtype=np.int32)
     parent_to_sub_positive_am[submesh_positive_am_to_mesh] = np.arange(len(submesh_positive_am_to_mesh), dtype=np.int32)
-
     ft_electrolyte = mesh_utils.transfer_meshtags(domain, submesh_electrolyte, submesh_electrolyte_to_mesh, ft)
     ft_positive_am = mesh_utils.transfer_meshtags(domain, submesh_positive_am, submesh_positive_am_to_mesh, ft)
-
+    # interface submesh
+    submesh_interface, submesh_interface_to_mesh, x_v_map = mesh.create_submesh(
+        submesh_positive_am, tdim-1, ft_positive_am.find(markers.electrolyte_v_positive_am)
+    )[0:3]
+    parent_to_sub_interface = np.full(num_facets_local, -1, dtype=np.int32)
+    parent_to_sub_interface[submesh_interface_to_mesh] = np.arange(len(submesh_interface_to_mesh), dtype=np.int32)
 
     # Hack, as we use one-sided restrictions, pad dS integral with the same entity from the same cell on both sides
     domain.topology.create_connectivity(fdim, tdim)
@@ -566,7 +571,7 @@ if __name__ == '__main__':
         parent_to_sub_electrolyte[cells] = max(b_map)
         parent_to_sub_positive_am[cells] = max(t_map)
 
-    entity_maps = {submesh_electrolyte: parent_to_sub_electrolyte, submesh_positive_am: parent_to_sub_positive_am}
+    entity_maps = {submesh_electrolyte: parent_to_sub_electrolyte, submesh_positive_am: parent_to_sub_positive_am, submesh_interface: parent_to_sub_interface}
 
     ##
     Q = fem.functionspace(domain, ("DG", 0))
@@ -589,6 +594,9 @@ if __name__ == '__main__':
     # initial guess
     u_0.interpolate(lambda x: x[0]-x[0])
     u_1.interpolate(lambda x: 0.5 + x[0]-x[0])
+
+    V_x = fem.functionspace(submesh_interface, ("CG", 1, (tdim, )))
+    i_x = fem.Function(V_x)
 
     # Add coupling term to the interface
     # Get interface markers on submesh b
@@ -1171,6 +1179,7 @@ if __name__ == '__main__':
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
     u_vtx = io.VTXWriter(comm, output_potential_file, [u], engine="BP5")
     u_vtx.write(0)
+    i_x_vtx = io.VTXWriter(comm, interface_current_density_file, [i_x], engine="BP5")
 
     # cycler.next()
     dt.value = cycler.dt
@@ -1312,6 +1321,13 @@ if __name__ == '__main__':
         Pmat.destroy()
         c0.x.array[:] = c.x.array
         current_h.interpolate(current_expr)
+        facets_x_map = submesh_interface.topology.index_map(submesh_interface.topology.dim)
+        num_facets_on_proc = facets_x_map.size_local + facets_x_map.num_ghosts
+        facets_x = np.arange(num_facets_on_proc, dtype=np.int32)
+        interpolation_data = fem.create_interpolation_data(V_x, W, facets_x, padding=1e-14)
+        i_x.interpolate_nonmatching(current_h, facets_x, interpolation_data=interpolation_data)
+        i_x.x.scatter_forward()
+        i_x_vtx.write(cycler.time*t_ref)
         I_left = comm.allreduce(fem.assemble_scalar(fem.form(
                                 inner(kappa_elec * phi_ref * L_ref ** (k) * grad(u_0), n) * ds(markers.left),
                                 entity_maps=entity_maps)), op=MPI.SUM)
@@ -1396,12 +1412,12 @@ if __name__ == '__main__':
                                                                         entity_maps=entity_maps)), op=MPI.SUM)
         dt.value = cycler.dt
         cycler.check_stop_criteria(I_cell=np.abs(I_right), V_cell=u_avg_right)
-        cvtx.write(cycler.time)
+        cvtx.write(cycler.time*t_ref)
 
         u.interpolate(u_0, cells1=submesh_electrolyte_to_mesh, cells0=np.arange(len(submesh_electrolyte_to_mesh)))
         u.interpolate(u_1, cells1=submesh_positive_am_to_mesh, cells0=np.arange(len(submesh_positive_am_to_mesh)))
         u.x.scatter_forward()
-        u_vtx.write(cycler.time)
+        u_vtx.write(cycler.time*t_ref)
 
         # current density distribution
         i_intervals = np.linspace(0, 1.05 * np.max([np.abs(i_avg_left), np.abs(i_avg_right)]), 501)
