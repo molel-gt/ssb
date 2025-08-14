@@ -595,9 +595,6 @@ if __name__ == '__main__':
     u_0.interpolate(lambda x: x[0]-x[0])
     u_1.interpolate(lambda x: 0.5 + x[0]-x[0])
 
-    V_x = fem.functionspace(submesh_interface, ("CG", 1, (tdim, )))
-    i_x = fem.Function(V_x)
-
     # Add coupling term to the interface
     # Get interface markers on submesh b
     f_to_c = domain.topology.connectivity(fdim, tdim)
@@ -653,6 +650,18 @@ if __name__ == '__main__':
     n = ufl.FacetNormal(domain)
     n_0 = ufl.FacetNormal(submesh_electrolyte)
     n_1 = ufl.FacetNormal(submesh_positive_am)
+
+    V_x = fem.functionspace(submesh_interface, ("CG", 1, (tdim, )))
+    i_x = fem.Function(V_x)
+    n_x = ufl.CellNormal(submesh_interface)
+    V_x_norm = fem.functionspace(submesh_interface, ("DG", 0, (tdim, )))
+    normals_x = fem.Function(V_x_norm)
+    normals_expr = fem.Expression(n_x, V_x_norm.element.interpolation_points())
+    normals_x.interpolate(normals_expr)
+    V_x_n = fem.functionspace(submesh_interface, ("CG", 1))
+    i_x_n = fem.Function(V_x_n)
+    i_x_n_expr = fem.Expression(inner(normals_x, i_x), V_x_n.element.interpolation_points())
+
     n_l = n(l_res)
     n_r = n(r_res)
     h = ufl.CellDiameter(domain)
@@ -1179,7 +1188,7 @@ if __name__ == '__main__':
     cvtx = io.VTXWriter(comm, concentration_file, [c], engine="BP5")
     u_vtx = io.VTXWriter(comm, output_potential_file, [u], engine="BP5")
     u_vtx.write(0)
-    i_x_vtx = io.VTXWriter(comm, interface_current_density_file, [i_x], engine="BP5")
+    i_x_n_vtx = io.VTXWriter(comm, interface_current_density_file, [i_x_n], engine="BP5")
 
     # cycler.next()
     dt.value = cycler.dt
@@ -1327,7 +1336,9 @@ if __name__ == '__main__':
         interpolation_data = fem.create_interpolation_data(V_x, W, facets_x, padding=1e-14)
         i_x.interpolate_nonmatching(current_h, facets_x, interpolation_data=interpolation_data)
         i_x.x.scatter_forward()
-        i_x_vtx.write(cycler.time*t_ref)
+        i_x_n.interpolate(i_x_n_expr)
+        i_x_n.x.scatter_forward()
+        i_x_n_vtx.write(cycler.time*t_ref)
         I_left = comm.allreduce(fem.assemble_scalar(fem.form(
                                 inner(kappa_elec * phi_ref * L_ref ** (k) * grad(u_0), n) * ds(markers.left),
                                 entity_maps=entity_maps)), op=MPI.SUM)
