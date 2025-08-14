@@ -660,7 +660,8 @@ if __name__ == '__main__':
     normals_x.interpolate(normals_expr)
     V_x_n = fem.functionspace(submesh_interface, ("CG", 1))
     i_x_n = fem.Function(V_x_n)
-    i_x_n_expr = fem.Expression(inner(normals_x, i_x), V_x_n.element.interpolation_points())
+    # TODO: Remove absolute after normals are consistently-oriented
+    i_x_n_expr = fem.Expression(np.abs(inner(normals_x, i_x)), V_x_n.element.interpolation_points())
 
     n_l = n(l_res)
     n_r = n(r_res)
