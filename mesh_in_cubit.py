@@ -8,10 +8,10 @@ import numpy as np
 sys.path.append("/opt/Coreform-Cubit-2025.3/bin")
 import cubit
 
-import commons#, mesh_utils
+import commons, mesh_utils
 
 
-resolution = 0.005
+resolution = 0.001
 
 
 if __name__ == '__main__':
@@ -26,6 +26,8 @@ if __name__ == '__main__':
     radius = 1.5/L_CELL
     height = 55/L_CELL
     cubit.cmd("Set Quality Threshold 0.7")
+    cubit.cmd(f"set max_size {resolution}")
+    cubit.cmd(f"set min_size 0.001")
     for x in lxs:
         for y in lys:
             cubit.cmd(f"create cylinder radius {radius} height {height}")
@@ -70,7 +72,7 @@ if __name__ == '__main__':
         # print(cubit.get_curve_center(curve))
         if np.isclose(cubit.get_arc_length(curve), 2 * np.pi * radius):
             circle_arcs.append(curve)
-    cubit.cmd(f"modify curve {' '.join(map(str, circle_arcs))} blend radius 0.005")
+    cubit.cmd(f"modify curve {' '.join(map(str, circle_arcs))} blend radius 0.001")
     cubit.cmd("imprint all")
     cubit.cmd("merge all")
     volumes = cubit.parse_cubit_list('volume', 'all')
@@ -97,13 +99,14 @@ if __name__ == '__main__':
     cubit.cmd("set developer commands on")
     cubit.cmd(f"block {markers.insulated} surface {' '.join(map(str, insulated))}")
     cubit.cmd(f"block {markers.electrolyte_v_positive_am} surface {' '.join(map(str, interface))}")
-    # cubit.cmd(f"surface {' '.join(map(str, interface))} size {resolution}")
     cubit.cmd("surface all scheme trimesh")
     cubit.cmd("mesh surface all")
     cubit.cmd("vol all scheme tetmesh")
     cubit.cmd("mesh volume all")
-    cubit.cmd(f"refine surface {' '.join(map(str, interface))} size 0.005 bias 1.2")
-
+    
+    # cubit.cmd(f"refine surface {' '.join(map(str, interface))} size 0.005 bias 1.2")
+    # cubit.cmd(f"Select Tet In Surface {' '.join(map(str, interface))}")
+    # cubit.cmd(f"Refine Tet In Surface {' '.join(map(str, interface))} Depth 3 NumSplit 1")
     filename = os.path.join(mesh_folder, "mesh.bdf")
     cubit.cmd(f"export nastran '{filename}' overwrite")
     # mesh_utils.convert_to_xdmf(filename, "tetra", "triangle", "nastran:ref")
