@@ -387,14 +387,17 @@ if __name__ == '__main__':
     grid = pv.UnstructuredGrid(cells, types, x)
     grid.point_data["u"] = u.x.array.real
     grid.set_active_scalars("u")
-    plotter = pv.Plotter()
+    cmap = "inferno"
+    pv.global_theme.cmap = cmap
+    plotter = pv.Plotter(off_screen=True)
 
     # plot potential heatmap
-    plotter.add_mesh(grid, show_edges=False, opacity=0.25)
+    plotter.add_mesh(grid, show_edges=False, opacity=0.25, cmap=cmap)
 
     # plot isopotential lines
-    contour_levels = 10
+    contour_levels = 25
     contours = grid.contour(contour_levels, scalars="u")
-    plotter.add_mesh(contours, line_width=1)
+    plotter.add_mesh(contours, line_width=1, cmap=cmap)
     plotter.view_xy() # orientation
+    plotter.screenshot("figures/total_current_bc.png")
     plotter.show()
