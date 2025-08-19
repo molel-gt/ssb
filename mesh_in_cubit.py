@@ -11,8 +11,8 @@ import cubit
 import commons, mesh_utils
 
 
-resolution = 0.005
-add_fillet = False
+resolution = 0.00375
+add_fillet = True
 
 if __name__ == '__main__':
     mesh_folder = sys.argv[1]
@@ -27,9 +27,9 @@ if __name__ == '__main__':
     height = 55/L_CELL
     cubit.cmd("Set Quality Threshold 0.7")
     cubit.cmd(f"set max_size {resolution}")
-    cubit.cmd(f"set min_size 0.001")
+    # cubit.cmd(f"set min_size 0.00375")
     cubit.cmd("set tetmesher optimize level strong")
-    cubit.cmd("set tetmesher geometry approximation angle 5")
+    cubit.cmd("set tetmesher geometry approximation angle 2.5")
     for x in lxs:
         for y in lys:
             cubit.cmd(f"create cylinder radius {radius} height {height}")
@@ -80,7 +80,7 @@ if __name__ == '__main__':
             circle_arcs.append(curve)
             # if np.isclose(cubit.get_arc_length(curve), 2 * np.pi * radius):
             #     circle_arcs.append(curve)
-        cubit.cmd(f"modify curve {' '.join(map(str, circle_arcs))} blend radius 0.01")
+        cubit.cmd(f"modify curve {' '.join(map(str, circle_arcs))} blend radius 0.1")
     cubit.cmd("imprint all")
     cubit.cmd("merge all")
     volumes = cubit.parse_cubit_list('volume', 'all')
@@ -110,11 +110,10 @@ if __name__ == '__main__':
     cubit.cmd("surface all scheme trimesh")
     cubit.cmd("mesh surface all")
     cubit.cmd("vol all scheme tetmesh")
+    # cubit.cmd("volume all tetmesh growth_factor 1.2")
     cubit.cmd("mesh volume all")
-    
-    cubit.cmd(f"refine surface {' '.join(map(str, interface))} size 0.005 bias 1.2 depth 3")
-    # cubit.cmd(f"Select Tet In Surface {' '.join(map(str, interface))}")
-    # cubit.cmd(f"Refine Tet In Surface {' '.join(map(str, interface))} Depth 3 NumSplit 1")
+    # cubit.cmd("volume all sizing function skeleton")
+    cubit.cmd(f"refine surface {' '.join(map(str, interface))} size 0.00375")
     filename = os.path.join(mesh_folder, "mesh.bdf")
     cubit.cmd(f"export nastran '{filename}' overwrite")
     # mesh_utils.convert_to_xdmf(filename, "tetra", "triangle", "nastran:ref")
