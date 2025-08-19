@@ -11,8 +11,8 @@ import cubit
 import commons, mesh_utils
 
 
-resolution = 0.001
-
+resolution = 0.005
+add_fillet = False
 
 if __name__ == '__main__':
     mesh_folder = sys.argv[1]
@@ -28,6 +28,8 @@ if __name__ == '__main__':
     cubit.cmd("Set Quality Threshold 0.7")
     cubit.cmd(f"set max_size {resolution}")
     cubit.cmd(f"set min_size 0.001")
+    cubit.cmd("set tetmesher optimize level strong")
+    cubit.cmd("set tetmesher geometry approximation angle 5")
     for x in lxs:
         for y in lys:
             cubit.cmd(f"create cylinder radius {radius} height {height}")
@@ -66,13 +68,19 @@ if __name__ == '__main__':
     cubit.cmd(f"volume {last_id} move z {40/L_CELL}")
     volume_ids = cubit.parse_cubit_list('volume', 'all')
     cubit.cmd(f"remove overlap volume {volume_ids[0]} {volume_ids[1]} modify larger")
-    curves = cubit.parse_cubit_list('curve', 'all')
-    circle_arcs = []
-    for curve in curves:
-        # print(cubit.get_curve_center(curve))
-        if np.isclose(cubit.get_arc_length(curve), 2 * np.pi * radius):
+    if add_fillet:
+        curves = cubit.parse_cubit_list('curve', 'all')
+        circle_arcs = []
+        for curve in curves:
+            center = cubit.get_curve_center(curve)
+            if np.isclose(center[2], 0) or np.isclose(center[2], 1):
+                continue
+            if np.isclose(np.abs(center[0]), 0.5*LX/L_CELL) or np.isclose(np.abs(center[1]), 0.5*LX/L_CELL):
+                continue
             circle_arcs.append(curve)
-    cubit.cmd(f"modify curve {' '.join(map(str, circle_arcs))} blend radius 0.001")
+            # if np.isclose(cubit.get_arc_length(curve), 2 * np.pi * radius):
+            #     circle_arcs.append(curve)
+        cubit.cmd(f"modify curve {' '.join(map(str, circle_arcs))} blend radius 0.01")
     cubit.cmd("imprint all")
     cubit.cmd("merge all")
     volumes = cubit.parse_cubit_list('volume', 'all')
@@ -104,7 +112,7 @@ if __name__ == '__main__':
     cubit.cmd("vol all scheme tetmesh")
     cubit.cmd("mesh volume all")
     
-    # cubit.cmd(f"refine surface {' '.join(map(str, interface))} size 0.005 bias 1.2")
+    cubit.cmd(f"refine surface {' '.join(map(str, interface))} size 0.005 bias 1.2 depth 3")
     # cubit.cmd(f"Select Tet In Surface {' '.join(map(str, interface))}")
     # cubit.cmd(f"Refine Tet In Surface {' '.join(map(str, interface))} Depth 3 NumSplit 1")
     filename = os.path.join(mesh_folder, "mesh.bdf")

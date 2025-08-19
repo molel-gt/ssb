@@ -65,7 +65,7 @@ class Boundaries:
         return 5
 
 
-def build_mesh(output_path, markers, Lx=10, Ly=1, resolution=0.05):
+def build_mesh(output_path, markers, Lx=100e-6, Ly=100e-6, resolution=1e-6):
     """
     generate mesh for given dimensions (`Lx` `Ly`) and write output to `output_path`
     """
@@ -75,6 +75,7 @@ def build_mesh(output_path, markers, Lx=10, Ly=1, resolution=0.05):
     coords = [
     (0, 0, 0),
     (Lx, 0, 0),
+    (1.5*Lx, 0.5*Ly, 0),
     (Lx, Ly, 0),
     (0, Ly, 0),
     ]
@@ -100,9 +101,9 @@ def build_mesh(output_path, markers, Lx=10, Ly=1, resolution=0.05):
     # add boundary markers
     gmsh.model.addPhysicalGroup(1, [lines[0]], markers.left, "left")
     gmsh.model.addPhysicalGroup(1, [lines[1]], markers.bottom, "bottom")
-    gmsh.model.addPhysicalGroup(1, [lines[2]], markers.right, "right")
-    gmsh.model.addPhysicalGroup(1, [lines[3]], markers.top, "top")
-    gmsh.model.addPhysicalGroup(1, [lines[1], lines[3]], markers.insulated, "insulated")
+    gmsh.model.addPhysicalGroup(1, [lines[2], lines[3]], markers.right, "right")
+    gmsh.model.addPhysicalGroup(1, [lines[4]], markers.top, "top")
+    gmsh.model.addPhysicalGroup(1, [lines[1], lines[4]], markers.insulated, "insulated")
     gmsh.model.addPhysicalGroup(2, [surf], markers.domain, "domain")
     gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(2)
@@ -187,7 +188,7 @@ def delete_numpy_rows(in_arr, to_delete):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='secondary current distribution')
-    parser.add_argument("-current", "--current", help="current boundary condition [A]", nargs='?', const=1, default=-1.0, type=float)
+    parser.add_argument("-current", "--current", help="current boundary condition [A]", nargs='?', const=1, default=-1e-4, type=float)
     parser.add_argument('--solver_type', help='solver type to use', nargs='?',
                         const=1, default='direct', type=str)
     parser.add_argument("--regenerate_mesh", help="whether to regenerate mesh", default=False, action=argparse.BooleanOptionalAction)
@@ -198,7 +199,7 @@ if __name__ == '__main__':
     output_mesh_path = 'mesh.msh'
     output_potential_path = 'potential.bp'
     if args.regenerate_mesh:
-        build_mesh(output_mesh_path, markers, Lx=50, Ly=1)
+        build_mesh(output_mesh_path, markers, Lx=100e-6, Ly=100e-6, resolution=1e-6)
 
     comm = MPI.COMM_WORLD
     partitioner = mesh.create_cell_partitioner(mesh.GhostMode.shared_facet)
