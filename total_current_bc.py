@@ -385,10 +385,11 @@ if __name__ == '__main__':
 
     cells, types, x = plot.vtk_mesh(V)
     grid = pv.UnstructuredGrid(cells, types, x)
-    grid.point_data["u"] = u.x.array.real
-    grid.set_active_scalars("u")
+    grid.point_data["potential [μV]"] = u.x.array.real * 1e6
+    grid.set_active_scalars("potential [μV]")
     cmap = "inferno"
     pv.global_theme.cmap = cmap
+    # pv.global_theme.colorbar_orientation = 'vertical'
     plotter = pv.Plotter(off_screen=True)
 
     # plot potential heatmap
@@ -396,8 +397,9 @@ if __name__ == '__main__':
 
     # plot isopotential lines
     contour_levels = 25
-    contours = grid.contour(contour_levels, scalars="u")
+    contours = grid.contour(contour_levels, scalars="potential [μV]")
     plotter.add_mesh(contours, line_width=1, cmap=cmap)
     plotter.view_xy() # orientation
+    # plotter.add_scalar_bar("φ [μV]", vertical=True, label_font_size=12)
     plotter.screenshot("figures/total_current_bc.png")
     plotter.show()
