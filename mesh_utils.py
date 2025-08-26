@@ -200,3 +200,16 @@ def convert_to_xdmf(input_meshfile, cell_type_3d, cell_type_2d, key_name):
     mesh_2d.write(mesh_2d_file)
 
     return
+
+
+def get_gmsh_element_counts(element_types, gmsh):
+    elementTypes, elementTags, nodeTags = gmsh.model.mesh.getElements()
+    element_counts = {}
+    for k in element_types:
+        element_counts[k] = 0
+
+    for i, etype in enumerate(elementTypes):
+        if etype in element_types:
+            element_counts[etype] = len(elementTags[i])
+
+    return element_counts

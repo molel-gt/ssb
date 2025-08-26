@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import alphashape
 
-import commons, configs, geometry, grapher, utils
+import commons, configs, geometry, grapher, mesh_utils, utils
 
 area_frac_to_img_id = {
     "98.41": 6,
@@ -112,12 +112,13 @@ if __name__ == '__main__':
     gmsh.model.add('ellipsoidals')
     gmsh.option.setNumber('Mesh.Optimize', 1)
     gmsh.option.setNumber("Mesh.OptimizeThreshold", 0.9)
-    # gmsh.option.setNumber("Mesh.Smoothing", 1)
+    gmsh.option.setNumber("Mesh.Smoothing", 10)
     # gmsh.option.setNumber("Mesh.Algorithm", 5)
-    gmsh.option.setNumber("Mesh.Algorithm3D", 10)
+    # gmsh.option.setNumber("Mesh.Algorithm3D", 10)
     gmsh.option.setNumber("General.NumThreads", 4)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
-    # gmsh.option.setNumber("Mesh.ColorCarousel", 2)
+    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", args.min_elements_per_2pi)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
     if args.hexahedron:
         gmsh.option.setNumber('Mesh.SubdivisionAlgorithm', 2)
 
@@ -273,9 +274,9 @@ if __name__ == '__main__':
 
         threshold = gmsh.model.mesh.field.add("Threshold")
         gmsh.model.mesh.field.setNumber(threshold, "InField", distance)
-        gmsh.model.mesh.field.setNumber(threshold, "LcMin", 0.1/L_CELL)
+        gmsh.model.mesh.field.setNumber(threshold, "LcMin", args.resolution*2/5)
         gmsh.model.mesh.field.setNumber(threshold, "LcMax", args.resolution)
-        gmsh.model.mesh.field.setNumber(threshold, "DistMin", 0.1/L_CELL)
+        gmsh.model.mesh.field.setNumber(threshold, "DistMin", args.resolution*2/5)
         gmsh.model.mesh.field.setNumber(threshold, "DistMax", args.resolution)
 
         gmsh.model.mesh.field.add("Max", 5)
@@ -285,4 +286,8 @@ if __name__ == '__main__':
     gmsh.model.mesh.generate(3)
     # gmsh.model.mesh.optimize("Netgen")
     gmsh.write(mshpath)
+    element_types = {4: "tetrahedra", 2: "triangles"}
+    element_counts = mesh_utils.get_gmsh_element_counts(element_types.keys(), gmsh)
+    print(f"number of tetrahedra: {element_counts[4]:,}")
+    print(f"number of triangles: {element_counts[2]:,}")
     gmsh.finalize()
