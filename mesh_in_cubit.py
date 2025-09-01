@@ -5,14 +5,16 @@ import sys
 
 import numpy as np
 
-sys.path.append("/opt/Coreform-Cubit-2025.3/bin")
+# sys.path.append("/opt/Coreform-Cubit-2025.3/bin")
+sys.path.append(os.path.join(os.environ["SOFTWARES_DIR"], "Coreform-Cubit-2025.8/bin"))
 import cubit
 
 import commons, mesh_utils
 
 
-resolution = 0.00375
+resolution = 0.0025
 add_fillet = True
+refine = False
 
 if __name__ == '__main__':
     mesh_folder = sys.argv[1]
@@ -28,8 +30,8 @@ if __name__ == '__main__':
     cubit.cmd("Set Quality Threshold 0.7")
     cubit.cmd(f"set max_size {resolution}")
     # cubit.cmd(f"set min_size 0.00375")
-    cubit.cmd("set tetmesher optimize level strong")
-    cubit.cmd("set tetmesher geometry approximation angle 2.5")
+    # cubit.cmd("set tetmesher optimize level strong")
+    # cubit.cmd("set tetmesher geometry angle 2.5")
     for x in lxs:
         for y in lys:
             cubit.cmd(f"create cylinder radius {radius} height {height}")
@@ -108,12 +110,15 @@ if __name__ == '__main__':
     cubit.cmd(f"block {markers.insulated} surface {' '.join(map(str, insulated))}")
     cubit.cmd(f"block {markers.electrolyte_v_positive_am} surface {' '.join(map(str, interface))}")
     cubit.cmd("surface all scheme trimesh")
+    cubit.cmd(f"surface all size {resolution}")
     cubit.cmd("mesh surface all")
     cubit.cmd("vol all scheme tetmesh")
-    # cubit.cmd("volume all tetmesh growth_factor 1.2")
+    cubit.cmd(f"vol all size {resolution}")
+    cubit.cmd("volume all tetmesh growth_factor 1.2")
     cubit.cmd("mesh volume all")
     # cubit.cmd("volume all sizing function skeleton")
-    cubit.cmd(f"refine surface {' '.join(map(str, interface))} size 0.00375")
+    if refine:
+        cubit.cmd(f"refine surface {' '.join(map(str, interface))} size 0.0025 bias 1.5")
     filename = os.path.join(mesh_folder, "mesh.bdf")
     cubit.cmd(f"export nastran '{filename}' overwrite")
     # mesh_utils.convert_to_xdmf(filename, "tetra", "triangle", "nastran:ref")
