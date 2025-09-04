@@ -652,14 +652,14 @@ if __name__ == '__main__':
     n_0 = ufl.FacetNormal(submesh_electrolyte)
     n_1 = ufl.FacetNormal(submesh_positive_am)
 
-    V_x = fem.functionspace(submesh_interface, ("CG", 1, (tdim, )))
+    V_x = fem.functionspace(submesh_interface, ("CG", args.p_u1, (tdim, )))
     i_x = fem.Function(V_x)
     n_x = ufl.CellNormal(submesh_interface)
     V_x_norm = fem.functionspace(submesh_interface, ("DG", 0, (tdim, )))
     normals_x = fem.Function(V_x_norm)
     normals_expr = fem.Expression(n_x, V_x_norm.element.interpolation_points())
     normals_x.interpolate(normals_expr)
-    V_x_n = fem.functionspace(submesh_interface, ("CG", 1))
+    V_x_n = fem.functionspace(submesh_interface, ("CG", args.p_u1))
     i_x_n = fem.Function(V_x_n)
     # TODO: Remove absolute after normals are consistently-oriented
     i_x_n_expr = fem.Expression(np.abs(inner(normals_x, i_x)), V_x_n.element.interpolation_points())
@@ -1031,22 +1031,25 @@ if __name__ == '__main__':
             snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
 
             ksp_ul.setType(PETSc.KSP.Type.CG)
-            ksp_ul.getPC().setType(PETSc.PC.Type.ILU)
+            ksp_ul.getPC().setType(PETSc.PC.Type.LU)
+            ksp_ul.getPC().setFactorSolverType("mumps")
             ksp_ul.setTolerances(rtol=1e-7, max_it=1000)
             petsc_options[f"{ksp_ul.getOptionsPrefix()}pc_factor_levels"] = 0
             petsc_options[f"{ksp_ul.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
             ksp_ur.setType(PETSc.KSP.Type.PREONLY)
-            ksp_ur.getPC().setType(PETSc.PC.Type.ILU)
+            ksp_ur.getPC().setType(PETSc.PC.Type.LU)
+            ksp_ur.getPC().setFactorSolverType("mumps")
             ksp_ur.setTolerances(rtol=1e-7, max_it=1000)
             petsc_options[f"{ksp_ur.getOptionsPrefix()}pc_factor_levels"] = 0
             petsc_options[f"{ksp_ur.getOptionsPrefix()}pc_factor_fill"] = 2.0
         else:
             snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
-            snes.getKSP().getPC().setType(PETSc.PC.Type.ILU)
+            snes.getKSP().getPC().setType(PETSc.PC.Type.LU)
+            snes.getKSP().getPC().setFactorSolverType("mumps")
             snes.getKSP().setOptionsPrefix("snes_")
             snes.getKSP().setOperators(Jmat2d, Jmat2d)
-            snes.getKSP().setTolerances(rtol=1e-7)
+            snes.getKSP().setTolerances(rtol=1e-4)
             snes.setErrorIfNotConverged(True)
             snes.getKSP().setErrorIfNotConverged(True)
             snes.getKSP().setConvergenceHistory()
@@ -1278,6 +1281,7 @@ if __name__ == '__main__':
         snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.FULL)
         ksp_u.setType(PETSc.KSP.Type.FGMRES)
         ksp_u.getPC().setType(PETSc.PC.Type.ILU)
+        #ksp_u.getPC().setFactorSolverType("mumps")
         ksp_u.setTolerances(rtol=1e-7, max_it=1000)
         petsc_options[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
         petsc_options[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
@@ -1317,9 +1321,11 @@ if __name__ == '__main__':
         t1 = time.time()
         PETSc.Sys.Print(f"SNES converged reason: {snes.getConvergedReason()}, solve time: {t1-t0:.3f}s")
         PETSc.Log().view(log_viewer)
-        # increase step time after 5 seconds
-        if t_ref * cycler.time >= 5:
-            cycler._dt = 5 * args.dt
+        # increase step time after 1 seconds
+        if t_ref * cycler.time >= 0.1:
+            cycler._dt = 10 * args.dt
+        if t_ref * cycler.time >= 10.0:
+            cycler._dt = 50 * args.dt
         if comm_rank == 0 and args.plot:
             fig, ax = plt.subplots()
             ax.semilogy(snes.getKSP().getConvergenceHistory(), 'x-')
@@ -1343,44 +1349,44 @@ if __name__ == '__main__':
         i_x_n_vtx.write(cycler.time*t_ref)
         # Gather solution
         # Create local VTK mesh data structures
-        topology, cell_types, geometry = dolfinx.plot.vtk_mesh(V_x_n)
-        num_cells_local = submesh_interface.topology.index_map(submesh_interface.topology.dim).size_local
-        num_dofs_local = V_x_n.dofmap.index_map.size_local * V_x_n.dofmap.index_map_bs
+        #topology, cell_types, geometry = dolfinx.plot.vtk_mesh(V_x_n)
+        #num_cells_local = submesh_interface.topology.index_map(submesh_interface.topology.dim).size_local
+        #num_dofs_local = V_x_n.dofmap.index_map.size_local * V_x_n.dofmap.index_map_bs
         # VTK topology stored as (num_dofs_cell_0, dof_0,.... dof_(num_dofs_cell_0, num_dofs_cell_1, ....))
         # We assume we only have one cell type and one dofmap, thus every `num_dofs_per_cell` is the same
-        num_dofs_per_cell = topology[0]
+        #num_dofs_per_cell = topology[0]
         # Get only dof indices
-        topology_dofs = (np.arange(len(topology)) % (num_dofs_per_cell+1)) != 0
+        #topology_dofs = (np.arange(len(topology)) % (num_dofs_per_cell+1)) != 0
 
         # Map to global dof indices
-        global_dofs = V_x_n.dofmap.index_map.local_to_global(topology[topology_dofs].copy())
+        #global_dofs = V_x_n.dofmap.index_map.local_to_global(topology[topology_dofs].copy())
         # Overwrite topology
-        topology[topology_dofs] = global_dofs
+        # topology[topology_dofs] = global_dofs
         # Choose root
-        root = 0
+        #root = 0
 
         # Gather data
-        global_topology = comm.gather(topology[:(num_dofs_per_cell+1)*num_cells_local], root=root)
-        global_geometry = comm.gather(geometry[:V_x_n.dofmap.index_map.size_local,:], root=root)
-        global_ct = comm.gather(cell_types[:num_cells_local])
-        global_vals = comm.gather(i_x_n.x.array[:num_dofs_local])
+        #global_topology = comm.gather(topology[:(num_dofs_per_cell+1)*num_cells_local], root=root)
+        #global_geometry = comm.gather(geometry[:V_x_n.dofmap.index_map.size_local,:], root=root)
+        #global_ct = comm.gather(cell_types[:num_cells_local])
+        #global_vals = comm.gather(i_x_n.x.array[:num_dofs_local])
 
-        if comm.rank == root:
-            # Stack data
-            root_geom = np.vstack(global_geometry)
-            root_top = np.concatenate(global_topology)
-            root_ct = np.concatenate(global_ct)
-            root_vals = np.concatenate(global_vals)
+        #if comm.rank == root:
+        #    # Stack data
+        #    root_geom = np.vstack(global_geometry)
+        #    root_top = np.concatenate(global_topology)
+        #    root_ct = np.concatenate(global_ct)
+        #    root_vals = np.concatenate(global_vals)
 
-            # Plot as in serial
-            pv.OFF_SCREEN = True
-            grid = pv.UnstructuredGrid(root_top, root_ct, root_geom)
-            grid.point_data["i"] = root_vals
-            grid.set_active_scalars("i")
-            plotter = pv.Plotter()
-            plotter.add_mesh(grid, show_edges=False)
-            # plotter.view_xy()
-            plotter.screenshot(interface_current_density_file[:-5] + f"{cycler.time*t_ref:.1f}.png")
+        #    # Plot as in serial
+        #    pv.OFF_SCREEN = True
+        #    grid = pv.UnstructuredGrid(root_top, root_ct, root_geom)
+        #    grid.point_data["i"] = root_vals
+        #    grid.set_active_scalars("i")
+        #    plotter = pv.Plotter()
+        #    plotter.add_mesh(grid, show_edges=False)
+        #    # plotter.view_xy()
+        #    plotter.screenshot(interface_current_density_file[:-5] + f"{cycler.time*t_ref:.1f}.png")
         I_left = comm.allreduce(fem.assemble_scalar(fem.form(
                                 inner(kappa_elec * phi_ref * L_ref ** (k) * grad(u_0), n) * ds(markers.left),
                                 entity_maps=entity_maps)), op=MPI.SUM)
