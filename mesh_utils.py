@@ -1,4 +1,5 @@
 import numbers
+import os
 from dolfinx import cpp, io
 from mpi4py import MPI
 import dolfinx
@@ -9,6 +10,7 @@ import numpy as np
 from petsc4py import PETSc
 
 import geometry
+
 
 def transfer_meshtags_to_submesh(
     domain, entity_tag, submesh, sub_vertex_to_parent, sub_cell_to_parent
@@ -98,7 +100,6 @@ def transfer_meshtags(domain, submesh, entity_map, ft):
     return submesh_ft
 
 
-
 def compute_cell_boundary_facets(domain, ct, marker):
     """Compute the integration entities for integrals around the
     boundaries of all cells in domain.
@@ -163,6 +164,7 @@ def compute_interface_cell_boundary_facets(domain, ct, ft, cell_marker, facet_ma
                 int_facet_domain.append([c_1, local_f_1])
 
     return int_facet_domain
+
 
 def xdmf_reader(mesh_folder, comm):
     """
