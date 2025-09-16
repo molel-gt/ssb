@@ -1,8 +1,9 @@
 #!/bin/bash
-version=v3.23.4
+version=v3.23.6
 cd $SOFTWARES_DIR
 if [ -d $SOFTWARES_DIR/petsc ]; then
     echo 'Directory exists, not cloning'
+    cd $PETSC_DIR
     git stash && git checkout main && git pull origin
 else
     git clone https://gitlab.com/petsc/petsc.git
