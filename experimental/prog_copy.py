@@ -5,8 +5,10 @@ import sys
 sys.path.append("../")
 
 import gmsh
+import matspy
 import numpy as np
 import scifem
+import scipy
 import ufl
 
 from dolfinx import cpp, fem, io, mesh
@@ -55,65 +57,6 @@ def create_mesh(LX, LY):
     gmsh.model.mesh.generate(2)
     gmsh.write("mesh.msh")
     gmsh.finalize()
-
-
-def compute_cell_boundary_facets(msh):
-    """Compute the integration entities for integrals around the
-    boundaries of all cells in msh.
-
-    Parameters:
-        msh: The mesh.
-
-    Returns:
-        Facets to integrate over, identified by ``(cell, local facet
-        index)`` pairs.
-    """
-    tdim = msh.topology.dim
-    fdim = tdim - 1
-    n_f = cpp.mesh.cell_num_entities(msh.topology.cell_type, fdim)
-    n_c = msh.topology.index_map(tdim).size_local
-
-    return np.vstack((np.repeat(np.arange(n_c), n_f), np.tile(np.arange(n_f), n_c))).T.flatten()
-
-
-def compute_cell_boundary_facets_tagged(msh, ct, ct_marker, ft, ft_markers):
-    """
-    Compute cell boundary facets grouped by facet tags.
-
-    Parameters:
-        msh: Mesh
-        ct_marker: marker for cells
-        ft_markers: markers for grouping boundary facets
-    Returns:
-        (cell, local facet index) pairs for each facet marker
-    """
-    tdim = msh.topology.dim
-    fdim = tdim - 1
-    f_to_c = msh.topology.connectivity(fdim, tdim)
-    c_to_f = msh.topology.connectivity(tdim, fdim)
-    tagged = {}
-    for ft_value in ft_markers:
-        tagged[ft_value] = []
-    for ft_value in ft_markers:
-        facets = ft.find(ft_value)
-        for f in facets:
-            if len(f_to_c.links(f)) == 2:
-                c_0, c_1 = f_to_c.links(f)[0], f_to_c.links(f)[1]
-                subdomain_0, subdomain_1 = ct.values[[c_0, c_1]]
-                if subdomain_0 == ct_marker:
-                    local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
-                    tagged[ft_value].extend((c_0, local_f_0))
-                elif subdomain_1 == ct_marker:
-                    local_f_1 = np.where(c_to_f.links(c_1) == f)[0][0]
-                    tagged[ft_value].extend((c_1, local_f_1))
-            elif len(f_to_c.links(f)) == 1:
-                c_0 = f_to_c.links(f)[0]
-                subdomain_0, = ct.values[[c_0]]
-                if subdomain_0 == ct_marker:
-                    local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
-                    tagged[ft_value].extend((c_0, local_f_0))
-
-    return {k: np.array(v) for k, v in tagged.items()}
 
 
 def facets_for_subdomain(msh, ft, ct_marker):
@@ -238,9 +181,6 @@ if __name__ == '__main__':
     V1 = fem.functionspace(submesh_positive_am, ("DG", k))
     V1bar = fem.functionspace(am_ft_mesh, ("DG", k))
 
-    # Trial and test functions in mixed space
-    W = ufl.MixedFunctionSpace(V, Vbar)
-    # u, ubar = ufl.TrialFunctions(W)
     u, ubar = fem.Function(V), fem.Function(Vbar)
     v, vbar = ufl.TestFunction(V), ufl.TestFunction(Vbar)
 
@@ -248,10 +188,6 @@ if __name__ == '__main__':
     u0bar, v0bar = fem.Function(V0bar), ufl.TestFunction(V0bar)
     u1, v1 = fem.Function(V1), ufl.TestFunction(V1)
     u1bar, v1bar = fem.Function(V1bar), ufl.TestFunction(V1bar)
-    V_CG = fem.functionspace(domain, ("CG", k))
-
-    u_x = fem.Function(V_CG)
-    u_x.interpolate(lambda x: x[0]-x[0] + 0.5)
 
     h = ufl.CellDiameter(domain)
     n = ufl.FacetNormal(domain)
@@ -266,17 +202,11 @@ if __name__ == '__main__':
     gamma0 = 16.0 * k**2 / h0
     gamma1 = 16.0 * k**2 / h1
 
-    cell_boundary_facets = compute_cell_boundary_facets(domain)
-    cell_boundaries = 1  # A tag
     # Create the measure
-    dx_se = ufl.Measure('dx', domain=submesh_electrolyte)
-    dx_am = ufl.Measure('dx', domain=submesh_positive_am)
     ds_c = ufl.Measure("ds", subdomain_data=[(markers.electrolyte, tagged_boundary_facets[0]),
                        (markers.positive_am, tagged_boundary_facets[1]),
                        (markers.electrolyte_v_positive_am, tagged_boundary_facets[2]),
                        (markers.electrolyte_v_positive_am*11, tagged_boundary_facets[3])], domain=domain)
-    ds_c_se = ufl.Measure("ds", subdomain_data=[(markers.electrolyte, tagged_boundary_facets[0]),
-                       (markers.electrolyte_v_positive_am, tagged_boundary_facets[2])], domain=submesh_electrolyte)
 
     f_to_c = domain.topology.connectivity(fdim, tdim)
     c_to_f = domain.topology.connectivity(tdim, fdim)
@@ -303,8 +233,6 @@ if __name__ == '__main__':
     int_facet_domains = [(markers.electrolyte_v_positive_am, int_facet_domain)]
     dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
 
-    i_x = fem.Constant(submesh_positive_am, -10.0)
-
     FaradayConstant = 96485
     R = 8.314
     T = 298
@@ -318,24 +246,21 @@ if __name__ == '__main__':
     F0 += - inner(grad(u0), n0) * v0 * (ds_c(markers.electrolyte) + ds_c(markers.electrolyte_v_positive_am))
     F0 += + (u0 - u0bar) * inner(grad(v0), n0) * ds_c(markers.electrolyte)
     F0 += + gamma0 * (u0 - u0bar) * v0 * ds_c(markers.electrolyte)
-    F0 += + (u0("-") - u_l) * inner(grad(v0("-")), n0("-")) * dInterface #ds_c(markers.electrolyte_v_positive_am)
-    F0 += + gamma0("-") * (u0("-") - u_l) * v0("-") * dInterface #ds_c(markers.electrolyte_v_positive_am)
+    F0 += + (u0("-") - u_l) * inner(grad(v0("-")), n0("-")) * dInterface
+    F0 += + gamma0("-") * (u0("-") - u_l) * v0("-") * dInterface
 
     F0_bar = inner(grad(u0), n0) * v0bar * (ds_c(markers.electrolyte) + ds_c(markers.electrolyte_v_positive_am))
     F0_bar += - gamma0 * (u0 - u0bar) * v0bar * (ds_c(markers.electrolyte) + ds_c(markers.electrolyte_v_positive_am))
-    F0_bar += + gamma0("-") * (u0("-") - u_l) * v0bar("-") * dInterface #ds_c(markers.electrolyte_v_positive_am)
+    F0_bar += + gamma0("-") * (u0("-") - u_l) * v0bar("-") * dInterface
 
     F1 = inner(grad(u1), grad(v1)) * dx(markers.positive_am) 
     F1 += - inner(grad(u1), n1) * v1 * (ds_c(markers.positive_am) + ds_c(markers.electrolyte_v_positive_am*11))
     F1 += + (u1 - u1bar) * inner(grad(v1), n1) * (ds_c(markers.positive_am) + ds_c(markers.electrolyte_v_positive_am*11))
-    # F1 += - (u1("-") - u0("-")) * inner(grad(v1("-")), n1("-")) * dInterface #ds_c(markers.electrolyte_v_positive_am*11)
     F1 += + gamma1 * (u1 - u1bar) * v1 * (ds_c(markers.positive_am) + ds_c(markers.electrolyte_v_positive_am*11))
-    # F1 += - gamma1("+") * (u1("+") - u0("-")) * v1("+") * dInterface #ds_c(markers.electrolyte_v_positive_am*11)
 
     F1_bar = inner(grad(u1), n1) * v1bar * (ds_c(markers.positive_am) + ds_c(markers.electrolyte_v_positive_am*11))
     F1_bar += - gamma1 * (u1 - u1bar) * v1bar * (ds_c(markers.positive_am) + ds_c(markers.electrolyte_v_positive_am*11))
-    # F1_bar += + gamma1("+") * (u1("+") - u0("-")) * v1bar("+") * dInterface #ds_c(markers.electrolyte_v_positive_am*11)
-    F1_bar += -inner(grad(u0("-")), n1("+")) * v1bar("+") * dInterface#ds_c(markers.electrolyte_v_positive_am*11)
+    F1_bar += -inner(grad(u0("-")), n1("+")) * v1bar("+") * dInterface
 
     j00 = ufl.derivative(F0, u0)
     j01 = ufl.derivative(F0, u0bar)
@@ -391,6 +316,15 @@ if __name__ == '__main__':
         fem.form(F1_bar, entity_maps=entity_maps),
     ]
 
+    # plot sparsity
+    J_view = fem.petsc.assemble_matrix(J, kind="mpi")
+    J_view.assemble()
+    ai, aj, av = J_view.getValuesCSR()
+    Asp = scipy.sparse.csr_matrix((av, aj, ai))
+    fig, ax = matspy.spy_to_mpl(Asp)
+    ax.set_title('')
+    fig.savefig("jacobian-sparsity.eps", bbox_inches='tight')
+
     J2D = fem.form(J)
     F2D = fem.form(F)
     Jmat2d = fem.petsc.create_matrix(J2D)
@@ -400,7 +334,7 @@ if __name__ == '__main__':
     snes.setTolerances(rtol=1e-7, max_it=200)
     snes.setMonitor(lambda _, it, residual: Print("it:", it, "res:", residual))
     snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
-    snes.getKSP().getPC().setType(PETSc.PC.Type.LU)
+    snes.getKSP().getPC().setType(PETSc.PC.Type.GAMG)
     # snes.getKSP().getPC().setFactorSolverType("mumps")
     snes.getKSP().setOptionsPrefix("snes_")
     snes.getKSP().setOperators(Jmat2d, Jmat2d)
