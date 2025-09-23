@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import sys
+import time
 
 sys.path.append("../")
 
@@ -236,7 +237,7 @@ if __name__ == '__main__':
     FaradayConstant = 96485
     R = 8.314
     T = 298
-    i0 = 1.0
+    i0 = 1.0e-2
 
     eta_s = -R * T / i0 / FaradayConstant * inner(grad(u1("+")), n1("+"))
     U_ocv = 0.25
@@ -334,7 +335,7 @@ if __name__ == '__main__':
     snes.setTolerances(rtol=1e-7, max_it=200)
     snes.setMonitor(lambda _, it, residual: Print("it:", it, "res:", residual))
     snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
-    snes.getKSP().getPC().setType(PETSc.PC.Type.GAMG)
+    snes.getKSP().getPC().setType(PETSc.PC.Type.LU)
     # snes.getKSP().getPC().setFactorSolverType("mumps")
     snes.getKSP().setOptionsPrefix("snes_")
     snes.getKSP().setOperators(Jmat2d, Jmat2d)
@@ -366,8 +367,21 @@ if __name__ == '__main__':
     snes.setJacobian(problem_t0.J_block, J=Jmat2d, P=Jmat2d)
     x2d = fem.petsc.create_vector([V0, V0bar, V1, V1bar], kind="mpi")
     x2d.set(0.0)
+    V0_map = V0.dofmap.index_map
+    V0_dofmap = V0.dofmap
+    V1_map = V1.dofmap.index_map
+    V1_dofmap = V1.dofmap
+    V0bar_map = V0bar.dofmap.index_map
+    V0bar_dofmap = V0bar.dofmap
+    V1bar_map = V1bar.dofmap.index_map
+    V1bar_dofmap = V1bar.dofmap
+    n_dofs = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs +\
+        V0bar_map.size_global*V0bar.dofmap.index_map_bs + V1bar_map.size_global*V1bar.dofmap.index_map_bs
+    Print(f"Solving problem, dofs: {n_dofs:,}")
+    t0 = time.time()
     snes.solve(None, x2d)
-
+    t1 = time.time()
+    Print(f"Solved problem in {t1-t0:,.3f} seconds")
     snes.destroy()
     Jmat2d.destroy()
     Fvec2d.destroy()
