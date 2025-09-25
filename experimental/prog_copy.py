@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import sys
 import time
@@ -29,7 +30,7 @@ dtype = PETSc.ScalarType
 def create_mesh(LX, LY):
     gmsh.initialize()
     gmsh.model.add('ssb')
-    # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.01)
+    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.01)
 
     points = [
         (0, 0, 0),
@@ -115,7 +116,14 @@ def tagged_cell_boundary_facets(msh, ct, ft):
 
 if __name__ == '__main__':
     # create_mesh(1, 0.5)
-    output_meshfile = "mesh.msh"
+    parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
+    parser.add_argument("-m", "--mesh_folder", help="folder containing mesh files", required=True)
+    parser.add_argument("-p_u0", '--poly_order_u0', help='polynomial approximation order for u0',  nargs='?', type=int, const=1, default=1)
+    parser.add_argument("-p_u1", '--poly_order_u1', help='polynomial approximation order for u1',  nargs='?', type=int, const=1, default=1)
+    args = parser.parse_args()
+    output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
+    results_folder = os.path.join(args.mesh_folder, "output")
+    utils.make_dir_if_missing(results_folder)
     comm = MPI.COMM_WORLD
     partitioner = mesh.create_cell_partitioner(partitioner_scotch(), mesh.GhostMode.shared_facet)
     domain, ct, ft = io.gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)[:3]
@@ -233,6 +241,7 @@ if __name__ == '__main__':
             int_facet_domain.append(local_f_0)
     int_facet_domains = [(markers.electrolyte_v_positive_am, int_facet_domain)]
     dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
+    ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
 
     FaradayConstant = 96485
     R = 8.314
@@ -240,7 +249,7 @@ if __name__ == '__main__':
     i0 = 1.0e-2
 
     eta_s = -R * T / i0 / FaradayConstant * inner(grad(u1("+")), n1("+"))
-    U_ocv = 0.25
+    U_ocv = 0.7
     u_l = u1("+") - U_ocv - eta_s
 
     F0 = inner(grad(u0), grad(v0)) * dx(markers.electrolyte)
@@ -386,7 +395,18 @@ if __name__ == '__main__':
     Jmat2d.destroy()
     Fvec2d.destroy()
     x2d.destroy()
-
+    i_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(grad(u0), n0) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
+    i_x_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(grad(u0)("-"), n0("-")) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+    i_x_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(grad(u1)("+"), n1("+")) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+    i_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(grad(u1), n1) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
+    Print(i_left, i_x_left, i_x_right, i_right)
+    error = inner(grad(u0)('-'), n0("-")) #+ inner(grad(u1)('+'), n1("+"))
+    i_x_error = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(error, error) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
+    i_x_norm_l = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(inner(grad(u0)("-"), n0("-")), inner(grad(u0)("-"), n0("-"))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
+    i_x_norm_r = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(inner(grad(u1)("+"), n1("+")), inner(grad(u1)("+"), n1("+"))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
+    error_norm = i_x_norm_l / i_x_norm_r
+    Print(i_x_norm_l, i_x_norm_r)
+    Print(f'error: {error_norm}')
     se_cell_imap = submesh_electrolyte.topology.index_map(tdim)
     se_cells = np.arange(se_cell_imap.size_local + se_cell_imap.num_ghosts)
     parent_cells = se_mesh_emap.sub_topology_to_topology(se_cells, inverse=False)
@@ -395,7 +415,7 @@ if __name__ == '__main__':
     am_cells = np.arange(am_cell_imap.size_local + am_cell_imap.num_ghosts)
     parent_cells = am_mesh_emap.sub_topology_to_topology(am_cells, inverse=False)
     u.interpolate(u1, cells1=parent_cells, cells0=am_cells)
-    with io.VTXWriter(domain.comm, "u.bp", [u], "bp5") as f:
+    with io.VTXWriter(domain.comm, os.path.join(results_folder, "u.bp"), [u], "bp5") as f:
         f.write(0.0)
-    with io.VTXWriter(domain.comm, "ubar.bp", u0bar, "bp5") as f:
+    with io.VTXWriter(domain.comm, os.path.join(results_folder, "ubar.bp"), [u0bar], "bp5") as f:
         f.write(0.0)
