@@ -181,7 +181,7 @@ if __name__ == '__main__':
     am_ft_mesh, am_ft_mesh_emap = mesh.create_submesh(domain, fdim, am_ft)[:2]
     entity_maps = [se_mesh_emap, am_mesh_emap, se_ft_mesh_emap, am_ft_mesh_emap]
 
-    k = 3  # Polynomial order
+    k = 1 # Polynomial order
     V = fem.functionspace(domain, ("DG", k))
     Vbar = fem.functionspace(facet_mesh, ("DG", k))
 
@@ -208,8 +208,8 @@ if __name__ == '__main__':
     n1 = ufl.FacetNormal(submesh_positive_am)
 
     gamma = 16.0 * k**2 / h
-    gamma0 = 16.0 * k**2 / h0
-    gamma1 = 16.0 * k**2 / h1
+    gamma0 = 2.0/3.0 * k**2 / h0
+    gamma1 = 2.0/3.0 * k**2 / h1
 
     # Create the measure
     ds_c = ufl.Measure("ds", subdomain_data=[(markers.electrolyte, tagged_boundary_facets[0]),
@@ -261,7 +261,7 @@ if __name__ == '__main__':
 
     F0_bar = inner(grad(u0), n0) * v0bar * (ds_c(markers.electrolyte) + ds_c(markers.electrolyte_v_positive_am))
     F0_bar += - gamma0 * (u0 - u0bar) * v0bar * (ds_c(markers.electrolyte) + ds_c(markers.electrolyte_v_positive_am))
-    F0_bar += + gamma0("-") * (u0("-") - u_l) * v0bar("-") * dInterface
+    # F0_bar += + gamma0("-") * (u0("-") - u_l) * v0bar("-") * dInterface
 
     F1 = inner(grad(u1), grad(v1)) * dx(markers.positive_am) 
     F1 += - inner(grad(u1), n1) * v1 * (ds_c(markers.positive_am) + ds_c(markers.electrolyte_v_positive_am*11))
@@ -343,7 +343,7 @@ if __name__ == '__main__':
     snes.setType('newtonls')
     snes.setTolerances(rtol=1e-7, max_it=200)
     snes.setMonitor(lambda _, it, residual: Print("it:", it, "res:", residual))
-    snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
+    snes.getKSP().setType(PETSc.KSP.Type.CG)
     snes.getKSP().getPC().setType(PETSc.PC.Type.LU)
     # snes.getKSP().getPC().setFactorSolverType("mumps")
     snes.getKSP().setOptionsPrefix("snes_")
@@ -400,13 +400,14 @@ if __name__ == '__main__':
     i_x_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(grad(u1)("+"), n1("+")) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
     i_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(grad(u1), n1) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
     Print(i_left, i_x_left, i_x_right, i_right)
-    error = inner(grad(u0)('-'), n0("-")) #+ inner(grad(u1)('+'), n1("+"))
+    error = inner(grad(u0)('-'), n0("-")) + inner(grad(u1)('+'), n1("+"))
     i_x_error = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(error, error) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
     i_x_norm_l = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(inner(grad(u0)("-"), n0("-")), inner(grad(u0)("-"), n0("-"))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
     i_x_norm_r = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(inner(grad(u1)("+"), n1("+")), inner(grad(u1)("+"), n1("+"))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
     error_norm = i_x_norm_l / i_x_norm_r
+    error_norm_2 = i_x_error / (0.5 * i_x_norm_l + 0.5 * i_x_norm_r)
     Print(i_x_norm_l, i_x_norm_r)
-    Print(f'error: {error_norm}')
+    Print(f'error 1: {error_norm}, error 2: {error_norm_2}')
     se_cell_imap = submesh_electrolyte.topology.index_map(tdim)
     se_cells = np.arange(se_cell_imap.size_local + se_cell_imap.num_ghosts)
     parent_cells = se_mesh_emap.sub_topology_to_topology(se_cells, inverse=False)
