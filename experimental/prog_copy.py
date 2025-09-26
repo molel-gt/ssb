@@ -9,7 +9,6 @@ sys.path.append("../")
 import gmsh
 import matspy
 import numpy as np
-import scifem
 import scipy
 import ufl
 
