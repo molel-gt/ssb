@@ -6,3 +6,4 @@ module load openblas/0.3.23
 # module load openmpi/4.1.5
 # module load hdf5/1.8.22-ompi
 # module load adios2/2.9.0-ompi
+module load gcc/13.3.0
