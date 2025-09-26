@@ -248,12 +248,11 @@ if __name__ == '__main__':
     R = 8.314
     T = 298
     i0 = 1.0e2
-
+    sigma = 0.1
+    kappa = args.kr * sigma
     eta_s = -R * T / i0 / FaradayConstant * inner(sigma * grad(u1("+")), n1("+"))
     U_ocv = 0.7
     u_l = u1("+") - U_ocv - eta_s
-    sigma = 0.1
-    kappa = args.kr * sigma
     F0 = kappa * inner(grad(u0), grad(v0)) * dx(markers.electrolyte)
     F0 += - kappa * inner(grad(u0), n0) * v0 * (ds_c(markers.electrolyte) + ds_c(markers.electrolyte_v_positive_am))
     F0 += + kappa * (u0 - u0bar) * inner(grad(v0), n0) * ds_c(markers.electrolyte)
