@@ -249,7 +249,7 @@ if __name__ == '__main__':
     T = 298
     i0 = 1.0e2
 
-    eta_s = -R * T / i0 / FaradayConstant * inner(grad(u1("+")), n1("+"))
+    eta_s = -R * T / i0 / FaradayConstant * inner(sigma * grad(u1("+")), n1("+"))
     U_ocv = 0.7
     u_l = u1("+") - U_ocv - eta_s
     sigma = 0.1
