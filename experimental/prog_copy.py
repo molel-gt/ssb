@@ -120,6 +120,7 @@ if __name__ == '__main__':
     parser.add_argument("-m", "--mesh_folder", help="folder containing mesh files", required=True)
     parser.add_argument("-p_u0", '--poly_order_u0', help='polynomial approximation order for u0',  nargs='?', type=int, const=1, default=1)
     parser.add_argument("-p_u1", '--poly_order_u1', help='polynomial approximation order for u1',  nargs='?', type=int, const=1, default=1)
+    parser.add_argument("-kr", '--kr', help='ionic to electronic conductivity ratio',  nargs='?', type=float, const=1, default=1.0)
     args = parser.parse_args()
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
     results_folder = os.path.join(args.mesh_folder, "output")
@@ -246,31 +247,32 @@ if __name__ == '__main__':
     FaradayConstant = 96485
     R = 8.314
     T = 298
-    i0 = 1.0e-2
+    i0 = 1.0e2
 
     eta_s = -R * T / i0 / FaradayConstant * inner(grad(u1("+")), n1("+"))
     U_ocv = 0.7
     u_l = u1("+") - U_ocv - eta_s
-
-    F0 = inner(grad(u0), grad(v0)) * dx(markers.electrolyte)
-    F0 += - inner(grad(u0), n0) * v0 * (ds_c(markers.electrolyte) + ds_c(markers.electrolyte_v_positive_am))
-    F0 += + (u0 - u0bar) * inner(grad(v0), n0) * ds_c(markers.electrolyte)
+    sigma = 0.1
+    kappa = args.kr * sigma
+    F0 = kappa * inner(grad(u0), grad(v0)) * dx(markers.electrolyte)
+    F0 += - kappa * inner(grad(u0), n0) * v0 * (ds_c(markers.electrolyte) + ds_c(markers.electrolyte_v_positive_am))
+    F0 += + kappa * (u0 - u0bar) * inner(grad(v0), n0) * ds_c(markers.electrolyte)
     F0 += + gamma0 * (u0 - u0bar) * v0 * ds_c(markers.electrolyte)
-    F0 += + (u0("-") - u_l) * inner(grad(v0("-")), n0("-")) * dInterface
+    F0 += + kappa * (u0("-") - u_l) * inner(grad(v0("-")), n0("-")) * dInterface
     F0 += + gamma0("-") * (u0("-") - u_l) * v0("-") * dInterface
 
-    F0_bar = inner(grad(u0), n0) * v0bar * (ds_c(markers.electrolyte) + ds_c(markers.electrolyte_v_positive_am))
+    F0_bar = kappa * inner(grad(u0), n0) * v0bar * (ds_c(markers.electrolyte) + ds_c(markers.electrolyte_v_positive_am))
     F0_bar += - gamma0 * (u0 - u0bar) * v0bar * (ds_c(markers.electrolyte) + ds_c(markers.electrolyte_v_positive_am))
     # F0_bar += + gamma0("-") * (u0("-") - u_l) * v0bar("-") * dInterface
 
-    F1 = inner(grad(u1), grad(v1)) * dx(markers.positive_am) 
-    F1 += - inner(grad(u1), n1) * v1 * (ds_c(markers.positive_am) + ds_c(markers.electrolyte_v_positive_am*11))
-    F1 += + (u1 - u1bar) * inner(grad(v1), n1) * (ds_c(markers.positive_am) + ds_c(markers.electrolyte_v_positive_am*11))
+    F1 = sigma * inner(grad(u1), grad(v1)) * dx(markers.positive_am) 
+    F1 += - sigma * inner(grad(u1), n1) * v1 * (ds_c(markers.positive_am) + ds_c(markers.electrolyte_v_positive_am*11))
+    F1 += + sigma * (u1 - u1bar) * inner(grad(v1), n1) * (ds_c(markers.positive_am) + ds_c(markers.electrolyte_v_positive_am*11))
     F1 += + gamma1 * (u1 - u1bar) * v1 * (ds_c(markers.positive_am) + ds_c(markers.electrolyte_v_positive_am*11))
 
-    F1_bar = inner(grad(u1), n1) * v1bar * (ds_c(markers.positive_am) + ds_c(markers.electrolyte_v_positive_am*11))
+    F1_bar = sigma * inner(grad(u1), n1) * v1bar * (ds_c(markers.positive_am) + ds_c(markers.electrolyte_v_positive_am*11))
     F1_bar += - gamma1 * (u1 - u1bar) * v1bar * (ds_c(markers.positive_am) + ds_c(markers.electrolyte_v_positive_am*11))
-    F1_bar += -inner(grad(u0("-")), n1("+")) * v1bar("+") * dInterface
+    F1_bar += -kappa * inner(grad(u0("-")), n1("+")) * v1bar("+") * dInterface
 
     j00 = ufl.derivative(F0, u0)
     j01 = ufl.derivative(F0, u0bar)
@@ -395,15 +397,15 @@ if __name__ == '__main__':
     Jmat2d.destroy()
     Fvec2d.destroy()
     x2d.destroy()
-    i_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(grad(u0), n0) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
-    i_x_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(grad(u0)("-"), n0("-")) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
-    i_x_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(grad(u1)("+"), n1("+")) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
-    i_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(grad(u1), n1) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
+    i_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa * grad(u0), n0) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
+    i_x_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa * grad(u0)("-"), n0("-")) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+    i_x_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(sigma * grad(u1)("+"), n1("+")) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+    i_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(sigma * grad(u1), n1) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
     Print(i_left, i_x_left, i_x_right, i_right)
-    error = inner(grad(u0)('-'), n0("-")) + inner(grad(u1)('+'), n1("+"))
+    error = kappa * inner(grad(u0)('-'), n0("-")) + sigma * inner(grad(u1)('+'), n1("+"))
     i_x_error = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(error, error) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
-    i_x_norm_l = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(inner(grad(u0)("-"), n0("-")), inner(grad(u0)("-"), n0("-"))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
-    i_x_norm_r = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(inner(grad(u1)("+"), n1("+")), inner(grad(u1)("+"), n1("+"))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
+    i_x_norm_l = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(inner(kappa * grad(u0)("-"), n0("-")), inner(kappa * grad(u0)("-"), n0("-"))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
+    i_x_norm_r = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(inner(sigma * grad(u1)("+"), n1("+")), inner(sigma * grad(u1)("+"), n1("+"))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
     error_norm = i_x_norm_l / i_x_norm_r
     error_norm_2 = i_x_error / (0.5 * i_x_norm_l + 0.5 * i_x_norm_r)
     Print(i_x_norm_l, i_x_norm_r)
