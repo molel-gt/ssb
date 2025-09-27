@@ -120,9 +120,10 @@ if __name__ == '__main__':
     parser.add_argument("-p_u0", '--poly_order_u0', help='polynomial approximation order for u0',  nargs='?', type=int, const=1, default=1)
     parser.add_argument("-p_u1", '--poly_order_u1', help='polynomial approximation order for u1',  nargs='?', type=int, const=1, default=1)
     parser.add_argument("-kr", '--kr', help='ionic to electronic conductivity ratio',  nargs='?', type=float, const=1, default=1.0)
+    parser.add_argument("-k", '--k', help='polynomial approximation order',  nargs='?', type=int, const=1, default=1)
     args = parser.parse_args()
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
-    results_folder = os.path.join(args.mesh_folder, f"output/kr_{args.kr}")
+    results_folder = os.path.join(args.mesh_folder, f"output/k_{args.k}/kr_{args.kr}")
     utils.make_dir_if_missing(results_folder)
     comm = MPI.COMM_WORLD
     partitioner = mesh.create_cell_partitioner(partitioner_scotch(), mesh.GhostMode.shared_facet)
@@ -180,14 +181,13 @@ if __name__ == '__main__':
     am_ft_mesh, am_ft_mesh_emap = mesh.create_submesh(domain, fdim, am_ft)[:2]
     entity_maps = [se_mesh_emap, am_mesh_emap, se_ft_mesh_emap, am_ft_mesh_emap]
 
-    k = 1 # Polynomial order
-    V = fem.functionspace(domain, ("DG", k))
-    Vbar = fem.functionspace(facet_mesh, ("DG", k))
+    V = fem.functionspace(domain, ("DG", args.k))
+    Vbar = fem.functionspace(facet_mesh, ("DG", args.k))
 
-    V0 = fem.functionspace(submesh_electrolyte, ("DG", k))
-    V0bar = fem.functionspace(se_ft_mesh, ("DG", k))
-    V1 = fem.functionspace(submesh_positive_am, ("DG", k))
-    V1bar = fem.functionspace(am_ft_mesh, ("DG", k))
+    V0 = fem.functionspace(submesh_electrolyte, ("DG", args.k))
+    V0bar = fem.functionspace(se_ft_mesh, ("DG", args.k))
+    V1 = fem.functionspace(submesh_positive_am, ("DG", args.k))
+    V1bar = fem.functionspace(am_ft_mesh, ("DG", args.k))
 
     u, ubar = fem.Function(V), fem.Function(Vbar)
     v, vbar = ufl.TestFunction(V), ufl.TestFunction(Vbar)
@@ -206,9 +206,9 @@ if __name__ == '__main__':
     h1 = ufl.CellDiameter(submesh_positive_am)
     n1 = ufl.FacetNormal(submesh_positive_am)
 
-    gamma = 16.0 * k**2 / h
-    gamma0 = 2.0/3.0 * k**2 / h0
-    gamma1 = 2.0/3.0 * k**2 / h1
+    gamma = 16.0 * args.k**2 / h
+    gamma0 = 2.0/3.0 * args.k**2 / h0
+    gamma1 = 2.0/3.0 * args.k**2 / h1
 
     # Create the measure
     ds_c = ufl.Measure("ds", subdomain_data=[(markers.electrolyte, tagged_boundary_facets[0]),
