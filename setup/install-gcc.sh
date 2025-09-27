@@ -10,3 +10,7 @@ else
 fi
 
 cd gcc-$version
+
+./configure --prefix=$CMAKE_INSTALL_PREFIX --enable-languages=c,c++,fortran,go
+make
+make install
