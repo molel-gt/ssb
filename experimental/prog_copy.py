@@ -122,14 +122,13 @@ if __name__ == '__main__':
     parser.add_argument("-kr", '--kr', help='ionic to electronic conductivity ratio',  nargs='?', type=float, const=1, default=1.0)
     args = parser.parse_args()
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
-    results_folder = os.path.join(args.mesh_folder, "output")
+    results_folder = os.path.join(args.mesh_folder, f"output/kr_{args.kr}")
     utils.make_dir_if_missing(results_folder)
     comm = MPI.COMM_WORLD
     partitioner = mesh.create_cell_partitioner(partitioner_scotch(), mesh.GhostMode.shared_facet)
-    domain, ct, ft = io.gmshio.read_from_msh(output_meshfile, comm, partitioner=partitioner)[:3]
+    domain, ct, ft = io.gmsh.read_from_msh(output_meshfile, comm, partitioner=partitioner)[:3]
     tdim = domain.topology.dim
     fdim = tdim - 1
-    k = tdim - 2
     domain.topology.create_connectivity(tdim, fdim)
     domain.topology.create_connectivity(fdim, tdim)
     domain.topology.create_connectivity(fdim, fdim)
