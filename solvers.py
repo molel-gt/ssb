@@ -6,8 +6,6 @@ import ufl
 import time
 import warnings
 
-import scifem
-
 from basix.ufl import element
 from dolfinx import cpp, default_scalar_type, fem, graph, io, mesh, nls, plot
 from dolfinx.fem import petsc
