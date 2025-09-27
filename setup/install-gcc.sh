@@ -11,6 +11,6 @@ fi
 
 cd gcc-$version
 
-./configure --prefix=$CMAKE_INSTALL_PREFIX --enable-languages=c,c++,fortran,go
+./configure --prefix=$CMAKE_INSTALL_PREFIX --enable-languages=c,c++,fortran,go --disable-multilib
 make
 make install
