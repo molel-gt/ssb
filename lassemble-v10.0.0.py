@@ -63,10 +63,10 @@ class LocalAssembler():
 
 
 @numba.njit(fastmath=True)
-def assemble_matrix(kernel, mesh, local_shape, idx=2):
+def assemble_matrix(kernel, mesh, local_shape, cell_idx):
     x_dofs, x = mesh
-    geometry = np.zeros((len(x_dofs[idx]), 3), dtype=x.dtype)
-    geometry[:, :] = x[x_dofs[idx]]
+    geometry = np.zeros((len(x_dofs[cell_idx]), 3), dtype=x.dtype)
+    geometry[:, :] = x[x_dofs[cell_idx]]
 
     A_local = np.zeros((local_shape[0], local_shape[0]), dtype=ScalarType)
     facet_index = np.array([0], dtype=np.intc)
@@ -96,8 +96,9 @@ x_dofs = V.mesh.geometry.dofmap
 x = msh.geometry.x
 
 for cell in range(msh.topology.index_map(msh.topology.dim).size_local):
+    print(cell)
     if cell == 2:
-        A = assemble_matrix(kernel, (x_dofs, x), local_shape)
+        A = assemble_matrix(kernel, (x_dofs, x), local_shape, cell_idx=cell)
         print(A)
 
 
@@ -109,5 +110,5 @@ x = msh.geometry.x
 
 for cell in range(msh.topology.index_map(msh.topology.dim).size_local):
     if cell == 2:
-        A = assemble_matrix(kernel, (x_dofs, x), local_shape)
+        A = assemble_matrix(kernel, (x_dofs, x), local_shape, cell_idx=cell)
         print(A)
