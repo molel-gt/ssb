@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import shutil
 import sys
 import time
 
@@ -113,6 +114,83 @@ def tagged_cell_boundary_facets(msh, ct, ft):
     return np.array(internal_se), np.array(internal_am), np.array(se_xface), np.array(am_xface)
 
 
+class LocalAssembler():
+
+    def __init__(self, form, entity_maps, integral_type: fem.IntegralType =fem.IntegralType.cell):
+        self.form = fem.form(form, entity_maps=entity_maps)
+        self.integral_type = integral_type
+        self.update_coefficients()
+        self.update_constants()
+
+        is_complex = np.issubdtype(ScalarType, np.complexfloating)
+        nptype = "complex128" if is_complex else "float64"
+        o_s = self.form.ufcx_form.form_integral_offsets[_type_to_offset_index[integral_type]]
+        o_e = self.form.ufcx_form.form_integral_offsets[_type_to_offset_index[integral_type]+1]
+        assert o_e - o_s == 1
+
+        self.kernel = getattr(self.form.ufcx_form.form_integrals[o_s], f"tabulate_tensor_{nptype}")
+        self.active_cells = self.form._cpp_object.domains(integral_type, 0)
+        # assert len(self.form.function_spaces) == 2
+        self.local_shape = [0,0]
+        for i, V in enumerate(self.form.function_spaces):
+            self.local_shape[i] = V.dofmap.dof_layout.block_size * V.dofmap.dof_layout.num_dofs
+
+        # e0 = self.form.function_spaces[0].element
+        # # e1 = self.form.function_spaces[1].element
+        # needs_transformation_data = e0.needs_dof_transformations or \
+        #     self.form._cpp_object.needs_facet_permutations
+        # if needs_transformation_data:
+        #     raise NotImplementedError("Dof transformations not implemented")
+
+    def update_coefficients(self):
+        self.coeffs = fem.assemble.pack_coefficients(self.form)
+
+    def update_constants(self):
+        self.consts = fem.assemble.pack_constants(self.form)
+
+    def update(self):
+        self.update_coefficients()
+        self.update_constants()
+
+
+@numba.njit(fastmath=True)
+def assemble_matrix(kernel, mesh, local_shape, cell_idx):
+    x_dofs, x = mesh
+    geometry = np.zeros((len(x_dofs[cell_idx]), 3), dtype=x.dtype)
+    geometry[:, :] = x[x_dofs[cell_idx]]
+
+    A_local = np.zeros((local_shape[0], local_shape[1]), dtype=ScalarType)
+    facet_index = np.array([0], dtype=np.intc)
+    facet_perm = np.zeros(0, dtype=np.uint8)
+    coeffs = np.zeros(0, dtype=ScalarType)
+    consts = np.zeros(1, dtype=ScalarType)
+    custom_data = np.zeros(1, dtype=np.int64)
+    custom_data_ptr = get_void_pointer(custom_data)
+    ffi_fb = ffi.from_buffer
+    kernel(ffi_fb(A_local), ffi_fb(coeffs), ffi_fb(consts), ffi_fb(geometry),
+           ffi_fb(facet_index), ffi_fb(facet_perm), custom_data_ptr)
+    return A_local
+
+
+@numba.njit(fastmath=True)
+def assemble_vector(kernel, mesh, local_shape, cell_idx, coeffs):
+    x_dofs, x = mesh
+    geometry = np.zeros((len(x_dofs[cell_idx]), 3), dtype=x.dtype)
+    geometry[:, :] = x[x_dofs[cell_idx]]
+
+    b_local = np.zeros((local_shape[0],), dtype=ScalarType)
+    facet_index = np.array([0], dtype=np.intc)
+    facet_perm = np.zeros(0, dtype=np.uint8)
+    l_coeffs = coeffs[cell_idx, :]
+    consts = np.zeros(1, dtype=ScalarType)
+    custom_data = np.zeros(1, dtype=np.int64)
+    custom_data_ptr = get_void_pointer(custom_data)
+    ffi_fb = ffi.from_buffer
+    kernel(ffi_fb(b_local), ffi_fb(coeffs), ffi_fb(consts), ffi_fb(geometry),
+           ffi_fb(facet_index), ffi_fb(facet_perm), custom_data_ptr)
+    return b_local
+
+
 if __name__ == '__main__':
     # create_mesh(1, 0.5)
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
@@ -196,6 +274,8 @@ if __name__ == '__main__':
     u0bar, v0bar = fem.Function(V0bar), ufl.TestFunction(V0bar)
     u1, v1 = fem.Function(V1), ufl.TestFunction(V1)
     u1bar, v1bar = fem.Function(V1bar), ufl.TestFunction(V1bar)
+    du0, du1 = ufl.TrialFunction(V0), ufl.TrialFunction(V1)
+    du0bar, du1bar = ufl.TrialFunction(V0bar), ufl.TrialFunction(V1bar)
 
     h = ufl.CellDiameter(domain)
     n = ufl.FacetNormal(domain)
@@ -271,25 +351,25 @@ if __name__ == '__main__':
     F1_bar += - gamma1 * (u1 - u1bar) * v1bar * (ds_c(markers.positive_am) + ds_c(markers.electrolyte_v_positive_am*11))
     F1_bar += -kappa * inner(grad(u0("-")), n1("+")) * v1bar("+") * dInterface
 
-    j00 = ufl.derivative(F0, u0)
-    j01 = ufl.derivative(F0, u0bar)
-    j02 = ufl.derivative(F0, u1)
-    j03 = ufl.derivative(F0, u1bar)
+    j00 = ufl.derivative(F0, u0, du0)
+    j01 = ufl.derivative(F0, u0bar, du0bar)
+    j02 = ufl.derivative(F0, u1, du1)
+    j03 = ufl.derivative(F0, u1bar, du1bar)
 
-    j10 = ufl.derivative(F0_bar, u0)
-    j11 = ufl.derivative(F0_bar, u0bar)
-    j12 = ufl.derivative(F0_bar, u1)
-    j13 = ufl.derivative(F0_bar, u1bar)
+    j10 = ufl.derivative(F0_bar, u0, du0)
+    j11 = ufl.derivative(F0_bar, u0bar, du0bar)
+    j12 = ufl.derivative(F0_bar, u1, du1)
+    j13 = ufl.derivative(F0_bar, u1bar, du1bar)
 
-    j20 = ufl.derivative(F1, u0)
-    j21 = ufl.derivative(F1, u0bar)
-    j22 = ufl.derivative(F1, u1)
-    j23 = ufl.derivative(F1, u1bar)
+    j20 = ufl.derivative(F1, u0, du0)
+    j21 = ufl.derivative(F1, u0bar, du0bar)
+    j22 = ufl.derivative(F1, u1, du1)
+    j23 = ufl.derivative(F1, u1bar, du1bar)
 
-    j30 = ufl.derivative(F1_bar, u0)
-    j31 = ufl.derivative(F1_bar, u0bar)
-    j32 = ufl.derivative(F1_bar, u1)
-    j33 = ufl.derivative(F1_bar, u1bar)
+    j30 = ufl.derivative(F1_bar, u0, du0)
+    j31 = ufl.derivative(F1_bar, u0bar, du0bar)
+    j32 = ufl.derivative(F1_bar, u1, du1)
+    j33 = ufl.derivative(F1_bar, u1bar, du1bar)
 
     J00 = fem.form(j00, entity_maps=entity_maps)
     J01 = fem.form(j01, entity_maps=entity_maps)
@@ -415,7 +495,88 @@ if __name__ == '__main__':
     am_cells = np.arange(am_cell_imap.size_local + am_cell_imap.num_ghosts)
     parent_cells = am_mesh_emap.sub_topology_to_topology(am_cells, inverse=False)
     u.interpolate(u1, cells1=parent_cells, cells0=am_cells)
+    se_ft = np.arange(se_ft_mesh.topology.index_map(fdim).size_local + se_ft_mesh.topology.index_map(fdim).num_ghosts)
+    se_ft_parent = se_ft_mesh_emap.sub_topology_to_topology(se_ft, inverse=False)
+    am_ft = np.arange(am_ft_mesh.topology.index_map(fdim).size_local + am_ft_mesh.topology.index_map(fdim).num_ghosts)
+    am_ft_parent = am_ft_mesh_emap.sub_topology_to_topology(am_ft, inverse=False)
+    ubar.interpolate(u0bar, cells1=se_ft_parent, cells0=se_ft)
+    ubar.interpolate(u1bar, cells1=am_ft_parent, cells0=am_ft)
+    shutil.rmtree(os.path.join(os.environ["HOME"], ".cache/fenics"))
+
+    R_fun = scifem.create_real_functionspace(domain)
+    Vp1 = fem.functionspace(domain, ("DG", args.k+1))
+    W = ufl.MixedFunctionSpace(Vp1, R_fun)
+    q, lmda = ufl.TrialFunctions(W)
+    dq, dlmda = ufl.TestFunctions(W)
+    wh = fem.Function(Vp1)
+    kappa_a = 0.1
+    cells = np.arange(domain.topology.index_map(tdim).size_local, dtype=np.int32)
+    zero = fem.Constant(domain, dtype(0.0))
+
+    a00 = inner(kappa_a * grad(q), grad(dq)) * dx
+    a01 = lmda * dq * dx
+    a10 = q * dlmda * dx
+    a11 = None
+    L0 = - inner(div(kappa_a * grad(u)), dq) * dx - kappa_a * inner(grad(u), n) * dq * ds
+    L1 = inner(zero, dlmda) * dx
+    a_form = fem.form([
+        [a00, a01],
+        [a10, None]
+        ])
+    L_form = fem.form([L0, L1])
+    x_dofs = V.mesh.geometry.dofmap
+    x = domain.geometry.x
+    bs = Vp1.dofmap.bs
+    a00_assembler = LocalAssembler(a00, entity_maps)
+    a00_kernel = a00_assembler.kernel
+    a00_lshape = a00_assembler.local_shape
+    a01_assembler = LocalAssembler(a01, entity_maps)
+    a01_kernel = a01_assembler.kernel
+    a01_lshape = a01_assembler.local_shape
+    a10_assembler = LocalAssembler(a10, entity_maps)
+    a10_kernel = a10_assembler.kernel
+    a10_lshape = a10_assembler.local_shape
+    b0_assembler = LocalAssembler(L0, entity_maps)
+    b0_kernel = b0_assembler.kernel
+    b0_lshape = b0_assembler.local_shape
+    b1_assembler = LocalAssembler(L1, entity_maps)
+    b1_kernel = b1_assembler.kernel
+    b1_lshape = b1_assembler.local_shape
+
+    ct_u = mesh.meshtags(domain, tdim, ct.indices, ct.indices)
+    dx_u = ufl.Measure('dx', domain=domain, subdomain_data=ct_u)
+    h_vals = np.zeros(ct.indices.shape)
+    u_tot = lambda v: fem.assemble_scalar(fem.form(u * dx_u(v)))
+    for idx in ct.indices:
+        h_vals[idx] = u_tot(idx)
+
+    for cell_idx in range(domain.topology.index_map(domain.topology.dim).size_local):
+        A00 = assemble_matrix(a00_kernel, (x_dofs, x), a00_lshape, cell_idx)
+        A01 = assemble_matrix(a01_kernel, (x_dofs, x), a01_lshape, cell_idx)
+        A10 = assemble_matrix(a10_kernel, (x_dofs, x), a10_lshape, cell_idx)
+        A = np.zeros((A00.shape[0]+A10.shape[0], A00.shape[1]+A01.shape[1] ))
+
+        A[:A00.shape[0], :A00.shape[0]] = A00
+        A[:A00.shape[0], -1] = A01.T
+        A[-1, :A00.shape[0]] = A10[:]
+        b0 = assemble_vector(b0_kernel, (x_dofs, x), b0_lshape, cell_idx, b0_assembler.coeffs[(fem.IntegralType.cell, 0)])
+        b02 = assemble_vector(b0_kernel, (x_dofs, x), b0_lshape, cell_idx, b0_assembler.coeffs[(fem.IntegralType.exterior_facet, 0)])
+        b1 = assemble_vector(b1_kernel, (x_dofs, x), b1_lshape, cell_idx, b1_assembler.coeffs[(fem.IntegralType.cell, 0)])
+        b = np.zeros((A.shape[0],))
+        b[:A00.shape[0]] = b0
+        b[-1] = h_vals[cell_idx]
+
+        cell_dofs = Vp1.dofmap.cell_dofs(cell_idx)
+        unrolled_dofs = np.zeros(len(cell_dofs)*bs, dtype=np.int32)
+        for i, dof in enumerate(cell_dofs):
+            for j in range(bs):
+                unrolled_dofs[i*bs+j] = dof*bs+j
+        wh.x.array[unrolled_dofs] = np.linalg.solve(A, b)[:A00.shape[0]]
+    wh.x.scatter_forward()
+
+    with io.VTXWriter(domain.comm, os.path.join(results_folder, "w.bp"), [wh], "bp5") as f:
+        f.write(0.0)
     with io.VTXWriter(domain.comm, os.path.join(results_folder, "u.bp"), [u], "bp5") as f:
         f.write(0.0)
-    with io.VTXWriter(domain.comm, os.path.join(results_folder, "ubar.bp"), [u0bar], "bp5") as f:
+    with io.VTXWriter(domain.comm, os.path.join(results_folder, "ubar.bp"), [ubar], "bp5") as f:
         f.write(0.0)
