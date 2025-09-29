@@ -10,21 +10,30 @@ sys.path.append("../")
 import gmsh
 import matspy
 import numpy as np
+import scifem
 import scipy
 import ufl
 
 from dolfinx import cpp, fem, io, mesh
 from dolfinx.graph import partitioner_scotch
+import dolfinx.fem.petsc as petsc
 
 from mpi4py import MPI
 from petsc4py import PETSc
-from ufl import dot, grad, inner
+from petsc4py.PETSc import ScalarType
+from ufl import div, dot, grad, inner
+import cffi
+import numba
+from ffcx.codegeneration.utils import get_void_pointer
 
 import commons, mesh_utils, solvers, utils
 
 markers = commons.Markers()
 Print = PETSc.Sys.Print
 dtype = PETSc.ScalarType
+_type_to_offset_index = {fem.IntegralType.cell: 0, fem.IntegralType.exterior_facet: 1}
+
+ffi = cffi.FFI()
 
 
 def create_mesh(LX, LY):
@@ -517,7 +526,7 @@ if __name__ == '__main__':
     a01 = lmda * dq * dx
     a10 = q * dlmda * dx
     a11 = None
-    L0 = - inner(div(kappa_a * grad(u)), dq) * dx - kappa_a * inner(grad(u), n) * dq * ds
+    L0 = - inner(div(kappa_a * grad(u)), dq) * dx - kappa_a * inner(grad(u), n) * dq * ds_c
     L1 = inner(zero, dlmda) * dx
     a_form = fem.form([
         [a00, a01],
@@ -560,7 +569,6 @@ if __name__ == '__main__':
         A[:A00.shape[0], -1] = A01.T
         A[-1, :A00.shape[0]] = A10[:]
         b0 = assemble_vector(b0_kernel, (x_dofs, x), b0_lshape, cell_idx, b0_assembler.coeffs[(fem.IntegralType.cell, 0)])
-        b02 = assemble_vector(b0_kernel, (x_dofs, x), b0_lshape, cell_idx, b0_assembler.coeffs[(fem.IntegralType.exterior_facet, 0)])
         b1 = assemble_vector(b1_kernel, (x_dofs, x), b1_lshape, cell_idx, b1_assembler.coeffs[(fem.IntegralType.cell, 0)])
         b = np.zeros((A.shape[0],))
         b[:A00.shape[0]] = b0
