@@ -102,10 +102,13 @@ def tagged_cell_boundary_facets(msh, ct, ft):
     internal_am = []
     se_xface = []
     am_xface = []
+    ft_imap = msh.topology.index_map(fdim)
     for c_id in ct.indices:
         facets = c_to_f.links(c_id)
         subdomain = ct.values[c_id]
         for f in facets:
+            if f >= ft_imap.size_local:
+                continue
             ft_id = ft.values[[f]]
             if ft_id == markers.electrolyte_v_positive_am:
                 local_f = np.where(c_to_f.links(c_id) == f)[0][0]
@@ -217,6 +220,7 @@ if __name__ == '__main__':
     domain, ct, ft = io.gmsh.read_from_msh(output_meshfile, comm, partitioner=partitioner)[:3]
     tdim = domain.topology.dim
     fdim = tdim - 1
+    domain.topology.create_entities(fdim)
     domain.topology.create_connectivity(tdim, fdim)
     domain.topology.create_connectivity(fdim, tdim)
     domain.topology.create_connectivity(fdim, fdim)
@@ -496,6 +500,7 @@ if __name__ == '__main__':
     error_norm_2 = i_x_error / (0.5 * i_x_norm_l + 0.5 * i_x_norm_r)
     Print(i_x_norm_l, i_x_norm_r)
     Print(f'error 1: {error_norm}, error 2: {error_norm_2}')
+
     se_cell_imap = submesh_electrolyte.topology.index_map(tdim)
     se_cells = np.arange(se_cell_imap.size_local + se_cell_imap.num_ghosts)
     parent_cells = se_mesh_emap.sub_topology_to_topology(se_cells, inverse=False)
@@ -510,7 +515,13 @@ if __name__ == '__main__':
     am_ft_parent = am_ft_mesh_emap.sub_topology_to_topology(am_ft, inverse=False)
     ubar.interpolate(u0bar, cells1=se_ft_parent, cells0=se_ft)
     ubar.interpolate(u1bar, cells1=am_ft_parent, cells0=am_ft)
-    shutil.rmtree(os.path.join(os.environ["HOME"], ".cache/fenics"))
+
+    with io.VTXWriter(domain.comm, os.path.join(results_folder, "u.bp"), [u], "bp5") as f:
+        f.write(0.0)
+    with io.VTXWriter(domain.comm, os.path.join(results_folder, "ubar.bp"), [ubar], "bp5") as f:
+        f.write(0.0)
+
+    shutil.rmtree(os.path.join(os.environ["HOME"], ".cache/fenics"), ignore_errors=True)
 
     R_fun = scifem.create_real_functionspace(domain)
     Vp1 = fem.functionspace(domain, ("DG", args.k+1))
@@ -554,12 +565,11 @@ if __name__ == '__main__':
 
     ct_u = mesh.meshtags(domain, tdim, ct.indices, ct.indices)
     dx_u = ufl.Measure('dx', domain=domain, subdomain_data=ct_u)
-    h_vals = np.zeros(ct.indices.shape)
     u_tot = lambda v: fem.assemble_scalar(fem.form(u * dx_u(v)))
-    for idx in ct.indices:
-        h_vals[idx] = u_tot(idx)
+    imap = domain.topology.index_map(tdim)
 
-    for cell_idx in range(domain.topology.index_map(domain.topology.dim).size_local):
+    for cell_idx in range(imap.size_local):
+        idx_global = imap.local_to_global(np.array([cell_idx], dtype=np.int32))[0]
         A00 = assemble_matrix(a00_kernel, (x_dofs, x), a00_lshape, cell_idx)
         A01 = assemble_matrix(a01_kernel, (x_dofs, x), a01_lshape, cell_idx)
         A10 = assemble_matrix(a10_kernel, (x_dofs, x), a10_lshape, cell_idx)
@@ -572,7 +582,7 @@ if __name__ == '__main__':
         b1 = assemble_vector(b1_kernel, (x_dofs, x), b1_lshape, cell_idx, b1_assembler.coeffs[(fem.IntegralType.cell, 0)])
         b = np.zeros((A.shape[0],))
         b[:A00.shape[0]] = b0
-        b[-1] = h_vals[cell_idx]
+        b[-1] = u_tot(idx_global)
 
         cell_dofs = Vp1.dofmap.cell_dofs(cell_idx)
         unrolled_dofs = np.zeros(len(cell_dofs)*bs, dtype=np.int32)
@@ -583,8 +593,4 @@ if __name__ == '__main__':
     wh.x.scatter_forward()
 
     with io.VTXWriter(domain.comm, os.path.join(results_folder, "w.bp"), [wh], "bp5") as f:
-        f.write(0.0)
-    with io.VTXWriter(domain.comm, os.path.join(results_folder, "u.bp"), [u], "bp5") as f:
-        f.write(0.0)
-    with io.VTXWriter(domain.comm, os.path.join(results_folder, "ubar.bp"), [ubar], "bp5") as f:
         f.write(0.0)
