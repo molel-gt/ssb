@@ -211,9 +211,10 @@ if __name__ == '__main__':
     parser.add_argument("-p_u1", '--poly_order_u1', help='polynomial approximation order for u1',  nargs='?', type=int, const=1, default=1)
     parser.add_argument("-kr", '--kr', help='ionic to electronic conductivity ratio',  nargs='?', type=float, const=1, default=1.0)
     parser.add_argument("-k", '--k', help='polynomial approximation order',  nargs='?', type=int, const=1, default=1)
+    parser.add_argument("-gamma", '--gamma', help='stabilization penalty parameter',  nargs='?', type=float, const=1, default=1.0)
     args = parser.parse_args()
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
-    results_folder = os.path.join(args.mesh_folder, f"output/k_{args.k}/kr_{args.kr}")
+    results_folder = os.path.join(args.mesh_folder, f"output/k_{args.k}/kr_{args.kr}/Wa/{args.gamma}")
     utils.make_dir_if_missing(results_folder)
     comm = MPI.COMM_WORLD
     partitioner = mesh.create_cell_partitioner(partitioner_scotch(), mesh.GhostMode.shared_facet)
@@ -299,9 +300,9 @@ if __name__ == '__main__':
     h1 = ufl.CellDiameter(submesh_positive_am)
     n1 = ufl.FacetNormal(submesh_positive_am)
 
-    gamma = 16.0 * args.k**2 / h
-    gamma0 = 2.0/3.0 * args.k**2 / h0
-    gamma1 = 2.0/3.0 * args.k**2 / h1
+    gamma = args.gamma * args.k**2 / h
+    gamma0 = args.gamma * args.k**2 / h0
+    gamma1 = args.gamma * args.k**2 / h1
 
     # Create the measure
     ds_c = ufl.Measure("ds", subdomain_data=[(markers.electrolyte, tagged_boundary_facets[0]),
