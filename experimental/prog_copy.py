@@ -271,7 +271,7 @@ if __name__ == '__main__':
     am_ft = facets_for_subdomain(domain, ft, markers.positive_am)
     se_ft_mesh, se_ft_mesh_emap = mesh.create_submesh(domain, fdim, se_ft)[:2]
     am_ft_mesh, am_ft_mesh_emap = mesh.create_submesh(domain, fdim, am_ft)[:2]
-    entity_maps = [se_mesh_emap, am_mesh_emap, se_ft_mesh_emap, am_ft_mesh_emap]
+    entity_maps = [facet_mesh_emap, se_mesh_emap, am_mesh_emap, se_ft_mesh_emap, am_ft_mesh_emap]
 
     V = fem.functionspace(domain, ("DG", args.k))
     Vbar = fem.functionspace(facet_mesh, ("DG", args.k))
@@ -312,10 +312,8 @@ if __name__ == '__main__':
 
     f_to_c = domain.topology.connectivity(fdim, tdim)
     c_to_f = domain.topology.connectivity(tdim, fdim)
-    charge_xfer_facets = ft.find(markers.electrolyte_v_positive_am)
-
-    int_facet_domain = []
-    for f in charge_xfer_facets:
+    internal_facets_domain = []
+    for f in ft.find(0):
         if f >= ft_imap.size_local or len(f_to_c.links(f)) != 2:
             continue
         c_0, c_1 = f_to_c.links(f)[0], f_to_c.links(f)[1]
@@ -323,27 +321,47 @@ if __name__ == '__main__':
         local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
         local_f_1 = np.where(c_to_f.links(c_1) == f)[0][0]
         if subdomain_0 > subdomain_1:
-            int_facet_domain.append(c_0)
-            int_facet_domain.append(local_f_0)
-            int_facet_domain.append(c_1)
-            int_facet_domain.append(local_f_1)
+            internal_facets_domain.append(c_0)
+            internal_facets_domain.append(local_f_0)
+            internal_facets_domain.append(c_1)
+            internal_facets_domain.append(local_f_1)
         else:
-            int_facet_domain.append(c_1)
-            int_facet_domain.append(local_f_1)
-            int_facet_domain.append(c_0)
-            int_facet_domain.append(local_f_0)
-    int_facet_domains = [(markers.electrolyte_v_positive_am, int_facet_domain)]
+            internal_facets_domain.append(c_1)
+            internal_facets_domain.append(local_f_1)
+            internal_facets_domain.append(c_0)
+            internal_facets_domain.append(local_f_0)
+
+    interface_facet_domain = []
+    for f in ft.find(markers.electrolyte_v_positive_am):
+        if f >= ft_imap.size_local or len(f_to_c.links(f)) != 2:
+            continue
+        c_0, c_1 = f_to_c.links(f)[0], f_to_c.links(f)[1]
+        subdomain_0, subdomain_1 = ct.values[[c_0, c_1]]
+        local_f_0 = np.where(c_to_f.links(c_0) == f)[0][0]
+        local_f_1 = np.where(c_to_f.links(c_1) == f)[0][0]
+        if subdomain_0 > subdomain_1:
+            interface_facet_domain.append(c_0)
+            interface_facet_domain.append(local_f_0)
+            interface_facet_domain.append(c_1)
+            interface_facet_domain.append(local_f_1)
+        else:
+            interface_facet_domain.append(c_1)
+            interface_facet_domain.append(local_f_1)
+            interface_facet_domain.append(c_0)
+            interface_facet_domain.append(local_f_0)
+    int_facet_domains = [(markers.electrolyte_v_positive_am, interface_facet_domain)]
     dInterface = ufl.Measure("dS", domain=domain, subdomain_data=int_facet_domains, subdomain_id=markers.electrolyte_v_positive_am)
+    dS_0 = ufl.Measure("dS", domain=domain, subdomain_data=[(0, internal_facets_domain)], subdomain_id=0)
     ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
 
     FaradayConstant = 96485
     R = 8.314
     T = 298
-    i0 = 1.0e2
+    i0 = 1.0e-2
     sigma = 0.1
     kappa = args.kr * sigma
     eta_s = -R * T / i0 / FaradayConstant * inner(sigma * grad(u1("+")), n1("+"))
-    U_ocv = 0.7
+    U_ocv = 0.1
     u_l = u1("+") - U_ocv - eta_s
     F0 = kappa * inner(grad(u0), grad(v0)) * dx(markers.electrolyte)
     F0 += - kappa * inner(grad(u0), n0) * v0 * (ds_c(markers.electrolyte) + ds_c(markers.electrolyte_v_positive_am))
@@ -499,8 +517,7 @@ if __name__ == '__main__':
     i_x_norm_r = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(inner(sigma * grad(u1)("+"), n1("+")), inner(sigma * grad(u1)("+"), n1("+"))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
     error_norm = i_x_norm_l / i_x_norm_r
     error_norm_2 = i_x_error / (0.5 * i_x_norm_l + 0.5 * i_x_norm_r)
-    Print(i_x_norm_l, i_x_norm_r)
-    Print(f'error 1: {error_norm}, error 2: {error_norm_2}')
+    Print(f'Error u conservativity (interface): {error_norm_2}')
 
     se_cell_imap = submesh_electrolyte.topology.index_map(tdim)
     se_cells = np.arange(se_cell_imap.size_local + se_cell_imap.num_ghosts)
@@ -516,6 +533,25 @@ if __name__ == '__main__':
     am_ft_parent = am_ft_mesh_emap.sub_topology_to_topology(am_ft, inverse=False)
     ubar.interpolate(u0bar, cells1=se_ft_parent, cells0=se_ft)
     ubar.interpolate(u1bar, cells1=am_ft_parent, cells0=am_ft)
+    Q = fem.functionspace(domain, ("DG", 0))
+    kappa = fem.Function(Q, name='conductivity')
+    cells_elec = ct.find(markers.electrolyte)
+    kappa.x.array[cells_elec] = np.full_like(cells_elec, args.kr * sigma, dtype=dtype)
+
+    cells_pos_am = ct.find(markers.positive_am)
+    kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, sigma, dtype=dtype)
+
+    e_u = u("+") - u("-")
+    e_flux = inner(kappa("+") * grad(u)("+") - kappa("-") * grad(u)("-"), n("+"))
+    e_u_norm = comm.allreduce(fem.assemble_scalar(fem.form(inner(e_u, e_u) * dS_0, entity_maps=entity_maps)), op=MPI.SUM)
+    e_flux_norm = comm.allreduce(fem.assemble_scalar(fem.form(inner(e_flux, e_flux) * dS_0, entity_maps=entity_maps)), op=MPI.SUM)
+
+    u_avg = ufl.avg(u)
+    flux_avg = inner(ufl.avg(kappa * grad(u)), n("+"))
+    u_norm = comm.allreduce(fem.assemble_scalar(fem.form(inner(u_avg, u_avg) * dS_0, entity_maps=entity_maps)), op=MPI.SUM)
+    flux_norm = comm.allreduce(fem.assemble_scalar(fem.form(inner(flux_avg, flux_avg) * dS_0, entity_maps=entity_maps)), op=MPI.SUM)
+    Print(f"Error u conservativity (bulk): {e_flux_norm/flux_norm}")
+    Print(f"Error u continuity (bulk): {e_u_norm/u_norm}")
 
     with io.VTXWriter(domain.comm, os.path.join(results_folder, "u.bp"), [u], "bp5") as f:
         f.write(0.0)
