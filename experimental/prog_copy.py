@@ -38,6 +38,10 @@ ffi = cffi.FFI()
 
 log.set_log_level(log.LogLevel.INFO)
 
+V_MAX = 5.0
+U_OCV = 3.65
+K_ref = 0.1 # reference conductivity [S/m]
+
 
 def create_mesh(LX, LY):
     gmsh.initialize()
@@ -206,6 +210,18 @@ def assemble_vector(kernel, mesh, local_shape, cell_idx, coeffs):
     return b_local
 
 
+def U_ocp(c, c_max=1.0, phi_ref=V_MAX):
+    """
+    Chen2020 OCP for NMC622 + bound-checking
+    """
+    return  1/phi_ref * (4.4875 - 0.8090 * c/c_max - 0.0428 * ufl.tanh(18.5138*(c/c_max - 0.5542)) +\
+        -17.7326 * ufl.tanh(15.7890*(c/c_max - 0.3117)) + 17.5842 * ufl.tanh(15.9308*(c/c_max - 0.3120))) * ufl.conditional(ufl.ge(c/c_max, 0), 1, 0) * ufl.conditional(ufl.le(c/c_max, 1), 1, 0)+\
+        1/phi_ref * (
+         ufl.conditional(ufl.lt(c/c_max, 0), 4.6785099 - 1000 * c/c_max, 0) +\
+         ufl.conditional(ufl.gt(c/c_max, 1.0), 3.4873 - 1000 * c/c_max, 0)
+         )
+
+
 if __name__ == '__main__':
     # create_mesh(1, 0.5)
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
@@ -215,14 +231,27 @@ if __name__ == '__main__':
     parser.add_argument("-kr", '--kr', help='ionic to electronic conductivity ratio',  nargs='?', type=float, const=1, default=1.0)
     parser.add_argument("-k", '--k', help='polynomial approximation order',  nargs='?', type=int, const=1, default=1)
     parser.add_argument("-gamma", '--gamma', help='stabilization penalty parameter',  nargs='?', type=float, const=1, default=1.0)
+    parser.add_argument("-Wa_p", '--Wa_p', help='Positive electrode Wagner number',  nargs='?', type=float, const=1, default=1.0)
+    parser.add_argument("-L_C", '--L_C', help='Characteristic length',  nargs='?', type=float, const=1, default=50e-6)
     args = parser.parse_args()
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
-    results_folder = os.path.join(args.mesh_folder, f"output/k_{args.k}/kr_{args.kr}/Wa/{args.gamma}")
+    results_folder = os.path.join(args.mesh_folder, f"output/k_{args.k}/kr_{args.kr}/Wa+_{args.Wa_p}/{args.gamma}")
     utils.make_dir_if_missing(results_folder)
     log_output_file = os.path.join(results_folder, __file__.replace(".py", ".log"))
     stats_output_file = os.path.join(results_folder, "stats.json")
     log.set_output_file(log_output_file)
 
+    V_ref = V_MAX
+    L_C = args.L_C  # characteristic length
+    K_total = (1 + args.kr) * K_ref
+    sigma = 1 * K_ref / K_total
+    kappa = args.kr * K_ref / K_total
+    A_ref = L_C ** 2
+    dimensions = utils.extract_dimensions_from_meshfolder(args.mesh_folder)
+    LX, LY, LZ = [float(vv) * 1e-6 for vv in dimensions.split("-")]
+
+    if not (min([LX, LY, LZ])/1.005 <= args.L_C <= 1.005 * max([LX, LY, LZ])):
+        raise ValueError("Characteristic length must be comparable to cell dimensions, within 0.5%!")
     comm = MPI.COMM_WORLD
     partitioner = mesh.create_cell_partitioner(partitioner_scotch(), mesh.GhostMode.shared_facet)
     domain, ct, ft = io.gmsh.read_from_msh(output_meshfile, comm, partitioner=partitioner)[:3]
@@ -364,11 +393,21 @@ if __name__ == '__main__':
     FaradayConstant = 96485
     R = 8.314
     T = 298
-    i0 = 1.0e-2
-    sigma = 0.1
-    kappa = args.kr * sigma
-    eta_s = -R * T / i0 / FaradayConstant * inner(sigma * grad(u1("+")), n1("+"))
-    U_ocv = 0.1
+
+    Q = fem.functionspace(domain, ("DG", 0))
+    K = fem.Function(Q, name='conductivity')
+
+    cells_elec = ct.find(markers.electrolyte)
+    K.x.array[cells_elec] = np.full_like(cells_elec, kappa, dtype=dtype)
+
+    cells_pos_am = ct.find(markers.positive_am)
+    K.x.array[cells_pos_am] = np.full_like(cells_pos_am, sigma, dtype=dtype)
+
+    i0 = args.kr * K_ref * R * T/(args.Wa_p * FaradayConstant * L_C)
+    Print(f"Kr: {args.kr}, Wa_p: {args.Wa_p}, i0_p: {i0:.2e} A/m^2")
+
+    eta_s = -R * T / i0 / FaradayConstant * inner(sigma * K_total * V_ref/L_C * grad(u1("+")), n1("+"))/V_ref
+    U_ocv = U_ocp(0.95, phi_ref=V_ref)
     u_l = u1("+") - U_ocv - eta_s
     F0 = kappa * inner(grad(u0), grad(v0)) * dx(markers.electrolyte)
     F0 += - kappa * inner(grad(u0), n0) * v0 * (ds_c(markers.electrolyte) + ds_c(markers.electrolyte_v_positive_am))
@@ -445,13 +484,14 @@ if __name__ == '__main__':
     ]
 
     # plot sparsity
-    J_view = fem.petsc.assemble_matrix(J, kind="mpi")
-    J_view.assemble()
-    ai, aj, av = J_view.getValuesCSR()
-    Asp = scipy.sparse.csr_matrix((av, aj, ai))
-    fig, ax = matspy.spy_to_mpl(Asp)
-    ax.set_title('')
-    fig.savefig("jacobian-sparsity.eps", bbox_inches='tight')
+    if comm.Get_size == 0:
+        J_view = fem.petsc.assemble_matrix(J, kind="mpi")
+        J_view.assemble()
+        ai, aj, av = J_view.getValuesCSR()
+        Asp = scipy.sparse.csr_matrix((av, aj, ai))
+        fig, ax = matspy.spy_to_mpl(Asp)
+        ax.set_title('')
+        fig.savefig("jacobian-sparsity.eps", bbox_inches='tight')
 
     J2D = fem.form(J)
     F2D = fem.form(F)
@@ -487,7 +527,7 @@ if __name__ == '__main__':
     left_dofs = fem.locate_dofs_topological(V0bar, fdim, left_boundary_facets)
     right_dofs = fem.locate_dofs_topological(V1bar, fdim, right_boundary_facets)
     left_bc = fem.dirichletbc(dtype(0.0), left_dofs, V0bar)
-    right_bc = fem.dirichletbc(dtype(1.0), right_dofs, V1bar)
+    right_bc = fem.dirichletbc(dtype(4.0/V_ref), right_dofs, V1bar)
     bcs = [left_bc, right_bc]
     problem_t0 = solvers.NonlinearPDE_SNESProblem(F2D, J2D, [u0, u0bar, u1, u1bar], bcs, P=J2D)
     snes.setFunction(problem_t0.F_block, Fvec2d)
@@ -513,16 +553,19 @@ if __name__ == '__main__':
     Jmat2d.destroy()
     Fvec2d.destroy()
     x2d.destroy()
-    I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa * grad(u0), n0) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
-    I_x_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa * grad(u0)("-"), n0("-")) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
-    I_x_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(sigma * grad(u1)("+"), n1("+")) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
-    I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(sigma * grad(u1), n1) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
-    Print(I_left, I_x_left, I_x_right, I_right)
+
+    I_left = (A_ref/L_C) * V_ref * K_total * comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa * grad(u0), n0) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
+    I_x_left = (A_ref/L_C) * V_ref * K_total * comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa * grad(u0)("-"), n0("-")) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+    I_x_right = (A_ref/L_C) * V_ref * K_total * comm.allreduce(fem.assemble_scalar(fem.form(inner(sigma * grad(u1)("+"), n1("+")) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+    I_right = (A_ref/L_C) * V_ref * K_total * comm.allreduce(fem.assemble_scalar(fem.form(inner(sigma * grad(u1), n1) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
+    Print(f"I (left cc)         : {I_left:.2e} A/m^2")
+    Print(f"I (right cc)        : {I_right:.2e} A/m^2")
+    Print(f"I (interface left)  : {I_x_left:.2e} A/m^2")
+    Print(f"I (interface right) : {I_x_right:.2e} A/m^2")
     error = kappa * inner(grad(u0)('-'), n0("-")) + sigma * inner(grad(u1)('+'), n1("+"))
-    i_x_error = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(error, error) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
-    i_x_norm_l = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(inner(kappa * grad(u0)("-"), n0("-")), inner(kappa * grad(u0)("-"), n0("-"))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
-    i_x_norm_r = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(inner(sigma * grad(u1)("+"), n1("+")), inner(sigma * grad(u1)("+"), n1("+"))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
-    error_norm = i_x_norm_l / i_x_norm_r
+    i_x_error = K_total * np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(error, error) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
+    i_x_norm_l = K_total * np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(inner(kappa * grad(u0)("-"), n0("-")), inner(kappa * grad(u0)("-"), n0("-"))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
+    i_x_norm_r = K_total * np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(inner(sigma * grad(u1)("+"), n1("+")), inner(sigma * grad(u1)("+"), n1("+"))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
     e_flux_x = i_x_error / (0.5 * i_x_norm_l + 0.5 * i_x_norm_r)
     Print(f'Error u conservativity (interface): {e_flux_x}')
 
@@ -540,23 +583,20 @@ if __name__ == '__main__':
     am_ft_parent = am_ft_mesh_emap.sub_topology_to_topology(am_ft, inverse=False)
     ubar.interpolate(u0bar, cells1=se_ft_parent, cells0=se_ft)
     ubar.interpolate(u1bar, cells1=am_ft_parent, cells0=am_ft)
-    Q = fem.functionspace(domain, ("DG", 0))
-    kappa = fem.Function(Q, name='conductivity')
-    cells_elec = ct.find(markers.electrolyte)
-    kappa.x.array[cells_elec] = np.full_like(cells_elec, args.kr * sigma, dtype=dtype)
-
-    cells_pos_am = ct.find(markers.positive_am)
-    kappa.x.array[cells_pos_am] = np.full_like(cells_pos_am, sigma, dtype=dtype)
+    u_out = fem.Function(V)
+    ubar_out = fem.Function(Vbar)
+    u_out.x.array[:] = u.x.array * V_ref
+    ubar_out.x.array[:] = ubar.x.array * V_ref
 
     e_u = u("+") - u("-")
-    e_flux = inner(kappa("+") * grad(u)("+") - kappa("-") * grad(u)("-"), n("+"))
-    e_u_norm = comm.allreduce(fem.assemble_scalar(fem.form(inner(e_u, e_u) * dS_0, entity_maps=entity_maps)), op=MPI.SUM)
-    e_flux_norm = comm.allreduce(fem.assemble_scalar(fem.form(inner(e_flux, e_flux) * dS_0, entity_maps=entity_maps)), op=MPI.SUM)
+    e_flux = ufl.jump(K * grad(u), n)
+    e_u_norm = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(e_u, e_u) * dS_0, entity_maps=entity_maps)), op=MPI.SUM))
+    e_flux_norm = K_total * np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(e_flux, e_flux) * dS_0, entity_maps=entity_maps)), op=MPI.SUM))
 
     u_avg = ufl.avg(u)
-    flux_avg = inner(ufl.avg(kappa * grad(u)), n("+"))
-    u_norm = comm.allreduce(fem.assemble_scalar(fem.form(inner(u_avg, u_avg) * dS_0, entity_maps=entity_maps)), op=MPI.SUM)
-    flux_norm = comm.allreduce(fem.assemble_scalar(fem.form(inner(flux_avg, flux_avg) * dS_0, entity_maps=entity_maps)), op=MPI.SUM)
+    flux_avg = inner(ufl.avg(K * grad(u)), n("+"))
+    u_norm = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(u_avg, u_avg) * dS_0, entity_maps=entity_maps)), op=MPI.SUM))
+    flux_norm = K_total * np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(flux_avg, flux_avg) * dS_0, entity_maps=entity_maps)), op=MPI.SUM))
     e_flux_bulk = e_flux_norm / flux_norm
     Print(f"Error u conservativity (bulk): {e_flux_bulk}")
     Print(f"Error u continuity (bulk): {e_u_norm/u_norm}")
@@ -568,11 +608,11 @@ if __name__ == '__main__':
     if comm.rank == 0:
         with open(stats_output_file, "w", encoding='utf-8') as fp:
             json.dump(stats, fp, ensure_ascii=False, indent=4)
-    with io.VTXWriter(domain.comm, os.path.join(results_folder, "u.bp"), [u], "bp5") as f:
+    with io.VTXWriter(domain.comm, os.path.join(results_folder, "u.bp"), [u_out], "bp5") as f:
         f.write(0.0)
-    with io.VTXWriter(domain.comm, os.path.join(results_folder, "ubar.bp"), [ubar], "bp5") as f:
+    with io.VTXWriter(domain.comm, os.path.join(results_folder, "ubar.bp"), [ubar_out], "bp5") as f:
         f.write(0.0)
-
+    quit()
     shutil.rmtree(os.path.join(os.environ["HOME"], ".cache/fenics"), ignore_errors=True)
 
     R_fun = scifem.create_real_functionspace(domain)
