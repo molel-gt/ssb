@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import os
 import shutil
 import sys
@@ -14,7 +15,7 @@ import scifem
 import scipy
 import ufl
 
-from dolfinx import cpp, fem, io, mesh
+from dolfinx import cpp, fem, io, log, mesh
 from dolfinx.graph import partitioner_scotch
 import dolfinx.fem.petsc as petsc
 
@@ -35,11 +36,13 @@ _type_to_offset_index = {fem.IntegralType.cell: 0, fem.IntegralType.exterior_fac
 
 ffi = cffi.FFI()
 
+log.set_log_level(log.LogLevel.INFO)
+
 
 def create_mesh(LX, LY):
     gmsh.initialize()
     gmsh.model.add('ssb')
-    gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.01)
+    # gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.01)
 
     points = [
         (0, 0, 0),
@@ -216,6 +219,10 @@ if __name__ == '__main__':
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
     results_folder = os.path.join(args.mesh_folder, f"output/k_{args.k}/kr_{args.kr}/Wa/{args.gamma}")
     utils.make_dir_if_missing(results_folder)
+    log_output_file = os.path.join(results_folder, __file__.replace(".py", ".log"))
+    stats_output_file = os.path.join(results_folder, "stats.json")
+    log.set_output_file(log_output_file)
+
     comm = MPI.COMM_WORLD
     partitioner = mesh.create_cell_partitioner(partitioner_scotch(), mesh.GhostMode.shared_facet)
     domain, ct, ft = io.gmsh.read_from_msh(output_meshfile, comm, partitioner=partitioner)[:3]
@@ -506,18 +513,18 @@ if __name__ == '__main__':
     Jmat2d.destroy()
     Fvec2d.destroy()
     x2d.destroy()
-    i_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa * grad(u0), n0) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
-    i_x_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa * grad(u0)("-"), n0("-")) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
-    i_x_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(sigma * grad(u1)("+"), n1("+")) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
-    i_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(sigma * grad(u1), n1) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
-    Print(i_left, i_x_left, i_x_right, i_right)
+    I_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa * grad(u0), n0) * ds(markers.left), entity_maps=entity_maps)), op=MPI.SUM)
+    I_x_left = comm.allreduce(fem.assemble_scalar(fem.form(inner(kappa * grad(u0)("-"), n0("-")) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+    I_x_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(sigma * grad(u1)("+"), n1("+")) * dInterface, entity_maps=entity_maps)), op=MPI.SUM)
+    I_right = comm.allreduce(fem.assemble_scalar(fem.form(inner(sigma * grad(u1), n1) * ds(markers.right), entity_maps=entity_maps)), op=MPI.SUM)
+    Print(I_left, I_x_left, I_x_right, I_right)
     error = kappa * inner(grad(u0)('-'), n0("-")) + sigma * inner(grad(u1)('+'), n1("+"))
     i_x_error = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(error, error) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
     i_x_norm_l = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(inner(kappa * grad(u0)("-"), n0("-")), inner(kappa * grad(u0)("-"), n0("-"))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
     i_x_norm_r = np.sqrt(comm.allreduce(fem.assemble_scalar(fem.form(inner(inner(sigma * grad(u1)("+"), n1("+")), inner(sigma * grad(u1)("+"), n1("+"))) * dInterface, entity_maps=entity_maps)), op=MPI.SUM))
     error_norm = i_x_norm_l / i_x_norm_r
-    error_norm_2 = i_x_error / (0.5 * i_x_norm_l + 0.5 * i_x_norm_r)
-    Print(f'Error u conservativity (interface): {error_norm_2}')
+    e_flux_x = i_x_error / (0.5 * i_x_norm_l + 0.5 * i_x_norm_r)
+    Print(f'Error u conservativity (interface): {e_flux_x}')
 
     se_cell_imap = submesh_electrolyte.topology.index_map(tdim)
     se_cells = np.arange(se_cell_imap.size_local + se_cell_imap.num_ghosts)
@@ -550,9 +557,17 @@ if __name__ == '__main__':
     flux_avg = inner(ufl.avg(kappa * grad(u)), n("+"))
     u_norm = comm.allreduce(fem.assemble_scalar(fem.form(inner(u_avg, u_avg) * dS_0, entity_maps=entity_maps)), op=MPI.SUM)
     flux_norm = comm.allreduce(fem.assemble_scalar(fem.form(inner(flux_avg, flux_avg) * dS_0, entity_maps=entity_maps)), op=MPI.SUM)
-    Print(f"Error u conservativity (bulk): {e_flux_norm/flux_norm}")
+    e_flux_bulk = e_flux_norm / flux_norm
+    Print(f"Error u conservativity (bulk): {e_flux_bulk}")
     Print(f"Error u continuity (bulk): {e_u_norm/u_norm}")
-
+    stats = {
+        "normalized error flux conservativity (bulk)": e_flux_bulk,
+        "normalized error flux conservativity (interface)": e_flux_x,
+        "normalized error u continuity (bulk)": e_u_norm/u_norm,
+    }
+    if comm.rank == 0:
+        with open(stats_output_file, "w", encoding='utf-8') as fp:
+            json.dump(stats, fp, ensure_ascii=False, indent=4)
     with io.VTXWriter(domain.comm, os.path.join(results_folder, "u.bp"), [u], "bp5") as f:
         f.write(0.0)
     with io.VTXWriter(domain.comm, os.path.join(results_folder, "ubar.bp"), [ubar], "bp5") as f:
