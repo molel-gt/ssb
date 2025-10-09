@@ -255,7 +255,7 @@ if __name__ == '__main__':
     parser.add_argument('-kinetics', '--kinetics', help='kinetics type', nargs='?', const=1, default='butler_volmer', type=str, choices=kinetics)
     args = parser.parse_args()
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
-    results_folder = os.path.join(args.mesh_folder, f"output/k_{args.k}/kr_{args.kr}/Wa+_{args.Wa_p}/{args.gamma}")
+    results_folder = os.path.join(args.mesh_folder, f"output/k_{args.k}/kr_{args.kr}/Wa+_{args.Wa_p}/{args.gamma}/{args.kinetics}")
     utils.make_dir_if_missing(results_folder)
     log_output_file = os.path.join(results_folder, __file__.replace(".py", ".log"))
     stats_output_file = os.path.join(results_folder, "stats.json")
