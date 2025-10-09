@@ -518,7 +518,7 @@ if __name__ == '__main__':
     snes = PETSc.SNES().create(comm)
     snes.setType('newtonls')
     snes.setTolerances(rtol=1e-7, max_it=200)
-    snes.setMonitor(lambda _, it, residual: Print("it:", it, "res:", residual))
+    # snes.setMonitor(lambda _, it, residual: Print("it:", it, "res:", residual))
     snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
     snes.getKSP().getPC().setType(PETSc.PC.Type.LU)
     # snes.getKSP().getPC().setFactorSolverType("mumps")
