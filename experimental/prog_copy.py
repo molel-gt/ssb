@@ -422,7 +422,7 @@ if __name__ == '__main__':
     i0 = args.kr * K_ref * R * T/(args.Wa_p * FaradayConstant * L_C)
     Print(f"Kr: {args.kr}, Wa_p: {args.Wa_p}, i0_p: {i0:.2e} A/m^2")
 
-    eta_s = -R * T / i0 / FaradayConstant * inner(sigma * K_total * V_ref/L_C * grad(u1("+")), n1("+"))/V_ref
+    # eta_s = -R * T / i0 / FaradayConstant * inner(sigma * K_total * V_ref/L_C * grad(u1("+")), n1("+"))/V_ref
     ref = {"L": args.L_C, "phi": V_ref, "t": 1, "c": 1}
     U_ocv = U_ocp(0.95, phi_ref=V_ref)
     u_l = u1("+") - U_ocv - eta_s(sigma * K_total, u1, n1, i0, kinetics_type=args.kinetics, ref=ref)
