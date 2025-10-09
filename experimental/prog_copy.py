@@ -532,7 +532,7 @@ if __name__ == '__main__':
         options[kopt] = vopt
 
     snes.setFromOptions()
-    snes.getSKP().setFromOptions()
+    snes.getKSP().setFromOptions()
 
     # Since the boundary condition is enforced in the facet space, we need
     # to get the corresponding facets in `facet_mesh` using the entity map
