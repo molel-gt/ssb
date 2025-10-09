@@ -1,5 +1,5 @@
 #!/bin/bash
-version=v3.23.6
+version=v3.24.0
 cd $SOFTWARES_DIR
 if [ -d $SOFTWARES_DIR/petsc ]; then
     echo 'Directory exists, not cloning'
