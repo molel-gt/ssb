@@ -604,6 +604,10 @@ if __name__ == '__main__':
         "normalized error flux conservativity (bulk)": e_flux_bulk,
         "normalized error flux conservativity (interface)": e_flux_x,
         "normalized error u continuity (bulk)": e_u_norm/u_norm,
+        "I (left cc) [A/m^2]": I_left,
+        "I (right cc) [A/m^2]": I_right,
+        "I (interface left) [A/m^2]": I_x_left,
+        "I (interface right) [A/m^2]": I_x_right,
     }
     if comm.rank == 0:
         with open(stats_output_file, "w", encoding='utf-8') as fp:
