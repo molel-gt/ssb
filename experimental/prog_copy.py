@@ -230,9 +230,9 @@ def U_ocp(c, c_max=1.0, phi_ref=V_MAX):
 
 def eta_s(kappa, u, n, i0, kinetics_type='linear', ref={"L": 1, "phi": 1, "t": 1, "c": 1}):
     if isinstance(kappa, list):
-        i_loc = -0.5 * ref["phi"] / ref["L"] * (kappa[0] * inner(grad(u[0]), n[1]) + kappa[1] * inner(grad(u[1]), n[1]))
+        i_loc = -0.5 * ref["phi"] / ref["L"] * (kappa[0] * inner(grad(u[0])("-"), n[1]("-")) + kappa[1] * inner(grad(u[1])("+"), n[1]("+")))
     else:
-        i_loc = -inner((kappa * grad(u)), n) * ref["phi"] / ref["L"]
+        i_loc = -inner((kappa * grad(u)("+")), n("+")) * ref["phi"] / ref["L"]
     if kinetics_type == "butler_volmer":
         return 2 * ufl.ln(0.5 * i_loc/i0 + ufl.sqrt((0.5 * i_loc/i0)**2 + 1)) * (R * T / (FaradayConstant * ref["phi"]))
     elif kinetics_type == "linear":
