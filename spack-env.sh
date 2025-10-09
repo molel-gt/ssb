@@ -4,6 +4,7 @@ cd $HPC_DIR
 
 if [ -d $HPC_DIR/spack ]; then
     echo 'directory exists, skip cloning'
+    git stash && git pull origin
 else
     git clone https://github.com/spack/spack.git
 fi
