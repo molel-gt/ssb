@@ -514,6 +514,7 @@ if __name__ == '__main__':
     F2D = fem.form(F)
     Jmat2d = fem.petsc.create_matrix(J2D)
     Fvec2d = fem.petsc.create_vector([V0, V0bar, V1, V1bar], kind="mpi")
+    options = PETSc.Options()
     snes = PETSc.SNES().create(comm)
     snes.setType('newtonls')
     snes.setTolerances(rtol=1e-7, max_it=200)
@@ -528,7 +529,10 @@ if __name__ == '__main__':
     snes.getKSP().setErrorIfNotConverged(True)
     snes.getKSP().setConvergenceHistory()
     for kopt, vopt in solver_params.LINESEARCH.items():
-        petsc_options[kopt] = vopt
+        options[kopt] = vopt
+
+    snes.setFromOptions()
+    snes.getSKP().setFromOptions()
 
     # Since the boundary condition is enforced in the facet space, we need
     # to get the corresponding facets in `facet_mesh` using the entity map
