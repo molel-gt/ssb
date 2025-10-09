@@ -425,7 +425,7 @@ if __name__ == '__main__':
     eta_s = -R * T / i0 / FaradayConstant * inner(sigma * K_total * V_ref/L_C * grad(u1("+")), n1("+"))/V_ref
     ref = {"L": args.L_C, "phi": V_ref, "t": 1, "c": 1}
     U_ocv = U_ocp(0.95, phi_ref=V_ref)
-    u_l = u1("+") - U_ocv - eta_s(sigma * K_total, u1, n1, i0, kinetics_type=args.kinetics)
+    u_l = u1("+") - U_ocv - eta_s(sigma * K_total, u1, n1, i0, kinetics_type=args.kinetics, ref=ref)
     F0 = kappa * inner(grad(u0), grad(v0)) * dx(markers.electrolyte)
     F0 += - kappa * inner(grad(u0), n0) * v0 * (ds_c(markers.electrolyte) + ds_c(markers.electrolyte_v_positive_am))
     F0 += + kappa * (u0 - u0bar) * inner(grad(v0), n0) * ds_c(markers.electrolyte)
