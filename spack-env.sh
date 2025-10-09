@@ -24,5 +24,3 @@ spack add py-gmsh
 spack install
 spack load py-pip
 python3 -m pip install matplotlib scipy
-spack add py-gmsh
-spack install
