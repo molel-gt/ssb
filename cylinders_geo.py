@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import alphashape
 
-import commons, configs, geometry, grapher, utils
+import commons, configs, geometry, grapher, mesh_utils, utils
 
 markers = commons.Markers()
 
@@ -63,6 +63,7 @@ if __name__ == '__main__':
     parser.add_argument("-hexahedron", "--hexahedron", help="compute current distribution stats", default=False, action=argparse.BooleanOptionalAction)
     parser.add_argument("-format", "--format", help="Mesh format", default="msh", nargs='?', const=1)
     parser.add_argument("-A", "--active_area_fraction", help="active area fraction (%)", default=100, nargs='?', const=1, type=float)
+    parser.add_argument("-min_elements_per_2pi", "--min_elements_per_2pi", help="minimum number of elements per two pi", default=-1, nargs='?', const=1, type=int)
     args = parser.parse_args()
 
     L_CELL = 80
@@ -86,12 +87,15 @@ if __name__ == '__main__':
     gmsh.initialize()
     gmsh.model.add('ellipsoidals')
     gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
+    # gmsh.option.setNumber("Mesh.MeshSizeMin", args.resolution/1.2)
     gmsh.option.setNumber('Mesh.Optimize', 1)
-    gmsh.option.setNumber("Mesh.OptimizeThreshold", 0.85)
-    # gmsh.option.setNumber("Mesh.MinimumCirclePoints", 20)
+    gmsh.option.setNumber("Mesh.OptimizeThreshold", 0.95)
+    if args.min_elements_per_2pi > 0:
+        gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", args.min_elements_per_2pi)
+    gmsh.option.setNumber("Mesh.MinimumCirclePoints", 20)
     # gmsh.option.setNumber('Mesh.MinimumElementsPerTwoPi', 10)
     # gmsh.option.setNumber('Mesh.Algorithm3D', 9)
-    gmsh.option.setNumber("Mesh.ColorCarousel", 2)
+    # gmsh.option.setNumber("Mesh.ColorCarousel", 2)
 
     box_am = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, (L_CELL - L_slab_am)/L_CELL, LX/L_CELL, LY/L_CELL, L_slab_am/L_CELL)
     cylinders = []
@@ -112,9 +116,9 @@ if __name__ == '__main__':
     tol = 0.1/L_CELL * 10
     vols = gmsh.model.getEntities(3)
     join = gmsh.model.occ.getEntitiesInBoundingBox(-0.5*LX/L_CELL - tol, -0.5*LY/L_CELL - tol, L_SEP/L_CELL - tol, LX/L_CELL, LY/L_CELL, 1-L_slab_am/L_CELL - tol)
-    ov = gmsh.model.occ.fillet([v[1] for v in vols[1:]], [i[1] for i in join if i[0] == 1], [tol], removeVolume=True)
+    vols = gmsh.model.occ.fillet([v[1] for v in vols[1:]], [i[1] for i in join if i[0] == 1], [tol], removeVolume=True)
     gmsh.model.occ.synchronize()
-    ov, ovv = gmsh.model.occ.fuse([(3, box_am)], ov)
+    ov, ovv = gmsh.model.occ.fuse([(3, box_am)], vols)
     gmsh.model.occ.synchronize()
     vols = gmsh.model.getEntities(3)
     box_se = gmsh.model.occ.addBox(-0.5*LX/L_CELL, -0.5*LY/L_CELL, 0, LX/L_CELL, LY/L_CELL, 1)
@@ -182,34 +186,34 @@ if __name__ == '__main__':
     gmsh.model.addPhysicalGroup(2, interface, markers.electrolyte_v_positive_am, "electrolyte_v_positive_am")
     gmsh.model.occ.synchronize()
 
-    boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left + right + interface + insulated_am + insulated_se])]
-    gmsh.model.mesh.field.add("Distance", 1)
-    gmsh.model.mesh.field.setNumbers(1, "CurvesList", boundary)
-    gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
+    # boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left + right + interface + insulated_am + insulated_se])]
+    # gmsh.model.mesh.field.add("Distance", 1)
+    # gmsh.model.mesh.field.setNumbers(1, "CurvesList", boundary)
+    # gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
 
-    gmsh.model.mesh.field.add("Threshold", 2)
-    gmsh.model.mesh.field.setNumber(2, "IField", 1)
-    gmsh.model.mesh.field.setNumber(2, "SizeMin", args.resolution / 5)
-    gmsh.model.mesh.field.setNumber(2, "SizeMax", args.resolution)
-    gmsh.model.mesh.field.setNumber(2, "DistMin", args.resolution/10)
-    gmsh.model.mesh.field.setNumber(2, "DistMax", args.resolution)
-    if not args.refine:
-        gmsh.model.mesh.field.add("Max", 5)
-        gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-        gmsh.model.mesh.field.setAsBackgroundMesh(5)
-        gmsh.model.occ.synchronize()
+    # gmsh.model.mesh.field.add("Threshold", 2)
+    # gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    # gmsh.model.mesh.field.setNumber(2, "SizeMin", args.resolution / 5)
+    # gmsh.model.mesh.field.setNumber(2, "SizeMax", args.resolution)
+    # gmsh.model.mesh.field.setNumber(2, "DistMin", args.resolution/10)
+    # gmsh.model.mesh.field.setNumber(2, "DistMax", args.resolution)
+    # if not args.refine:
+    #     gmsh.model.mesh.field.add("Max", 5)
+    #     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    #     gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    #     gmsh.model.occ.synchronize()
 
 
     if args.refine:
         # gmsh.model.mesh.field.add("Distance", 1)
         # gmsh.model.mesh.field.setNumbers(1, "FacesList", left + interface)
 
-        gmsh.option.setNumber("Mesh.Algorithm", 5)
+        # gmsh.option.setNumber("Mesh.Algorithm", 5)
 
         # Creation of a distance field to control the mesh element sides
         gmsh.model.mesh.field.add("Distance", 3)
         gmsh.model.mesh.field.setNumbers(3, "SurfacesList", left + interface)
-        gmsh.model.mesh.field.setNumber(3, "NNodesByEdge", 50)
+        # gmsh.model.mesh.field.setNumber(3, "NNodesByEdge", 50)
 
         gmsh.model.mesh.field.add("Threshold", 4)
         gmsh.model.mesh.field.setNumber(4, "IField", 3)
@@ -224,4 +228,8 @@ if __name__ == '__main__':
         gmsh.model.occ.synchronize()
     gmsh.model.mesh.generate(3)
     gmsh.write(mshpath)
+    element_types = {4: "tetrahedra", 2: "triangles"}
+    element_counts = mesh_utils.get_gmsh_element_counts(element_types.keys(), gmsh)
+    print(f"number of tetrahedra: {element_counts[4]:,}")
+    print(f"number of triangles: {element_counts[2]:,}")
     gmsh.finalize()
