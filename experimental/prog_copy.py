@@ -27,7 +27,7 @@ import cffi
 import numba
 from ffcx.codegeneration.utils import get_void_pointer
 
-import commons, mesh_utils, solvers, utils
+import commons, mesh_utils, solvers, solver_params, utils
 
 markers = commons.Markers()
 Print = PETSc.Sys.Print
@@ -518,7 +518,7 @@ if __name__ == '__main__':
     snes.setType('newtonls')
     snes.setTolerances(rtol=1e-7, max_it=200)
     snes.setMonitor(lambda _, it, residual: Print("it:", it, "res:", residual))
-    snes.getKSP().setType(PETSc.KSP.Type.CG)
+    snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
     snes.getKSP().getPC().setType(PETSc.PC.Type.LU)
     # snes.getKSP().getPC().setFactorSolverType("mumps")
     snes.getKSP().setOptionsPrefix("snes_")
@@ -527,6 +527,8 @@ if __name__ == '__main__':
     snes.setErrorIfNotConverged(True)
     snes.getKSP().setErrorIfNotConverged(True)
     snes.getKSP().setConvergenceHistory()
+    for kopt, vopt in solver_params.LINESEARCH.items():
+        petsc_options[kopt] = vopt
 
     # Since the boundary condition is enforced in the facet space, we need
     # to get the corresponding facets in `facet_mesh` using the entity map
