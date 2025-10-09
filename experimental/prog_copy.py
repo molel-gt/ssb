@@ -252,7 +252,7 @@ if __name__ == '__main__':
     parser.add_argument("-gamma", '--gamma', help='stabilization penalty parameter',  nargs='?', type=float, const=1, default=1.0)
     parser.add_argument("-Wa_p", '--Wa_p', help='Positive electrode Wagner number',  nargs='?', type=float, const=1, default=1.0)
     parser.add_argument("-L_C", '--L_C', help='Characteristic length',  nargs='?', type=float, const=1, default=50e-6)
-    parser.add_argument('--kinetics', help='kinetics type', nargs='?', const=1, default='butler_volmer', type=str, choices=kinetics)
+    parser.add_argument('-kinetics', '--kinetics', help='kinetics type', nargs='?', const=1, default='butler_volmer', type=str, choices=kinetics)
     args = parser.parse_args()
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
     results_folder = os.path.join(args.mesh_folder, f"output/k_{args.k}/kr_{args.kr}/Wa+_{args.Wa_p}/{args.gamma}")
