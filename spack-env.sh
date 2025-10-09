@@ -18,7 +18,7 @@ spack external find slurm
 spack external find openmpi
 spack add petsc^strumpack~slate
 spack add adios2
-spack add fenics-dolfinx@main+adios2+petsc^strumpack~slate py-fenics-dolfinx@main^openmpi@4.1.5 cflags="-O3" fflags="-O3"
+spack add fenics-dolfinx@main+adios2+petsc^strumpack~slate py-fenics-dolfinx@main cflags="-O3" fflags="-O3"
 spack add py-gmsh
 spack install
 spack load py-pip
