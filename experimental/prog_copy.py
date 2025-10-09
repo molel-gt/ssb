@@ -42,6 +42,12 @@ V_MAX = 5.0
 U_OCV = 3.65
 K_ref = 0.1 # reference conductivity [S/m]
 
+FaradayConstant = 96485
+R = 8.314
+T = 298
+
+kinetics = ('linear', 'tafel', 'butler_volmer')
+
 
 def create_mesh(LX, LY):
     gmsh.initialize()
@@ -222,6 +228,19 @@ def U_ocp(c, c_max=1.0, phi_ref=V_MAX):
          )
 
 
+def eta_s(kappa, u, n, i0, kinetics_type='linear', ref={"L": 1, "phi": 1, "t": 1, "c": 1}):
+    if isinstance(kappa, list):
+        i_loc = -0.5 * ref["phi"] / ref["L"] * (kappa[0] * inner(grad(u[0]), n[1]) + kappa[1] * inner(grad(u[1]), n[1]))
+    else:
+        i_loc = -inner((kappa * grad(u)), n) * ref["phi"] / ref["L"]
+    if kinetics_type == "butler_volmer":
+        return 2 * ufl.ln(0.5 * i_loc/i0 + ufl.sqrt((0.5 * i_loc/i0)**2 + 1)) * (R * T / (FaradayConstant * ref["phi"]))
+    elif kinetics_type == "linear":
+        return R * T * i_loc / (i0 * FaradayConstant * ref["phi"])
+    elif kinetics_type == "tafel":
+        return ufl.sign(i_loc) * R * T / (0.5 * FaradayConstant * ref["phi"]) * ufl.ln(np.abs(i_loc)/i0)
+
+
 if __name__ == '__main__':
     # create_mesh(1, 0.5)
     parser = argparse.ArgumentParser(description='Estimates Effective Conductivity.')
@@ -233,6 +252,7 @@ if __name__ == '__main__':
     parser.add_argument("-gamma", '--gamma', help='stabilization penalty parameter',  nargs='?', type=float, const=1, default=1.0)
     parser.add_argument("-Wa_p", '--Wa_p', help='Positive electrode Wagner number',  nargs='?', type=float, const=1, default=1.0)
     parser.add_argument("-L_C", '--L_C', help='Characteristic length',  nargs='?', type=float, const=1, default=50e-6)
+    parser.add_argument('--kinetics', help='kinetics type', nargs='?', const=1, default='butler_volmer', type=str, choices=kinetics)
     args = parser.parse_args()
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
     results_folder = os.path.join(args.mesh_folder, f"output/k_{args.k}/kr_{args.kr}/Wa+_{args.Wa_p}/{args.gamma}")
@@ -390,10 +410,6 @@ if __name__ == '__main__':
     dS_0 = ufl.Measure("dS", domain=domain, subdomain_data=[(0, internal_facets_domain)], subdomain_id=0)
     ds = ufl.Measure('ds', domain=domain, subdomain_data=ft)
 
-    FaradayConstant = 96485
-    R = 8.314
-    T = 298
-
     Q = fem.functionspace(domain, ("DG", 0))
     K = fem.Function(Q, name='conductivity')
 
@@ -407,8 +423,9 @@ if __name__ == '__main__':
     Print(f"Kr: {args.kr}, Wa_p: {args.Wa_p}, i0_p: {i0:.2e} A/m^2")
 
     eta_s = -R * T / i0 / FaradayConstant * inner(sigma * K_total * V_ref/L_C * grad(u1("+")), n1("+"))/V_ref
+    ref = {"L": args.L_C, "phi": V_ref, "t": 1, "c": 1}
     U_ocv = U_ocp(0.95, phi_ref=V_ref)
-    u_l = u1("+") - U_ocv - eta_s
+    u_l = u1("+") - U_ocv - eta_s(sigma * K_total, u1, n1, i0, kinetics_type=args.kinetics)
     F0 = kappa * inner(grad(u0), grad(v0)) * dx(markers.electrolyte)
     F0 += - kappa * inner(grad(u0), n0) * v0 * (ds_c(markers.electrolyte) + ds_c(markers.electrolyte_v_positive_am))
     F0 += + kappa * (u0 - u0bar) * inner(grad(v0), n0) * ds_c(markers.electrolyte)
