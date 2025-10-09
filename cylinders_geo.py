@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import os
 
 import gmsh
@@ -233,3 +234,5 @@ if __name__ == '__main__':
     print(f"number of tetrahedra: {element_counts[4]:,}")
     print(f"number of triangles: {element_counts[2]:,}")
     gmsh.finalize()
+    with open(geometry_metafile, "w", encoding='utf-8') as fp:
+        json.dump({"n_tetrahedra": element_counts[4], "n_triangles": element_counts[2]} , fp, ensure_ascii=False, indent=4)
