@@ -96,6 +96,7 @@ if __name__ == '__main__':
     gmsh.option.setNumber('Mesh.Optimize', 1)
     gmsh.option.setNumber("Mesh.OptimizeThreshold", 0.9)
     # gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 20)
+    gmsh.option.setNumber("Mesh.MinimumCirclePoints", 20)
     if args.hexahedron:
         gmsh.option.setNumber('Mesh.SubdivisionAlgorithm', 2)
 
