@@ -111,13 +111,14 @@ if __name__ == '__main__':
     gmsh.initialize()
     gmsh.model.add('ellipsoidals')
     gmsh.option.setNumber('Mesh.Optimize', 1)
-    gmsh.option.setNumber("Mesh.OptimizeThreshold", 0.9)
-    gmsh.option.setNumber("Mesh.Smoothing", 10)
+    gmsh.option.setNumber("Mesh.OptimizeThreshold", 0.95)
+    # gmsh.option.setNumber("Mesh.Smoothing", 10)
+    gmsh.option.setNumber("Mesh.MinimumCirclePoints", 20)
     # gmsh.option.setNumber("Mesh.Algorithm", 5)
-    # gmsh.option.setNumber("Mesh.Algorithm3D", 10)
+    # gmsh.option.setNumber("Mesh.Algorithm3D", 9)
     gmsh.option.setNumber("General.NumThreads", 4)
     # gmsh.option.setNumber("Mesh.CharacteristicLengthExtendFromBoundary", 1)
-    gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", args.min_elements_per_2pi)
+    # gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", args.min_elements_per_2pi)
     gmsh.option.setNumber("Mesh.MeshSizeMax", args.resolution)
     if args.hexahedron:
         gmsh.option.setNumber('Mesh.SubdivisionAlgorithm', 2)
@@ -236,30 +237,31 @@ if __name__ == '__main__':
                 interface.append(surf[1])
     if img_id is not None:
         left = left_active
-    if not args.refine:
-        boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left + right + interface + insulated_am + insulated_se], oriented=False)]
-        # boundary = []
-        # for s in left + right:
-        #     loop = gmsh.model.occ.getCurveLoops(s)
-        #     for c in loop:
-        #         if not isinstance(c, list):
-        #             boundary.extend(c.tolist())
-        #         else:
-        #             boundary.extend(c[0].tolist())
-        # boundary = list(set(boundary))
-        gmsh.model.mesh.field.add("Distance", 1)
-        gmsh.model.mesh.field.setNumbers(1, "CurvesList", boundary)
-        gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
+    # if not args.refine:
+    #     boundary = [line[1] for line in gmsh.model.getBoundary([(2, s) for s in left + right + interface + insulated_am + insulated_se], oriented=False)]
+    #     # boundary = []
+    #     # for s in left + right:
+    #     #     loop = gmsh.model.occ.getCurveLoops(s)
+    #     #     for c in loop:
+    #     #         if not isinstance(c, list):
+    #     #             boundary.extend(c.tolist())
+    #     #         else:
+    #     #             boundary.extend(c[0].tolist())
+    #     # boundary = list(set(boundary))
+    #     gmsh.model.mesh.field.add("Distance", 1)
+    #     # gmsh.model.mesh.field.setNumbers(1, "CurvesList", boundary)
+    #     gmsh.model.mesh.field.setNumbers(1, "SurfacesList", left + interface)
+    #     gmsh.model.mesh.field.setNumber(1, "Sampling", 100)
 
-        gmsh.model.mesh.field.add("Threshold", 2)
-        gmsh.model.mesh.field.setNumber(2, "IField", 1)
-        gmsh.model.mesh.field.setNumber(2, "LcMin", args.resolution / 5)
-        gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution)
-        gmsh.model.mesh.field.setNumber(2, "DistMin", args.resolution/10)
-        gmsh.model.mesh.field.setNumber(2, "DistMax", args.resolution)
-        gmsh.model.mesh.field.add("Max", 5)
-        gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
-        gmsh.model.mesh.field.setAsBackgroundMesh(5)
+    #     gmsh.model.mesh.field.add("Threshold", 2)
+    #     gmsh.model.mesh.field.setNumber(2, "IField", 1)
+    #     gmsh.model.mesh.field.setNumber(2, "LcMin", args.resolution / 5)
+    #     gmsh.model.mesh.field.setNumber(2, "LcMax", args.resolution)
+    #     gmsh.model.mesh.field.setNumber(2, "DistMin", args.resolution / 5)
+    #     gmsh.model.mesh.field.setNumber(2, "DistMax", args.resolution)
+    #     gmsh.model.mesh.field.add("Max", 5)
+    #     gmsh.model.mesh.field.setNumbers(5, "FieldsList", [2])
+    #     gmsh.model.mesh.field.setAsBackgroundMesh(5)
     gmsh.model.occ.synchronize()
     gmsh.model.addPhysicalGroup(2, left, markers.left, "left")
     gmsh.model.addPhysicalGroup(2, right, markers.right, "right")
@@ -274,9 +276,9 @@ if __name__ == '__main__':
 
         threshold = gmsh.model.mesh.field.add("Threshold")
         gmsh.model.mesh.field.setNumber(threshold, "InField", distance)
-        gmsh.model.mesh.field.setNumber(threshold, "LcMin", args.resolution*2/5)
+        gmsh.model.mesh.field.setNumber(threshold, "LcMin", args.resolution/5)
         gmsh.model.mesh.field.setNumber(threshold, "LcMax", args.resolution)
-        gmsh.model.mesh.field.setNumber(threshold, "DistMin", args.resolution*2/5)
+        gmsh.model.mesh.field.setNumber(threshold, "DistMin", args.resolution/5)
         gmsh.model.mesh.field.setNumber(threshold, "DistMax", args.resolution)
 
         gmsh.model.mesh.field.add("Max", 5)
@@ -290,4 +292,6 @@ if __name__ == '__main__':
     element_counts = mesh_utils.get_gmsh_element_counts(element_types.keys(), gmsh)
     print(f"number of tetrahedra: {element_counts[4]:,}")
     print(f"number of triangles: {element_counts[2]:,}")
+    with open(geometry_metafile, "w", encoding='utf-8') as fp:
+        json.dump({"n_tetrahedra": element_counts[4], "n_triangles": element_counts[2]} , fp, ensure_ascii=False, indent=4)
     gmsh.finalize()
