@@ -632,6 +632,9 @@ if __name__ == '__main__':
         "I (right cc) [A/m^2]": I_right,
         "I (interface left) [A/m^2]": I_x_left,
         "I (interface right) [A/m^2]": I_x_right,
+        "n_facet_dofs": n_facet_dofs,
+        "n_cell_dofs": n_cell_dofs,
+        "n_dofs": n_facet_dofs + n_cell_dofs,
     }
     if comm.rank == 0:
         with open(stats_output_file, "w", encoding='utf-8') as fp:
