@@ -565,9 +565,10 @@ if __name__ == '__main__':
     V0bar_dofmap = V0bar.dofmap
     V1bar_map = V1bar.dofmap.index_map
     V1bar_dofmap = V1bar.dofmap
-    n_dofs = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs +\
-        V0bar_map.size_global*V0bar.dofmap.index_map_bs + V1bar_map.size_global*V1bar.dofmap.index_map_bs
-    Print(f"Solving problem, dofs: {n_dofs:,}")
+    n_facet_dofs = V0bar_map.size_global*V0bar.dofmap.index_map_bs + V1bar_map.size_global*V1bar.dofmap.index_map_bs
+    n_cell_dofs = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs
+    n_dofs = n_facet_dofs + n_cell_dofs
+    Print(f"Solving problem, facet dofs: {n_facet_dofs:,}, cell dofs: {n_cell_dofs:,}, total dofs: {n_dofs:,}")
     t0 = time.time()
     snes.solve(None, x2d)
     t1 = time.time()
