@@ -18,8 +18,12 @@ if [ -d "$DOLFINX_BUILD_DIR" ]; then rm -Rf $DOLFINX_BUILD_DIR; fi
 mkdir $DOLFINX_BUILD_DIR
 
 cd $DOLFINX_BUILD_DIR
-export CC=$CMAKE_INSTALL_PREFIX/bin/gcc
-export CXX=$CMAKE_INSTALL_PREFIX/bin/g++
+if [ !-z CC ]; then
+    export CC=$CMAKE_INSTALL_PREFIX/bin/gcc
+fi
+if [ !-z CXX ]; then
+    export CXX=$CMAKE_INSTALL_PREFIX/bin/g++
+fi
 cmake .. -DCMAKE_INSTALL_PREFIX=$CMAKE_INSTALL_PREFIX -DCMAKE_PREFIX_PATH=$CMAKE_PREFIX_PATH -DCMAKE_CXX_FLAGS="-O3"
 make && make install
 dolfinxconf=$(find $CMAKE_INSTALL_PREFIX/ -name dolfinx.conf -print)
