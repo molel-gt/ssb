@@ -9,6 +9,7 @@ import time
 sys.path.append("../")
 
 import gmsh
+import matplotlib.pyplot as plt
 import matspy
 import numpy as np
 import scifem
@@ -27,7 +28,10 @@ import cffi
 import numba
 from ffcx.codegeneration.utils import get_void_pointer
 
-import commons, mesh_utils, solvers, solver_params, utils
+import commons, mesh_utils, plot_opts, solvers, solver_params, utils
+
+
+plt.rcParams.update(plot_opts.params)
 
 markers = commons.Markers()
 Print = PETSc.Sys.Print
@@ -525,10 +529,13 @@ if __name__ == '__main__':
         Asp = scipy.sparse.csr_matrix((av, aj, ai))
         fig, ax = matspy.spy_to_mpl(Asp)
         ax.set_box_aspect(1)
+        ax.axvline(x=V0_map.size_global*V0.dofmap.index_map_bs, color='blue', linestyle='--')
         ax.axvline(x=n_cell_dofs, color='red', linestyle='--')
+        ax.axhline(y=V0_map.size_global*V0.dofmap.index_map_bs, color='blue', linestyle='--')
         ax.axhline(y=n_cell_dofs, color='red', linestyle='--')
         ax.set_title('')
         fig.savefig(sparsity_output_file, bbox_inches='tight')
+        Print("Wrote sparsity pattern to file")
 
     J2D = fem.form(J)
     F2D = fem.form(F)
@@ -565,6 +572,11 @@ if __name__ == '__main__':
         IS_ubar = IS_u0bar.sum(IS_u1bar)
         snes.setMonitor(lambda _, it, residual: PETSc.Sys.Print("it:", it, "res:", residual))
         # snes.getKSP().setMonitor(lambda _, it, residual: PETSc.Sys.Print("it:", it, "res:", residual))
+        Jmat = fem.petsc.create_matrix(J, kind="mpi")
+        Pmat = fem.petsc.create_matrix(J, kind="mpi")
+        snes.getKSP().setOperators(Jmat, Pmat)
+        nullspace = PETSc.NullSpace().create(constant=True)
+        PETSc.Mat.setNearNullSpace(Jmat, nullspace)
         snes.setErrorIfNotConverged(True)
         snes.getKSP().setErrorIfNotConverged(True)
         snes.getKSP().setConvergenceHistory()
