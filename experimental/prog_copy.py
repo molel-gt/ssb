@@ -47,6 +47,7 @@ R = 8.314
 T = 298
 
 kinetics = ('linear', 'tafel', 'butler_volmer')
+solver_types = ("direct", "schur")
 
 
 def create_mesh(LX, LY):
@@ -253,12 +254,16 @@ if __name__ == '__main__':
     parser.add_argument("-Wa_p", '--Wa_p', help='Positive electrode Wagner number',  nargs='?', type=float, const=1, default=1.0)
     parser.add_argument("-L_C", '--L_C', help='Characteristic length',  nargs='?', type=float, const=1, default=50e-6)
     parser.add_argument('-kinetics', '--kinetics', help='kinetics type', nargs='?', const=1, default='butler_volmer', type=str, choices=kinetics)
+    parser.add_argument('-solver_type', '--solver_type', help='solver type', nargs='?', const=1, default='direct', type=str, choices=solver_types)
+    parser.add_argument('--amg_type', help='if using iterative solver, which algebraic multigrid type to use', nargs='?',
+                        const=1, default='gamg', type=str)
     args = parser.parse_args()
     output_meshfile = os.path.join(args.mesh_folder, "mesh.msh")
-    results_folder = os.path.join(args.mesh_folder, f"output/k_{args.k}/kr_{args.kr}/Wa+_{args.Wa_p}/{args.gamma}/{args.kinetics}")
+    results_folder = os.path.join(args.mesh_folder, f"output/k_{args.k}/kr_{args.kr}/Wa_{args.Wa_p}/{args.gamma}/{args.kinetics}")
     utils.make_dir_if_missing(results_folder)
     log_output_file = os.path.join(results_folder, __file__.replace(".py", ".log"))
     stats_output_file = os.path.join(results_folder, "stats.json")
+    sparsity_output_file = os.path.join(results_folder, "jacobian-sparsity.eps")
     log.set_output_file(log_output_file)
 
     V_ref = V_MAX
@@ -500,15 +505,30 @@ if __name__ == '__main__':
         fem.form(F1_bar, entity_maps=entity_maps),
     ]
 
+    V0_map = V0.dofmap.index_map
+    V0_dofmap = V0.dofmap
+    V1_map = V1.dofmap.index_map
+    V1_dofmap = V1.dofmap
+    V0bar_map = V0bar.dofmap.index_map
+    V0bar_dofmap = V0bar.dofmap
+    V1bar_map = V1bar.dofmap.index_map
+    V1bar_dofmap = V1bar.dofmap
+    n_facet_dofs = V0bar_map.size_global*V0bar.dofmap.index_map_bs + V1bar_map.size_global*V1bar.dofmap.index_map_bs
+    n_cell_dofs = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs
+    n_dofs = n_facet_dofs + n_cell_dofs
+
     # plot sparsity
-    if comm.Get_size == 0:
+    if comm.Get_size() == 1:
         J_view = fem.petsc.assemble_matrix(J, kind="mpi")
         J_view.assemble()
         ai, aj, av = J_view.getValuesCSR()
         Asp = scipy.sparse.csr_matrix((av, aj, ai))
         fig, ax = matspy.spy_to_mpl(Asp)
+        ax.set_box_aspect(1)
+        ax.axvline(x=n_cell_dofs, color='red', linestyle='--')
+        ax.axhline(y=n_cell_dofs, color='red', linestyle='--')
         ax.set_title('')
-        fig.savefig("jacobian-sparsity.eps", bbox_inches='tight')
+        fig.savefig(sparsity_output_file, bbox_inches='tight')
 
     J2D = fem.form(J)
     F2D = fem.form(F)
@@ -518,21 +538,84 @@ if __name__ == '__main__':
     snes = PETSc.SNES().create(comm)
     snes.setType('newtonls')
     snes.setTolerances(rtol=1e-7, max_it=200)
-    # snes.setMonitor(lambda _, it, residual: Print("it:", it, "res:", residual))
-    snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
-    snes.getKSP().getPC().setType(PETSc.PC.Type.LU)
-    # snes.getKSP().getPC().setFactorSolverType("mumps")
     snes.getKSP().setOptionsPrefix("snes_")
-    snes.getKSP().setOperators(Jmat2d, Jmat2d)
-    snes.getKSP().setTolerances(rtol=1e-7)
-    snes.setErrorIfNotConverged(True)
-    snes.getKSP().setErrorIfNotConverged(True)
-    snes.getKSP().setConvergenceHistory()
-    for kopt, vopt in solver_params.LINESEARCH.items():
-        options[kopt] = vopt
+    if args.solver_type == "direct":
+        snes.getKSP().setType(PETSc.KSP.Type.FGMRES)
+        snes.getKSP().getPC().setType(PETSc.PC.Type.LU)
+        # snes.getKSP().getPC().setFactorSolverType("mumps")
+        snes.getKSP().setOptionsPrefix("snes_")
+        snes.getKSP().setOperators(Jmat2d, Jmat2d)
+        snes.getKSP().setTolerances(rtol=1e-7)
+        snes.setErrorIfNotConverged(True)
+        snes.getKSP().setErrorIfNotConverged(True)
+        snes.getKSP().setConvergenceHistory()
+        for kopt, vopt in solver_params.LINESEARCH.items():
+            options[kopt] = vopt
 
-    snes.setFromOptions()
-    snes.getKSP().setFromOptions()
+        snes.setFromOptions()
+        snes.getKSP().setFromOptions()
+    elif args.solver_type == "schur":
+        Jmat = fem.petsc.create_matrix(J, kind="nest")
+        nested_IS = Jmat.getNestISs()
+        IS_u0 = nested_IS[0][0]
+        IS_u1 = nested_IS[0][1]
+        IS_u0bar = nested_IS[0][2]
+        IS_u1bar = nested_IS[0][3]
+        IS_u = IS_u0.sum(IS_u1)
+        IS_ubar = IS_u0bar.sum(IS_u1bar)
+        snes.setMonitor(lambda _, it, residual: PETSc.Sys.Print("it:", it, "res:", residual))
+        # snes.getKSP().setMonitor(lambda _, it, residual: PETSc.Sys.Print("it:", it, "res:", residual))
+        snes.setErrorIfNotConverged(True)
+        snes.getKSP().setErrorIfNotConverged(True)
+        snes.getKSP().setConvergenceHistory()
+        snes.getKSP().getPC().setType("fieldsplit")
+        snes.getKSP().getPC().setFieldSplitIS(("u", IS_u), ("ubar", IS_ubar))
+        petsc_options = PETSc.Options()
+        # petsc_options[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
+        for kopt, vopt in solver_params.LINESEARCH.items():
+            petsc_options[kopt] = vopt
+
+        # petsc_options['log_view'] = None
+
+        petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+        # petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
+
+        ksp_u, ksp_ubar = snes.getKSP().getPC().getFieldSplitSubKSP()
+
+        # snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.SCHUR)
+        # snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.A11)
+        # snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.DIAG)
+        ksp_u.setType(PETSc.KSP.Type.FGMRES)
+        ksp_u.getPC().setType(PETSc.PC.Type.LU)
+        ksp_u.setTolerances(rtol=1e-7, max_it=1000)
+        # petsc_options[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
+        # petsc_options[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
+
+        ksp_ubar.setType(PETSc.KSP.Type.CG)
+        ksp_ubar.getPC().setType(PETSc.PC.Type.LU)#args.amg_type)
+        ksp_ubar.setTolerances(rtol=1e-7, max_it=1000)
+
+        # ksp_u.setMonitor(lambda _, it, residual: PETSc.Sys.Print("it:", it, "res:", residual))
+        # ksp_ubar.setMonitor(lambda _, it, residual: PETSc.Sys.Print("it:", it, "res:", residual))
+
+        # petsc_options[f"{ksp_ubar.getOptionsPrefix()}mat_schur_complement_ainv_type"] = "lump"
+        # petsc_options[f"{ksp_ubar.getOptionsPrefix()}inner_ksp_type"] = "preonly"
+        # petsc_options[f"{ksp_ubar.getOptionsPrefix()}inner_pc_type"] = "ilu"
+        # petsc_options[f"{ksp_ubar.getOptionsPrefix()}inner_pc_factor_levels"] = 0
+        # petsc_options[f"{ksp_ubar.getOptionsPrefix()}inner_pc_factor_fill"] = 2.0
+        # petsc_options[f"{ksp_ubar.getOptionsPrefix()}upper_ksp_type"] = "preonly"
+        # petsc_options[f"{ksp_ubar.getOptionsPrefix()}upper_pc_type"] = "ilu"
+        # petsc_options[f"{ksp_ubar.getOptionsPrefix()}upper_pc_factor_levels"] = 0
+        # petsc_options[f"{ksp_ubar.getOptionsPrefix()}upper_pc_factor_fill"] = 2.0
+
+        # for optk, optv in solver_params.AMG_TYPES[args.amg_type].items():
+        #     petsc_options[f"{ksp_ubar.getOptionsPrefix()}{optk}"] = optv
+
+        ksp_u.setFromOptions()
+        ksp_ubar.setFromOptions()
+        snes.getKSP().setFromOptions()
+    else:
+        raise ValueError(f"Unknown solver type {args.solver_type}!")
 
     # Since the boundary condition is enforced in the facet space, we need
     # to get the corresponding facets in `facet_mesh` using the entity map
@@ -557,18 +640,8 @@ if __name__ == '__main__':
     snes.setJacobian(problem_t0.J_block, J=Jmat2d, P=Jmat2d)
     x2d = fem.petsc.create_vector([V0, V0bar, V1, V1bar], kind="mpi")
     x2d.set(0.0)
-    V0_map = V0.dofmap.index_map
-    V0_dofmap = V0.dofmap
-    V1_map = V1.dofmap.index_map
-    V1_dofmap = V1.dofmap
-    V0bar_map = V0bar.dofmap.index_map
-    V0bar_dofmap = V0bar.dofmap
-    V1bar_map = V1bar.dofmap.index_map
-    V1bar_dofmap = V1bar.dofmap
-    n_facet_dofs = V0bar_map.size_global*V0bar.dofmap.index_map_bs + V1bar_map.size_global*V1bar.dofmap.index_map_bs
-    n_cell_dofs = V0_map.size_global*V0.dofmap.index_map_bs + V1_map.size_global*V1.dofmap.index_map_bs
-    n_dofs = n_facet_dofs + n_cell_dofs
     Print(f"Solving problem, facet dofs: {n_facet_dofs:,}, cell dofs: {n_cell_dofs:,}, total dofs: {n_dofs:,}")
+
     t0 = time.time()
     snes.solve(None, x2d)
     t1 = time.time()
@@ -643,9 +716,9 @@ if __name__ == '__main__':
         f.write(0.0)
     with io.VTXWriter(domain.comm, os.path.join(results_folder, "ubar.bp"), [ubar_out], "bp5") as f:
         f.write(0.0)
+
     quit()
     shutil.rmtree(os.path.join(os.environ["HOME"], ".cache/fenics"), ignore_errors=True)
-
     R_fun = scifem.create_real_functionspace(domain)
     Vp1 = fem.functionspace(domain, ("DG", args.k+1))
     W = ufl.MixedFunctionSpace(Vp1, R_fun)
