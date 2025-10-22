@@ -268,6 +268,7 @@ if __name__ == '__main__':
     log_output_file = os.path.join(results_folder, __file__.replace(".py", ".log"))
     stats_output_file = os.path.join(results_folder, "stats.json")
     sparsity_output_file = os.path.join(results_folder, "jacobian-sparsity.eps")
+    log_datafile = os.path.join(results_folder, "petsc.log")
     log.set_output_file(log_output_file)
 
     V_ref = V_MAX
@@ -539,11 +540,14 @@ if __name__ == '__main__':
         fig.savefig(sparsity_output_file, bbox_inches='tight')
         Print("Wrote sparsity pattern to file")
 
+    options = PETSc.Options()
     J2D = fem.form(J)
     F2D = fem.form(F)
     Jmat2d = fem.petsc.create_matrix(J2D)
     Fvec2d = fem.petsc.create_vector([V0, V0bar, V1, V1bar], kind="mpi")
-    options = PETSc.Options()
+    log_viewer = PETSc.Viewer().STDOUT()
+    log_viewer.setFileName(log_datafile)
+    options['log_view'] = None
     snes = PETSc.SNES().create(comm)
     snes.setType('newtonls')
     snes.setTolerances(rtol=1e-7, max_it=200)
@@ -584,15 +588,14 @@ if __name__ == '__main__':
         snes.getKSP().setConvergenceHistory()
         snes.getKSP().getPC().setType("fieldsplit")
         snes.getKSP().getPC().setFieldSplitIS(("u", IS_u), ("ubar", IS_ubar))
-        petsc_options = PETSc.Options()
         # petsc_options[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
         for kopt, vopt in solver_params.LINESEARCH.items():
-            petsc_options[kopt] = vopt
+            options[kopt] = vopt
 
         # petsc_options['log_view'] = None
 
-        petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
-        # petsc_options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
+        # options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_off_diag_use_amat"] = True
+        # options[f"{snes.getKSP().getOptionsPrefix()}pc_fieldsplit_detect_saddle_point"] = True
 
         ksp_u, ksp_ubar = snes.getKSP().getPC().getFieldSplitSubKSP()
 
@@ -602,8 +605,9 @@ if __name__ == '__main__':
         ksp_u.setType(PETSc.KSP.Type.FGMRES)
         ksp_u.getPC().setType(PETSc.PC.Type.LU)
         ksp_u.setTolerances(rtol=1e-7, max_it=1000)
-        # petsc_options[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
-        # petsc_options[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
+
+        # options[f"{ksp_u.getOptionsPrefix()}pc_factor_levels"] = 0
+        # options[f"{ksp_u.getOptionsPrefix()}pc_factor_fill"] = 2.0
 
         ksp_ubar.setType(PETSc.KSP.Type.CG)
         ksp_ubar.getPC().setType(PETSc.PC.Type.LU)#args.amg_type)
@@ -628,6 +632,7 @@ if __name__ == '__main__':
         ksp_u.setFromOptions()
         ksp_ubar.setFromOptions()
         snes.getKSP().setFromOptions()
+        snes.view()
     else:
         raise ValueError(f"Unknown solver type {args.solver_type}!")
 
