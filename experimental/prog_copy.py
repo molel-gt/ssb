@@ -503,6 +503,13 @@ if __name__ == '__main__':
         [J30, J31, J32, J33],
     ]
 
+    P = [
+        [J00, None, J02, None],
+        [None, J11, None, J13],
+        [J20, None, J22, None],
+        [None, J31, None, J33]
+    ]
+
     F = [
         fem.form(F0, entity_maps=entity_maps),
         fem.form(F0_bar, entity_maps=entity_maps),
@@ -577,15 +584,15 @@ if __name__ == '__main__':
         IS_u = IS_u0.sum(IS_u1)
         IS_ubar = IS_u0bar.sum(IS_u1bar)
         snes.setMonitor(lambda _, it, residual: PETSc.Sys.Print("it:", it, "res:", residual))
-        # snes.getKSP().setMonitor(lambda _, it, residual: PETSc.Sys.Print("it:", it, "res:", residual))
         Jmat = fem.petsc.create_matrix(J, kind="mpi")
-        Pmat = fem.petsc.create_matrix(J, kind="mpi")
+        Pmat = fem.petsc.create_matrix(P, kind="mpi")
         snes.getKSP().setOperators(Jmat, Pmat)
         nullspace = PETSc.NullSpace().create(constant=True)
         PETSc.Mat.setNearNullSpace(Jmat, nullspace)
         snes.setErrorIfNotConverged(True)
         snes.getKSP().setErrorIfNotConverged(True)
         snes.getKSP().setConvergenceHistory()
+        snes.getKSP().setType("fgmres")
         snes.getKSP().getPC().setType("fieldsplit")
         snes.getKSP().getPC().setFieldSplitIS(("u", IS_u), ("ubar", IS_ubar))
         # petsc_options[f'{snes.getKSP().getOptionsPrefix()}ksp_gmres_restart'] = 100
@@ -602,7 +609,7 @@ if __name__ == '__main__':
         # snes.getKSP().getPC().setFieldSplitType(PETSc.PC.CompositeType.SCHUR)
         # snes.getKSP().getPC().setFieldSplitSchurPreType(PETSc.PC.SchurPreType.A11)
         # snes.getKSP().getPC().setFieldSplitSchurFactType(PETSc.PC.SchurFactType.DIAG)
-        ksp_u.setType(PETSc.KSP.Type.FGMRES)
+        ksp_u.setType(PETSc.KSP.Type.CG)
         ksp_u.getPC().setType(PETSc.PC.Type.LU)
         ksp_u.setTolerances(rtol=1e-7, max_it=1000)
 
