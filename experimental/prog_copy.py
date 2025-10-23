@@ -545,7 +545,7 @@ if __name__ == '__main__':
         ax.axhline(y=n_cell_dofs + V0bar_map.size_global*V0bar.dofmap.index_map_bs, color='blue', linestyle='--')
         ax.set_title('')
         fig.savefig(sparsity_output_file, bbox_inches='tight')
-        Print("Wrote sparsity pattern to file")
+        Print(f"Wrote sparsity pattern to {sparsity_output_file}")
 
     options = PETSc.Options()
     J2D = fem.form(J)
