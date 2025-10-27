@@ -261,11 +261,11 @@ class NonlinearPDE_SNESProblem:
 
         assert J.getType() == "nest" and P.getType() == "nest"
         J.zeroEntries()
-        fem.assemble_matrix(J, self.a, bcs=self.bcs, diag=1.0)
+        fem.petsc.assemble_matrix(J, self.a, bcs=self.bcs, diag=1.0)
         J.assemble()
         if self.a_precon is not None:
             P.zeroEntries()
-            fem.assemble_matrix(P, self.a_precon, bcs=self.bcs, diag=1.0)
+            fem.petsc.assemble_matrix(P, self.a_precon, bcs=self.bcs, diag=1.0)
             P.assemble()
 
 
